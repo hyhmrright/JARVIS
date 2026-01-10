@@ -1,0 +1,88 @@
+# 完美的 pre-commit 配置，适用于使用 uv 和 ruff 的 Python 项目
+# 基于 astral-sh/uv-pre-commit 和 astral-sh/ruff-pre-commit 最佳实践
+
+repos:
+  # 通用代码质量钩子
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # 检查 YAML 文件语法
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+
+      # 检查 TOML 文件语法
+      - id: check-toml
+
+      # 检查 JSON 文件语法
+      - id: check-json
+
+      # 检查文件末尾是否包含换行符
+      - id: end-of-file-fixer
+
+      # 删除行尾空格
+      - id: trailing-whitespace
+
+      # 检查是否添加了大文件（>500KB）
+      - id: check-added-large-files
+        args: [--maxkb=500]
+
+  # uv 相关钩子 - 确保 uv.lock 文件是最新的
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.9.24  # uv 版本
+    hooks:
+      # 检查 uv.lock 文件是否与 pyproject.toml 同步
+      - id: uv-lock
+        name: Check uv.lock is up-to-date
+        # 只在 uv.lock 或 pyproject.toml 文件更改时运行
+        files: ^(uv\.lock|pyproject\.toml)$
+
+  # ruff 代码检查和格式化
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.11  # ruff 版本
+    hooks:
+      # 运行 ruff 检查器，自动修复问题
+      # 注意：使用 --fix 时，必须在格式化之前运行
+      - id: ruff-check
+        name: Ruff lint (auto-fix)
+        args: [--fix]
+        # 只检查 Python 文件，排除 Jupyter Notebooks
+        types_or: [python, pyi]
+
+      # 运行 ruff 格式化器
+      - id: ruff-format
+        name: Ruff format
+        # 只格式化 Python 文件，排除 Jupyter Notebooks
+        types_or: [python, pyi]
+
+  # 提交消息检查（可选，需要额外配置）
+  # 如果需要提交消息规范检查，取消注释以下配置
+  # 并安装 commitlint 和创建 .commitlintrc.js 配置文件
+  # - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+  #   rev: v9.20.0
+  #   hooks:
+  #     - id: commitlint
+  #       stages: [commit-msg]
+  #       args: [--config, .commitlintrc.js]
+
+# 配置 pre-commit 默认设置
+default_stages: [pre-commit]
+default_language_version:
+  python: python3.14  # 使用项目指定的 Python 版本
+
+# 排除的文件和目录
+exclude: |
+  (?x)^(
+    .*\.egg-info/|
+    \.eggs/|
+    \.git/|
+    \.hg/|
+    \.mypy_cache/|
+    \.nox/|
+    \.tox/|
+    \.ruff_cache/|
+    \.venv/|
+    __pycache__/|
+    build/|
+    dist/|
+    node_modules/
+  )
