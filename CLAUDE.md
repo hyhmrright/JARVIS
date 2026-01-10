@@ -10,7 +10,7 @@
 
 ## 开发环境
 
-- **Python 版本**: 3.14（在 `.python-version` 中指定）
+- **Python 版本**: 3.13（在 `.python-version` 中指定）
 - **包管理器**: `uv`（锁文件: `uv.lock`）
 - **虚拟环境**: `.venv`（git忽略，由 uv 自动管理）
 

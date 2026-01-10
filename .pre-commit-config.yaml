@@ -67,7 +67,7 @@ repos:
 # 配置 pre-commit 默认设置
 default_stages: [pre-commit]
 default_language_version:
-  python: python3.14  # 使用项目指定的 Python 版本
+  python: python3.13  # 使用项目指定的 Python 版本
 
 # 排除的文件和目录
 exclude: |
