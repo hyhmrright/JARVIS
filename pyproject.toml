@@ -1,18 +1,29 @@
 [project]
 name = "agents"
 version = "0.1.0"
-description = "Add your description here"
+description = "A simple agent system built with LangGraph"
 readme = "README.md"
 requires-python = ">=3.13"
+
 dependencies = [
-    "langchain-deepseek>=1.0.1",
     "langgraph>=1.0.5",
+    "langchain-core>=1.0.0",
 ]
 
-[dependency-groups]
+[project.optional-dependencies]
 dev = [
     "pre-commit>=4.5.1",
     "pyright>=1.1.408",
     "ruff>=0.14.11",
     "ty>=0.0.11",
 ]
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pyright]
+typeCheckingMode = "basic"
