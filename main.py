@@ -1,19 +1,30 @@
 """使用 DeepSeek LLM 演示 LangGraph 基本用法的简单 Agent 图。"""
 
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
-from langchain_core.messages import HumanMessage
+
+from langchain_core.messages import AnyMessage, HumanMessage
+
 from langchain_deepseek import ChatDeepSeek
-from langgraph.graph import END, START, MessagesState, StateGraph
+
+from langgraph.graph import END, START, StateGraph
+
+from langgraph.graph.message_state import add_messages
+
+from typing_extensions import TypedDict
 
 
-class AgentState(MessagesState):
-    """定义 Agent 的状态架构。"""
+class AgentState(TypedDict):
+    """定义 Agent 的状态架构。
 
-    pass
+    使用 Annotated 和 add_messages 确保消息可以正确合并。
+
+    """
+
+    messages: Annotated[list[AnyMessage], add_messages]
 
 
-def call_deepseek(state: AgentState) -> MessagesState:
+def call_deepseek(state: AgentState) -> dict[str, list[AnyMessage]]:
     """调用 DeepSeek 的真实 LLM 节点。
 
     参数:
@@ -28,7 +39,7 @@ def call_deepseek(state: AgentState) -> MessagesState:
     )
     response = model.invoke(state["messages"])
     return cast(
-        MessagesState,
+        AgentState,
         {"messages": [response]},
     )
 

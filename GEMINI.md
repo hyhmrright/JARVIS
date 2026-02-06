@@ -14,8 +14,9 @@
 ## 架构
 
 本项目遵循标准的 LangGraph 架构：
-*   **State (状态)**: `MessagesState` (LangGraph 用于消息历史的标准状态)。
-*   **Nodes (节点)**: 处理状态的函数 (例如 `main.py` 中的 `mock_llm`)。
+*   **State (状态)**: `AgentState` (显式定义的 `TypedDict`)。
+    *   *注意*: 为了兼容 Python 3.13+ 的严格类型检查及解决 IDE（如 Pylance）中 `TypedDictLikeV1` 的识别问题，建议显式定义状态而非直接继承 `MessagesState`。
+*   **Nodes (节点)**: 处理状态的函数 (例如 `main.py` 中的 `call_deepseek`)。
 *   **Edges (边)**: 定义节点之间的控制流。
 *   **Graph (图)**: 编译后的可执行工作流。
 
