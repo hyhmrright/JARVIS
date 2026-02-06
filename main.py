@@ -1,47 +1,39 @@
 """使用 DeepSeek LLM 演示 LangGraph 基本用法的简单 Agent 图。"""
 
-from typing import Annotated, Any, cast
+from dataclasses import dataclass, field
+from typing import Annotated, Any
 
-
-from langchain_core.messages import AnyMessage, HumanMessage
-
+from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_deepseek import ChatDeepSeek
-
-from langgraph.graph import END, START, StateGraph
-
-from langgraph.graph.message_state import add_messages
-
-from typing_extensions import TypedDict
+from langgraph.graph import END, START, StateGraph, add_messages
 
 
-class AgentState(TypedDict):
-    """定义 Agent 的状态架构。
+@dataclass(kw_only=True)
+class AgentState:
+    """使用 dataclass 定义 Agent 的状态架构。
 
-    使用 Annotated 和 add_messages 确保消息可以正确合并。
-
+    这是在 Python 3.13 中最稳健的类型定义方式，能够完美适配 DataclassLike 协议。
     """
 
-    messages: Annotated[list[AnyMessage], add_messages]
+    messages: Annotated[list[BaseMessage], add_messages] = field(default_factory=list)
 
 
-def call_deepseek(state: AgentState) -> dict[str, list[AnyMessage]]:
+def call_deepseek(state: AgentState) -> dict[str, Any]:
     """调用 DeepSeek 的真实 LLM 节点。
 
     参数:
         state: 包含消息历史的当前状态
 
     返回:
-        包含 AI 响应的更新后状态
+        要更新的状态字典
     """
     # 自动从系统环境变量 DEEPSEEK_API_KEY 读取密钥
     model = ChatDeepSeek(
         model="deepseek-chat",
     )
-    response = model.invoke(state["messages"])
-    return cast(
-        AgentState,
-        {"messages": [response]},
-    )
+    # 调用模型，并获取响应
+    response = model.invoke(state.messages)
+    return {"messages": [response]}
 
 
 def create_agent_graph() -> Any:
@@ -50,8 +42,8 @@ def create_agent_graph() -> Any:
     返回:
         编译后可执行的 StateGraph
     """
-    # 使用显式定义的 AgentState 解决类型识别问题
-    graph = StateGraph(AgentState)
+    # 显式使用 [AgentState] 泛型标注
+    graph: StateGraph[AgentState] = StateGraph(AgentState)
 
     # 添加 DeepSeek LLM 节点
     graph.add_node("agent", call_deepseek)
@@ -70,16 +62,17 @@ def main() -> None:
 
     # 初始用户消息
     prompt = "你好，请自我介绍一下。"
-    initial_state: AgentState = cast(
-        AgentState, {"messages": [HumanMessage(content=prompt)]}
-    )
+    # 使用 dataclass 初始化状态
+    initial_state = AgentState(messages=[HumanMessage(content=prompt)])
 
     # 执行图
     result = graph.invoke(initial_state)
 
     # 打印结果
     print("Agent 执行结果:")
-    for message in result["messages"]:
+    # 对于 dataclass 状态，LangGraph 返回的通常是该类的实例
+    messages = result.messages if hasattr(result, "messages") else result["messages"]
+    for message in messages:
         message_type = type(message).__name__.replace("Message", "")
         print(f"{message_type.upper()}: {message.content}")
 
