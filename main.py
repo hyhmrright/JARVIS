@@ -7,7 +7,13 @@ from langchain_deepseek import ChatDeepSeek
 from langgraph.graph import END, START, MessagesState, StateGraph
 
 
-def call_deepseek(state: MessagesState) -> MessagesState:
+class AgentState(MessagesState):
+    """定义 Agent 的状态架构。"""
+
+    pass
+
+
+def call_deepseek(state: AgentState) -> MessagesState:
     """调用 DeepSeek 的真实 LLM 节点。
 
     参数:
@@ -33,7 +39,8 @@ def create_agent_graph() -> Any:
     返回:
         编译后可执行的 StateGraph
     """
-    graph = StateGraph(MessagesState)
+    # 使用显式定义的 AgentState 解决类型识别问题
+    graph = StateGraph(AgentState)
 
     # 添加 DeepSeek LLM 节点
     graph.add_node("agent", call_deepseek)
@@ -52,8 +59,8 @@ def main() -> None:
 
     # 初始用户消息
     prompt = "你好，请自我介绍一下。"
-    initial_state: MessagesState = cast(
-        MessagesState, {"messages": [HumanMessage(content=prompt)]}
+    initial_state: AgentState = cast(
+        AgentState, {"messages": [HumanMessage(content=prompt)]}
     )
 
     # 执行图
