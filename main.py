@@ -1,59 +1,66 @@
-"""Simple agent graph demonstrating LangGraph usage with a mock LLM."""
+"""使用 DeepSeek LLM 演示 LangGraph 基本用法的简单 Agent 图。"""
 
 from typing import Any, cast
 
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import HumanMessage
+from langchain_deepseek import ChatDeepSeek
 from langgraph.graph import END, START, MessagesState, StateGraph
 
 
-def mock_llm(state: MessagesState) -> MessagesState:  # noqa: ARG001
-    """Mock LLM that returns a simple greeting.
+def call_deepseek(state: MessagesState) -> MessagesState:
+    """调用 DeepSeek 的真实 LLM 节点。
 
-    Args:
-        state: Current state containing messages
+    参数:
+        state: 包含消息历史的当前状态
 
-    Returns:
-        Updated state with AI response
+    返回:
+        包含 AI 响应的更新后状态
     """
+    # 自动从系统环境变量 DEEPSEEK_API_KEY 读取密钥
+    model = ChatDeepSeek(
+        model="deepseek-chat",
+    )
+    response = model.invoke(state["messages"])
     return cast(
         MessagesState,
-        {"messages": [AIMessage(content="Hello! How can I help you today?")]},
+        {"messages": [response]},
     )
 
 
 def create_agent_graph() -> Any:
-    """Create and configure the agent graph.
+    """创建并配置 Agent 图。
 
-    Returns:
-        Compiled StateGraph ready for execution
+    返回:
+        编译后可执行的 StateGraph
     """
     graph = StateGraph(MessagesState)
 
-    # Add the mock LLM node
-    graph.add_node("mock_llm", mock_llm)
+    # 添加 DeepSeek LLM 节点
+    graph.add_node("agent", call_deepseek)
 
-    # Define the graph flow
-    graph.add_edge(START, "mock_llm")
-    graph.add_edge("mock_llm", END)
+    # 定义图的流程
+    graph.add_edge(START, "agent")
+    graph.add_edge("agent", END)
 
     return graph.compile()
 
 
 def main() -> None:
-    """Main entry point for the agent demonstration."""
-    # Create and run the agent graph
+    """Agent 演示的主入口函数。"""
+    # 创建并运行 Agent 图
     graph = create_agent_graph()
 
-    # Initial user message
+    # 初始用户消息
+    prompt = "你好，请自我介绍一下。"
     initial_state: MessagesState = cast(
-        MessagesState, {"messages": [HumanMessage(content="Hello!")]}
+        MessagesState, {"messages": [HumanMessage(content=prompt)]}
     )
 
-    # Execute the graph
+    # 执行图
     result = graph.invoke(initial_state)
 
-    # Print the result
-    print("Agent execution result:")
+    # 打印结果
+    print("Agent 执行结果:")
     for message in result["messages"]:
         message_type = type(message).__name__.replace("Message", "")
         print(f"{message_type.upper()}: {message.content}")
