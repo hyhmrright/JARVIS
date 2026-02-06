@@ -1,94 +1,63 @@
 # Agents 项目上下文
 
-本文档为 Gemini 提供关于 `agents` 项目的上下文信息。
+本文档为 Gemini 提供关于 `agents` 项目的准确上下文信息。
 
 ## 项目概览
 
-**目的**: 一个使用 [LangGraph](https://langchain-ai.github.io/langgraph/) 的最小化 Agent 系统演示。
+**目的**: 使用 LangGraph 构建的最小化 Agent 系统，支持 DeepSeek 模型。
 **核心功能**:
-*   实现了一个 `StateGraph` 来管理对话状态。
-*   使用 `MessagesState` 处理消息历史（`HumanMessage`, `AIMessage`）。
-*   演示了一个基本的工作流：`START` -> `mock_llm` -> `END`。
-*   当前使用一个返回静态响应的 mock LLM 节点。
+*   使用 `StateGraph` 管理对话流。
+*   状态管理采用 `dataclass` 以确保 Python 3.13 下的类型兼容性。
+*   集成 `langchain-deepseek` 访问真实大模型。
 
 ## 架构
 
-本项目遵循标准的 LangGraph 架构：
-*   **State (状态)**: `AgentState` (显式定义的 `TypedDict`)。
-    *   *注意*: 为了兼容 Python 3.13+ 的严格类型检查及解决 IDE（如 Pylance）中 `TypedDictLikeV1` 的识别问题，建议显式定义状态而非直接继承 `MessagesState`。
-*   **Nodes (节点)**: 处理状态的函数 (例如 `main.py` 中的 `call_deepseek`)。
-*   **Edges (边)**: 定义节点之间的控制流。
-*   **Graph (图)**: 编译后的可执行工作流。
+*   **状态 (State)**: 使用 `AgentState` (`dataclass`)，包含 `messages` 字段，通过 `add_messages` 进行合并。
+*   **节点 (Nodes)**:
+    *   `agent`: 调用 DeepSeek API 处理对话。
+*   **控制流**: `START` -> `agent` -> `END`。
+*   **配置**: 自动从系统环境变量 `DEEPSEEK_API_KEY` 读取 API Key。
 
 ## 环境与依赖
 
-*   **语言**: Python 3.13+
+*   **语言**: Python 3.13.12 (受 uv 管理)
 *   **包管理器**: `uv`
-*   **主要依赖**:
+*   **核心依赖**:
     *   `langgraph`: 编排框架。
-    *   `langchain-core`: 消息和链的原语。
-
-## 构建与运行
-
-### 设置
-1.  确保已安装 **uv**。
-2.  安装依赖：
-    ```bash
-    uv sync
-    ```
-    这将创建/更新 `.venv` 虚拟环境。
-
-### 执行
-运行主要的 Agent 演示：
-```bash
-python main.py
-```
+    *   `langchain-core`: 消息原语。
+    *   `langchain-deepseek`: DeepSeek 模型支持。
+*   **开发依赖**:
+    *   `ty`: **首选**类型检查工具。
+    *   `ruff`: Lint 检查与代码格式化。
+    *   `pre-commit`: 提交前自动检查。
 
 ## 开发工作流
 
+### 设置与运行
+1.  **安装依赖**:
+    ```bash
+    uv sync --all-extras
+    ```
+2.  **安装 Git 钩子**:
+    ```bash
+    uv run pre-commit install
+    ```
+3.  **运行程序**:
+    ```bash
+    uv run main.py
+    ```
+
 ### 分支策略
-本项目采用双分支管理策略：
-*   **main 分支**: 部署分支，仅存放经过验证的稳定代码。
-*   **dev 分支**: 开发分支，所有新功能、修复和日常修改均在此分支进行。
-*   **合并规则**: 仅在用户明确指令时，才将 `dev` 分支合并（merge）到 `main` 分支。
+*   **main 分支**: 部署分支（稳定版）。
+*   **dev 分支**: 开发分支。**所有日常修改必须在此分支进行**。
+*   **合并**: 仅在明确指令时将 `dev` 合并至 `main`。
 
 ### 自动化规范
-*   **自动提交与推送**: 在 `dev` 分支上的每次有效修改后，Agent 必须自动执行 `commit` 和 `push`。
-*   **代码质量自检**: 提交前必须通过 `ruff` 和 `pyright` (或 `ty`) 的自检。
+*   **修改-提交-推送**: 每次修改后，Agent 会自动执行：
+    1.  `uv run ruff check --fix` (Lint 修复)
+    2.  `uv run ty` (类型检查)
+    3.  `git add . && git commit -m "..." && git push origin dev`
 
-*   **Linting (代码检查) & Formatting (格式化)**: [Ruff](https://docs.astral.sh/ruff/)
-    ```bash
-    # 检查并修复 lint 问题
-    uv run ruff check --fix
-
-    # 格式化代码
-    uv run ruff format
-    ```
-
-*   **类型检查**: [Pyright](https://microsoft.github.io/pyright/)
-    ```bash
-    uv run pyright
-    ```
-
-*   **Pre-commit Hooks (预提交钩子)**:
-    项目使用 `pre-commit` 自动执行检查（ruff, uv-lock, 尾随空格等）。
-    ```bash
-    # 安装钩子
-    uv run pre-commit install
-
-    # 手动对所有文件运行
-    uv run pre-commit run --all-files
-    ```
-
-### 测试
-*   **测试运行器**: `ty` (根据 `pyproject.toml` 和 `CLAUDE.md`)。
-    ```bash
-    uv run ty
-    ```
-
-## 关键文件
-
-*   `main.py`: 入口点，包含图定义 (`create_agent_graph`)、mock 节点 (`mock_llm`) 和执行逻辑。
-*   `pyproject.toml`: `uv`、依赖项、`ruff` 和 `pyright` 的配置文件。
-*   `CLAUDE.md`: 现有的 Claude/Cursor 指令文件，包含详细的工作流信息。
-*   `.pre-commit-config.yaml`: Pre-commit 钩子的配置。
+## 技术细节 (Python 3.13 特有)
+*   **类型识别**: 在 Python 3.13 中，`StateGraph` 的 schema 必须使用 `dataclass` 或显式 Pydantic 模型，以避免 `TypedDictLikeV1` 协议匹配错误。
+*   **导入路径**: `add_messages` 统一从 `langgraph.graph` 导入。
