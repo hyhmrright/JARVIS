@@ -1,23 +1,3 @@
-import pytest
-from httpx import ASGITransport, AsyncClient
-
-from app.main import app
-
-
-@pytest.fixture
-async def auth_client():
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as c:
-        resp = await c.post(
-            "/api/auth/register",
-            json={"email": "conv@test.com", "password": "pass123"},
-        )
-        token = resp.json()["access_token"]
-        c.headers["Authorization"] = f"Bearer {token}"
-        yield c
-
-
 async def test_create_conversation(auth_client):
     resp = await auth_client.post("/api/conversations", json={"title": "My Chat"})
     assert resp.status_code == 201

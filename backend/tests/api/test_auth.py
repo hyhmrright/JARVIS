@@ -1,17 +1,3 @@
-import pytest
-from httpx import ASGITransport, AsyncClient
-
-from app.main import app
-
-
-@pytest.fixture
-async def client():
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as c:
-        yield c
-
-
 async def test_register_success(client):
     resp = await client.post(
         "/api/auth/register",
