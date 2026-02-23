@@ -40,10 +40,12 @@ async def chat_stream(
     user_settings = await db.scalar(
         select(UserSettings).where(UserSettings.user_id == user.id)
     )
+    from app.core.security import decrypt_api_keys
+
     provider = user_settings.model_provider if user_settings else "deepseek"
     model_name = user_settings.model_name if user_settings else "deepseek-chat"
-    api_keys = user_settings.api_keys if user_settings else {}
-    api_key = api_keys.get(provider, "")
+    raw_keys = user_settings.api_keys if user_settings else {}
+    api_key = decrypt_api_keys(raw_keys).get(provider, "")
 
     db.add(Message(conversation_id=conv.id, role="human", content=body.content))
     await db.commit()

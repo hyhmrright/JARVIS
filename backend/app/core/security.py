@@ -1,6 +1,9 @@
+import base64
+import json
 from datetime import UTC, datetime, timedelta
 
 import jwt
+from cryptography.fernet import Fernet
 from passlib.context import CryptContext
 
 from app.core.config import settings
@@ -30,3 +33,26 @@ def decode_access_token(token: str) -> str:
         token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
     )
     return str(payload["sub"])
+
+
+def _get_fernet() -> Fernet:
+    key = settings.encryption_key.encode()
+    try:
+        return Fernet(key)
+    except Exception:
+        padded = base64.urlsafe_b64encode(key[:32].ljust(32, b"\x00"))
+        return Fernet(padded)
+
+
+def encrypt_api_keys(api_keys: dict) -> dict:
+    """将 api_keys 字典中的所有值加密后返回新字典。"""
+    encrypted = _get_fernet().encrypt(json.dumps(api_keys).encode()).decode()
+    return {"__encrypted__": encrypted}
+
+
+def decrypt_api_keys(stored: dict) -> dict:
+    """解密 api_keys 字典。若不是加密格式则原样返回（兼容旧数据）。"""
+    if "__encrypted__" not in stored:
+        return stored
+    decrypted = _get_fernet().decrypt(stored["__encrypted__"].encode())
+    return json.loads(decrypted)
