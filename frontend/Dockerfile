@@ -7,7 +7,7 @@ COPY package.json bun.lock* ./
 RUN bun install --frozen-lockfile
 
 COPY . .
-RUN bun run build
+RUN bun run build:docker
 
 # ---- Production Stage ----
 FROM nginx:1.28.2-alpine
