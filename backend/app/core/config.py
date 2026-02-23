@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
+    # 32-byte URL-safe base64 key; generate via Fernet.generate_key()
+    encryption_key: str = "V2hhdCBhIG5pY2UgZGF5IHRvIGZpeCBidWdzISEh"
+
+    cors_origins: list[str] = ["http://localhost:3000"]
 
 
 settings = Settings()
