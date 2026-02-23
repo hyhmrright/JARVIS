@@ -16,10 +16,15 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
+import { AxiosError } from "axios";
 
 const auth = useAuthStore();
 const router = useRouter();
-const email = ref(""), displayName = ref(""), password = ref(""), error = ref(""), loading = ref(false);
+const email = ref("");
+const displayName = ref("");
+const password = ref("");
+const error = ref("");
+const loading = ref(false);
 
 async function handleRegister() {
   loading.value = true;
@@ -27,8 +32,28 @@ async function handleRegister() {
   try {
     await auth.register(email.value, password.value, displayName.value || undefined);
     router.push("/");
-  } catch {
-    error.value = "注册失败，请检查邮箱是否已被使用";
+  } catch (e) {
+    if (e instanceof AxiosError && e.response) {
+      const status = e.response.status;
+      if (status === 409) {
+        error.value = "邮箱已被注册";
+      } else if (status === 422) {
+        const detail = e.response.data?.detail;
+        if (Array.isArray(detail)) {
+          error.value = detail.map((d: { msg: string }) => d.msg).join("；");
+        } else if (typeof detail === "string") {
+          error.value = detail;
+        } else {
+          error.value = "输入信息有误，请检查后重试";
+        }
+      } else if (status === 429) {
+        error.value = "请求太频繁，请稍后再试";
+      } else {
+        error.value = "注册失败，请稍后再试";
+      }
+    } else {
+      error.value = "网络错误，请检查网络连接";
+    }
   } finally {
     loading.value = false;
   }
