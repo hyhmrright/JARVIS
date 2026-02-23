@@ -4,7 +4,12 @@ from langchain_core.tools import tool
 
 @tool
 async def web_search(query: str) -> str:
-    """Search the internet for up-to-date information. query is the search term."""
+    """Search using DuckDuckGo Instant Answer API.
+
+    Note: This API returns Wikipedia-style abstracts and related topics only.
+    It does NOT perform general web search. Most queries will return empty results.
+    query is the search term.
+    """
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             "https://api.duckduckgo.com/",

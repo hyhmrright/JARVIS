@@ -3,7 +3,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,8 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agent.graph import create_graph
 from app.agent.state import AgentState
 from app.api.deps import get_current_user
+from app.core.security import decrypt_api_keys
 from app.db.models import Conversation, Message, User, UserSettings
-from app.db.session import get_db
+from app.db.session import AsyncSessionLocal, get_db
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -42,25 +43,34 @@ async def chat_stream(
     )
     provider = user_settings.model_provider if user_settings else "deepseek"
     model_name = user_settings.model_name if user_settings else "deepseek-chat"
-    api_keys = user_settings.api_keys if user_settings else {}
-    api_key = api_keys.get(provider, "")
+    raw_keys = user_settings.api_keys if user_settings else {}
+    api_key = decrypt_api_keys(raw_keys).get(provider, "")
+    enabled_tools = user_settings.enabled_tools if user_settings else None
 
     db.add(Message(conversation_id=conv.id, role="human", content=body.content))
     await db.commit()
 
-    history = await db.scalars(
+    role_to_message = {"human": HumanMessage, "ai": AIMessage}
+    history_rows = await db.scalars(
         select(Message)
         .where(Message.conversation_id == conv.id)
         .order_by(Message.created_at)
     )
     lc_messages = [
-        HumanMessage(content=msg.content)
-        for msg in history.all()
-        if msg.role == "human"
+        role_to_message[msg.role](content=msg.content)
+        for msg in history_rows.all()
+        if msg.role in role_to_message
     ]
 
+    conv_id = conv.id
+
     async def generate():
-        graph = create_graph(provider=provider, model=model_name, api_key=api_key)
+        graph = create_graph(
+            provider=provider,
+            model=model_name,
+            api_key=api_key,
+            enabled_tools=enabled_tools,
+        )
         full_content = ""
         async for chunk in graph.astream(AgentState(messages=lc_messages)):
             if "llm" in chunk:
@@ -68,15 +78,17 @@ async def chat_stream(
                 full_content = ai_msg.content
                 data = json.dumps({"content": full_content})
                 yield "data: " + data + "\n\n"
-        async with db.begin():
-            db.add(
-                Message(
-                    conversation_id=conv.id,
-                    role="ai",
-                    content=full_content,
-                    model_provider=provider,
-                    model_name=model_name,
+
+        async with AsyncSessionLocal() as session:
+            async with session.begin():
+                session.add(
+                    Message(
+                        conversation_id=conv_id,
+                        role="ai",
+                        content=full_content,
+                        model_provider=provider,
+                        model_name=model_name,
+                    )
                 )
-            )
 
     return StreamingResponse(generate(), media_type="text/event-stream")

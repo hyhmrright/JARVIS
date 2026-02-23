@@ -1,4 +1,7 @@
+import asyncio
 import io
+import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from minio import Minio
@@ -7,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.config import settings
+from app.core.security import decrypt_api_keys
 from app.db.models import Document, User, UserSettings
 from app.db.session import get_db
 from app.rag.indexer import index_document
@@ -33,6 +37,15 @@ def extract_text(content: bytes, file_type: str) -> str:
     return ""
 
 
+def _get_minio_client() -> Minio:
+    return Minio(
+        settings.minio_endpoint,
+        access_key=settings.minio_access_key,
+        secret_key=settings.minio_secret_key,
+        secure=False,
+    )
+
+
 @router.post("", status_code=201)
 async def upload_document(
     file: UploadFile = File(...),
@@ -47,16 +60,18 @@ async def upload_document(
     if len(content) > MAX_SIZE:
         raise HTTPException(status_code=400, detail="File exceeds 50MB limit")
 
-    minio_client = Minio(
-        settings.minio_endpoint,
-        access_key=settings.minio_access_key,
-        secret_key=settings.minio_secret_key,
-        secure=False,
+    safe_name = Path(file.filename or "upload").name
+    object_key = f"{user.id}/{uuid.uuid4()}_{safe_name}"
+
+    minio_client = _get_minio_client()
+
+    bucket_exists = await asyncio.to_thread(
+        minio_client.bucket_exists, settings.minio_bucket
     )
-    if not minio_client.bucket_exists(settings.minio_bucket):
-        minio_client.make_bucket(settings.minio_bucket)
-    object_key = f"{user.id}/{file.filename}"
-    minio_client.put_object(
+    if not bucket_exists:
+        await asyncio.to_thread(minio_client.make_bucket, settings.minio_bucket)
+    await asyncio.to_thread(
+        minio_client.put_object,
         settings.minio_bucket,
         object_key,
         io.BytesIO(content),
@@ -66,16 +81,14 @@ async def upload_document(
     user_settings = await db.scalar(
         select(UserSettings).where(UserSettings.user_id == user.id)
     )
-    api_key = (
-        (user_settings.api_keys or {}).get(user_settings.model_provider, "")
-        if user_settings
-        else ""
-    )
+    provider = user_settings.model_provider if user_settings else "deepseek"
+    raw_keys = user_settings.api_keys if user_settings else {}
+    api_key = decrypt_api_keys(raw_keys).get(provider, "")
 
     text = extract_text(content, ext)
     doc = Document(
         user_id=user.id,
-        filename=file.filename,
+        filename=safe_name,
         file_type=ext,
         file_size_bytes=len(content),
         qdrant_collection=f"user_{user.id}",
