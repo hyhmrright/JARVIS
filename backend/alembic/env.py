@@ -1,5 +1,3 @@
-from __future__ import with_statement
-
 import os
 import sys
 
@@ -18,6 +16,15 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+
+# 优先从环境变量读取 DATABASE_URL（Docker 环境）
+_env_db_url = os.environ.get("DATABASE_URL")
+if _env_db_url:
+    # asyncpg 驱动不支持同步 Alembic，替换为 psycopg2
+    _sync_db_url = _env_db_url.replace(
+        "postgresql+asyncpg://", "postgresql+psycopg2://"
+    )
+    config.set_main_option("sqlalchemy.url", _sync_db_url)
 
 
 def run_migrations_offline() -> None:

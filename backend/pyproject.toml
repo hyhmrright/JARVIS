@@ -36,6 +36,7 @@ dev = [
     "ruff>=0.8.0",
     "pyright>=1.1.390",
     "aiosqlite>=0.20.0",
+    "psycopg2-binary>=2.9.11",
 ]
 
 [tool.ruff]
@@ -43,7 +44,33 @@ line-length = 88
 target-version = "py313"
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "N",    # pep8-naming
+    "C90",  # mccabe complexity
+]
+ignore = [
+    "B008",  # FastAPI Depends() 在默认参数中调用函数，合法
+    "N818",  # 允许自定义异常不以 Error 结尾
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.pyright]
+typeCheckingMode = "basic"
+pythonVersion = "3.13"
+exclude = ["alembic/", "tests/"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

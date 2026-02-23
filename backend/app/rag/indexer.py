@@ -30,7 +30,7 @@ async def index_document(user_id: str, doc_id: str, text: str, api_key: str) -> 
             vector=vec,
             payload={"doc_id": doc_id, "chunk_index": i, "text": chunk},
         )
-        for i, (chunk, vec) in enumerate(zip(chunks, vectors))
+        for i, (chunk, vec) in enumerate(zip(chunks, vectors, strict=True))
     ]
     await client.upsert(collection_name=collection, points=points)
     return len(chunks)

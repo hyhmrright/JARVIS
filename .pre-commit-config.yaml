@@ -6,6 +6,7 @@ repos:
         args: [--allow-multiple-documents]
       - id: check-toml
       - id: check-json
+        exclude: ^\.devcontainer/
       - id: end-of-file-fixer
       - id: trailing-whitespace
       - id: check-added-large-files
@@ -28,6 +29,22 @@ repos:
       - id: ruff-format
         name: Ruff format
         types_or: [python, pyi]
+
+  - repo: local
+    hooks:
+      - id: frontend-lint
+        name: ESLint (frontend)
+        language: system
+        entry: bash -c 'cd frontend && bun run lint'
+        files: ^frontend/src/.*\.(ts|vue)$
+        pass_filenames: false
+
+      - id: frontend-type-check
+        name: TypeScript type check (frontend)
+        language: system
+        entry: bash -c 'cd frontend && bun run type-check'
+        files: ^frontend/src/.*\.(ts|vue)$
+        pass_filenames: false
 
 default_stages: [pre-commit]
 default_language_version:

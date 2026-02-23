@@ -18,5 +18,5 @@ async def execute_code(code: str) -> str:
         if stderr:
             return f"Error: {stderr.decode()}"
         return stdout.decode() or "(no output)"
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return "Timeout: code execution exceeded 30 seconds"
