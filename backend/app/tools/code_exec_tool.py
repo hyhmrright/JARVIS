@@ -11,20 +11,24 @@ async def execute_code(code: str) -> str:
     no user site, no PYTHONPATH). It is NOT a full OS-level sandbox — do not use in
     untrusted multi-tenant environments without additional container isolation.
     """
-    proc = await asyncio.create_subprocess_exec(
-        "python3",
-        "-I",  # isolated mode: disables site-packages, user site, PYTHONPATH
-        "-c",
-        code,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
+    proc = None
     try:
+        proc = await asyncio.create_subprocess_exec(
+            "python3",
+            "-I",  # isolated mode: disables site-packages, user site, PYTHONPATH
+            "-c",
+            code,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30.0)
     except TimeoutError:
-        proc.kill()
-        await proc.wait()
+        if proc is not None:
+            proc.kill()
+            await proc.wait()
         return "Timeout: code execution exceeded 30 seconds"
+    except OSError as e:
+        return f"Error: failed to start interpreter: {e}"
     if stderr:
         return f"Error: {stderr.decode()}"
     return stdout.decode() or "(no output)"

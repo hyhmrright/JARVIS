@@ -4,6 +4,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from app.core.limiter import limiter
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
@@ -14,6 +15,14 @@ TEST_DATABASE_URL = "postgresql+asyncpg://jarvis:jarvis@localhost:5432/jarvis_te
 @pytest.fixture(scope="session")
 def anyio_backend():
     return "asyncio"
+
+
+@pytest.fixture(autouse=True)
+def disable_rate_limiting():
+    """测试期间禁用频率限制，避免多次注册请求触发 429。"""
+    limiter._enabled = False
+    yield
+    limiter._enabled = True
 
 
 @pytest.fixture(scope="session")

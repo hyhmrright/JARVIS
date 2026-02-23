@@ -1,4 +1,5 @@
 import base64
+import binascii
 import json
 from datetime import UTC, datetime, timedelta
 
@@ -39,7 +40,7 @@ def _get_fernet() -> Fernet:
     key = settings.encryption_key.encode()
     try:
         return Fernet(key)
-    except Exception:
+    except (ValueError, binascii.Error):
         padded = base64.urlsafe_b64encode(key[:32].ljust(32, b"\x00"))
         return Fernet(padded)
 
