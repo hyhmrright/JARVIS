@@ -123,7 +123,9 @@ uv sync --upgrade            # 更新依赖
       ↓
 有问题？→ 是 → 修复 → 回到 code-simplifier
     ↓
-    否 → 执行 commit / push
+    否 → 执行 commit
+      ↓
+【必须】立即执行 git push（commit 后不得停留，必须同步到远程）
 ```
 
 ### 推送 PR 后的补充步骤
@@ -156,6 +158,8 @@ uv sync --upgrade            # 更新依赖
 | "用户没有用'commit'这个词" | 只要用户意图是提交/推送，就触发 |
 | "这是 --amend，不是新 commit" | --amend 同样修改了历史，必须执行 |
 | "改动在 stash 里，工作区是干净的" | stash 中的改动同样需要走完整流程 |
+| "用户只说了 commit，没说要 push" | commit 后必须立即 push，无需额外指令 |
+| "我等会儿再 push" | push 是 commit 的必要后续步骤，不得延迟 |
 
 ---
 
