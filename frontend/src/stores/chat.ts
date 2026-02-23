@@ -29,27 +29,37 @@ export const useChatStore = defineStore("chat", {
       const aiMsg: Message = { role: "ai", content: "" };
       this.messages.push(aiMsg);
 
-      const token = localStorage.getItem("token");
-      const resp = await fetch("/api/chat/stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ conversation_id: this.currentConvId, content }),
-      });
+      try {
+        const token = localStorage.getItem("token");
+        const resp = await fetch("/api/chat/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ conversation_id: this.currentConvId, content }),
+        });
 
-      const reader = resp.body!.getReader();
-      const decoder = new TextDecoder();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const text = decoder.decode(value);
-        for (const line of text.split("\n")) {
-          if (line.startsWith("data: ")) {
-            const data = JSON.parse(line.slice(6));
-            aiMsg.content = data.content;
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        if (!resp.body) throw new Error("No response body");
+
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const text = decoder.decode(value);
+          for (const line of text.split("\n")) {
+            if (line.startsWith("data: ")) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                aiMsg.content = data.content;
+              } catch {
+                // 跳过无法解析的 SSE 行
+              }
+            }
           }
         }
+      } finally {
+        this.streaming = false;
       }
-      this.streaming = false;
     },
   },
 });
