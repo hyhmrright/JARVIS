@@ -1,6 +1,6 @@
 # Jarvis 项目上下文
 
-本文档为 Gemini 提供关于 `agents` monorepo 的准确上下文信息。
+本文档为 Gemini 提供关于 `JARVIS` monorepo 的准确上下文信息。
 
 ## 项目概览
 
@@ -11,7 +11,7 @@
 ## 目录结构
 
 ```
-agents/
+JARVIS/
 ├── backend/          # FastAPI 后端服务（Python 3.13 + SQLAlchemy + LangGraph）
 ├── frontend/         # Vue 3 前端（Vite + TypeScript + Pinia）
 ├── docker-compose.yml

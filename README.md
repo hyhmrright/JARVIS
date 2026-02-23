@@ -1,4 +1,4 @@
-# Agents Project
+# JARVIS
 
 A simple agent system built with LangGraph demonstrating basic agent workflows.
 

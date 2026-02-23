@@ -1,5 +1,5 @@
 [project]
-name = "agents"
+name = "jarvis"
 version = "0.1.0"
 description = "Jarvis AI assistant - monorepo root (dev tooling only)"
 readme = "README.md"
