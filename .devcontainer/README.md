@@ -53,4 +53,3 @@ docker run -it --rm \
 uv sync
 python main.py
 ```
-

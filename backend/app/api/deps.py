@@ -16,10 +16,10 @@ async def get_current_user(
 ) -> User:
     try:
         user_id = decode_access_token(credentials.credentials)
-    except Exception:
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
-        )
+        ) from exc
     user = await db.scalar(
         select(User).where(User.id == user_id, User.is_active == True)  # noqa: E712
     )

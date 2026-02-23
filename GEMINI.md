@@ -1,63 +1,107 @@
-# Agents 项目上下文
+# Jarvis 项目上下文
 
-本文档为 Gemini 提供关于 `agents` 项目的准确上下文信息。
+本文档为 Gemini 提供关于 `agents` monorepo 的准确上下文信息。
 
 ## 项目概览
 
-**目的**: 使用 LangGraph 构建的最小化 Agent 系统，支持 DeepSeek 模型。
-**核心功能**:
-*   使用 `StateGraph` 管理对话流。
-*   状态管理采用 `dataclass` 以确保 Python 3.13 下的类型兼容性。
-*   集成 `langchain-deepseek` 访问真实大模型。
+**名称**: Jarvis AI 助手
+**架构**: 多服务 monorepo（FastAPI 后端 + Vue 3 前端）
+**目的**: 具备 RAG 知识库、多 LLM 支持、流式对话的 AI 助手平台。
 
-## 架构
+## 目录结构
 
-*   **状态 (State)**: 使用 `AgentState` (`dataclass`)，包含 `messages` 字段，通过 `add_messages` 进行合并。
-*   **节点 (Nodes)**:
-    *   `agent`: 调用 DeepSeek API 处理对话。
-*   **控制流**: `START` -> `agent` -> `END`。
-*   **配置**: 自动从系统环境变量 `DEEPSEEK_API_KEY` 读取 API Key。
+```
+agents/
+├── backend/          # FastAPI 后端服务（Python 3.13 + SQLAlchemy + LangGraph）
+├── frontend/         # Vue 3 前端（Vite + TypeScript + Pinia）
+├── docker-compose.yml
+├── pyproject.toml    # 根目录（仅开发工具，无运行时依赖）
+└── CLAUDE.md / GEMINI.md
+```
+
+## 后端架构（backend/）
+
+- **框架**: FastAPI + Uvicorn
+- **数据库**: PostgreSQL（asyncpg 驱动）+ SQLAlchemy async ORM + Alembic 迁移
+- **缓存**: Redis
+- **向量存储**: Qdrant（RAG 知识库）
+- **对象存储**: MinIO（文件上传）
+- **LLM**: LangGraph + LangChain，支持 DeepSeek / OpenAI / Anthropic
+- **认证**: JWT（python-jose）+ bcrypt（passlib）
+
+### 主要模块
+
+```
+backend/app/
+├── api/          # FastAPI 路由（auth、conversations、documents、settings）
+├── agent/        # LangGraph agent graph + LLM 工厂
+├── core/         # 配置（pydantic-settings）、数据库、安全工具
+├── models/       # SQLAlchemy ORM 模型
+├── rag/          # 文档解析、分块、Qdrant 索引
+└── main.py       # 应用入口（CORS、路由注册、健康检查）
+```
+
+## 前端架构（frontend/）
+
+- **框架**: Vue 3 + TypeScript + Vite
+- **状态管理**: Pinia（auth store、chat store）
+- **路由**: Vue Router 4（懒加载 + 路由守卫）
+- **UI**: 自定义 CSS 样式
 
 ## 环境与依赖
 
-*   **语言**: Python 3.13.12 (受 uv 管理)
-*   **包管理器**: `uv`
-*   **核心依赖**:
-    *   `langgraph`: 编排框架。
-    *   `langchain-core`: 消息原语。
-    *   `langchain-deepseek`: DeepSeek 模型支持。
-*   **开发依赖**:
-    *   `ty`: **首选**类型检查工具。
-    *   `ruff`: Lint 检查与代码格式化。
-    *   `pre-commit`: 提交前自动检查。
+### 后端（使用 uv）
+```bash
+cd backend
+uv sync                          # 安装依赖
+uv run uvicorn app.main:app --reload  # 开发服务器
+uv run pytest tests/ -v          # 运行测试
+uv run alembic upgrade head      # 执行数据库迁移
+```
+
+### 前端（使用 bun）
+```bash
+cd frontend
+bun install                      # 安装依赖
+bun run dev                      # 开发服务器
+bun run build                    # 生产构建
+bun run lint                     # ESLint 检查
+bun run type-check               # TypeScript 类型检查
+```
+
+### Docker 环境
+```bash
+docker-compose up -d             # 启动所有服务（PostgreSQL、Redis、Qdrant、MinIO、backend、frontend）
+```
 
 ## 开发工作流
 
-### 设置与运行
-1.  **安装依赖**:
-    ```bash
-    uv sync --all-extras
-    ```
-2.  **安装 Git 钩子**:
-    ```bash
-    uv run pre-commit install
-    ```
-3.  **运行程序**:
-    ```bash
-    uv run main.py
-    ```
-
 ### 分支策略
-*   **main 分支**: 部署分支（稳定版）。
-*   **dev 分支**: 开发分支。**所有日常修改必须在此分支进行**。
-*   **合并**: 仅在明确指令时将 `dev` 合并至 `main`。
+- **main**: 稳定版本（部署分支）
+- **dev**: 日常开发分支（所有改动在此进行）
+- 仅在明确指令时将 `dev` 合并至 `main`
 
-### 自动化规范
-*   **修改-提交-推送**: 每次修改后，Agent 会自动执行：
-    1.  `uv run ruff check --fix` (Lint 修复)
-    2.  `uv run ty` (类型检查)
-    3.  `git add . && git commit -m "..." && git push origin dev`
+### 代码质量工具
 
-## 技术细节 (Python 3.13 特有)
-*   **类型识别**: 在 Python 3.13 中，`StateGraph` 的 schema 必须使用 `dataclass` 或显式 Pydantic 模型，以避免 `TypedDictLikeV1` 协议匹配错误。
-*   **导入路径**: `add_messages` 统一从 `langgraph.graph` 导入。
+**后端**:
+- `ruff check --fix && ruff format`：Lint + 格式化
+- `pyright`：类型检查
+- `pytest`：测试
+
+**前端**:
+- `bun run lint`：ESLint 检查
+- `bun run type-check`：TypeScript 类型检查
+
+**提交前（pre-commit hooks 自动运行）**:
+- YAML/TOML/JSON 格式检查
+- uv.lock 同步检查
+- ruff lint + format
+- 前端 ESLint + TypeScript 类型检查
+
+## 关键配置
+
+- **DATABASE_URL**: `postgresql+asyncpg://jarvis:jarvis@localhost:5432/jarvis`
+- **REDIS_URL**: `redis://localhost:6379`
+- **JWT_SECRET**: 通过环境变量配置
+- **DEEPSEEK_API_KEY**: 通过环境变量配置
+- **Alembic 迁移**: 自动从 `DATABASE_URL` 读取并转换为 psycopg2 同步驱动
