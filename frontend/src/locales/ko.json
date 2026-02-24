@@ -1,0 +1,55 @@
+{
+  "common": {
+    "backToChat": "← 채팅으로 돌아가기",
+    "networkError": "네트워크 오류입니다. 연결을 확인해 주세요",
+    "rateLimitError": "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요"
+  },
+  "login": {
+    "title": "JARVIS 로그인",
+    "email": "이메일",
+    "password": "비밀번호",
+    "submit": "로그인",
+    "loading": "로그인 중...",
+    "noAccount": "계정이 없으신가요?",
+    "register": "회원가입",
+    "invalidCredentials": "이메일 또는 비밀번호가 올바르지 않습니다",
+    "genericError": "로그인에 실패했습니다. 잠시 후 다시 시도해 주세요"
+  },
+  "register": {
+    "title": "JARVIS 회원가입",
+    "email": "이메일",
+    "displayName": "표시 이름 (선택)",
+    "password": "비밀번호",
+    "submit": "회원가입",
+    "loading": "가입 중...",
+    "hasAccount": "이미 계정이 있으신가요?",
+    "login": "로그인",
+    "emailTaken": "이미 등록된 이메일입니다",
+    "validationError": "입력 정보가 올바르지 않습니다. 확인 후 다시 시도해 주세요",
+    "genericError": "회원가입에 실패했습니다. 잠시 후 다시 시도해 주세요"
+  },
+  "chat": {
+    "newConversation": "+ 새 대화",
+    "documents": "지식 베이스",
+    "settings": "설정",
+    "logout": "로그아웃",
+    "voiceComingSoon": "음성 기능 출시 예정",
+    "inputPlaceholder": "메시지를 입력하고 Enter로 전송...",
+    "send": "전송"
+  },
+  "documents": {
+    "title": "지식 베이스",
+    "uploading": "업로드 중...",
+    "fileTooLarge": "파일 크기는 50MB를 초과할 수 없습니다",
+    "uploadSuccess": "업로드 성공, {count}개 청크로 분할되었습니다",
+    "uploadError": "업로드에 실패했습니다. 파일 형식을 확인해 주세요"
+  },
+  "settings": {
+    "title": "설정",
+    "provider": "모델 제공업체",
+    "modelName": "모델 이름",
+    "apiKey": "API 키",
+    "save": "저장",
+    "saved": "저장됨"
+  }
+}

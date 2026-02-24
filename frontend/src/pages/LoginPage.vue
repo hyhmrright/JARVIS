@@ -1,13 +1,13 @@
 <template>
   <div class="auth-page">
-    <h1>登录 JARVIS</h1>
+    <h1>{{ $t('login.title') }}</h1>
     <form @submit.prevent="handleLogin">
-      <input v-model="email" type="email" placeholder="邮箱" required />
-      <input v-model="password" type="password" placeholder="密码" required />
-      <button type="submit" :disabled="loading">{{ loading ? "登录中..." : "登录" }}</button>
+      <input v-model="email" type="email" :placeholder="$t('login.email')" required />
+      <input v-model="password" type="password" :placeholder="$t('login.password')" required />
+      <button type="submit" :disabled="loading">{{ loading ? $t('login.loading') : $t('login.submit') }}</button>
       <p v-if="error" class="error">{{ error }}</p>
     </form>
-    <p>没有账号？<router-link to="/register">注册</router-link></p>
+    <p>{{ $t('login.noAccount') }}<router-link to="/register">{{ $t('login.register') }}</router-link></p>
   </div>
 </template>
 
@@ -15,15 +15,17 @@
 /**
  * 登录页面
  *
- * 错误处理：根据 HTTP 状态码显示对应的中文提示
+ * 错误处理：根据 HTTP 状态码显示对应的翻译提示
  *   401 → 邮箱或密码错误
  *   429 → 速率限制超出（slowapi 自动返回）
  */
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
+import { useI18n } from "vue-i18n";
 import { AxiosError } from "axios";
 
+const { t } = useI18n();
 const auth = useAuthStore();
 const router = useRouter();
 
@@ -47,14 +49,14 @@ async function handleLogin() {
     if (e instanceof AxiosError && e.response) {
       const status = e.response.status;
       if (status === 401) {
-        error.value = "邮箱或密码错误";
+        error.value = t("login.invalidCredentials");
       } else if (status === 429) {
-        error.value = "请求太频繁，请稍后再试";
+        error.value = t("common.rateLimitError");
       } else {
-        error.value = "登录失败，请稍后再试";
+        error.value = t("login.genericError");
       }
     } else {
-      error.value = "网络错误，请检查网络连接";
+      error.value = t("common.networkError");
     }
   } finally {
     loading.value = false;
