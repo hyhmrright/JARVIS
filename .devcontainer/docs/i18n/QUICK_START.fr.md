@@ -1,4 +1,4 @@
-[中文](QUICK_START.md) | [English](QUICK_START.en.md) | [日本語](QUICK_START.ja.md) | [한국어](QUICK_START.ko.md) | [Français](QUICK_START.fr.md) | [Deutsch](QUICK_START.de.md)
+[中文](../../QUICK_START.md) | [English](QUICK_START.en.md) | [日本語](QUICK_START.ja.md) | [한국어](QUICK_START.ko.md) | [Français](QUICK_START.fr.md) | [Deutsch](QUICK_START.de.md)
 
 # 🚀 Dev Container Reference Rapide
 
@@ -68,10 +68,13 @@ pre-commit run --all-files
 
 ```
 .devcontainer/
-├── devcontainer.json     # Configuration VS Code
-├── Dockerfile            # Définition de l'image
-├── README[.lang].md      # Guide d'utilisation (multilingue)
-└── QUICK_START[.lang].md # Référence rapide (multilingue)
+├── devcontainer.json        # Configuration VS Code
+├── Dockerfile               # Définition de l'image
+├── README.md                # Guide d'utilisation (chinois)
+├── QUICK_START.md           # Référence rapide (chinois)
+└── docs/i18n/               # Traductions multilingues
+    ├── README.{en,ja,ko,fr,de}.md
+    └── QUICK_START.{en,ja,ko,fr,de}.md
 ```
 
 ---
@@ -116,7 +119,8 @@ docker run --rm jarvis-dev bun --version
 
 ## Documentation associée
 
-- [Guide d'utilisation complet](README.fr.md)
+- [Guide d'utilisation complet (Français)](README.fr.md)
+- [Guide d'utilisation complet (中文)](../../README.md)
 
 ---
 

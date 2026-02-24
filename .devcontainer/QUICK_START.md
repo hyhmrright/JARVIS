@@ -1,4 +1,4 @@
-[中文](QUICK_START.md) | [English](QUICK_START.en.md) | [日本語](QUICK_START.ja.md) | [한국어](QUICK_START.ko.md) | [Français](QUICK_START.fr.md) | [Deutsch](QUICK_START.de.md)
+[中文](QUICK_START.md) | [English](docs/i18n/QUICK_START.en.md) | [日本語](docs/i18n/QUICK_START.ja.md) | [한국어](docs/i18n/QUICK_START.ko.md) | [Français](docs/i18n/QUICK_START.fr.md) | [Deutsch](docs/i18n/QUICK_START.de.md)
 
 # 🚀 Dev Container 快速参考
 
@@ -68,10 +68,13 @@ pre-commit run --all-files
 
 ```
 .devcontainer/
-├── devcontainer.json     # VS Code 配置
-├── Dockerfile            # 镜像定义
-├── README[.lang].md      # 使用指南（多语言）
-└── QUICK_START[.lang].md # 快速参考（多语言）
+├── devcontainer.json        # VS Code 配置
+├── Dockerfile               # 镜像定义
+├── README.md                # 使用指南（中文）
+├── QUICK_START.md           # 快速参考（中文）
+└── docs/i18n/               # 多语言翻译
+    ├── README.{en,ja,ko,fr,de}.md
+    └── QUICK_START.{en,ja,ko,fr,de}.md
 ```
 
 ---
