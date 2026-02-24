@@ -1,4 +1,4 @@
-[中文](../../GEMINI.md) | [English](GEMINI.en.md) | [日本語](GEMINI.ja.md) | [한국어](GEMINI.ko.md) | [Français](GEMINI.fr.md) | [Deutsch](GEMINI.de.md)
+[中文](../../../GEMINI.md) | [English](GEMINI.en.md) | [日本語](GEMINI.ja.md) | [한국어](GEMINI.ko.md) | [Français](GEMINI.fr.md) | [Deutsch](GEMINI.de.md)
 
 # Jarvis プロジェクトコンテキスト
 

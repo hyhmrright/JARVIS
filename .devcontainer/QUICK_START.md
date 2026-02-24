@@ -1,4 +1,4 @@
-[中文](QUICK_START.md) | [English](docs/i18n/QUICK_START.en.md) | [日本語](docs/i18n/QUICK_START.ja.md) | [한국어](docs/i18n/QUICK_START.ko.md) | [Français](docs/i18n/QUICK_START.fr.md) | [Deutsch](docs/i18n/QUICK_START.de.md)
+[中文](QUICK_START.md) | [English](docs/i18n/quick-start/QUICK_START.en.md) | [日本語](docs/i18n/quick-start/QUICK_START.ja.md) | [한국어](docs/i18n/quick-start/QUICK_START.ko.md) | [Français](docs/i18n/quick-start/QUICK_START.fr.md) | [Deutsch](docs/i18n/quick-start/QUICK_START.de.md)
 
 # 🚀 Dev Container 快速参考
 
@@ -72,9 +72,11 @@ pre-commit run --all-files
 ├── Dockerfile               # 镜像定义
 ├── README.md                # 使用指南（中文）
 ├── QUICK_START.md           # 快速参考（中文）
-└── docs/i18n/               # 多语言翻译
-    ├── README.{en,ja,ko,fr,de}.md
-    └── QUICK_START.{en,ja,ko,fr,de}.md
+└── docs/i18n/
+    ├── readme/              # 使用指南翻译
+    │   └── README.{en,ja,ko,fr,de}.md
+    └── quick-start/         # 快速参考翻译
+        └── QUICK_START.{en,ja,ko,fr,de}.md
 ```
 
 ---

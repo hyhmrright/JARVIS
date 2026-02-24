@@ -1,4 +1,4 @@
-[中文](GEMINI.md) | [English](docs/i18n/GEMINI.en.md) | [日本語](docs/i18n/GEMINI.ja.md) | [한국어](docs/i18n/GEMINI.ko.md) | [Français](docs/i18n/GEMINI.fr.md) | [Deutsch](docs/i18n/GEMINI.de.md)
+[中文](GEMINI.md) | [English](docs/i18n/gemini-md/GEMINI.en.md) | [日本語](docs/i18n/gemini-md/GEMINI.ja.md) | [한국어](docs/i18n/gemini-md/GEMINI.ko.md) | [Français](docs/i18n/gemini-md/GEMINI.fr.md) | [Deutsch](docs/i18n/gemini-md/GEMINI.de.md)
 
 # Jarvis 项目上下文
 

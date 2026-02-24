@@ -1,4 +1,4 @@
-[中文](CLAUDE.md) | [English](docs/i18n/CLAUDE.en.md) | [日本語](docs/i18n/CLAUDE.ja.md) | [한국어](docs/i18n/CLAUDE.ko.md) | [Français](docs/i18n/CLAUDE.fr.md) | [Deutsch](docs/i18n/CLAUDE.de.md)
+[中文](CLAUDE.md) | [English](docs/i18n/claude-md/CLAUDE.en.md) | [日本語](docs/i18n/claude-md/CLAUDE.ja.md) | [한국어](docs/i18n/claude-md/CLAUDE.ko.md) | [Français](docs/i18n/claude-md/CLAUDE.fr.md) | [Deutsch](docs/i18n/claude-md/CLAUDE.de.md)
 
 # CLAUDE.md
 
