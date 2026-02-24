@@ -1,4 +1,4 @@
-[中文](QUICK_START.md) | [English](QUICK_START.en.md) | [日本語](QUICK_START.ja.md) | [한국어](QUICK_START.ko.md) | [Français](QUICK_START.fr.md) | [Deutsch](QUICK_START.de.md)
+[中文](../../../QUICK_START.md) | [English](QUICK_START.en.md) | [日本語](QUICK_START.ja.md) | [한국어](QUICK_START.ko.md) | [Français](QUICK_START.fr.md) | [Deutsch](QUICK_START.de.md)
 
 # 🚀 Dev Container 빠른 참조
 
@@ -6,7 +6,7 @@
 
 ```bash
 # 1. VS Code 열기
-code /Users/hyh/code/JARVIS
+code path/to/JARVIS
 
 # 2. F1을 누르고 입력:
 Dev Containers: Reopen in Container
@@ -20,7 +20,7 @@ Dev Containers: Reopen in Container
 
 ### 이미지 빌드
 ```bash
-cd /Users/hyh/code/JARVIS
+cd path/to/JARVIS
 docker build -t jarvis-dev -f .devcontainer/Dockerfile .
 ```
 
@@ -68,13 +68,15 @@ pre-commit run --all-files
 
 ```
 .devcontainer/
-├── devcontainer.json     # VS Code 구성
-├── Dockerfile            # 이미지 정의
-├── README.md             # 사용 가이드
-├── CHANGELOG.md          # 구성 로그
-├── SETUP_COMPLETE.md     # 전체 보고서
-├── TEST_REPORT.md        # 테스트 결과
-└── test.sh               # 검증 스크립트
+├── devcontainer.json        # VS Code 구성
+├── Dockerfile               # 이미지 정의
+├── README.md                # 사용 가이드 (중국어)
+├── QUICK_START.md           # 빠른 참조 (중국어)
+└── docs/i18n/
+    ├── readme/              # 사용 가이드 번역
+    │   └── README.{en,ja,ko,fr,de}.md
+    └── quick-start/         # 빠른 참조 번역
+        └── QUICK_START.{en,ja,ko,fr,de}.md
 ```
 
 ---
@@ -82,18 +84,14 @@ pre-commit run --all-files
 ## 빠른 테스트
 
 ```bash
-# 구성 검증
-./.devcontainer/test.sh
-
 # Python 테스트
 docker run --rm jarvis-dev python --version
 
 # uv 테스트
 docker run --rm jarvis-dev uv --version
 
-# 전체 워크플로우 테스트
-docker run --rm -v $(pwd):/workspace jarvis-dev \
-  bash -c "cd /workspace && uv sync && uv run python main.py"
+# Bun 테스트
+docker run --rm jarvis-dev bun --version
 ```
 
 ---
@@ -111,9 +109,10 @@ docker run --rm -v $(pwd):/workspace jarvis-dev \
 
 ## 환경 정보
 
-- **Python**: 3.13.11
-- **uv**: 0.9.26
-- **Git**: 2.47.3
+- **Python**: 3.13
+- **uv**: latest
+- **Bun**: latest
+- **Git**: latest
 - **베이스 이미지**: python:3.13-slim
 - **사용자**: vscode (비 root)
 - **작업 디렉토리**: /workspace
@@ -122,10 +121,8 @@ docker run --rm -v $(pwd):/workspace jarvis-dev \
 
 ## 관련 문서
 
-- [전체 사용 가이드](.devcontainer/README.md)
-- [구성 설명](.devcontainer/CHANGELOG.md)
-- [테스트 보고서](.devcontainer/TEST_REPORT.md)
-- [전체 설정 보고서](.devcontainer/SETUP_COMPLETE.md)
+- [전체 사용 가이드 (한국어)](../readme/README.ko.md)
+- [전체 사용 가이드 (中文)](../../../README.md)
 
 ---
 

@@ -1,4 +1,4 @@
-[中文](QUICK_START.md) | [English](QUICK_START.en.md) | [日本語](QUICK_START.ja.md) | [한국어](QUICK_START.ko.md) | [Français](QUICK_START.fr.md) | [Deutsch](QUICK_START.de.md)
+[中文](../../../QUICK_START.md) | [English](QUICK_START.en.md) | [日本語](QUICK_START.ja.md) | [한국어](QUICK_START.ko.md) | [Français](QUICK_START.fr.md) | [Deutsch](QUICK_START.de.md)
 
 # 🚀 Dev Container Kurzreferenz
 
@@ -6,7 +6,7 @@
 
 ```bash
 # 1. VS Code öffnen
-code /Users/hyh/code/JARVIS
+code path/to/JARVIS
 
 # 2. F1 drücken, eingeben:
 Dev Containers: Reopen in Container
@@ -20,7 +20,7 @@ Dev Containers: Reopen in Container
 
 ### Image bauen
 ```bash
-cd /Users/hyh/code/JARVIS
+cd path/to/JARVIS
 docker build -t jarvis-dev -f .devcontainer/Dockerfile .
 ```
 
@@ -68,13 +68,15 @@ pre-commit run --all-files
 
 ```
 .devcontainer/
-├── devcontainer.json     # VS Code Konfiguration
-├── Dockerfile            # Image-Definition
-├── README.md             # Benutzerhandbuch
-├── CHANGELOG.md          # Konfigurationsprotokoll
-├── SETUP_COMPLETE.md     # Vollständiger Bericht
-├── TEST_REPORT.md        # Testergebnisse
-└── test.sh               # Verifizierungsskript
+├── devcontainer.json        # VS Code Konfiguration
+├── Dockerfile               # Image-Definition
+├── README.md                # Benutzerhandbuch (Chinesisch)
+├── QUICK_START.md           # Kurzreferenz (Chinesisch)
+└── docs/i18n/
+    ├── readme/              # Benutzerhandbuch-Übersetzungen
+    │   └── README.{en,ja,ko,fr,de}.md
+    └── quick-start/         # Kurzreferenz-Übersetzungen
+        └── QUICK_START.{en,ja,ko,fr,de}.md
 ```
 
 ---
@@ -82,18 +84,14 @@ pre-commit run --all-files
 ## Schnelltest
 
 ```bash
-# Konfiguration überprüfen
-./.devcontainer/test.sh
-
 # Python testen
 docker run --rm jarvis-dev python --version
 
 # uv testen
 docker run --rm jarvis-dev uv --version
 
-# Vollständigen Workflow testen
-docker run --rm -v $(pwd):/workspace jarvis-dev \
-  bash -c "cd /workspace && uv sync && uv run python main.py"
+# Bun testen
+docker run --rm jarvis-dev bun --version
 ```
 
 ---
@@ -111,9 +109,10 @@ docker run --rm -v $(pwd):/workspace jarvis-dev \
 
 ## Umgebungsinformationen
 
-- **Python**: 3.13.11
-- **uv**: 0.9.26
-- **Git**: 2.47.3
+- **Python**: 3.13
+- **uv**: latest
+- **Bun**: latest
+- **Git**: latest
 - **Basis-Image**: python:3.13-slim
 - **Benutzer**: vscode (nicht-root)
 - **Arbeitsverzeichnis**: /workspace
@@ -122,10 +121,8 @@ docker run --rm -v $(pwd):/workspace jarvis-dev \
 
 ## Verwandte Dokumentation
 
-- [Vollständiges Benutzerhandbuch](.devcontainer/README.md)
-- [Konfigurationshinweise](.devcontainer/CHANGELOG.md)
-- [Testbericht](.devcontainer/TEST_REPORT.md)
-- [Vollständiger Einrichtungsbericht](.devcontainer/SETUP_COMPLETE.md)
+- [Vollständiges Benutzerhandbuch (Deutsch)](../readme/README.de.md)
+- [Vollständiges Benutzerhandbuch (中文)](../../../README.md)
 
 ---
 

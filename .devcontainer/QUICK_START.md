@@ -1,4 +1,4 @@
-[中文](QUICK_START.md) | [English](QUICK_START.en.md) | [日本語](QUICK_START.ja.md) | [한국어](QUICK_START.ko.md) | [Français](QUICK_START.fr.md) | [Deutsch](QUICK_START.de.md)
+[中文](QUICK_START.md) | [English](docs/i18n/quick-start/QUICK_START.en.md) | [日本語](docs/i18n/quick-start/QUICK_START.ja.md) | [한국어](docs/i18n/quick-start/QUICK_START.ko.md) | [Français](docs/i18n/quick-start/QUICK_START.fr.md) | [Deutsch](docs/i18n/quick-start/QUICK_START.de.md)
 
 # 🚀 Dev Container 快速参考
 
@@ -6,7 +6,7 @@
 
 ```bash
 # 1. 打开 VS Code
-code /Users/hyh/code/JARVIS
+code path/to/JARVIS
 
 # 2. 按 F1,输入:
 Dev Containers: Reopen in Container
@@ -20,7 +20,7 @@ Dev Containers: Reopen in Container
 
 ### 构建镜像
 ```bash
-cd /Users/hyh/code/JARVIS
+cd path/to/JARVIS
 docker build -t jarvis-dev -f .devcontainer/Dockerfile .
 ```
 
@@ -68,13 +68,15 @@ pre-commit run --all-files
 
 ```
 .devcontainer/
-├── devcontainer.json     # VS Code 配置
-├── Dockerfile            # 镜像定义
-├── README.md             # 使用指南
-├── CHANGELOG.md          # 配置日志
-├── SETUP_COMPLETE.md     # 完整报告
-├── TEST_REPORT.md        # 测试结果
-└── test.sh               # 验证脚本
+├── devcontainer.json        # VS Code 配置
+├── Dockerfile               # 镜像定义
+├── README.md                # 使用指南（中文）
+├── QUICK_START.md           # 快速参考（中文）
+└── docs/i18n/
+    ├── readme/              # 使用指南翻译
+    │   └── README.{en,ja,ko,fr,de}.md
+    └── quick-start/         # 快速参考翻译
+        └── QUICK_START.{en,ja,ko,fr,de}.md
 ```
 
 ---
@@ -82,18 +84,14 @@ pre-commit run --all-files
 ## 快速测试
 
 ```bash
-# 验证配置
-./.devcontainer/test.sh
-
 # 测试 Python
 docker run --rm jarvis-dev python --version
 
 # 测试 uv
 docker run --rm jarvis-dev uv --version
 
-# 测试完整流程
-docker run --rm -v $(pwd):/workspace jarvis-dev \
-  bash -c "cd /workspace && uv sync && uv run python main.py"
+# 测试 Bun
+docker run --rm jarvis-dev bun --version
 ```
 
 ---
@@ -111,9 +109,10 @@ docker run --rm -v $(pwd):/workspace jarvis-dev \
 
 ## 环境信息
 
-- **Python**: 3.13.11
-- **uv**: 0.9.26
-- **Git**: 2.47.3
+- **Python**: 3.13
+- **uv**: latest
+- **Bun**: latest
+- **Git**: latest
 - **基础镜像**: python:3.13-slim
 - **用户**: vscode (非 root)
 - **工作目录**: /workspace
@@ -122,10 +121,7 @@ docker run --rm -v $(pwd):/workspace jarvis-dev \
 
 ## 相关文档
 
-- [完整使用指南](.devcontainer/README.md)
-- [配置说明](.devcontainer/CHANGELOG.md)
-- [测试报告](.devcontainer/TEST_REPORT.md)
-- [完整设置报告](.devcontainer/SETUP_COMPLETE.md)
+- [完整使用指南](README.md)
 
 ---
 
