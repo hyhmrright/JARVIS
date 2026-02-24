@@ -10,12 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.graph import create_graph
 from app.agent.state import AgentState
-from app.api.deps import get_current_user
-from app.core.security import decrypt_api_keys
-from app.db.models import Conversation, Message, User, UserSettings
+from app.api.deps import ResolvedLLMConfig, get_current_user, get_llm_config
+from app.db.models import Conversation, Message, User
 from app.db.session import AsyncSessionLocal, get_db
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
+
+_ROLE_TO_MESSAGE = {"human": HumanMessage, "ai": AIMessage}
 
 
 class ChatRequest(BaseModel):
@@ -27,6 +28,7 @@ class ChatRequest(BaseModel):
 async def chat_stream(
     body: ChatRequest,
     user: User = Depends(get_current_user),
+    llm: ResolvedLLMConfig = Depends(get_llm_config),
     db: AsyncSession = Depends(get_db),
 ):
     conv = await db.scalar(
@@ -38,38 +40,28 @@ async def chat_stream(
     if not conv:
         raise HTTPException(status_code=404)
 
-    user_settings = await db.scalar(
-        select(UserSettings).where(UserSettings.user_id == user.id)
-    )
-    provider = user_settings.model_provider if user_settings else "deepseek"
-    model_name = user_settings.model_name if user_settings else "deepseek-chat"
-    raw_keys = user_settings.api_keys if user_settings else {}
-    api_key = decrypt_api_keys(raw_keys).get(provider, "")
-    enabled_tools = user_settings.enabled_tools if user_settings else None
-
     db.add(Message(conversation_id=conv.id, role="human", content=body.content))
     await db.commit()
 
-    role_to_message = {"human": HumanMessage, "ai": AIMessage}
     history_rows = await db.scalars(
         select(Message)
         .where(Message.conversation_id == conv.id)
         .order_by(Message.created_at)
     )
     lc_messages = [
-        role_to_message[msg.role](content=msg.content)
+        _ROLE_TO_MESSAGE[msg.role](content=msg.content)
         for msg in history_rows.all()
-        if msg.role in role_to_message
+        if msg.role in _ROLE_TO_MESSAGE
     ]
 
     conv_id = conv.id
 
     async def generate():
         graph = create_graph(
-            provider=provider,
-            model=model_name,
-            api_key=api_key,
-            enabled_tools=enabled_tools,
+            provider=llm.provider,
+            model=llm.model_name,
+            api_key=llm.api_key,
+            enabled_tools=llm.enabled_tools,
         )
         full_content = ""
         async for chunk in graph.astream(AgentState(messages=lc_messages)):
@@ -86,8 +78,8 @@ async def chat_stream(
                         conversation_id=conv_id,
                         role="ai",
                         content=full_content,
-                        model_provider=provider,
-                        model_name=model_name,
+                        model_provider=llm.provider,
+                        model_name=llm.model_name,
                     )
                 )
 
