@@ -1,0 +1,27 @@
+backend:
+  - changed-files:
+      - any-glob-to-any-file: "backend/**"
+
+frontend:
+  - changed-files:
+      - any-glob-to-any-file: "frontend/**"
+
+infrastructure:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "database/**"
+          - "docker-compose.yml"
+          - "Dockerfile*"
+          - ".github/workflows/**"
+          - "scripts/**"
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "**/*.md"
+          - "!.github/**/*.md"
+
+rag:
+  - changed-files:
+      - any-glob-to-any-file: "backend/app/rag/**"

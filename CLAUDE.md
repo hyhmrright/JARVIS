@@ -7,8 +7,89 @@
 ## 分支策略
 
 - **main**：仅用于发版，不得直接提交或开发。只接受来自 dev 等开发分支的 merge。
-- **dev**：主开发分支，所有日常开发、bugfix、功能开发均在此分支或其子分支进行。
+- **dev**：主开发分支（GitHub 默认分支），所有日常开发、bugfix、功能开发均在此分支或其子分支进行。
 - 开发完成后：dev → merge → main → push，不得跳过。
+
+### 协作分支命名规范
+
+所有功能分支从 `dev` 创建，命名格式 `<类型>/<简短描述>`：
+
+| 前缀 | 用途 | 示例 |
+|------|------|------|
+| `feature/` | 新功能 | `feature/rag-agent-integration` |
+| `fix/` | 缺陷修复 | `fix/sse-disconnect` |
+| `docs/` | 仅文档改动 | `docs/api-reference` |
+| `infra/` | Docker、CI、部署 | `infra/add-healthcheck` |
+
+### Commit 消息规范
+
+遵循 [Conventional Commits](https://www.conventionalcommits.org/)：`<type>: <description>`
+
+类型：`feat`、`fix`、`docs`、`style`、`refactor`、`test`、`chore`、`ci`
+
+## Worktree 并行开发
+
+### 何时使用 Worktree
+
+- 需要同时开发多个功能且互不干扰
+- Review 他人 PR 时不想影响当前工作
+- 紧急修复但当前分支有未完成的功能
+
+### 创建与管理
+
+```bash
+# 创建 worktree（从 dev 分出新分支）
+git worktree add .worktrees/<name> -b feature/<name> dev
+
+# 在 worktree 中初始化环境
+cd .worktrees/<name>
+cp ../../.env .                          # 复制环境变量
+cd backend && uv sync && cd ..           # 安装后端依赖
+cd frontend && bun install && cd ..      # 安装前端依赖
+cd backend && uv run alembic upgrade head && cd ..  # 数据库迁移
+
+# 列出所有 worktree
+git worktree list
+
+# 移除 worktree（合并完成后）
+git worktree remove .worktrees/<name>
+
+# 清理已删除的 worktree 引用
+git worktree prune
+```
+
+### Claude Code 中使用 Worktree
+
+```bash
+# 启动隔离的 Claude Code 会话
+claude --worktree feature-xxx
+
+# 或在对话中要求
+> "在 worktree 中开发这个功能"
+```
+
+### 端口分配
+
+Docker 基础服务（postgres/redis/qdrant/minio）所有 worktree 共享。开发服务器需分配不同端口：
+
+| 工作目录 | 后端端口 | 前端端口 |
+|---------|---------|---------|
+| 主目录（根） | 8000 | 5173 |
+| Worktree 1 | 8001 | 5174 |
+| Worktree 2 | 8002 | 5175 |
+
+```bash
+# 在 worktree 中启动时指定端口
+uv run uvicorn app.main:app --reload --port 8001
+bun run dev --port 5174
+```
+
+### 注意事项
+
+- `.env` 文件不在 git 中，新建 worktree 需手动复制
+- 避免多个 worktree 同时修改 `alembic/versions/`（数据库迁移冲突）
+- `.worktrees/` 已在 `.gitignore` 中，不会被意外提交
+- 同一分支不能被两个 worktree 同时检出
 
 ## 项目概述
 
