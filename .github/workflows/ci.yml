@@ -19,6 +19,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
+          python-version: "3.13"
       - run: uv sync --frozen
         working-directory: backend
       - run: uv run ruff check .
@@ -34,6 +35,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
+          python-version: "3.13"
       - run: uv sync --frozen
         working-directory: backend
       - run: uv run pyright
@@ -70,6 +72,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
+          python-version: "3.13"
       - run: uv sync --frozen
         working-directory: backend
       - run: uv run pytest tests/ -v --tb=short
