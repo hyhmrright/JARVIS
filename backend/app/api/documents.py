@@ -4,7 +4,6 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from minio import Minio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +12,8 @@ from app.core.config import settings
 from app.core.security import decrypt_api_keys
 from app.db.models import Document, User, UserSettings
 from app.db.session import get_db
+from app.infra.minio import get_minio_client
+from app.infra.qdrant import user_collection_name
 from app.rag.indexer import index_document
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
@@ -37,15 +38,6 @@ def extract_text(content: bytes, file_type: str) -> str:
     return ""
 
 
-def _get_minio_client() -> Minio:
-    return Minio(
-        settings.minio_endpoint,
-        access_key=settings.minio_access_key,
-        secret_key=settings.minio_secret_key,
-        secure=False,
-    )
-
-
 @router.post("", status_code=201)
 async def upload_document(
     file: UploadFile = File(...),
@@ -63,13 +55,7 @@ async def upload_document(
     safe_name = Path(file.filename or "upload").name
     object_key = f"{user.id}/{uuid.uuid4()}_{safe_name}"
 
-    minio_client = _get_minio_client()
-
-    bucket_exists = await asyncio.to_thread(
-        minio_client.bucket_exists, settings.minio_bucket
-    )
-    if not bucket_exists:
-        await asyncio.to_thread(minio_client.make_bucket, settings.minio_bucket)
+    minio_client = get_minio_client()
     await asyncio.to_thread(
         minio_client.put_object,
         settings.minio_bucket,
@@ -91,7 +77,7 @@ async def upload_document(
         filename=safe_name,
         file_type=ext,
         file_size_bytes=len(content),
-        qdrant_collection=f"user_{user.id}",
+        qdrant_collection=user_collection_name(str(user.id)),
         minio_object_key=object_key,
     )
     db.add(doc)
