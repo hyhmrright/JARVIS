@@ -29,7 +29,8 @@
     "genericError": "회원가입에 실패했습니다. 잠시 후 다시 시도해 주세요"
   },
   "chat": {
-    "newConversation": "+ 새 대화",
+    "newConversation": "새 대화",
+    "deleteConfirm": "이 대화를 삭제하시겠습니까?",
     "documents": "지식 베이스",
     "settings": "설정",
     "logout": "로그아웃",

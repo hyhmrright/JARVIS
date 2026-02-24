@@ -14,9 +14,16 @@
           v-for="conv in chat.conversations"
           :key="conv.id"
           :class="['conv-item', { active: conv.id === chat.currentConvId }]"
-          @click="chat.currentConvId = conv.id"
+          @click="chat.selectConversation(conv.id)"
         >
           <span class="conv-title">{{ conv.title }}</span>
+          <button
+            class="conv-delete"
+            :title="$t('chat.deleteConfirm')"
+            @click.stop="confirmDelete(conv.id)"
+          >
+            &times;
+          </button>
         </li>
       </ul>
       <div class="sidebar-footer">
@@ -91,9 +98,11 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { useChatStore } from "@/stores/chat";
 import { useAuthStore } from "@/stores/auth";
 
+const { t } = useI18n();
 const chat = useChatStore();
 const auth = useAuthStore();
 const router = useRouter();
@@ -116,6 +125,12 @@ async function send() {
   input.value = "";
   if (!chat.currentConvId) await chat.newConversation();
   await chat.sendMessage(msg);
+}
+
+async function confirmDelete(convId: string) {
+  if (confirm(t("chat.deleteConfirm"))) {
+    await chat.deleteConversation(convId);
+  }
 }
 </script>
 
@@ -194,6 +209,9 @@ async function send() {
 }
 
 .conv-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
   padding: 10px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -219,7 +237,31 @@ async function send() {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.conv-delete {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  padding: 0 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+  border-radius: var(--radius-sm);
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.conv-item:hover .conv-delete {
   display: block;
+}
+
+.conv-delete:hover {
+  color: var(--danger);
+  background: var(--danger-a10);
 }
 
 .conv-item.active .conv-title {

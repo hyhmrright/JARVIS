@@ -29,7 +29,8 @@
     "genericError": "Registrierung fehlgeschlagen, bitte versuchen Sie es später erneut"
   },
   "chat": {
-    "newConversation": "+ Neuer Chat",
+    "newConversation": "Neuer Chat",
+    "deleteConfirm": "Diese Unterhaltung löschen?",
     "documents": "Wissensdatenbank",
     "settings": "Einstellungen",
     "logout": "Abmelden",

@@ -29,7 +29,8 @@
     "genericError": "Registration failed, please try again later"
   },
   "chat": {
-    "newConversation": "+ New Chat",
+    "newConversation": "New Chat",
+    "deleteConfirm": "Delete this conversation?",
     "documents": "Documents",
     "settings": "Settings",
     "logout": "Logout",

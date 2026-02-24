@@ -29,7 +29,8 @@
     "genericError": "登録に失敗しました。しばらくしてから再試行してください"
   },
   "chat": {
-    "newConversation": "+ 新規チャット",
+    "newConversation": "新規チャット",
+    "deleteConfirm": "この会話を削除しますか？",
     "documents": "ナレッジベース",
     "settings": "設定",
     "logout": "ログアウト",

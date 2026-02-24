@@ -29,7 +29,8 @@
     "genericError": "Échec de l'inscription, veuillez réessayer plus tard"
   },
   "chat": {
-    "newConversation": "+ Nouvelle conversation",
+    "newConversation": "Nouvelle conversation",
+    "deleteConfirm": "Supprimer cette conversation ?",
     "documents": "Base de connaissances",
     "settings": "Paramètres",
     "logout": "Déconnexion",

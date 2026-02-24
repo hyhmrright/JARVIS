@@ -16,11 +16,33 @@ export const useChatStore = defineStore("chat", {
       const { data } = await client.get("/conversations");
       this.conversations = data;
     },
+    async selectConversation(convId: string) {
+      this.currentConvId = convId;
+      this.messages = [];
+      try {
+        const { data } = await client.get<Message[]>(`/conversations/${convId}/messages`);
+        this.messages = data;
+      } catch {
+        this.currentConvId = null;
+      }
+    },
     async newConversation() {
       const { data } = await client.post("/conversations", { title: "New Chat" });
       this.conversations.unshift(data);
       this.currentConvId = data.id;
       this.messages = [];
+    },
+    async deleteConversation(convId: string) {
+      try {
+        await client.delete(`/conversations/${convId}`);
+        this.conversations = this.conversations.filter(c => c.id !== convId);
+        if (this.currentConvId === convId) {
+          this.currentConvId = null;
+          this.messages = [];
+        }
+      } catch {
+        // 删除失败时保持列表不变，静默处理
+      }
     },
     async sendMessage(content: string) {
       if (!this.currentConvId) return;
