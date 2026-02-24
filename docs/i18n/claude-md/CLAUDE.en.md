@@ -16,76 +16,137 @@ JARVIS is an AI assistant platform with RAG knowledge base, multi-LLM support, a
 
 ## Core Architecture
 
-- **backend/**: FastAPI + LangGraph + SQLAlchemy (PostgreSQL) + Qdrant (vector store) + MinIO (file storage) + Redis
-- **frontend/**: Vue 3 + TypeScript + Vite + Pinia
-- **Root pyproject.toml**: Manages development tools only (ruff, pyright, pre-commit), no runtime dependencies
-- **LLM**: Supports DeepSeek / OpenAI / Anthropic, driven by LangGraph StateGraph
+```
+JARVIS/
+├── backend/           # FastAPI backend (Python 3.13 + uv)
+│   ├── app/
+│   │   ├── main.py    # FastAPI entry point, lifespan manages infra connections
+│   │   ├── agent/     # LangGraph ReAct agent (graph/llm/state)
+│   │   ├── api/       # HTTP routes (auth/chat/conversations/documents/settings)
+│   │   ├── core/      # Config (Pydantic Settings), security (JWT/bcrypt/Fernet), rate limiting
+│   │   ├── db/        # SQLAlchemy async models and sessions
+│   │   ├── infra/     # Infrastructure client singletons (Qdrant/MinIO/Redis)
+│   │   ├── rag/       # RAG pipeline (chunker/embedder/indexer)
+│   │   └── tools/     # LangGraph tools (search/code_exec/file/datetime)
+│   ├── alembic/       # Database migrations
+│   └── tests/         # pytest test suite
+├── frontend/          # Vue 3 + TypeScript + Vite + Pinia
+│   └── src/
+│       ├── api/       # Axios singleton + auth interceptor
+│       ├── stores/    # Pinia stores (auth + chat)
+│       ├── pages/     # Page components (Login/Register/Chat/Documents/Settings)
+│       ├── locales/   # i18n (zh/en/ja/ko/fr/de)
+│       └── router/    # Vue Router + auth guard
+├── database/          # Docker init scripts (postgres/redis/qdrant)
+├── docker-compose.yml # Full-stack orchestration
+└── pyproject.toml     # Root dev tools config (ruff/pyright/pre-commit), no runtime deps
+```
+
+### Backend Architecture Highlights
+
+**LLM Agent**: `agent/graph.py` implements a ReAct loop using LangGraph `StateGraph` (llm → tools → llm → END). A new graph instance is created per request with no checkpoint persistence. The LLM factory (`agent/llm.py`) dispatches via `match/case` to `ChatDeepSeek` / `ChatOpenAI` / `ChatAnthropic`.
+
+**Streaming Chat**: `api/chat.py`'s `POST /api/chat/stream` returns an SSE `StreamingResponse`. Note: the streaming generator uses a separate `AsyncSessionLocal` session internally (cannot reuse the request-level session as it closes when the handler returns).
+
+**RAG Pipeline**: Upload document → `extract_text()` → `chunk_text()` (sliding window, 500 words/50 word overlap) → `OpenAIEmbeddings` (text-embedding-3-small, 1536 dims) → Qdrant upsert. One collection per user (`user_{id}`). Note: RAG retrieval is not yet wired into the agent conversation flow.
+
+**Database Models**: 5 tables — `users`, `user_settings` (JSONB stores Fernet-encrypted API keys), `conversations`, `messages` (immutable), `documents` (soft delete). All use UUID primary keys.
+
+**Infrastructure Singletons**: Qdrant uses module-level global + lazy init + asyncio.Lock; MinIO uses `@lru_cache` + `asyncio.to_thread()` (sync SDK); PostgreSQL uses module-level engine + sessionmaker.
+
+### Frontend Architecture Highlights
+
+**State Management**: Two Pinia stores — `auth.ts` (JWT token persisted to localStorage) and `chat.ts` (conversation list + SSE streaming messages). SSE uses native `fetch` + `ReadableStream` instead of Axios (Axios doesn't support streaming response bodies).
+
+**Routing**: 5 routes, all page components are lazy-loaded. `beforeEach` guard checks `auth.isLoggedIn`.
+
+**API Client**: Axios instance with `baseURL: "/api"`, request interceptor reads token from localStorage. Dev server proxies `/api` → `http://backend:8000`.
+
+**Internationalization**: vue-i18n, 6 languages, detection priority: localStorage → navigator.language → zh.
 
 ## Development Environment
 
-- **Python version**: 3.13 (`.python-version`)
-- **Package manager**: `uv`
-- **Virtual environment**: `.venv` (automatically managed)
+- **Python**: 3.13 (`.python-version`)
+- **Package managers**: Backend `uv`, Frontend `bun`
+- **Virtual environment**: `.venv` (managed by uv automatically)
 
 ## Common Commands
 
 ### Environment Setup
 ```bash
-uv sync                      # Install all dependencies
+bash scripts/init-env.sh             # First run, generates .env (with random passwords/keys)
+uv sync                              # Install Python dependencies
+cd frontend && bun install            # Install frontend dependencies
+pre-commit install                    # Install git hooks
 ```
 
 ### Running the Application
 ```bash
+# Start infrastructure only (for local dev)
+docker compose up -d postgres redis qdrant minio
+
 # Backend (in backend/ directory)
-uv run uvicorn app.main:app --reload
+uv run alembic upgrade head           # Database migration
+uv run uvicorn app.main:app --reload  # Dev server :8000
 
 # Frontend (in frontend/ directory)
-bun run dev
+bun run dev                           # Dev server :5173 (proxies /api → backend:8000)
 
-# Full stack (root directory)
-docker-compose up -d
+# Full-stack Docker
+docker compose up -d                  # Frontend :3000 · Backend :8000
 ```
 
-### Code Quality Checks
+### Code Quality
 ```bash
-ruff check                   # Code linting
-ruff check --fix             # Auto-fix issues
-ruff format                  # Code formatting
-pyright                      # Type checking
+# Backend
+ruff check                   # Lint
+ruff check --fix             # Lint + auto-fix
+ruff format                  # Format
+pyright                      # Type check
+
+# Frontend (in frontend/ directory)
+bun run lint                 # ESLint
+bun run lint:fix             # ESLint + auto-fix
+bun run format               # Prettier
+bun run type-check           # vue-tsc
 ```
 
 ### Testing
 ```bash
 # Run in backend/ directory
-uv run pytest tests/ -v                        # Run all tests
-uv run pytest tests/api/test_auth.py -v        # Run a specific test file
+uv run pytest tests/ -v                        # All tests
+uv run pytest tests/api/test_auth.py -v        # Single file
+uv run pytest tests/api/test_auth.py::test_login -v  # Single test case
 ```
 
 ### Pre-commit Hooks
 ```bash
-pre-commit install           # Install git hooks
 pre-commit run --all-files   # Manually run all hooks
 ```
 
-Pre-commit automatically runs:
-- YAML/TOML/JSON format checks
-- uv.lock sync check
-- Ruff lint and format
-- Trailing newline and trailing whitespace checks
+Hooks include: YAML/TOML/JSON format checks, uv.lock sync, Ruff lint+format, ESLint, Pyright, vue-tsc type check, gitleaks secret scanning, block direct commits to main.
 
 ### Dependency Management
 ```bash
-uv add <package>             # Add a production dependency
-uv add --group dev <package> # Add a development dependency
-uv sync --upgrade            # Update dependencies
-uv lock                      # Regenerate uv.lock after manually editing pyproject.toml
+# Python (root pyproject.toml manages dev tools, backend/pyproject.toml manages runtime deps)
+uv add <package>             # Add dependency (run in the appropriate directory)
+uv add --group dev <package> # Add dev dependency
+uv lock                      # Regenerate lock after manual pyproject.toml edits
+
+# Frontend
+cd frontend && bun add <package>
 ```
 
 ## Tool Configuration
 
 - **Ruff**: line-length=88, target-version="py313", quote-style="double"
 - **Pyright**: typeCheckingMode="basic"
-- **Pre-commit**: Runs uv-lock, ruff-check, ruff-format, and standard file checks
+- **ESLint**: flat config, typescript-eslint + eslint-plugin-vue + prettier
+- **TypeScript**: strict, bundler resolution, `@/*` → `src/*`
+
+## Environment Variables
+
+All sensitive configuration (database password, JWT secret, encryption key, MinIO credentials) has no default values and must be provided via `.env` or environment variables. Run `bash scripts/init-env.sh` to auto-generate. You only need to manually fill in `DEEPSEEK_API_KEY`.
 
 ---
 
