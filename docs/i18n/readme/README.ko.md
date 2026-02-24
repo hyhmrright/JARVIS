@@ -28,10 +28,10 @@ JARVIS/
 
 ### 풀스택 실행 (권장)
 
-환경 변수 파일을 복사하고 작성한 후 시작합니다:
+환경 변수 파일을 생성하고 시작합니다:
 
 ```bash
-cp .env.example .env   # 각 시크릿을 입력
+bash scripts/init-env.sh   # 안전한 .env를 자동 생성 (최초 1회)
 docker compose up -d
 ```
 
@@ -81,35 +81,8 @@ pre-commit run --all-files
 
 ## 환경 변수
 
-프로젝트 루트에 `.env` 파일을 생성합니다:
+`bash scripts/init-env.sh`를 실행하여 랜덤 비밀번호와 키로 안전한 `.env`를 자동 생성합니다.
 
-```env
-# 데이터베이스
-POSTGRES_PASSWORD=your_password
+스크립트가 설정하는 항목: `POSTGRES_PASSWORD`, `MINIO_ROOT_USER/PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, `ENCRYPTION_KEY`, `DATABASE_URL`, `REDIS_URL`.
 
-# 오브젝트 스토리지
-MINIO_ROOT_USER=minioadmin
-MINIO_ROOT_PASSWORD=your_minio_password
-
-# 인증
-JWT_SECRET=your_jwt_secret
-
-# LLM (기본 프로바이더. 다른 프로바이더의 API Key는 앱 설정 페이지에서 사용자별로 구성)
-DEEPSEEK_API_KEY=your_key
-```
-
-로컬 개발 시 백엔드는 로컬 서비스 연결을 위해 `backend/.env`도 필요합니다:
-
-```env
-DATABASE_URL=postgresql+asyncpg://jarvis:your_password@localhost:5432/jarvis
-REDIS_URL=redis://localhost:6379
-QDRANT_URL=http://localhost:6333
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=your_minio_password
-JWT_SECRET=your_jwt_secret
-# Fernet 암호화 키 (사용자 API Key 암호화에 사용)
-# 생성 방법: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-ENCRYPTION_KEY=your_fernet_key
-DEEPSEEK_API_KEY=your_key
-```
+수동으로 입력해야 하는 항목은 `DEEPSEEK_API_KEY`뿐입니다. 자세한 내용은 `.env.example`을 참조하세요.

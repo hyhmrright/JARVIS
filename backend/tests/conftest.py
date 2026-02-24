@@ -10,7 +10,13 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 
-_pg_password = os.environ.get("POSTGRES_PASSWORD", "jarvis")
+try:
+    _pg_password = os.environ["POSTGRES_PASSWORD"]
+except KeyError:
+    raise RuntimeError(
+        "POSTGRES_PASSWORD env var is required to run tests. "
+        "Run 'bash scripts/init-env.sh' or export it manually."
+    ) from None
 TEST_DATABASE_URL = (
     f"postgresql+asyncpg://jarvis:{_pg_password}@localhost:5432/jarvis_test"
 )

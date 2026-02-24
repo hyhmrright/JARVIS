@@ -28,10 +28,10 @@ JARVIS/
 
 ### Full-Stack-Start (empfohlen)
 
-Kopieren und füllen Sie die Umgebungsvariablen-Datei aus, dann starten Sie:
+Generieren Sie die Umgebungsvariablen-Datei und starten Sie:
 
 ```bash
-cp .env.example .env   # Tragen Sie Ihre Secrets ein
+bash scripts/init-env.sh   # Sichere .env automatisch generieren (nur beim ersten Mal)
 docker compose up -d
 ```
 
@@ -81,35 +81,8 @@ pre-commit run --all-files
 
 ## Umgebungsvariablen
 
-Erstellen Sie eine `.env`-Datei im Projektstammverzeichnis:
+Führen Sie `bash scripts/init-env.sh` aus, um automatisch eine sichere `.env` mit zufälligen Passwörtern und Schlüsseln zu generieren.
 
-```env
-# Datenbank
-POSTGRES_PASSWORD=your_password
+Das Skript konfiguriert: `POSTGRES_PASSWORD`, `MINIO_ROOT_USER/PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, `ENCRYPTION_KEY`, `DATABASE_URL`, `REDIS_URL`.
 
-# Objektspeicher
-MINIO_ROOT_USER=minioadmin
-MINIO_ROOT_PASSWORD=your_minio_password
-
-# Authentifizierung
-JWT_SECRET=your_jwt_secret
-
-# LLM (Standard-Provider; API-Schlüssel anderer Provider werden pro Benutzer über die Einstellungsseite konfiguriert)
-DEEPSEEK_API_KEY=your_key
-```
-
-Für die lokale Entwicklung benötigt das Backend zusätzlich `backend/.env` zur Verbindung mit lokalen Diensten:
-
-```env
-DATABASE_URL=postgresql+asyncpg://jarvis:your_password@localhost:5432/jarvis
-REDIS_URL=redis://localhost:6379
-QDRANT_URL=http://localhost:6333
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=your_minio_password
-JWT_SECRET=your_jwt_secret
-# Fernet-Verschlüsselungsschlüssel (wird zur Verschlüsselung von Benutzer-API-Schlüsseln verwendet)
-# Generierung: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-ENCRYPTION_KEY=your_fernet_key
-DEEPSEEK_API_KEY=your_key
-```
+Nur `DEEPSEEK_API_KEY` muss manuell eingetragen werden. Details finden Sie in `.env.example`.
