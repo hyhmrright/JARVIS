@@ -17,3 +17,7 @@ COMMENT ON COLUMN user_settings.model_provider IS 'LLM 提供商标识：deepsee
 COMMENT ON COLUMN user_settings.model_name IS '模型名称：deepseek-chat / gpt-4 / claude-3 等';
 COMMENT ON COLUMN user_settings.api_keys IS 'Fernet 加密后的 API Key JSON，格式 {"provider": "encrypted_key"}';
 COMMENT ON COLUMN user_settings.enabled_tools IS '已启用工具列表 JSON 数组';
+
+CREATE TRIGGER set_user_settings_updated_at
+    BEFORE UPDATE ON user_settings
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

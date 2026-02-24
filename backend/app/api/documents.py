@@ -13,6 +13,7 @@ from app.core.security import decrypt_api_keys
 from app.db.models import Document, User, UserSettings
 from app.db.session import get_db
 from app.infra.minio import get_minio_client
+from app.infra.qdrant import user_collection_name
 from app.rag.indexer import index_document
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
@@ -76,7 +77,7 @@ async def upload_document(
         filename=safe_name,
         file_type=ext,
         file_size_bytes=len(content),
-        qdrant_collection=f"user_{user.id}",
+        qdrant_collection=user_collection_name(str(user.id)),
         minio_object_key=object_key,
     )
     db.add(doc)

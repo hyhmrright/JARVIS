@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -14,21 +15,23 @@ from app.api.documents import router as documents_router
 from app.api.settings import router as settings_router
 from app.core.config import settings
 from app.core.limiter import limiter
+from app.infra.minio import get_minio_client
+from app.infra.qdrant import close_qdrant_client, get_qdrant_client
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """应用启动/关闭生命周期：初始化外部基础设施。"""
-    # --- startup ---
-    logger.info("Initializing infrastructure connections...")
-    # Qdrant: 用户 collection 按需创建（ensure_user_collection 在业务层调用）
-    # MinIO: bucket 由 docker-compose minio-init 服务创建
-    # Redis: 由 slowapi/limiter 自行管理连接
+    """应用启动/关闭生命周期：验证基础设施连接。"""
+    logger.info("Checking infrastructure connections...")
+    qdrant = get_qdrant_client()
+    await qdrant.get_collections()
+    minio = get_minio_client()
+    await asyncio.to_thread(minio.bucket_exists, settings.minio_bucket)
     logger.info("Infrastructure ready.")
     yield
-    # --- shutdown ---
+    await close_qdrant_client()
     logger.info("Shutting down.")
 
 

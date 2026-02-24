@@ -31,14 +31,14 @@ services:
 
   redis:
     image: redis:8.6.0-alpine3.23
-    command: redis-server /usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf --requirepass ${REDIS_PASSWORD:-changeme}
     volumes:
       - ${HOME}/jarvis-data/redis:/data
       - ./database/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD:-changeme} ping"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -80,7 +80,7 @@ services:
     build: ./backend
     environment:
       DATABASE_URL: postgresql+asyncpg://jarvis:${POSTGRES_PASSWORD}@postgres:5432/jarvis
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-changeme}@redis:6379
       QDRANT_URL: http://qdrant:6333
       MINIO_ENDPOINT: minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}

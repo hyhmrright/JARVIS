@@ -18,3 +18,7 @@ COMMENT ON COLUMN users.display_name IS '显示名称，可选';
 COMMENT ON COLUMN users.is_active IS '账户是否激活';
 COMMENT ON COLUMN users.created_at IS '创建时间';
 COMMENT ON COLUMN users.updated_at IS '最后更新时间';
+
+CREATE TRIGGER set_users_updated_at
+    BEFORE UPDATE ON users
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

@@ -11,3 +11,7 @@ CREATE TABLE IF NOT EXISTS conversations (
 COMMENT ON TABLE conversations IS '对话表：每条记录代表一个对话会话';
 COMMENT ON COLUMN conversations.user_id IS '所属用户 ID，级联删除';
 COMMENT ON COLUMN conversations.title IS '对话标题，默认 New Conversation';
+
+CREATE TRIGGER set_conversations_updated_at
+    BEFORE UPDATE ON conversations
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

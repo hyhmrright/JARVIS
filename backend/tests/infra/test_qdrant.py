@@ -4,17 +4,24 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.infra.qdrant import ensure_user_collection, get_qdrant_client
+from app.infra.qdrant import ensure_user_collection, user_collection_name
 
 
 def test_collections_json_is_valid():
     """database/qdrant/collections.json 应可被解析。"""
-    path = Path(__file__).resolve().parents[3] / "database" / "qdrant" / "collections.json"
+    path = (
+        Path(__file__).resolve().parents[3] / "database" / "qdrant" / "collections.json"
+    )
     data = json.loads(path.read_text())
     assert "collections" in data
     coll = data["collections"][0]
     assert coll["vectors"]["size"] == 1536
     assert coll["vectors"]["distance"] == "Cosine"
+
+
+def test_user_collection_name():
+    """user_collection_name 应返回正确格式。"""
+    assert user_collection_name("abc-123") == "user_abc-123"
 
 
 @pytest.mark.anyio

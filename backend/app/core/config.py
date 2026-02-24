@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+asyncpg://jarvis:jarvis@localhost:5432/jarvis"
-    redis_url: str = "redis://localhost:6379"
+    redis_url: str = "redis://:changeme@localhost:6379"
     qdrant_url: str = "http://localhost:6333"
     minio_endpoint: str = "localhost:9000"
     minio_access_key: str = "minioadmin"
