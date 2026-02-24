@@ -1,3 +1,5 @@
+[中文](QUICK_START.md) | [English](QUICK_START.en.md) | [日本語](QUICK_START.ja.md) | [한국어](QUICK_START.ko.md) | [Français](QUICK_START.fr.md) | [Deutsch](QUICK_START.de.md)
+
 # 🚀 Dev Container 快速参考
 
 ## 一键启动 (VS Code)
