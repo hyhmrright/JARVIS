@@ -28,10 +28,10 @@ JARVIS/
 
 ### Full-Stack Launch (Recommended)
 
-Copy and fill in the environment variables file, then start:
+Generate the environment variables file, then start:
 
 ```bash
-cp .env.example .env   # Fill in your secrets
+bash scripts/init-env.sh   # Auto-generate a secure .env (first time only)
 docker compose up -d
 ```
 
@@ -81,35 +81,8 @@ pre-commit run --all-files
 
 ## Environment Variables
 
-Create a `.env` file in the project root:
+Run `bash scripts/init-env.sh` to auto-generate a secure `.env` with random passwords and keys.
 
-```env
-# Database
-POSTGRES_PASSWORD=your_password
+The script configures: `POSTGRES_PASSWORD`, `MINIO_ROOT_USER/PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, `ENCRYPTION_KEY`, `DATABASE_URL`, `REDIS_URL`.
 
-# Object Storage
-MINIO_ROOT_USER=minioadmin
-MINIO_ROOT_PASSWORD=your_minio_password
-
-# Authentication
-JWT_SECRET=your_jwt_secret
-
-# LLM (default provider; other providers' API Keys are configured per user via the app settings page)
-DEEPSEEK_API_KEY=your_key
-```
-
-For local development, the backend also requires `backend/.env` to connect to local services:
-
-```env
-DATABASE_URL=postgresql+asyncpg://jarvis:your_password@localhost:5432/jarvis
-REDIS_URL=redis://localhost:6379
-QDRANT_URL=http://localhost:6333
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=your_minio_password
-JWT_SECRET=your_jwt_secret
-# Fernet encryption key (used to encrypt user API Keys)
-# Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-ENCRYPTION_KEY=your_fernet_key
-DEEPSEEK_API_KEY=your_key
-```
+You only need to manually fill in `DEEPSEEK_API_KEY`. See `.env.example` for details.

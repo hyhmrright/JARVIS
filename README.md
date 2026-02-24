@@ -28,10 +28,10 @@ JARVIS/
 
 ### 全栈启动（推荐）
 
-复制并填写环境变量文件，然后启动：
+生成环境变量文件，然后启动：
 
 ```bash
-cp .env.example .env   # 填写各项密钥
+bash scripts/init-env.sh   # 自动生成安全的 .env（首次运行）
 docker compose up -d
 ```
 
@@ -81,35 +81,8 @@ pre-commit run --all-files
 
 ## 环境变量
 
-在项目根目录创建 `.env` 文件：
+运行 `bash scripts/init-env.sh` 自动生成安全的 `.env`（包含随机密码和密钥）。
 
-```env
-# 数据库
-POSTGRES_PASSWORD=your_password
+脚本会自动配置：`POSTGRES_PASSWORD`、`MINIO_ROOT_USER/PASSWORD`、`REDIS_PASSWORD`、`JWT_SECRET`、`ENCRYPTION_KEY`、`DATABASE_URL`、`REDIS_URL`。
 
-# 对象存储
-MINIO_ROOT_USER=minioadmin
-MINIO_ROOT_PASSWORD=your_minio_password
-
-# 认证
-JWT_SECRET=your_jwt_secret
-
-# LLM（默认 provider，其他 provider 的 API Key 通过应用设置页面按用户配置）
-DEEPSEEK_API_KEY=your_key
-```
-
-本地开发时后端还需配置 `backend/.env`，连接本地服务：
-
-```env
-DATABASE_URL=postgresql+asyncpg://jarvis:your_password@localhost:5432/jarvis
-REDIS_URL=redis://localhost:6379
-QDRANT_URL=http://localhost:6333
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=your_minio_password
-JWT_SECRET=your_jwt_secret
-# Fernet 加密密钥（用于加密用户 API Key）
-# 生成方式：python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-ENCRYPTION_KEY=your_fernet_key
-DEEPSEEK_API_KEY=your_key
-```
+你只需手动填写 `DEEPSEEK_API_KEY`。详见 `.env.example`。
