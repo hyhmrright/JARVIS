@@ -2,7 +2,17 @@
 
 # JARVIS
 
-具备 RAG 知识库、多 LLM 支持、流式对话的 AI 助手平台。
+具备 RAG 知识库、多 LLM 支持、流式对话的 AI 助手平台。采用暗黑奢华（Dark Luxury）设计风格，打造高端 AI 交互体验。
+
+## 特性
+
+- **多模型支持** — DeepSeek / OpenAI / Anthropic，可在设置中自由切换
+- **RAG 知识库** — 上传文档（PDF/TXT/MD/DOCX），自动分块、向量化存储
+- **流式对话** — SSE 实时流式输出，逐字显示 AI 回复
+- **LangGraph Agent** — ReAct 循环架构，支持代码执行、文件操作等工具调用
+- **暗黑奢华 UI** — 玻璃拟态卡片、金色渐变点缀、精致动画过渡
+- **多语言** — 支持中/英/日/韩/法/德 6 种语言
+- **全栈 Docker** — 一键 `docker compose up -d` 启动完整服务
 
 ## 技术栈
 
@@ -13,15 +23,25 @@
 | 数据库 | PostgreSQL · Redis · Qdrant（向量库）|
 | 存储 | MinIO |
 | LLM | DeepSeek · OpenAI · Anthropic |
+| 设计 | CSS Variables 设计系统 · 玻璃拟态 · 暗黑主题 |
 
 ## 项目结构
 
 ```
 JARVIS/
-├── backend/          # FastAPI 后端（Python 3.13 + uv）
-├── frontend/         # Vue 3 前端（Bun）
-├── docker-compose.yml
-└── pyproject.toml    # 根目录开发工具配置
+├── backend/           # FastAPI 后端（Python 3.13 + uv）
+│   ├── app/           # 应用代码（agent/api/core/db/infra/rag/tools）
+│   ├── alembic/       # 数据库迁移
+│   └── tests/         # pytest 测试套件
+├── frontend/          # Vue 3 前端（Bun）
+│   └── src/
+│       ├── assets/styles/  # CSS 设计系统（global/animations/components）
+│       ├── pages/          # 页面组件（Login/Register/Chat/Documents/Settings）
+│       ├── stores/         # Pinia 状态管理
+│       └── locales/        # i18n 多语言
+├── database/          # Docker 初始化脚本（postgres/redis/qdrant）
+├── docker-compose.yml # 全栈编排
+└── pyproject.toml     # 根目录开发工具配置
 ```
 
 ## 快速开始
@@ -36,6 +56,8 @@ docker compose up -d
 ```
 
 服务地址：前端 http://localhost:3000 · 后端 http://localhost:8000
+
+> 无缓存重新构建：`docker compose build --no-cache && docker compose up -d --force-recreate`
 
 ### 本地开发
 

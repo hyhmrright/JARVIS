@@ -2,7 +2,17 @@
 
 # JARVIS
 
-Plateforme d'assistant IA avec base de connaissances RAG, support multi-LLM et conversations en streaming.
+Plateforme d'assistant IA avec base de connaissances RAG, support multi-LLM et conversations en streaming. Conçue avec un design Dark Luxury pour une expérience d'interaction IA haut de gamme.
+
+## Fonctionnalités
+
+- **Support multi-modèles** — DeepSeek / OpenAI / Anthropic, librement interchangeables dans les paramètres
+- **Base de connaissances RAG** — Téléchargement de documents (PDF/TXT/MD/DOCX) avec découpage automatique et stockage vectoriel
+- **Chat en streaming** — Sortie SSE en temps réel, affichage des réponses IA token par token
+- **LangGraph Agent** — Architecture en boucle ReAct avec appels d'outils pour l'exécution de code, les opérations de fichiers, etc.
+- **UI Dark Luxury** — Cartes en glassmorphisme, accents en dégradé doré, transitions animées raffinées
+- **Multilingue** — Supporte 6 langues : chinois / anglais / japonais / coréen / français / allemand
+- **Docker full-stack** — Lancement complet en une commande avec `docker compose up -d`
 
 ## Stack technique
 
@@ -13,15 +23,25 @@ Plateforme d'assistant IA avec base de connaissances RAG, support multi-LLM et c
 | Base de données | PostgreSQL · Redis · Qdrant (base vectorielle) |
 | Stockage | MinIO |
 | LLM | DeepSeek · OpenAI · Anthropic |
+| Design | Système de design CSS Variables · Glassmorphisme · Thème sombre |
 
 ## Structure du projet
 
 ```
 JARVIS/
-├── backend/          # Backend FastAPI (Python 3.13 + uv)
-├── frontend/         # Frontend Vue 3 (Bun)
-├── docker-compose.yml
-└── pyproject.toml    # Configuration des outils de développement (racine)
+├── backend/           # Backend FastAPI (Python 3.13 + uv)
+│   ├── app/           # Code applicatif (agent/api/core/db/infra/rag/tools)
+│   ├── alembic/       # Migrations de base de données
+│   └── tests/         # Suite de tests pytest
+├── frontend/          # Frontend Vue 3 (Bun)
+│   └── src/
+│       ├── assets/styles/  # Système de design CSS (global/animations/components)
+│       ├── pages/          # Composants de page (Login/Register/Chat/Documents/Settings)
+│       ├── stores/         # Gestion d'état Pinia
+│       └── locales/        # i18n multilingue
+├── database/          # Scripts d'initialisation Docker (postgres/redis/qdrant)
+├── docker-compose.yml # Orchestration full-stack
+└── pyproject.toml     # Configuration des outils de développement (racine)
 ```
 
 ## Démarrage rapide
@@ -36,6 +56,8 @@ docker compose up -d
 ```
 
 Adresses des services : Frontend http://localhost:3000 · Backend http://localhost:8000
+
+> Reconstruction sans cache : `docker compose build --no-cache && docker compose up -d --force-recreate`
 
 ### Développement local
 

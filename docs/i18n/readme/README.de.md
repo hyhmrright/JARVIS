@@ -2,7 +2,17 @@
 
 # JARVIS
 
-KI-Assistenzplattform mit RAG-Wissensdatenbank, Multi-LLM-Unterstützung und Streaming-Konversationen.
+KI-Assistenzplattform mit RAG-Wissensdatenbank, Multi-LLM-Unterstützung und Streaming-Konversationen. Mit einem Dark-Luxury-Design für ein erstklassiges KI-Interaktionserlebnis.
+
+## Funktionen
+
+- **Multi-Modell-Unterstützung** — DeepSeek / OpenAI / Anthropic, frei umschaltbar in den Einstellungen
+- **RAG-Wissensdatenbank** — Dokumente hochladen (PDF/TXT/MD/DOCX) mit automatischem Chunking und Vektorspeicherung
+- **Streaming-Chat** — SSE-Echtzeit-Streaming-Ausgabe, KI-Antworten Token für Token anzeigen
+- **LangGraph Agent** — ReAct-Schleifenarchitektur mit Tool-Aufrufen für Codeausführung, Dateioperationen und mehr
+- **Dark Luxury UI** — Glassmorphismus-Karten, Gold-Verlaufseffekte, feine Animationsübergänge
+- **Mehrsprachig** — Unterstützt 6 Sprachen: Chinesisch / Englisch / Japanisch / Koreanisch / Französisch / Deutsch
+- **Full-Stack Docker** — Kompletter Start mit einem Befehl: `docker compose up -d`
 
 ## Technologie-Stack
 
@@ -13,15 +23,25 @@ KI-Assistenzplattform mit RAG-Wissensdatenbank, Multi-LLM-Unterstützung und Str
 | Datenbank | PostgreSQL · Redis · Qdrant (Vektordatenbank) |
 | Speicher | MinIO |
 | LLM | DeepSeek · OpenAI · Anthropic |
+| Design | CSS Variables Designsystem · Glassmorphismus · Dunkles Thema |
 
 ## Projektstruktur
 
 ```
 JARVIS/
-├── backend/          # FastAPI-Backend (Python 3.13 + uv)
-├── frontend/         # Vue 3-Frontend (Bun)
-├── docker-compose.yml
-└── pyproject.toml    # Entwicklungswerkzeug-Konfiguration (Wurzelverzeichnis)
+├── backend/           # FastAPI-Backend (Python 3.13 + uv)
+│   ├── app/           # Anwendungscode (agent/api/core/db/infra/rag/tools)
+│   ├── alembic/       # Datenbankmigrationen
+│   └── tests/         # pytest-Testsuite
+├── frontend/          # Vue 3-Frontend (Bun)
+│   └── src/
+│       ├── assets/styles/  # CSS-Designsystem (global/animations/components)
+│       ├── pages/          # Seitenkomponenten (Login/Register/Chat/Documents/Settings)
+│       ├── stores/         # Pinia-Zustandsverwaltung
+│       └── locales/        # i18n Mehrsprachigkeit
+├── database/          # Docker-Initialisierungsskripte (postgres/redis/qdrant)
+├── docker-compose.yml # Full-Stack-Orchestrierung
+└── pyproject.toml     # Entwicklungswerkzeug-Konfiguration (Wurzelverzeichnis)
 ```
 
 ## Schnellstart
@@ -36,6 +56,8 @@ docker compose up -d
 ```
 
 Service-Adressen: Frontend http://localhost:3000 · Backend http://localhost:8000
+
+> Neuaufbau ohne Cache: `docker compose build --no-cache && docker compose up -d --force-recreate`
 
 ### Lokale Entwicklung
 
