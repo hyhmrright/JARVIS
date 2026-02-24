@@ -13,6 +13,14 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 注册页面
+ *
+ * 错误处理：根据 HTTP 状态码显示对应的中文提示
+ *   409 → 邮箱已注册
+ *   422 → 请求体校验失败（Pydantic 自动返回）
+ *   429 → 速率限制超出（slowapi 自动返回）
+ */
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
@@ -20,12 +28,17 @@ import { AxiosError } from "axios";
 
 const auth = useAuthStore();
 const router = useRouter();
+
+// 表单字段
 const email = ref("");
 const displayName = ref("");
 const password = ref("");
+
+// UI 状态
 const error = ref("");
 const loading = ref(false);
 
+/** 提交注册表单，成功后自动登录并跳转首页 */
 async function handleRegister() {
   loading.value = true;
   error.value = "";
@@ -33,11 +46,13 @@ async function handleRegister() {
     await auth.register(email.value, password.value, displayName.value || undefined);
     router.push("/");
   } catch (e) {
+    // 区分 HTTP 响应错误和网络层错误（断网、超时等）
     if (e instanceof AxiosError && e.response) {
       const status = e.response.status;
       if (status === 409) {
         error.value = "邮箱已被注册";
       } else if (status === 422) {
+        // FastAPI 422 的 detail 可能是数组（Pydantic 校验错误列表）或字符串
         const detail = e.response.data?.detail;
         if (Array.isArray(detail)) {
           error.value = detail.map((d: { msg: string }) => d.msg).join("；");
