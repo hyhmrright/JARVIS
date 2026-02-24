@@ -81,6 +81,7 @@ jobs:
           ENCRYPTION_KEY: "Y2ktdGVzdC1mZXJuZXQta2V5LXBhZGRpbmctamFydmk="
           MINIO_ACCESS_KEY: "ci-test-minio-access"
           MINIO_SECRET_KEY: "ci-test-minio-secret"
+          POSTGRES_PASSWORD: "testpass"
 
   frontend-lint:
     name: "Frontend Lint"
