@@ -1,7 +1,7 @@
 <template>
   <div class="chat-layout">
     <aside class="sidebar">
-      <button @click="chat.newConversation()">+ 新对话</button>
+      <button @click="chat.newConversation()">{{ $t('chat.newConversation') }}</button>
       <ul>
         <li v-for="conv in chat.conversations" :key="conv.id"
             :class="{ active: conv.id === chat.currentConvId }"
@@ -10,9 +10,9 @@
         </li>
       </ul>
       <div class="sidebar-footer">
-        <router-link to="/documents">知识库</router-link>
-        <router-link to="/settings">设置</router-link>
-        <button @click="auth.logout(); router.push('/login')">退出</button>
+        <router-link to="/documents">{{ $t('chat.documents') }}</router-link>
+        <router-link to="/settings">{{ $t('chat.settings') }}</router-link>
+        <button @click="auth.logout(); router.push('/login')">{{ $t('chat.logout') }}</button>
       </div>
     </aside>
 
@@ -23,10 +23,10 @@
         </div>
       </div>
       <div class="input-area">
-        <button class="voice-btn" disabled title="语音功能即将上线">🎤</button>
+        <button class="voice-btn" disabled :title="$t('chat.voiceComingSoon')">🎤</button>
         <textarea v-model="input" @keydown.enter.exact.prevent="send"
-                  placeholder="输入消息，Enter 发送..." :disabled="chat.streaming" />
-        <button @click="send" :disabled="chat.streaming || !input.trim()">发送</button>
+                  :placeholder="$t('chat.inputPlaceholder')" :disabled="chat.streaming" />
+        <button @click="send" :disabled="chat.streaming || !input.trim()">{{ $t('chat.send') }}</button>
       </div>
     </main>
   </div>

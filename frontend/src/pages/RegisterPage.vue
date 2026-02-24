@@ -1,14 +1,14 @@
 <template>
   <div class="auth-page">
-    <h1>注册 JARVIS</h1>
+    <h1>{{ $t('register.title') }}</h1>
     <form @submit.prevent="handleRegister">
-      <input v-model="email" type="email" placeholder="邮箱" required />
-      <input v-model="displayName" type="text" placeholder="显示名称（可选）" />
-      <input v-model="password" type="password" placeholder="密码" required />
-      <button type="submit" :disabled="loading">{{ loading ? "注册中..." : "注册" }}</button>
+      <input v-model="email" type="email" :placeholder="$t('register.email')" required />
+      <input v-model="displayName" type="text" :placeholder="$t('register.displayName')" />
+      <input v-model="password" type="password" :placeholder="$t('register.password')" required />
+      <button type="submit" :disabled="loading">{{ loading ? $t('register.loading') : $t('register.submit') }}</button>
       <p v-if="error" class="error">{{ error }}</p>
     </form>
-    <p>已有账号？<router-link to="/login">登录</router-link></p>
+    <p>{{ $t('register.hasAccount') }}<router-link to="/login">{{ $t('register.login') }}</router-link></p>
   </div>
 </template>
 
@@ -16,7 +16,7 @@
 /**
  * 注册页面
  *
- * 错误处理：根据 HTTP 状态码显示对应的中文提示
+ * 错误处理：根据 HTTP 状态码显示对应的翻译提示
  *   409 → 邮箱已注册
  *   422 → 请求体校验失败（Pydantic 自动返回）
  *   429 → 速率限制超出（slowapi 自动返回）
@@ -24,8 +24,10 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
+import { useI18n } from "vue-i18n";
 import { AxiosError } from "axios";
 
+const { t } = useI18n();
 const auth = useAuthStore();
 const router = useRouter();
 
@@ -50,7 +52,7 @@ async function handleRegister() {
     if (e instanceof AxiosError && e.response) {
       const status = e.response.status;
       if (status === 409) {
-        error.value = "邮箱已被注册";
+        error.value = t("register.emailTaken");
       } else if (status === 422) {
         // FastAPI 422 的 detail 可能是数组（Pydantic 校验错误列表）或字符串
         const detail = e.response.data?.detail;
@@ -59,15 +61,15 @@ async function handleRegister() {
         } else if (typeof detail === "string") {
           error.value = detail;
         } else {
-          error.value = "输入信息有误，请检查后重试";
+          error.value = t("register.validationError");
         }
       } else if (status === 429) {
-        error.value = "请求太频繁，请稍后再试";
+        error.value = t("common.rateLimitError");
       } else {
-        error.value = "注册失败，请稍后再试";
+        error.value = t("register.genericError");
       }
     } else {
-      error.value = "网络错误，请检查网络连接";
+      error.value = t("common.networkError");
     }
   } finally {
     loading.value = false;

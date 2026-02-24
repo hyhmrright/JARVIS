@@ -1,0 +1,55 @@
+{
+  "common": {
+    "backToChat": "← Back to Chat",
+    "networkError": "Network error, please check your connection",
+    "rateLimitError": "Too many requests, please try again later"
+  },
+  "login": {
+    "title": "Login to JARVIS",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Login",
+    "loading": "Logging in...",
+    "noAccount": "Don't have an account?",
+    "register": "Register",
+    "invalidCredentials": "Invalid email or password",
+    "genericError": "Login failed, please try again later"
+  },
+  "register": {
+    "title": "Register for JARVIS",
+    "email": "Email",
+    "displayName": "Display Name (optional)",
+    "password": "Password",
+    "submit": "Register",
+    "loading": "Registering...",
+    "hasAccount": "Already have an account?",
+    "login": "Login",
+    "emailTaken": "Email is already registered",
+    "validationError": "Invalid input, please check and try again",
+    "genericError": "Registration failed, please try again later"
+  },
+  "chat": {
+    "newConversation": "+ New Chat",
+    "documents": "Documents",
+    "settings": "Settings",
+    "logout": "Logout",
+    "voiceComingSoon": "Voice feature coming soon",
+    "inputPlaceholder": "Type a message, press Enter to send...",
+    "send": "Send"
+  },
+  "documents": {
+    "title": "Knowledge Base",
+    "uploading": "Uploading...",
+    "fileTooLarge": "File size cannot exceed 50MB",
+    "uploadSuccess": "Upload successful, split into {count} chunks",
+    "uploadError": "Upload failed, please check the file format"
+  },
+  "settings": {
+    "title": "Settings",
+    "provider": "Model Provider",
+    "modelName": "Model Name",
+    "apiKey": "API Key",
+    "save": "Save",
+    "saved": "Saved"
+  }
+}

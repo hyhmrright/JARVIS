@@ -1,0 +1,55 @@
+{
+  "common": {
+    "backToChat": "← 返回聊天",
+    "networkError": "网络错误，请检查网络连接",
+    "rateLimitError": "请求太频繁，请稍后再试"
+  },
+  "login": {
+    "title": "登录 JARVIS",
+    "email": "邮箱",
+    "password": "密码",
+    "submit": "登录",
+    "loading": "登录中...",
+    "noAccount": "没有账号？",
+    "register": "注册",
+    "invalidCredentials": "邮箱或密码错误",
+    "genericError": "登录失败，请稍后再试"
+  },
+  "register": {
+    "title": "注册 JARVIS",
+    "email": "邮箱",
+    "displayName": "显示名称（可选）",
+    "password": "密码",
+    "submit": "注册",
+    "loading": "注册中...",
+    "hasAccount": "已有账号？",
+    "login": "登录",
+    "emailTaken": "邮箱已被注册",
+    "validationError": "输入信息有误，请检查后重试",
+    "genericError": "注册失败，请稍后再试"
+  },
+  "chat": {
+    "newConversation": "+ 新对话",
+    "documents": "知识库",
+    "settings": "设置",
+    "logout": "退出",
+    "voiceComingSoon": "语音功能即将上线",
+    "inputPlaceholder": "输入消息，Enter 发送...",
+    "send": "发送"
+  },
+  "documents": {
+    "title": "知识库",
+    "uploading": "上传中...",
+    "fileTooLarge": "文件不能超过 50MB",
+    "uploadSuccess": "上传成功，共切分 {count} 个片段",
+    "uploadError": "上传失败，请检查文件格式"
+  },
+  "settings": {
+    "title": "设置",
+    "provider": "模型提供商",
+    "modelName": "模型名称",
+    "apiKey": "API Key",
+    "save": "保存",
+    "saved": "已保存"
+  }
+}

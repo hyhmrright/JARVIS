@@ -1,0 +1,55 @@
+{
+  "common": {
+    "backToChat": "← Zurück zum Chat",
+    "networkError": "Netzwerkfehler, bitte überprüfen Sie Ihre Verbindung",
+    "rateLimitError": "Zu viele Anfragen, bitte versuchen Sie es später erneut"
+  },
+  "login": {
+    "title": "Bei JARVIS anmelden",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "submit": "Anmelden",
+    "loading": "Anmeldung läuft...",
+    "noAccount": "Noch kein Konto?",
+    "register": "Registrieren",
+    "invalidCredentials": "E-Mail oder Passwort ist falsch",
+    "genericError": "Anmeldung fehlgeschlagen, bitte versuchen Sie es später erneut"
+  },
+  "register": {
+    "title": "Bei JARVIS registrieren",
+    "email": "E-Mail",
+    "displayName": "Anzeigename (optional)",
+    "password": "Passwort",
+    "submit": "Registrieren",
+    "loading": "Registrierung läuft...",
+    "hasAccount": "Bereits ein Konto?",
+    "login": "Anmelden",
+    "emailTaken": "Diese E-Mail ist bereits registriert",
+    "validationError": "Ungültige Eingabe, bitte überprüfen und erneut versuchen",
+    "genericError": "Registrierung fehlgeschlagen, bitte versuchen Sie es später erneut"
+  },
+  "chat": {
+    "newConversation": "+ Neuer Chat",
+    "documents": "Wissensdatenbank",
+    "settings": "Einstellungen",
+    "logout": "Abmelden",
+    "voiceComingSoon": "Sprachfunktion demnächst verfügbar",
+    "inputPlaceholder": "Nachricht eingeben, Enter zum Senden...",
+    "send": "Senden"
+  },
+  "documents": {
+    "title": "Wissensdatenbank",
+    "uploading": "Wird hochgeladen...",
+    "fileTooLarge": "Dateigröße darf 50 MB nicht überschreiten",
+    "uploadSuccess": "Upload erfolgreich, in {count} Abschnitte aufgeteilt",
+    "uploadError": "Upload fehlgeschlagen, bitte überprüfen Sie das Dateiformat"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "provider": "Modellanbieter",
+    "modelName": "Modellname",
+    "apiKey": "API-Schlüssel",
+    "save": "Speichern",
+    "saved": "Gespeichert"
+  }
+}

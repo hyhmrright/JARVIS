@@ -1,0 +1,55 @@
+{
+  "common": {
+    "backToChat": "← Retour au chat",
+    "networkError": "Erreur réseau, veuillez vérifier votre connexion",
+    "rateLimitError": "Trop de requêtes, veuillez réessayer plus tard"
+  },
+  "login": {
+    "title": "Connexion à JARVIS",
+    "email": "E-mail",
+    "password": "Mot de passe",
+    "submit": "Se connecter",
+    "loading": "Connexion en cours...",
+    "noAccount": "Pas encore de compte ?",
+    "register": "S'inscrire",
+    "invalidCredentials": "E-mail ou mot de passe incorrect",
+    "genericError": "Échec de la connexion, veuillez réessayer plus tard"
+  },
+  "register": {
+    "title": "Inscription à JARVIS",
+    "email": "E-mail",
+    "displayName": "Nom d'affichage (facultatif)",
+    "password": "Mot de passe",
+    "submit": "S'inscrire",
+    "loading": "Inscription en cours...",
+    "hasAccount": "Vous avez déjà un compte ?",
+    "login": "Se connecter",
+    "emailTaken": "Cet e-mail est déjà utilisé",
+    "validationError": "Saisie invalide, veuillez vérifier et réessayer",
+    "genericError": "Échec de l'inscription, veuillez réessayer plus tard"
+  },
+  "chat": {
+    "newConversation": "+ Nouvelle conversation",
+    "documents": "Base de connaissances",
+    "settings": "Paramètres",
+    "logout": "Déconnexion",
+    "voiceComingSoon": "Fonction vocale bientôt disponible",
+    "inputPlaceholder": "Tapez un message, appuyez sur Entrée pour envoyer...",
+    "send": "Envoyer"
+  },
+  "documents": {
+    "title": "Base de connaissances",
+    "uploading": "Téléversement en cours...",
+    "fileTooLarge": "La taille du fichier ne peut pas dépasser 50 Mo",
+    "uploadSuccess": "Téléversement réussi, découpé en {count} fragments",
+    "uploadError": "Échec du téléversement, veuillez vérifier le format du fichier"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "provider": "Fournisseur de modèle",
+    "modelName": "Nom du modèle",
+    "apiKey": "Clé API",
+    "save": "Enregistrer",
+    "saved": "Enregistré"
+  }
+}

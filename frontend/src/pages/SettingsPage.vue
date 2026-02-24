@@ -1,18 +1,18 @@
 <template>
   <div class="settings-page">
-    <h2>设置</h2>
-    <label>模型提供商
+    <h2>{{ $t('settings.title') }}</h2>
+    <label>{{ $t('settings.provider') }}
       <select v-model="provider">
         <option value="deepseek">DeepSeek</option>
         <option value="openai">OpenAI</option>
         <option value="anthropic">Anthropic</option>
       </select>
     </label>
-    <label>模型名称 <input v-model="modelName" /></label>
-    <label>API Key <input v-model="apiKey" type="password" /></label>
-    <button @click="save">保存</button>
-    <p v-if="saved">已保存</p>
-    <router-link to="/">← 返回聊天</router-link>
+    <label>{{ $t('settings.modelName') }} <input v-model="modelName" /></label>
+    <label>{{ $t('settings.apiKey') }} <input v-model="apiKey" type="password" /></label>
+    <button @click="save">{{ $t('settings.save') }}</button>
+    <p v-if="saved">{{ $t('settings.saved') }}</p>
+    <router-link to="/">{{ $t('common.backToChat') }}</router-link>
   </div>
 </template>
 
@@ -20,7 +20,10 @@
 import { ref } from "vue";
 import client from "@/api/client";
 
-const provider = ref("deepseek"), modelName = ref("deepseek-chat"), apiKey = ref(""), saved = ref(false);
+const provider = ref("deepseek");
+const modelName = ref("deepseek-chat");
+const apiKey = ref("");
+const saved = ref(false);
 
 async function save() {
   await client.put("/settings", {

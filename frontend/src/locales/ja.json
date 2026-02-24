@@ -1,0 +1,55 @@
+{
+  "common": {
+    "backToChat": "← チャットに戻る",
+    "networkError": "ネットワークエラーです。接続を確認してください",
+    "rateLimitError": "リクエストが多すぎます。しばらくしてから再試行してください"
+  },
+  "login": {
+    "title": "JARVIS にログイン",
+    "email": "メールアドレス",
+    "password": "パスワード",
+    "submit": "ログイン",
+    "loading": "ログイン中...",
+    "noAccount": "アカウントをお持ちでないですか？",
+    "register": "登録",
+    "invalidCredentials": "メールアドレスまたはパスワードが正しくありません",
+    "genericError": "ログインに失敗しました。しばらくしてから再試行してください"
+  },
+  "register": {
+    "title": "JARVIS に登録",
+    "email": "メールアドレス",
+    "displayName": "表示名（任意）",
+    "password": "パスワード",
+    "submit": "登録",
+    "loading": "登録中...",
+    "hasAccount": "すでにアカウントをお持ちですか？",
+    "login": "ログイン",
+    "emailTaken": "このメールアドレスは既に登録されています",
+    "validationError": "入力内容に誤りがあります。確認してください",
+    "genericError": "登録に失敗しました。しばらくしてから再試行してください"
+  },
+  "chat": {
+    "newConversation": "+ 新規チャット",
+    "documents": "ナレッジベース",
+    "settings": "設定",
+    "logout": "ログアウト",
+    "voiceComingSoon": "音声機能は近日公開予定",
+    "inputPlaceholder": "メッセージを入力、Enter で送信...",
+    "send": "送信"
+  },
+  "documents": {
+    "title": "ナレッジベース",
+    "uploading": "アップロード中...",
+    "fileTooLarge": "ファイルサイズは 50MB を超えられません",
+    "uploadSuccess": "アップロード成功、{count} チャンクに分割されました",
+    "uploadError": "アップロードに失敗しました。ファイル形式を確認してください"
+  },
+  "settings": {
+    "title": "設定",
+    "provider": "モデルプロバイダー",
+    "modelName": "モデル名",
+    "apiKey": "API キー",
+    "save": "保存",
+    "saved": "保存しました"
+  }
+}
