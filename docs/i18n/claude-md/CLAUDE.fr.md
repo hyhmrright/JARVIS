@@ -16,76 +16,137 @@ JARVIS est une plateforme d'assistant IA dotée d'une base de connaissances RAG,
 
 ## Architecture principale
 
-- **backend/** : FastAPI + LangGraph + SQLAlchemy (PostgreSQL) + Qdrant (base vectorielle) + MinIO (stockage de fichiers) + Redis
-- **frontend/** : Vue 3 + TypeScript + Vite + Pinia
-- **pyproject.toml racine** : Gère uniquement les outils de développement (ruff, pyright, pre-commit), pas de dépendances d'exécution
-- **LLM** : Supporte DeepSeek / OpenAI / Anthropic, piloté par LangGraph StateGraph
+```
+JARVIS/
+├── backend/           # Backend FastAPI (Python 3.13 + uv)
+│   ├── app/
+│   │   ├── main.py    # Point d'entrée FastAPI, lifespan gère les connexions infra
+│   │   ├── agent/     # Agent ReAct LangGraph (graph/llm/state)
+│   │   ├── api/       # Routes HTTP (auth/chat/conversations/documents/settings)
+│   │   ├── core/      # Config (Pydantic Settings), sécurité (JWT/bcrypt/Fernet), limitation de débit
+│   │   ├── db/        # Modèles et sessions async SQLAlchemy
+│   │   ├── infra/     # Singletons clients d'infrastructure (Qdrant/MinIO/Redis)
+│   │   ├── rag/       # Pipeline RAG (chunker/embedder/indexer)
+│   │   └── tools/     # Outils LangGraph (search/code_exec/file/datetime)
+│   ├── alembic/       # Migrations de base de données
+│   └── tests/         # Suite de tests pytest
+├── frontend/          # Vue 3 + TypeScript + Vite + Pinia
+│   └── src/
+│       ├── api/       # Singleton Axios + intercepteur auth
+│       ├── stores/    # Stores Pinia (auth + chat)
+│       ├── pages/     # Composants de pages (Login/Register/Chat/Documents/Settings)
+│       ├── locales/   # i18n (zh/en/ja/ko/fr/de)
+│       └── router/    # Vue Router + garde auth
+├── database/          # Scripts d'initialisation Docker (postgres/redis/qdrant)
+├── docker-compose.yml # Orchestration full-stack
+└── pyproject.toml     # Config outils de dev racine (ruff/pyright/pre-commit), pas de deps runtime
+```
+
+### Points clés de l'architecture backend
+
+**Agent LLM** : `agent/graph.py` implémente une boucle ReAct en utilisant `StateGraph` de LangGraph (llm → tools → llm → END). Une nouvelle instance de graphe est créée par requête, sans persistance de checkpoint. La factory LLM (`agent/llm.py`) distribue via `match/case` vers `ChatDeepSeek` / `ChatOpenAI` / `ChatAnthropic`.
+
+**Chat en streaming** : `POST /api/chat/stream` dans `api/chat.py` retourne un SSE `StreamingResponse`. Note : le générateur de streaming utilise une session `AsyncSessionLocal` séparée en interne (la session au niveau de la requête se ferme quand le handler retourne et ne peut pas être réutilisée).
+
+**Pipeline RAG** : Upload de document → `extract_text()` → `chunk_text()` (fenêtre glissante, 500 mots/50 mots de chevauchement) → `OpenAIEmbeddings` (text-embedding-3-small, 1536 dimensions) → Qdrant upsert. Une collection par utilisateur (`user_{id}`). Note : la recherche RAG n'est pas encore connectée au flux de conversation de l'agent.
+
+**Modèles de base de données** : 5 tables — `users`, `user_settings` (JSONB stocke les clés API chiffrées Fernet), `conversations`, `messages` (immuable), `documents` (suppression douce). Toutes utilisent des clés primaires UUID.
+
+**Singletons d'infrastructure** : Qdrant utilise un global au niveau module + initialisation paresseuse + asyncio.Lock ; MinIO utilise `@lru_cache` + `asyncio.to_thread()` (SDK synchrone) ; PostgreSQL utilise engine + sessionmaker au niveau module.
+
+### Points clés de l'architecture frontend
+
+**Gestion d'état** : Deux stores Pinia — `auth.ts` (token JWT persisté dans localStorage) et `chat.ts` (liste de conversations + messages SSE en streaming). SSE utilise `fetch` natif + `ReadableStream` au lieu d'Axios (Axios ne supporte pas les corps de réponse en streaming).
+
+**Routage** : 5 routes, tous les composants de page sont chargés paresseusement. Le garde `beforeEach` vérifie `auth.isLoggedIn`.
+
+**Client API** : Instance Axios avec `baseURL: "/api"`, l'intercepteur de requête lit le token depuis localStorage. Le serveur de dev proxy `/api` → `http://backend:8000`.
+
+**Internationalisation** : vue-i18n, 6 langues, priorité de détection : localStorage → navigator.language → zh.
 
 ## Environnement de développement
 
-- **Version Python** : 3.13 (`.python-version`)
-- **Gestionnaire de paquets** : `uv`
-- **Environnement virtuel** : `.venv` (géré automatiquement)
+- **Python** : 3.13 (`.python-version`)
+- **Gestionnaires de paquets** : Backend `uv`, Frontend `bun`
+- **Environnement virtuel** : `.venv` (géré automatiquement par uv)
 
 ## Commandes courantes
 
 ### Configuration de l'environnement
 ```bash
-uv sync                      # Installer toutes les dépendances
+bash scripts/init-env.sh             # Première exécution, génère .env (avec mots de passe/clés aléatoires)
+uv sync                              # Installer les dépendances Python
+cd frontend && bun install            # Installer les dépendances frontend
+pre-commit install                    # Installer les git hooks
 ```
 
 ### Lancement de l'application
 ```bash
+# Démarrer uniquement les services d'infrastructure (pour le dev local)
+docker compose up -d postgres redis qdrant minio
+
 # Backend (dans le répertoire backend/)
-uv run uvicorn app.main:app --reload
+uv run alembic upgrade head           # Migration de base de données
+uv run uvicorn app.main:app --reload  # Serveur de dev :8000
 
 # Frontend (dans le répertoire frontend/)
-bun run dev
+bun run dev                           # Serveur de dev :5173 (proxy /api → backend:8000)
 
-# Stack complète (répertoire racine)
-docker-compose up -d
+# Full-stack Docker
+docker compose up -d                  # Frontend :3000 · Backend :8000
 ```
 
-### Vérification de la qualité du code
+### Qualité du code
 ```bash
-ruff check                   # Lint du code
-ruff check --fix             # Correction automatique des problèmes
-ruff format                  # Formatage du code
+# Backend
+ruff check                   # Lint
+ruff check --fix             # Lint + correction automatique
+ruff format                  # Formatage
 pyright                      # Vérification des types
+
+# Frontend (dans le répertoire frontend/)
+bun run lint                 # ESLint
+bun run lint:fix             # ESLint + correction automatique
+bun run format               # Prettier
+bun run type-check           # vue-tsc
 ```
 
 ### Tests
 ```bash
 # Exécuter dans le répertoire backend/
-uv run pytest tests/ -v                        # Exécuter tous les tests
-uv run pytest tests/api/test_auth.py -v        # Exécuter un fichier de test spécifique
+uv run pytest tests/ -v                        # Tous les tests
+uv run pytest tests/api/test_auth.py -v        # Fichier unique
+uv run pytest tests/api/test_auth.py::test_login -v  # Cas de test unique
 ```
 
 ### Pre-commit Hooks
 ```bash
-pre-commit install           # Installer les git hooks
 pre-commit run --all-files   # Exécuter manuellement tous les hooks
 ```
 
-Pre-commit exécute automatiquement :
-- Vérification du format YAML/TOML/JSON
-- Vérification de la synchronisation uv.lock
-- Ruff lint et format
-- Vérification des lignes vides en fin de fichier et des espaces en fin de ligne
+Les hooks incluent : vérifications de format YAML/TOML/JSON, synchronisation uv.lock, Ruff lint+format, ESLint, Pyright, vérification de types vue-tsc, scan de secrets gitleaks, blocage des commits directs sur main.
 
 ### Gestion des dépendances
 ```bash
-uv add <paquet>              # Ajouter une dépendance de production
+# Python (le pyproject.toml racine gère les outils de dev, backend/pyproject.toml gère les deps runtime)
+uv add <paquet>              # Ajouter une dépendance (exécuter dans le répertoire approprié)
 uv add --group dev <paquet>  # Ajouter une dépendance de développement
-uv sync --upgrade            # Mettre à jour les dépendances
-uv lock                      # Régénérer uv.lock après modification manuelle de pyproject.toml
+uv lock                      # Régénérer le lock après modification manuelle de pyproject.toml
+
+# Frontend
+cd frontend && bun add <paquet>
 ```
 
 ## Configuration des outils
 
 - **Ruff** : line-length=88, target-version="py313", quote-style="double"
 - **Pyright** : typeCheckingMode="basic"
-- **Pre-commit** : Exécute uv-lock, ruff-check, ruff-format et les vérifications de fichiers standard
+- **ESLint** : flat config, typescript-eslint + eslint-plugin-vue + prettier
+- **TypeScript** : strict, bundler resolution, `@/*` → `src/*`
+
+## Variables d'environnement
+
+Toute configuration sensible (mot de passe de base de données, secret JWT, clé de chiffrement, identifiants MinIO) n'a pas de valeur par défaut et doit être fournie via `.env` ou des variables d'environnement. Exécutez `bash scripts/init-env.sh` pour la génération automatique. Seul `DEEPSEEK_API_KEY` nécessite une saisie manuelle.
 
 ---
 
