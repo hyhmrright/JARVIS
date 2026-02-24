@@ -57,7 +57,7 @@ docker compose up -d
 
 Service URLs: Frontend http://localhost:3000 · Backend http://localhost:8000
 
-> Rebuild without cache: `docker compose build --no-cache && docker compose up -d --force-recreate`
+> Rebuild without cache: `docker compose down && docker compose build --no-cache && docker compose up -d --force-recreate`
 
 ### Local Development
 

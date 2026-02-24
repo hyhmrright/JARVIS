@@ -57,7 +57,7 @@ docker compose up -d
 
 サービス URL：フロントエンド http://localhost:3000 · バックエンド http://localhost:8000
 
-> キャッシュなしで再ビルド：`docker compose build --no-cache && docker compose up -d --force-recreate`
+> キャッシュなしで再ビルド：`docker compose down && docker compose build --no-cache && docker compose up -d --force-recreate`
 
 ### ローカル開発
 

@@ -57,7 +57,7 @@ docker compose up -d
 
 Service-Adressen: Frontend http://localhost:3000 · Backend http://localhost:8000
 
-> Neuaufbau ohne Cache: `docker compose build --no-cache && docker compose up -d --force-recreate`
+> Neuaufbau ohne Cache: `docker compose down && docker compose build --no-cache && docker compose up -d --force-recreate`
 
 ### Lokale Entwicklung
 

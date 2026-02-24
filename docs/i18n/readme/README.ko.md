@@ -57,7 +57,7 @@ docker compose up -d
 
 서비스 주소: 프론트엔드 http://localhost:3000 · 백엔드 http://localhost:8000
 
-> 캐시 없이 재빌드: `docker compose build --no-cache && docker compose up -d --force-recreate`
+> 캐시 없이 재빌드: `docker compose down && docker compose build --no-cache && docker compose up -d --force-recreate`
 
 ### 로컬 개발
 

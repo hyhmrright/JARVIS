@@ -57,7 +57,7 @@ docker compose up -d
 
 服务地址：前端 http://localhost:3000 · 后端 http://localhost:8000
 
-> 无缓存重新构建：`docker compose build --no-cache && docker compose up -d --force-recreate`
+> 无缓存重新构建：`docker compose down && docker compose build --no-cache && docker compose up -d --force-recreate`
 
 ### 本地开发
 
