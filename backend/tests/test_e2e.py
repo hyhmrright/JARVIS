@@ -15,7 +15,7 @@ async def client():
 async def test_full_flow(client):
     # 1. 注册
     r = await client.post(
-        "/api/auth/register", json={"email": "e2e@test.com", "password": "pass123"}
+        "/api/auth/register", json={"email": "e2e@test.com", "password": "pass1234"}
     )
     assert r.status_code == 201
     token = r.json()["access_token"]

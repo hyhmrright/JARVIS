@@ -34,7 +34,7 @@ fi
 echo ""
 echo "📦 构建测试 (可选):"
 echo "  运行以下命令测试 Dockerfile 构建:"
-echo "  docker build -t agents-dev -f .devcontainer/Dockerfile ."
+echo "  docker build -t jarvis-dev -f .devcontainer/Dockerfile ."
 echo ""
 echo "🚀 VS Code 使用:"
 echo "  1. 安装 'Dev Containers' 扩展"

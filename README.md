@@ -1,111 +1,113 @@
-# Agents Project
+# JARVIS
 
-A simple agent system built with LangGraph demonstrating basic agent workflows.
+具备 RAG 知识库、多 LLM 支持、流式对话的 AI 助手平台。
 
-## Overview
+## 技术栈
 
-This project provides a minimal implementation of an agent system using LangGraph. It demonstrates:
+| 层级 | 技术 |
+|------|------|
+| 后端 | FastAPI · LangGraph · SQLAlchemy · Alembic |
+| 前端 | Vue 3 · TypeScript · Vite · Pinia |
+| 数据库 | PostgreSQL · Redis · Qdrant（向量库）|
+| 存储 | MinIO |
+| LLM | DeepSeek · OpenAI · Anthropic |
 
-- Creating a StateGraph with message handling
-- Defining agent nodes and edges
-- Using proper LangChain message types
-- Running agent workflows
+## 项目结构
 
-## Installation
+```
+JARVIS/
+├── backend/          # FastAPI 后端（Python 3.13 + uv）
+├── frontend/         # Vue 3 前端（Bun）
+├── docker-compose.yml
+└── pyproject.toml    # 根目录开发工具配置
+```
 
-### 🐳 Option 1: Dev Container (推荐)
+## 快速开始
 
-使用 Dev Container 可以获得开箱即用的标准化开发环境，无需在本地安装任何依赖:
+### 全栈启动（推荐）
 
-1. 安装 [Docker Desktop](https://www.docker.com/products/docker-desktop)
-2. 安装 [VS Code](https://code.visualstudio.com/) 和 `Dev Containers` 扩展
-3. 在 VS Code 中打开此项目
-4. 点击右下角的 "Reopen in Container" 或按 `F1` → "Dev Containers: Reopen in Container"
-5. 等待容器构建完成(首次约 2-5 分钟)
-
-**优势:**
-- ✅ 预配置的 Python 3.13 环境
-- ✅ 自动安装所有依赖
-- ✅ VS Code 扩展自动配置
-- ✅ 开箱即用的代码质量工具
-
-详细说明请查看 [Dev Container 使用指南](.devcontainer/README.md)
-
-### 💻 Option 2: 本地安装
-
-1. Ensure you have Python 3.13+ installed
-2. Install [uv](https://github.com/astral-sh/uv) if not already installed
-3. Clone this repository
-4. Install dependencies:
+复制并填写环境变量文件，然后启动：
 
 ```bash
+cp .env.example .env   # 填写各项密钥
+docker compose up -d
+```
+
+服务地址：前端 http://localhost:3000 · 后端 http://localhost:8000
+
+### 本地开发
+
+**前置条件：** Docker（用于基础服务）、Python 3.13+、[uv](https://github.com/astral-sh/uv)、[Bun](https://bun.sh)
+
+```bash
+# 启动基础服务
+docker compose up -d postgres redis qdrant minio
+
+# 后端
+cd backend
 uv sync
+uv run alembic upgrade head           # 执行数据库迁移
+uv run uvicorn app.main:app --reload  # 开发服务器（:8000）
+
+# 前端（新终端）
+cd frontend
+bun install
+bun run dev                           # 开发服务器（:5173）
 ```
 
-## Usage
+## 开发
 
-Run the agent demonstration:
-
-```bash
-python main.py
-```
-
-This will execute a simple agent workflow that:
-1. Creates a graph with a mock LLM node
-2. Processes a user message
-3. Returns an AI response
-
-## Project Structure
-
-- `main.py` - Main agent implementation
-- `pyproject.toml` - Project configuration and dependencies
-- `.pre-commit-config.yaml` - Code quality hooks
-- `uv.lock` - Locked dependency versions
-- `.devcontainer/` - Dev Container configuration
-
-## Development
-
-### Code Quality
-
-This project uses modern Python tooling:
-
-- **Ruff** for linting and formatting
-- **Pyright** for type checking
-- **Pre-commit** for automated code quality checks
-
-Run code quality checks:
+### 代码质量
 
 ```bash
-# Lint and format
-python -m ruff check main.py
-python -m ruff format main.py
+# 后端（在 backend/ 目录）
+uv run ruff check --fix && uv run ruff format
+uv run pyright
+uv run pytest tests/ -v
 
-# Type checking
-python -m pyright main.py
+# 前端（在 frontend/ 目录）
+bun run lint
+bun run type-check
 ```
 
 ### Pre-commit Hooks
 
-Install pre-commit hooks:
-
 ```bash
-pre-commit install
+pre-commit install         # 安装 git hooks（根目录执行）
+pre-commit run --all-files
 ```
 
-The hooks will automatically run on `git commit` to ensure code quality.
+## 环境变量
 
-## Dependencies
+在项目根目录创建 `.env` 文件：
 
-- **langgraph** - Agent graph framework
-- **langchain-core** - Core LangChain components
+```env
+# 数据库
+POSTGRES_PASSWORD=your_password
 
-### Development Dependencies
+# 对象存储
+MINIO_ROOT_USER=minioadmin
+MINIO_ROOT_PASSWORD=your_minio_password
 
-- **ruff** - Code linting and formatting
-- **pyright** - Type checking
-- **pre-commit** - Git hook management
-- **ty** - Test runner
+# 认证
+JWT_SECRET=your_jwt_secret
 
-## License
+# LLM（默认 provider，其他 provider 的 API Key 通过应用设置页面按用户配置）
+DEEPSEEK_API_KEY=your_key
+```
 
-MIT
+本地开发时后端还需配置 `backend/.env`，连接本地服务：
+
+```env
+DATABASE_URL=postgresql+asyncpg://jarvis:your_password@localhost:5432/jarvis
+REDIS_URL=redis://localhost:6379
+QDRANT_URL=http://localhost:6333
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=your_minio_password
+JWT_SECRET=your_jwt_secret
+# Fernet 加密密钥（用于加密用户 API Key）
+# 生成方式：python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+ENCRYPTION_KEY=your_fernet_key
+DEEPSEEK_API_KEY=your_key
+```

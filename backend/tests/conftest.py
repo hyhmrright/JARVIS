@@ -1,3 +1,4 @@
+import os
 import uuid
 
 import pytest
@@ -9,7 +10,10 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 
-TEST_DATABASE_URL = "postgresql+asyncpg://jarvis:jarvis@localhost:5432/jarvis_test"
+_pg_password = os.environ.get("POSTGRES_PASSWORD", "jarvis")
+TEST_DATABASE_URL = (
+    f"postgresql+asyncpg://jarvis:{_pg_password}@localhost:5432/jarvis_test"
+)
 
 
 @pytest.fixture(scope="session")

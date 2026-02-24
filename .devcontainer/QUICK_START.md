@@ -4,7 +4,7 @@
 
 ```bash
 # 1. 打开 VS Code
-code /Users/hyh/code/agents
+code /Users/hyh/code/JARVIS
 
 # 2. 按 F1,输入:
 Dev Containers: Reopen in Container
@@ -18,15 +18,15 @@ Dev Containers: Reopen in Container
 
 ### 构建镜像
 ```bash
-cd /Users/hyh/code/agents
-docker build -t agents-dev -f .devcontainer/Dockerfile .
+cd /Users/hyh/code/JARVIS
+docker build -t jarvis-dev -f .devcontainer/Dockerfile .
 ```
 
 ### 运行程序
 ```bash
 docker run --rm \
   -v $(pwd):/workspace \
-  agents-dev \
+  jarvis-dev \
   bash -c "cd /workspace && uv sync && uv run python main.py"
 ```
 
@@ -35,7 +35,7 @@ docker run --rm \
 docker run -it --rm \
   -v $(pwd):/workspace \
   -w /workspace \
-  agents-dev bash
+  jarvis-dev bash
 ```
 
 ---
@@ -84,13 +84,13 @@ pre-commit run --all-files
 ./.devcontainer/test.sh
 
 # 测试 Python
-docker run --rm agents-dev python --version
+docker run --rm jarvis-dev python --version
 
 # 测试 uv
-docker run --rm agents-dev uv --version
+docker run --rm jarvis-dev uv --version
 
 # 测试完整流程
-docker run --rm -v $(pwd):/workspace agents-dev \
+docker run --rm -v $(pwd):/workspace jarvis-dev \
   bash -c "cd /workspace && uv sync && uv run python main.py"
 ```
 

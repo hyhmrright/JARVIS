@@ -9,5 +9,6 @@ RUN uv sync --frozen
 
 COPY . .
 
-# NOTE: --reload enables hot-reload for development. Remove for production images.
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+RUN chmod +x entrypoint.sh
+
+CMD ["./entrypoint.sh"]

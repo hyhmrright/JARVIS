@@ -3,21 +3,24 @@ import binascii
 import json
 from datetime import UTC, datetime, timedelta
 
+import bcrypt
 import jwt
 from cryptography.fernet import Fernet
-from passlib.context import CryptContext
 
 from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    # bcrypt 4.0+ raises ValueError for passwords exceeding 72 bytes (no silent
+    # truncation). The API layer enforces max 72 bytes before reaching this call.
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    try:
+        return bcrypt.checkpw(plain.encode(), hashed.encode())
+    except ValueError:
+        return False
 
 
 def create_access_token(user_id: str) -> str:

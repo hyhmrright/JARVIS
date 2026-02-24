@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,15 +11,27 @@ from app.db.session import get_db
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
+def _validate_password_bytes(v: str) -> str:
+    if len(v.encode()) > 72:
+        raise ValueError("password must not exceed 72 bytes when UTF-8 encoded")
+    return v
+
+
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8)
     display_name: str | None = None
+
+    _check_bytes = field_validator("password")(_validate_password_bytes)
 
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    # min_length=1 intentionally differs from RegisterRequest(8): login must
+    # accept any stored password regardless of current registration policy.
+    password: str = Field(min_length=1)
+
+    _check_bytes = field_validator("password")(_validate_password_bytes)
 
 
 class TokenResponse(BaseModel):

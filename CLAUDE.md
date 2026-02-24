@@ -10,18 +10,14 @@
 
 ## 项目概述
 
-基于 LangGraph 构建的 agent 系统演示项目，展示基本的 agent 工作流程。使用 `uv` 作为包管理器，采用现代 Python 工具链。
+JARVIS 是具备 RAG 知识库、多 LLM 支持、流式对话的 AI 助手平台，采用 monorepo 结构。
 
 ## 核心架构
 
-项目基于 **LangGraph** 框架构建状态图（StateGraph）实现 agent 逻辑：
-
-- **StateGraph**：使用 `MessagesState` 作为状态类型，维护消息历史
-- **节点（Nodes）**：定义 agent 的处理单元（如 `mock_llm` 函数）
-- **边（Edges）**：连接节点定义工作流（START → mock_llm → END）
-- **消息类型**：使用 LangChain 的 `HumanMessage` 和 `AIMessage` 处理对话
-
-当前实现为最小化演示，使用 mock LLM 节点返回固定响应。扩展时应保持这种图结构模式。
+- **backend/**：FastAPI + LangGraph + SQLAlchemy（PostgreSQL）+ Qdrant（向量库）+ MinIO（文件）+ Redis
+- **frontend/**：Vue 3 + TypeScript + Vite + Pinia
+- **根目录 pyproject.toml**：仅管理开发工具（ruff、pyright、pre-commit），无运行时依赖
+- **LLM**：支持 DeepSeek / OpenAI / Anthropic，通过 LangGraph StateGraph 驱动
 
 ## 开发环境
 
@@ -38,7 +34,14 @@ uv sync                      # 安装所有依赖
 
 ### 运行应用
 ```bash
-python main.py               # 运行 agent 演示
+# 后端（在 backend/ 目录）
+uv run uvicorn app.main:app --reload
+
+# 前端（在 frontend/ 目录）
+bun run dev
+
+# 全栈（根目录）
+docker-compose up -d
 ```
 
 ### 代码质量检查
@@ -51,8 +54,9 @@ pyright                      # 类型检查
 
 ### 测试
 ```bash
-ty                           # 运行所有测试
-ty test_main::test_example   # 运行特定测试
+# 在 backend/ 目录执行
+uv run pytest tests/ -v                        # 运行所有测试
+uv run pytest tests/api/test_auth.py -v        # 运行特定测试文件
 ```
 
 ### Pre-commit Hooks
@@ -72,6 +76,7 @@ Pre-commit 自动执行：
 uv add <包名>                # 添加生产依赖
 uv add --group dev <包名>    # 添加开发依赖
 uv sync --upgrade            # 更新依赖
+uv lock                      # 手动编辑 pyproject.toml 后重新生成 uv.lock
 ```
 
 ## 工具配置
@@ -79,16 +84,6 @@ uv sync --upgrade            # 更新依赖
 - **Ruff**：line-length=88, target-version="py313", quote-style="double"
 - **Pyright**：typeCheckingMode="basic"
 - **Pre-commit**：运行 uv-lock、ruff-check、ruff-format 和标准文件检查
-
-## 扩展 Agent 系统
-
-在 `create_agent_graph()` 中添加新节点和边来扩展功能：
-1. 定义节点函数，接收和返回 `MessagesState`
-2. 使用 `graph.add_node()` 注册节点
-3. 使用 `graph.add_edge()` 或 `graph.add_conditional_edges()` 定义流程
-4. 使用 `cast()` 确保类型安全
-
-集成真实 LLM 时，将 `mock_llm` 替换为实际的 LangChain LLM 调用，保持相同的函数签名。
 
 ---
 
