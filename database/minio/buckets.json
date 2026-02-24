@@ -1,0 +1,11 @@
+{
+  "$schema": "MinIO Bucket 定义，供 minio-init 容器和后端代码参考",
+  "buckets": [
+    {
+      "name": "jarvis-documents",
+      "description": "用户上传文档存储，对象路径格式 {user_id}/{uuid}_{filename}",
+      "versioning": false,
+      "lifecycle": null
+    }
+  ]
+}

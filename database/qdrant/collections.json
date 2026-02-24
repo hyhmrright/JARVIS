@@ -1,0 +1,19 @@
+{
+  "$schema": "自定义 Qdrant Collection 定义，供后端 lifespan 读取并创建",
+  "collections": [
+    {
+      "name_pattern": "user_{user_id}",
+      "description": "每用户独立 Collection，存储用户私有文档的向量嵌入",
+      "vectors": {
+        "size": 1536,
+        "distance": "Cosine"
+      },
+      "payload_schema": {
+        "doc_id": { "type": "keyword", "description": "关联 documents 表的 UUID" },
+        "chunk_index": { "type": "integer", "description": "文档切片序号" },
+        "text": { "type": "text", "description": "切片原文" }
+      },
+      "note": "Collection 按用户动态创建，不预建。此文件定义规范，由后端 ensure_collection() 读取参数。"
+    }
+  ]
+}
