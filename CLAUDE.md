@@ -1,3 +1,5 @@
+[中文](CLAUDE.md) | [English](docs/i18n/CLAUDE.en.md) | [日本語](docs/i18n/CLAUDE.ja.md) | [한국어](docs/i18n/CLAUDE.ko.md) | [Français](docs/i18n/CLAUDE.fr.md) | [Deutsch](docs/i18n/CLAUDE.de.md)
+
 # CLAUDE.md
 
 本文件为 Claude Code 在此代码库中工作时提供指导。

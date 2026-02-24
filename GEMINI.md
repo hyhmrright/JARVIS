@@ -1,3 +1,5 @@
+[中文](GEMINI.md) | [English](docs/i18n/GEMINI.en.md) | [日本語](docs/i18n/GEMINI.ja.md) | [한국어](docs/i18n/GEMINI.ko.md) | [Français](docs/i18n/GEMINI.fr.md) | [Deutsch](docs/i18n/GEMINI.de.md)
+
 # Jarvis 项目上下文
 
 本文档为 Gemini 提供关于 `JARVIS` monorepo 的准确上下文信息。
