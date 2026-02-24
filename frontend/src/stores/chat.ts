@@ -26,10 +26,8 @@ export const useChatStore = defineStore("chat", {
         this.currentConvId = null;
       }
     },
-    async newConversation() {
-      const { data } = await client.post("/conversations", { title: "New Chat" });
-      this.conversations.unshift(data);
-      this.currentConvId = data.id;
+    newConversation() {
+      this.currentConvId = null;
       this.messages = [];
     },
     async deleteConversation(convId: string) {
@@ -45,7 +43,12 @@ export const useChatStore = defineStore("chat", {
       }
     },
     async sendMessage(content: string) {
-      if (!this.currentConvId) return;
+      if (!this.currentConvId) {
+        const title = content.slice(0, 30) + (content.length > 30 ? "..." : "");
+        const { data } = await client.post("/conversations", { title });
+        this.conversations.unshift(data);
+        this.currentConvId = data.id;
+      }
       this.messages.push({ role: "human", content });
       this.streaming = true;
       const aiMsg: Message = { role: "ai", content: "" };

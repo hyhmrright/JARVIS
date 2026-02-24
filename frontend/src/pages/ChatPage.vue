@@ -119,12 +119,14 @@ watch(
   },
 );
 
-async function send() {
+async function send(): Promise<void> {
   if (!input.value.trim() || chat.streaming) return;
-  const msg = input.value;
-  input.value = "";
-  if (!chat.currentConvId) await chat.newConversation();
-  await chat.sendMessage(msg);
+  try {
+    await chat.sendMessage(input.value);
+    input.value = "";
+  } catch {
+    // Preserve input on send failure for user to retry
+  }
 }
 
 async function confirmDelete(convId: string) {
