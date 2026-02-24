@@ -1,13 +1,38 @@
 <template>
   <div class="auth-page">
-    <h1>{{ $t('login.title') }}</h1>
-    <form @submit.prevent="handleLogin">
-      <input v-model="email" type="email" :placeholder="$t('login.email')" required />
-      <input v-model="password" type="password" :placeholder="$t('login.password')" required />
-      <button type="submit" :disabled="loading">{{ loading ? $t('login.loading') : $t('login.submit') }}</button>
-      <p v-if="error" class="error">{{ error }}</p>
-    </form>
-    <p>{{ $t('login.noAccount') }}<router-link to="/register">{{ $t('login.register') }}</router-link></p>
+    <div class="auth-card animate-slide-up">
+      <div class="auth-brand">
+        <span class="brand-icon">&#10022;</span>
+        <h1>JARVIS</h1>
+        <p class="brand-tagline">{{ $t("login.title") }}</p>
+      </div>
+      <div class="shimmer-line animate-shimmer"></div>
+      <form class="auth-form" @submit.prevent="handleLogin">
+        <div class="form-group animate-slide-up-delay-1">
+          <label for="email">{{ $t("login.email") }}</label>
+          <input id="email" v-model="email" type="email" :placeholder="$t('login.email')" required />
+        </div>
+        <div class="form-group animate-slide-up-delay-2">
+          <label for="password">{{ $t("login.password") }}</label>
+          <input
+            id="password"
+            v-model="password"
+            type="password"
+            :placeholder="$t('login.password')"
+            required
+          />
+        </div>
+        <button type="submit" class="btn-primary animate-slide-up-delay-3" :disabled="loading">
+          <span v-if="loading" class="spinner"></span>
+          {{ loading ? $t("login.loading") : $t("login.submit") }}
+        </button>
+        <p v-if="error" class="error-msg">{{ error }}</p>
+      </form>
+      <p class="auth-footer">
+        {{ $t("login.noAccount") }}
+        <router-link to="/register">{{ $t("login.register") }}</router-link>
+      </p>
+    </div>
   </div>
 </template>
 
@@ -29,15 +54,12 @@ const { t } = useI18n();
 const auth = useAuthStore();
 const router = useRouter();
 
-// 表单字段
 const email = ref("");
 const password = ref("");
 
-// UI 状态
 const error = ref("");
 const loading = ref(false);
 
-/** 提交登录表单，成功后跳转首页 */
 async function handleLogin() {
   loading.value = true;
   error.value = "";
@@ -45,7 +67,6 @@ async function handleLogin() {
     await auth.login(email.value, password.value);
     router.push("/");
   } catch (e) {
-    // 区分 HTTP 响应错误和网络层错误（断网、超时等）
     if (e instanceof AxiosError && e.response) {
       const status = e.response.status;
       if (status === 401) {
@@ -63,3 +84,5 @@ async function handleLogin() {
   }
 }
 </script>
+
+<!-- Styles provided by @/assets/styles/components.css -->

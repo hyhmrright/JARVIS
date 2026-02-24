@@ -1,0 +1,241 @@
+/* ============================================
+   JARVIS Design System — Dark Luxury
+   ============================================ */
+
+:root {
+  /* Color Palette */
+  --bg-primary: #0a0a12;
+  --bg-secondary: #12121e;
+  --bg-elevated: rgba(255, 255, 255, 0.04);
+  --accent: #d4a574;
+  --accent-dim: #8b7355;
+  --text-primary: #e8e2d9;
+  --text-secondary: #9a9a9a;
+  --text-muted: #5a5a6a;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-glow: rgba(212, 165, 116, 0.3);
+  --danger: #e85d5d;
+  --success: #5dd39e;
+
+  /* Accent alpha variants */
+  --accent-a03: rgba(212, 165, 116, 0.03);
+  --accent-a04: rgba(212, 165, 116, 0.04);
+  --accent-a06: rgba(212, 165, 116, 0.06);
+  --accent-a08: rgba(212, 165, 116, 0.08);
+  --accent-a10: rgba(212, 165, 116, 0.1);
+  --accent-a12: rgba(212, 165, 116, 0.12);
+  --accent-a15: rgba(212, 165, 116, 0.15);
+  --accent-a30: rgba(212, 165, 116, 0.3);
+  --accent-a40: rgba(212, 165, 116, 0.4);
+
+  /* White alpha variants */
+  --white-a06: rgba(255, 255, 255, 0.06);
+  --white-a08: rgba(255, 255, 255, 0.08);
+  --white-a10: rgba(255, 255, 255, 0.1);
+  --white-a20: rgba(255, 255, 255, 0.2);
+
+  /* Danger/Success alpha variants */
+  --danger-a10: rgba(232, 93, 93, 0.1);
+  --danger-a15: rgba(232, 93, 93, 0.15);
+  --success-a10: rgba(93, 211, 158, 0.1);
+  --success-a15: rgba(93, 211, 158, 0.15);
+
+  /* Typography */
+  --font-heading: "Sora", system-ui, -apple-system, sans-serif;
+  --font-body: "DM Sans", system-ui, -apple-system, sans-serif;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+
+  /* Border Radius */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px var(--accent-a15);
+
+  /* Glass */
+  --glass-bg: rgba(18, 18, 30, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-blur: 20px;
+}
+
+/* ── Reset ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  background-image:
+    radial-gradient(ellipse at 20% 50%, var(--accent-a03) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(100, 100, 180, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.01) 0%, transparent 100%);
+  min-height: 100vh;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--text-primary);
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--white-a10);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--white-a20);
+}
+
+/* ── Selection ── */
+::selection {
+  background: var(--accent-a30);
+  color: var(--text-primary);
+}
+
+/* ── Form Elements ── */
+input,
+textarea,
+select {
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  outline: none;
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.3s ease,
+    background 0.3s ease;
+  width: 100%;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--accent-dim);
+  box-shadow: 0 0 0 3px var(--accent-a10);
+  background: var(--white-a06);
+}
+
+select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239a9a9a' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+select option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 44px;
+}
+
+button {
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition:
+    background 0.3s ease,
+    transform 0.2s ease,
+    box-shadow 0.3s ease;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Utility Classes ── */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+}
