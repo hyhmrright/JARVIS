@@ -51,6 +51,8 @@
     "modelName": "모델 이름",
     "apiKey": "API 키",
     "save": "저장",
-    "saved": "저장됨"
+    "saved": "저장됨",
+    "personaOverride": "사용자 지정 지시",
+    "personaPlaceholder": "예: 보스라고 불러줘, 더 캐주얼하게..."
   }
 }

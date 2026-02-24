@@ -51,6 +51,8 @@
     "modelName": "Modellname",
     "apiKey": "API-Schlüssel",
     "save": "Speichern",
-    "saved": "Gespeichert"
+    "saved": "Gespeichert",
+    "personaOverride": "Benutzerdefinierte Anweisungen",
+    "personaPlaceholder": "z.B.: Nenn mich Chef, verwende einen lockereren Ton..."
   }
 }

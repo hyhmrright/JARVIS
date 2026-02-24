@@ -51,6 +51,8 @@
     "modelName": "モデル名",
     "apiKey": "API キー",
     "save": "保存",
-    "saved": "保存しました"
+    "saved": "保存しました",
+    "personaOverride": "カスタム指示",
+    "personaPlaceholder": "例：ボスと呼んで、もっとカジュアルに..."
   }
 }

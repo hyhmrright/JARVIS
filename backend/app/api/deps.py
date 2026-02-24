@@ -20,6 +20,7 @@ class ResolvedLLMConfig:
     model_name: str
     api_key: str
     enabled_tools: list[str] | None
+    persona_override: str | None
 
 
 async def get_current_user(
@@ -51,12 +52,14 @@ async def get_llm_config(
     Raises ``HTTPException(400)`` when no API key can be found for the
     configured provider (neither user-stored nor server-level).
     """
-    user_settings = await db.scalar(
+    settings = await db.scalar(
         select(UserSettings).where(UserSettings.user_id == user.id)
     )
-    provider = user_settings.model_provider if user_settings else "deepseek"
-    model_name = user_settings.model_name if user_settings else "deepseek-chat"
-    raw_keys = user_settings.api_keys if user_settings else {}
+
+    provider = settings.model_provider if settings else "deepseek"
+    model_name = settings.model_name if settings else "deepseek-chat"
+    raw_keys = settings.api_keys if settings else {}
+
     api_key = resolve_api_key(provider, raw_keys)
     if not api_key:
         raise HTTPException(
@@ -64,10 +67,11 @@ async def get_llm_config(
             detail=f"No API key configured for provider '{provider}'. "
             "Set it in Settings or ask the admin to configure a server-level key.",
         )
-    enabled_tools = user_settings.enabled_tools if user_settings else None
+
     return ResolvedLLMConfig(
         provider=provider,
         model_name=model_name,
         api_key=api_key,
-        enabled_tools=enabled_tools,
+        enabled_tools=settings.enabled_tools if settings else None,
+        persona_override=settings.persona_override if settings else None,
     )

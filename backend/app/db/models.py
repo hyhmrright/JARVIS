@@ -75,6 +75,7 @@ class UserSettings(Base):
         nullable=False,
         default=lambda: ["search", "code_exec", "file", "datetime"],
     )
+    persona_override: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

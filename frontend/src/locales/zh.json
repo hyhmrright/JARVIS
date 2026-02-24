@@ -51,6 +51,8 @@
     "modelName": "模型名称",
     "apiKey": "API Key",
     "save": "保存",
-    "saved": "已保存"
+    "saved": "已保存",
+    "personaOverride": "自定义指令",
+    "personaPlaceholder": "例如：叫我老板、用更轻松的语气..."
   }
 }

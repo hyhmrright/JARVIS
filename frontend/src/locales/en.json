@@ -51,6 +51,8 @@
     "modelName": "Model Name",
     "apiKey": "API Key",
     "save": "Save",
-    "saved": "Saved"
+    "saved": "Saved",
+    "personaOverride": "Custom Instructions",
+    "personaPlaceholder": "e.g., Call me Boss, use a more casual tone..."
   }
 }

@@ -3,12 +3,13 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.graph import create_graph
+from app.agent.persona import build_system_prompt
 from app.agent.state import AgentState
 from app.api.deps import ResolvedLLMConfig, get_current_user, get_llm_config
 from app.db.models import Conversation, Message, User
@@ -53,6 +54,9 @@ async def chat_stream(
         for msg in history_rows.all()
         if msg.role in _ROLE_TO_MESSAGE
     ]
+
+    system_msg = SystemMessage(content=build_system_prompt(llm.persona_override))
+    lc_messages = [system_msg, *lc_messages]
 
     conv_id = conv.id
 

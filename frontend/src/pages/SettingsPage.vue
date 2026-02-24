@@ -24,7 +24,17 @@
           <label for="apiKey">{{ $t("settings.apiKey") }}</label>
           <input id="apiKey" v-model="apiKey" type="password" />
         </div>
-        <button type="submit" class="btn-primary animate-slide-up-delay-3">
+        <div class="form-group animate-slide-up-delay-3">
+          <label for="personaOverride">{{ $t("settings.personaOverride") }}</label>
+          <textarea
+            id="personaOverride"
+            v-model="personaOverride"
+            :placeholder="$t('settings.personaPlaceholder')"
+            rows="4"
+            maxlength="2000"
+          />
+        </div>
+        <button type="submit" class="btn-primary animate-slide-up-delay-4">
           {{ $t("settings.save") }}
         </button>
       </form>
@@ -39,20 +49,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import client from "@/api/client";
 
 const provider = ref("deepseek");
 const modelName = ref("deepseek-chat");
 const apiKey = ref("");
+const personaOverride = ref("");
 const saved = ref(false);
 
+onMounted(async () => {
+  try {
+    const { data } = await client.get("/settings");
+    provider.value = data.model_provider;
+    modelName.value = data.model_name;
+    personaOverride.value = data.persona_override || "";
+  } catch {
+    // Use defaults on error
+  }
+});
+
 async function save() {
-  await client.put("/settings", {
+  const payload: Record<string, unknown> = {
     model_provider: provider.value,
     model_name: modelName.value,
-    api_keys: { [provider.value]: apiKey.value },
-  });
+    persona_override: personaOverride.value || null,
+  };
+  if (apiKey.value) {
+    payload.api_keys = { [provider.value]: apiKey.value };
+  }
+  await client.put("/settings", payload);
   saved.value = true;
   setTimeout(() => (saved.value = false), 2000);
 }

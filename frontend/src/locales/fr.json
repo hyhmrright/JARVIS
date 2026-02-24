@@ -51,6 +51,8 @@
     "modelName": "Nom du modèle",
     "apiKey": "Clé API",
     "save": "Enregistrer",
-    "saved": "Enregistré"
+    "saved": "Enregistré",
+    "personaOverride": "Instructions personnalisées",
+    "personaPlaceholder": "Ex. : Appelez-moi Chef, utilisez un ton plus décontracté..."
   }
 }
