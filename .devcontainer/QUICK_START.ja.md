@@ -6,7 +6,7 @@
 
 ```bash
 # 1. VS Code を開く
-code /Users/hyh/code/JARVIS
+code path/to/JARVIS
 
 # 2. F1 を押して、以下を入力:
 Dev Containers: Reopen in Container
@@ -20,7 +20,7 @@ Dev Containers: Reopen in Container
 
 ### イメージのビルド
 ```bash
-cd /Users/hyh/code/JARVIS
+cd path/to/JARVIS
 docker build -t jarvis-dev -f .devcontainer/Dockerfile .
 ```
 
@@ -70,11 +70,8 @@ pre-commit run --all-files
 .devcontainer/
 ├── devcontainer.json     # VS Code 設定
 ├── Dockerfile            # イメージ定義
-├── README.md             # 使用ガイド
-├── CHANGELOG.md          # 設定ログ
-├── SETUP_COMPLETE.md     # 完全レポート
-├── TEST_REPORT.md        # テスト結果
-└── test.sh               # 検証スクリプト
+├── README[.lang].md      # 使用ガイド（多言語）
+└── QUICK_START[.lang].md # クイックリファレンス（多言語）
 ```
 
 ---
@@ -82,18 +79,14 @@ pre-commit run --all-files
 ## クイックテスト
 
 ```bash
-# 設定の検証
-./.devcontainer/test.sh
-
 # Python のテスト
 docker run --rm jarvis-dev python --version
 
 # uv のテスト
 docker run --rm jarvis-dev uv --version
 
-# 完全なワークフローのテスト
-docker run --rm -v $(pwd):/workspace jarvis-dev \
-  bash -c "cd /workspace && uv sync && uv run python main.py"
+# Bun のテスト
+docker run --rm jarvis-dev bun --version
 ```
 
 ---
@@ -111,9 +104,10 @@ docker run --rm -v $(pwd):/workspace jarvis-dev \
 
 ## 環境情報
 
-- **Python**: 3.13.11
-- **uv**: 0.9.26
-- **Git**: 2.47.3
+- **Python**: 3.13
+- **uv**: latest
+- **Bun**: latest
+- **Git**: latest
 - **ベースイメージ**: python:3.13-slim
 - **ユーザー**: vscode (非 root)
 - **作業ディレクトリ**: /workspace
@@ -122,10 +116,7 @@ docker run --rm -v $(pwd):/workspace jarvis-dev \
 
 ## 関連ドキュメント
 
-- [完全使用ガイド](.devcontainer/README.md)
-- [設定説明](.devcontainer/CHANGELOG.md)
-- [テストレポート](.devcontainer/TEST_REPORT.md)
-- [完全セットアップレポート](.devcontainer/SETUP_COMPLETE.md)
+- [完全使用ガイド](README.ja.md)
 
 ---
 

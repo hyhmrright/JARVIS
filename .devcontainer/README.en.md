@@ -10,9 +10,10 @@ A Dev Container is a standardized development environment configuration that use
 
 ✅ **Pre-configured Python 3.13 environment**
 ✅ **Automatic uv package manager installation**
+✅ **Pre-installed Bun runtime** (frontend development)
 ✅ **Pre-installed development tools** (Ruff, Pyright, Pre-commit)
 ✅ **Automatic VS Code extension installation**
-✅ **Automatic `uv sync` and `pre-commit install` execution**
+✅ **Automatic `uv sync`, `pre-commit install` and `bun install` execution**
 ✅ **Code formatting and Linting pre-configured**
 
 ## How to Use

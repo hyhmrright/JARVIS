@@ -1,11 +1,10 @@
 {
-  "name": "Agents - LangGraph Development",
+  "name": "JARVIS Development",
   "build": {
     "dockerfile": "Dockerfile",
     "context": ".."
   },
 
-  // Configure tool-specific properties
   "customizations": {
     "vscode": {
       "extensions": [
@@ -15,12 +14,11 @@
         "ms-python.debugpy",
         "tamasfe.even-better-toml",
         "GitHub.copilot",
-        "GitHub.copilot-chat"
+        "GitHub.copilot-chat",
+        "Vue.volar"
       ],
       "settings": {
-        "python.defaultInterpreterPath": "/usr/local/bin/python",
-        "python.linting.enabled": true,
-        "python.formatting.provider": "none",
+        "python.defaultInterpreterPath": "/workspace/.venv/bin/python",
         "[python]": {
           "editor.defaultFormatter": "charliermarsh.ruff",
           "editor.formatOnSave": true,
@@ -41,31 +39,22 @@
     }
   },
 
-  // Features to add to the dev container
   "features": {
     "ghcr.io/devcontainers/features/git:1": {},
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
 
-  // Use 'forwardPorts' to make a list of ports inside the container available locally
-  "forwardPorts": [],
-
-  // Use 'postCreateCommand' to run commands after the container is created
-  "postCreateCommand": "uv sync && pre-commit install",
-
-  // Comment out to connect as root instead
+  "forwardPorts": [3000, 5173, 8000],
+  "postCreateCommand": "uv sync && pre-commit install && (cd frontend && bun install)",
   "remoteUser": "vscode",
 
-  // Set environment variables
   "remoteEnv": {
     "PYTHONUNBUFFERED": "1"
   },
 
-  // Mount the workspace folder with proper permissions
   "mounts": [
     "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached"
   ],
 
-  // Set the workspace folder
   "workspaceFolder": "/workspace"
 }

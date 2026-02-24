@@ -10,9 +10,10 @@ Dev Container는 Docker 컨테이너를 사용하여 일관된 개발 경험을 
 
 ✅ **Python 3.13 환경 사전 구성**
 ✅ **uv 패키지 매니저 자동 설치**
+✅ **Bun 런타임 사전 설치** (프론트엔드 개발)
 ✅ **개발 도구 사전 설치** (Ruff, Pyright, Pre-commit)
 ✅ **VS Code 확장 자동 설치**
-✅ **`uv sync` 및 `pre-commit install` 자동 실행**
+✅ **`uv sync`, `pre-commit install` 및 `bun install` 자동 실행**
 ✅ **코드 포맷팅 및 Linting 구성 완료**
 
 ## 사용 방법
