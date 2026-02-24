@@ -29,7 +29,8 @@
     "genericError": "注册失败，请稍后再试"
   },
   "chat": {
-    "newConversation": "+ 新对话",
+    "newConversation": "新对话",
+    "deleteConfirm": "确定删除此对话？",
     "documents": "知识库",
     "settings": "设置",
     "logout": "退出",
@@ -50,6 +51,8 @@
     "modelName": "模型名称",
     "apiKey": "API Key",
     "save": "保存",
-    "saved": "已保存"
+    "saved": "已保存",
+    "personaOverride": "自定义指令",
+    "personaPlaceholder": "例如：叫我老板、用更轻松的语气..."
   }
 }

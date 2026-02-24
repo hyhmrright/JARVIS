@@ -2,7 +2,17 @@
 
 # JARVIS
 
-An AI assistant platform with RAG knowledge base, multi-LLM support, and streaming conversations.
+An AI assistant platform with RAG knowledge base, multi-LLM support, and streaming conversations. Featuring a Dark Luxury design language for a premium AI interaction experience.
+
+## Features
+
+- **Multi-Model Support** — DeepSeek / OpenAI / Anthropic, freely switchable in settings
+- **RAG Knowledge Base** — Upload documents (PDF/TXT/MD/DOCX) with automatic chunking and vector storage
+- **Streaming Chat** — SSE real-time streaming output, displaying AI replies token by token
+- **LangGraph Agent** — ReAct loop architecture with tool calling for code execution, file operations, and more
+- **Dark Luxury UI** — Glassmorphism cards, gold gradient accents, refined animation transitions
+- **Multilingual** — Supports 6 languages: Chinese / English / Japanese / Korean / French / German
+- **Full-Stack Docker** — One-command `docker compose up -d` to launch the complete stack
 
 ## Tech Stack
 
@@ -13,15 +23,25 @@ An AI assistant platform with RAG knowledge base, multi-LLM support, and streami
 | Database | PostgreSQL · Redis · Qdrant (Vector DB) |
 | Storage | MinIO |
 | LLM | DeepSeek · OpenAI · Anthropic |
+| Design | CSS Variables Design System · Glassmorphism · Dark Theme |
 
 ## Project Structure
 
 ```
 JARVIS/
-├── backend/          # FastAPI backend (Python 3.13 + uv)
-├── frontend/         # Vue 3 frontend (Bun)
-├── docker-compose.yml
-└── pyproject.toml    # Root-level dev tooling config
+├── backend/           # FastAPI backend (Python 3.13 + uv)
+│   ├── app/           # Application code (agent/api/core/db/infra/rag/tools)
+│   ├── alembic/       # Database migrations
+│   └── tests/         # pytest test suite
+├── frontend/          # Vue 3 frontend (Bun)
+│   └── src/
+│       ├── assets/styles/  # CSS design system (global/animations/components)
+│       ├── pages/          # Page components (Login/Register/Chat/Documents/Settings)
+│       ├── stores/         # Pinia state management
+│       └── locales/        # i18n multilingual
+├── database/          # Docker init scripts (postgres/redis/qdrant)
+├── docker-compose.yml # Full-stack orchestration
+└── pyproject.toml     # Root-level dev tooling config
 ```
 
 ## Quick Start
@@ -36,6 +56,8 @@ docker compose up -d
 ```
 
 Service URLs: Frontend http://localhost:3000 · Backend http://localhost:8000
+
+> Rebuild without cache: `docker compose down && docker compose build --no-cache && docker compose up -d --force-recreate`
 
 ### Local Development
 

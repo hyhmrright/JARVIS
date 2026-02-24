@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     jwt_secret: str
     encryption_key: str
 
+    # LLM API keys — optional, used as fallback when user has no stored key
+    deepseek_api_key: str = ""
+    openai_api_key: str = ""
+    anthropic_api_key: str = ""
+
     # Non-sensitive — safe defaults for local development
     qdrant_url: str = "http://localhost:6333"
     minio_endpoint: str = "localhost:9000"

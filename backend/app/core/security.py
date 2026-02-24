@@ -79,3 +79,16 @@ def decrypt_api_keys(stored: dict) -> dict:
         return stored
     decrypted = _get_fernet().decrypt(stored["__encrypted__"].encode())
     return json.loads(decrypted)
+
+
+def resolve_api_key(provider: str, raw_keys: dict) -> str:
+    """解析用户的 API key，回退到 Settings 中的服务端配置。
+
+    优先使用用户加密存储的 key，若为空则回退到 settings 中的
+    ``{provider}_api_key`` 环境变量。两者都为空时返回空字符串。
+    """
+    user_key: str = decrypt_api_keys(raw_keys).get(provider, "")
+    if user_key:
+        return user_key
+    fallback: str = getattr(settings, f"{provider}_api_key", "")
+    return fallback

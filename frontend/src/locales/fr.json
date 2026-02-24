@@ -29,7 +29,8 @@
     "genericError": "Échec de l'inscription, veuillez réessayer plus tard"
   },
   "chat": {
-    "newConversation": "+ Nouvelle conversation",
+    "newConversation": "Nouvelle conversation",
+    "deleteConfirm": "Supprimer cette conversation ?",
     "documents": "Base de connaissances",
     "settings": "Paramètres",
     "logout": "Déconnexion",
@@ -50,6 +51,8 @@
     "modelName": "Nom du modèle",
     "apiKey": "Clé API",
     "save": "Enregistrer",
-    "saved": "Enregistré"
+    "saved": "Enregistré",
+    "personaOverride": "Instructions personnalisées",
+    "personaPlaceholder": "Ex. : Appelez-moi Chef, utilisez un ton plus décontracté..."
   }
 }

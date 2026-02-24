@@ -4,13 +4,11 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import ResolvedLLMConfig, get_current_user, get_llm_config
 from app.core.config import settings
-from app.core.security import decrypt_api_keys
-from app.db.models import Document, User, UserSettings
+from app.db.models import Document, User
 from app.db.session import get_db
 from app.infra.minio import get_minio_client
 from app.infra.qdrant import user_collection_name
@@ -42,6 +40,7 @@ def extract_text(content: bytes, file_type: str) -> str:
 async def upload_document(
     file: UploadFile = File(...),
     user: User = Depends(get_current_user),
+    llm: ResolvedLLMConfig = Depends(get_llm_config),
     db: AsyncSession = Depends(get_db),
 ):
     ext = (file.filename or "").rsplit(".", 1)[-1].lower()
@@ -64,13 +63,6 @@ async def upload_document(
         len(content),
     )
 
-    user_settings = await db.scalar(
-        select(UserSettings).where(UserSettings.user_id == user.id)
-    )
-    provider = user_settings.model_provider if user_settings else "deepseek"
-    raw_keys = user_settings.api_keys if user_settings else {}
-    api_key = decrypt_api_keys(raw_keys).get(provider, "")
-
     text = extract_text(content, ext)
     doc = Document(
         user_id=user.id,
@@ -82,7 +74,7 @@ async def upload_document(
     )
     db.add(doc)
     await db.flush()
-    chunk_count = await index_document(str(user.id), str(doc.id), text, api_key)
+    chunk_count = await index_document(str(user.id), str(doc.id), text, llm.api_key)
     doc.chunk_count = chunk_count
     await db.commit()
     return {"id": str(doc.id), "filename": doc.filename, "chunk_count": chunk_count}

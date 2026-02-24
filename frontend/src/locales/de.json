@@ -29,7 +29,8 @@
     "genericError": "Registrierung fehlgeschlagen, bitte versuchen Sie es später erneut"
   },
   "chat": {
-    "newConversation": "+ Neuer Chat",
+    "newConversation": "Neuer Chat",
+    "deleteConfirm": "Diese Unterhaltung löschen?",
     "documents": "Wissensdatenbank",
     "settings": "Einstellungen",
     "logout": "Abmelden",
@@ -50,6 +51,8 @@
     "modelName": "Modellname",
     "apiKey": "API-Schlüssel",
     "save": "Speichern",
-    "saved": "Gespeichert"
+    "saved": "Gespeichert",
+    "personaOverride": "Benutzerdefinierte Anweisungen",
+    "personaPlaceholder": "z.B.: Nenn mich Chef, verwende einen lockereren Ton..."
   }
 }

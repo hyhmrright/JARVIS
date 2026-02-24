@@ -87,7 +87,9 @@ services:
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
-      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       UVICORN_RELOAD: ${UVICORN_RELOAD:-1}  # Set to empty to disable hot-reload
     depends_on:
       postgres:
@@ -116,7 +118,7 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:80/ > /dev/null || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ > /dev/null || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 5
