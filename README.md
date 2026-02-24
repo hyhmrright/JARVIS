@@ -1,3 +1,5 @@
+[中文](README.md) | [English](README.en.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Français](README.fr.md) | [Deutsch](README.de.md)
+
 # JARVIS
 
 具备 RAG 知识库、多 LLM 支持、流式对话的 AI 助手平台。
