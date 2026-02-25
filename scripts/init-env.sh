@@ -13,17 +13,10 @@ fi
 
 rand_password() { openssl rand -hex 18; }
 
-# Fernet key requires the cryptography package.
-# Try the project venv first, then fall back to system python3.
+# Fernet key — use uv to pull cryptography on-demand (no pre-install required).
 gen_fernet_key() {
     local cmd='from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'
-    if [ -f ".venv/bin/python" ]; then
-        .venv/bin/python -c "$cmd" 2>/dev/null && return
-    fi
-    python3 -c "$cmd" 2>/dev/null && return
-    echo "ERROR: 'cryptography' package not found." >&2
-    echo "  Install it with:  uv sync  (or)  pip install cryptography" >&2
-    exit 1
+    uv run --with cryptography python -c "$cmd"
 }
 
 POSTGRES_PASSWORD=$(rand_password)
@@ -56,12 +49,14 @@ ENCRYPTION_KEY=${ENCRYPTION_KEY}
 # Monitoring
 GRAFANA_PASSWORD=${GRAFANA_PASSWORD}
 
-# LLM — fill in your API key
+# LLM — fill in at least one key
 DEEPSEEK_API_KEY=
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
 
 # Composed URLs — for local dev (docker-compose overrides these with container hostnames)
 DATABASE_URL=postgresql+asyncpg://jarvis:${POSTGRES_PASSWORD}@localhost:5432/jarvis
 REDIS_URL=redis://:${REDIS_PASSWORD}@localhost:6379
 EOF
 
-echo "✅  $ENV_FILE created. Review it and fill in DEEPSEEK_API_KEY."
+echo "✅  $ENV_FILE created. Open it and fill in at least one LLM API key."
