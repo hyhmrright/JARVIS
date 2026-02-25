@@ -42,5 +42,8 @@ frontend/.vite/
 # Claude Code
 .claude/
 
+# Git Worktrees
+.worktrees/
+
 # Docker
 *.log

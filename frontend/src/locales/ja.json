@@ -36,7 +36,8 @@
     "logout": "ログアウト",
     "voiceComingSoon": "音声機能は近日公開予定",
     "inputPlaceholder": "メッセージを入力、Enter で送信...",
-    "send": "送信"
+    "send": "送信",
+    "copy": "メッセージをコピー"
   },
   "documents": {
     "title": "ナレッジベース",

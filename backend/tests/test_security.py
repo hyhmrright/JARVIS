@@ -22,6 +22,6 @@ def test_verify_password_malformed_hash_returns_false() -> None:
 
 def test_hash_password_unicode_at_72_byte_limit() -> None:
     # 18 emoji × 4 bytes = 72 bytes exactly — bcrypt's max
-    password = "\U0001F600" * 18
+    password = "\U0001f600" * 18
     hashed = hash_password(password)
     assert verify_password(password, hashed) is True

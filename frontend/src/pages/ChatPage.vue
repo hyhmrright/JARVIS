@@ -61,6 +61,15 @@
           </div>
           <div class="msg-bubble">
             <p>{{ msg.content }}</p>
+            <button
+              v-if="!(chat.streaming && i === chat.messages.length - 1)"
+              class="copy-btn"
+              :title="$t('chat.copy')"
+              @click="copyMessage(msg.content, i)"
+            >
+              <span v-if="copiedIndex === i">✓</span>
+              <span v-else>⧉</span>
+            </button>
           </div>
         </div>
         <div v-if="chat.streaming" class="streaming-indicator">
@@ -108,6 +117,19 @@ const auth = useAuthStore();
 const router = useRouter();
 const input = ref("");
 const messagesEl = ref<HTMLElement>();
+const copiedIndex = ref<number | null>(null);
+
+async function copyMessage(content: string, index: number): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(content);
+    copiedIndex.value = index;
+    setTimeout(() => {
+      copiedIndex.value = null;
+    }, 1500);
+  } catch {
+    // Clipboard API unavailable (non-secure context or permission denied)
+  }
+}
 
 onMounted(() => chat.loadConversations());
 
@@ -129,7 +151,7 @@ async function send(): Promise<void> {
   }
 }
 
-async function confirmDelete(convId: string) {
+async function confirmDelete(convId: string): Promise<void> {
   if (confirm(t("chat.deleteConfirm"))) {
     await chat.deleteConversation(convId);
   }
@@ -409,7 +431,8 @@ async function confirmDelete(convId: string) {
 }
 
 .msg-bubble {
-  padding: 12px 16px;
+  position: relative;
+  padding: 12px 16px 36px;
   border-radius: var(--radius-lg);
   line-height: 1.6;
   font-size: 15px;
@@ -432,6 +455,35 @@ async function confirmDelete(convId: string) {
 .msg-bubble p {
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.copy-btn {
+  display: none;
+  position: absolute;
+  bottom: 6px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 13px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  padding: 0;
+}
+
+.copy-btn:hover {
+  color: var(--accent);
+  background: var(--accent-a08);
+  border-color: var(--accent-a30);
+}
+
+.msg-bubble:hover .copy-btn {
+  display: flex;
 }
 
 /* ── Streaming Indicator ── */

@@ -36,7 +36,8 @@
     "logout": "Déconnexion",
     "voiceComingSoon": "Fonction vocale bientôt disponible",
     "inputPlaceholder": "Tapez un message, appuyez sur Entrée pour envoyer...",
-    "send": "Envoyer"
+    "send": "Envoyer",
+    "copy": "Copier le message"
   },
   "documents": {
     "title": "Base de connaissances",

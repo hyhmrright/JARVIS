@@ -41,7 +41,7 @@ async def search_documents(
     collection = user_collection_name(user_id)
     embedder = get_embedder(api_key)
     query_vec = await embedder.aembed_query(query)
-    results = await client.search(
+    results = await client.search(  # type: ignore[attr-defined]
         collection_name=collection, query_vector=query_vec, limit=top_k
     )
     return [r.payload["text"] for r in results if r.payload]
