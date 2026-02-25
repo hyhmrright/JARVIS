@@ -12,7 +12,7 @@ KI-Assistenzplattform mit RAG-Wissensdatenbank, Multi-LLM-Unterstützung und Str
 - **LangGraph Agent** — ReAct-Schleifenarchitektur mit Tool-Aufrufen für Codeausführung, Dateioperationen und mehr
 - **Dark Luxury UI** — Glassmorphismus-Karten, Gold-Verlaufseffekte, feine Animationsübergänge
 - **Mehrsprachig** — Unterstützt 6 Sprachen: Chinesisch / Englisch / Japanisch / Koreanisch / Französisch / Deutsch
-- **Full-Stack Docker** — Kompletter Start mit einem Befehl: `docker compose up -d`
+- **Produktionsreifes Docker** — 4-Schichten-Netzwerkisolierung, Traefik Edge-Router, vollständiger Observability-Stack
 
 ## Technologie-Stack
 
@@ -23,6 +23,8 @@ KI-Assistenzplattform mit RAG-Wissensdatenbank, Multi-LLM-Unterstützung und Str
 | Datenbank | PostgreSQL · Redis · Qdrant (Vektordatenbank) |
 | Speicher | MinIO |
 | LLM | DeepSeek · OpenAI · Anthropic |
+| Edge-Router | Traefik v3 |
+| Observability | Prometheus · Grafana · cAdvisor |
 | Design | CSS Variables Designsystem · Glassmorphismus · Dunkles Thema |
 
 ## Projektstruktur
@@ -40,7 +42,10 @@ JARVIS/
 │       ├── stores/         # Pinia-Zustandsverwaltung
 │       └── locales/        # i18n Mehrsprachigkeit
 ├── database/          # Docker-Initialisierungsskripte (postgres/redis/qdrant)
-├── docker-compose.yml # Full-Stack-Orchestrierung
+├── monitoring/        # Prometheus-Konfiguration + Grafana-Provisioning
+├── traefik/           # Traefik dynamische Routing-Konfiguration
+├── docker-compose.yml          # Produktions-Orchestrierung (4-Schichten-Netzwerke)
+├── docker-compose.override.yml # Entwicklungs-Overrides (Ports, Hot-Reload)
 └── pyproject.toml     # Entwicklungswerkzeug-Konfiguration (Wurzelverzeichnis)
 ```
 
@@ -55,7 +60,11 @@ bash scripts/init-env.sh   # Sichere .env automatisch generieren (nur beim erste
 docker compose up -d
 ```
 
-Service-Adressen: Frontend http://localhost:3000 · Backend http://localhost:8000
+| Dienst | URL |
+|--------|-----|
+| **Anwendung (über Traefik)** | http://localhost |
+| Grafana (Monitoring) | http://localhost:3001 |
+| Traefik-Dashboard | http://localhost:8080/dashboard/ |
 
 > Neuaufbau ohne Cache: `docker compose down && docker compose build --no-cache && docker compose up -d --force-recreate`
 
@@ -105,6 +114,6 @@ pre-commit run --all-files
 
 Führen Sie `bash scripts/init-env.sh` aus, um automatisch eine sichere `.env` mit zufälligen Passwörtern und Schlüsseln zu generieren.
 
-Das Skript konfiguriert: `POSTGRES_PASSWORD`, `MINIO_ROOT_USER/PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, `ENCRYPTION_KEY`, `DATABASE_URL`, `REDIS_URL`.
+Das Skript konfiguriert: `POSTGRES_PASSWORD`, `MINIO_ROOT_USER/PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, `ENCRYPTION_KEY`, `GRAFANA_PASSWORD`, `DATABASE_URL`, `REDIS_URL`.
 
 Nur `DEEPSEEK_API_KEY` muss manuell eingetragen werden. Details finden Sie in `.env.example`.

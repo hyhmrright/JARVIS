@@ -9,13 +9,12 @@ RUN uv sync --frozen
 
 COPY . .
 
-# 创建非 root 系统用户，降低容器逃逸风险
 RUN addgroup --system jarvis \
- && adduser --system --ingroup jarvis jarvis \
- && chown -R jarvis:jarvis /app
+ && adduser --system --ingroup jarvis --home /home/jarvis jarvis \
+ && mkdir -p /home/jarvis \
+ && chown -R jarvis:jarvis /app /home/jarvis \
+ && chmod +x entrypoint.sh
 
 USER jarvis
-
-RUN chmod +x entrypoint.sh
 
 CMD ["./entrypoint.sh"]

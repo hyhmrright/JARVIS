@@ -12,7 +12,7 @@
 - **LangGraph Agent** — ReAct 循环架构，支持代码执行、文件操作等工具调用
 - **暗黑奢华 UI** — 玻璃拟态卡片、金色渐变点缀、精致动画过渡
 - **多语言** — 支持中/英/日/韩/法/德 6 种语言
-- **全栈 Docker** — 一键 `docker compose up -d` 启动完整服务
+- **生产级 Docker** — 4 层网络隔离、Traefik 边缘路由、完整可观测性栈
 
 ## 技术栈
 
@@ -23,6 +23,8 @@
 | 数据库 | PostgreSQL · Redis · Qdrant（向量库）|
 | 存储 | MinIO |
 | LLM | DeepSeek · OpenAI · Anthropic |
+| 边缘路由 | Traefik v3 |
+| 可观测性 | Prometheus · Grafana · cAdvisor |
 | 设计 | CSS Variables 设计系统 · 玻璃拟态 · 暗黑主题 |
 
 ## 项目结构
@@ -40,7 +42,10 @@ JARVIS/
 │       ├── stores/         # Pinia 状态管理
 │       └── locales/        # i18n 多语言
 ├── database/          # Docker 初始化脚本（postgres/redis/qdrant）
-├── docker-compose.yml # 全栈编排
+├── monitoring/        # Prometheus 配置 + Grafana 预置
+├── traefik/           # Traefik 动态路由配置
+├── docker-compose.yml          # 生产编排（4 层网络）
+├── docker-compose.override.yml # 开发覆盖（暴露端口、热重载）
 └── pyproject.toml     # 根目录开发工具配置
 ```
 
@@ -55,7 +60,13 @@ bash scripts/init-env.sh   # 自动生成安全的 .env（首次运行）
 docker compose up -d
 ```
 
-服务地址：前端 http://localhost:3000 · 后端 http://localhost:8000
+| 服务 | 地址 |
+|------|------|
+| **应用（经 Traefik）** | http://localhost |
+| Grafana（监控） | http://localhost:3001 |
+| Traefik 面板 | http://localhost:8080/dashboard/ |
+
+> 开发模式还会暴露：后端 `:8000`、MinIO 控制台 `:9001`
 
 > 无缓存重新构建：`docker compose down && docker compose build --no-cache && docker compose up -d --force-recreate`
 
@@ -105,6 +116,6 @@ pre-commit run --all-files
 
 运行 `bash scripts/init-env.sh` 自动生成安全的 `.env`（包含随机密码和密钥）。
 
-脚本会自动配置：`POSTGRES_PASSWORD`、`MINIO_ROOT_USER/PASSWORD`、`REDIS_PASSWORD`、`JWT_SECRET`、`ENCRYPTION_KEY`、`DATABASE_URL`、`REDIS_URL`。
+脚本会自动配置：`POSTGRES_PASSWORD`、`MINIO_ROOT_USER/PASSWORD`、`REDIS_PASSWORD`、`JWT_SECRET`、`ENCRYPTION_KEY`、`GRAFANA_PASSWORD`、`DATABASE_URL`、`REDIS_URL`。
 
 你只需手动填写 `DEEPSEEK_API_KEY`。详见 `.env.example`。
