@@ -96,9 +96,26 @@ docker compose up -d --force-recreate
 
 ---
 
-## Production Deploy
+## Docker Compose Files
 
-Use only the base compose file — no debug ports, no hot-reload, no Traefik dashboard:
+This project uses two compose files that work together:
+
+| File | Purpose |
+|------|---------|
+| `docker-compose.yml` | **Base (production)** — minimal surface: only `:80` and `:3001` exposed |
+| `docker-compose.override.yml` | **Dev overrides** — auto-merged by Docker Compose; adds debug ports, hot-reload |
+
+Docker Compose automatically merges the override file when you run `docker compose up -d`, so **no extra flags are needed for local development**. For production, explicitly exclude it:
+
+```bash
+# Development (default) — merges both files automatically
+docker compose up -d
+
+# Production — base file only, no debug ports, no hot-reload
+docker compose -f docker-compose.yml up -d
+```
+
+## Production Deploy
 
 ```bash
 docker compose -f docker-compose.yml up -d
