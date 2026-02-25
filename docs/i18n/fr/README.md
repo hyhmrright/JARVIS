@@ -2,17 +2,20 @@
 
 # JARVIS
 
-Plateforme d'assistant IA avec base de connaissances RAG, support multi-LLM et conversations en streaming. Conçue avec un design Dark Luxury pour une expérience d'interaction IA haut de gamme.
+> Une plateforme d'assistant IA avec base de connaissances RAG, support multi-LLM et conversations en streaming en temps réel — avec un langage de design Dark Luxury.
+
+![License](https://img.shields.io/github/license/hyhmrright/JARVIS)
+![Python](https://img.shields.io/badge/python-3.13-blue)
+![Vue](https://img.shields.io/badge/vue-3-brightgreen)
 
 ## Fonctionnalités
 
-- **Support multi-modèles** — DeepSeek / OpenAI / Anthropic, librement interchangeables dans les paramètres
-- **Base de connaissances RAG** — Téléchargement de documents (PDF/TXT/MD/DOCX) avec découpage automatique et stockage vectoriel
-- **Chat en streaming** — Sortie SSE en temps réel, affichage des réponses IA token par token
-- **LangGraph Agent** — Architecture en boucle ReAct avec appels d'outils pour l'exécution de code, les opérations de fichiers, etc.
-- **UI Dark Luxury** — Cartes en glassmorphisme, accents en dégradé doré, transitions animées raffinées
-- **Multilingue** — Supporte 6 langues : chinois / anglais / japonais / coréen / français / allemand
-- **Docker full-stack** — Lancement complet en une commande avec `docker compose up -d`
+- **Support multi-modèles** — DeepSeek / OpenAI / Anthropic, commutable par utilisateur dans les Paramètres
+- **Base de connaissances RAG** — Importez des fichiers PDF / TXT / MD / DOCX avec découpage automatique et indexation vectorielle
+- **Chat en streaming** — Sortie SSE token par token via l'agent LangGraph ReAct
+- **UI Dark Luxury** — Cartes en glassmorphisme, accents en dégradé doré, transitions animées fluides
+- **Multilingue** — 6 langues : chinois / anglais / japonais / coréen / français / allemand
+- **Infrastructure production** — Isolation réseau à 4 couches, routeur edge Traefik, observabilité Prometheus + Grafana
 
 ## Stack technique
 
@@ -23,88 +26,218 @@ Plateforme d'assistant IA avec base de connaissances RAG, support multi-LLM et c
 | Base de données | PostgreSQL · Redis · Qdrant (base vectorielle) |
 | Stockage | MinIO |
 | LLM | DeepSeek · OpenAI · Anthropic |
-| Design | Système de design CSS Variables · Glassmorphisme · Thème sombre |
+| Routeur edge | Traefik v3 |
+| Observabilité | Prometheus · Grafana · cAdvisor |
+
+## Prérequis
+
+| Outil | Version | Installation |
+|-------|---------|--------------|
+| Docker + Docker Compose | 24+ | [docs.docker.com](https://docs.docker.com/get-docker/) |
+| uv | latest | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+
+> **Le développement local uniquement** nécessite en plus [Bun](https://bun.sh) pour le frontend.
+
+## Démarrage rapide
+
+### 1. Cloner et générer l'environnement
+
+```bash
+git clone https://github.com/hyhmrright/JARVIS.git
+cd JARVIS
+bash scripts/init-env.sh   # génère .env avec des identifiants sécurisés aléatoires
+```
+
+> Nécessite `uv` (utilisé en interne pour générer la clé de chiffrement Fernet). Aucune autre configuration requise.
+
+### 2. Ajouter votre clé API LLM
+
+Ouvrez `.env` et renseignez au moins une clé :
+
+```
+DEEPSEEK_API_KEY=sk-...      # https://platform.deepseek.com
+OPENAI_API_KEY=sk-...        # optionnel
+ANTHROPIC_API_KEY=sk-ant-... # optionnel
+```
+
+### 3. Démarrer
+
+```bash
+docker compose up -d
+```
+
+La première exécution construit les images Docker — prévoyez quelques minutes. Une fois opérationnel :
+
+| Service | URL | Disponible |
+|---------|-----|------------|
+| **Application** | http://localhost | toujours |
+| Grafana (monitoring) | http://localhost:3001 | toujours |
+| Tableau de bord Traefik | http://localhost:8080/dashboard/ | dev uniquement |
+| API Backend (direct) | http://localhost:8000 | dev uniquement |
+
+> La commande `docker compose up -d` par défaut fusionne automatiquement `docker-compose.override.yml`, ce qui expose les ports de débogage et active le rechargement à chaud du code backend. Pour la production, voir ci-dessous.
+
+### Dépannage
+
+**Les services ne démarrent pas** — vérifiez les journaux :
+```bash
+docker compose logs backend
+docker compose logs traefik
+```
+
+**Reconstruction complète** (après modification des Dockerfiles ou des dépendances) :
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up -d --force-recreate
+```
+
+**Conflit de port sur `:80`** — arrêtez ce qui occupe le port 80, puis réessayez.
+
+---
+
+## Fichiers Docker Compose
+
+Ce projet utilise deux fichiers compose qui fonctionnent ensemble :
+
+| Fichier | Rôle |
+|---------|------|
+| `docker-compose.yml` | **Base (production)** — surface minimale : seuls `:80` et `:3001` exposés |
+| `docker-compose.override.yml` | **Surcharges dev** — fusionné automatiquement par Docker Compose ; ajoute les ports de débogage et le rechargement à chaud |
+
+Docker Compose fusionne automatiquement le fichier override lorsque vous exécutez `docker compose up -d`, donc **aucun indicateur supplémentaire n'est nécessaire pour le développement local**. Pour la production, excluez-le explicitement :
+
+```bash
+# Développement (par défaut) — fusionne les deux fichiers automatiquement
+docker compose up -d
+
+# Production — fichier de base uniquement, sans ports de débogage ni rechargement à chaud
+docker compose -f docker-compose.yml up -d
+```
+
+## Déploiement en production
+
+```bash
+docker compose -f docker-compose.yml up -d
+```
+
+Ports exposés : `:80` (application) et `:3001` (Grafana) uniquement.
+
+---
+
+## Développement local
+
+Exécutez le backend et le frontend en natif pour une itération plus rapide.
+
+**Étape 1 — démarrer l'infrastructure :**
+
+```bash
+docker compose up -d postgres redis qdrant minio
+```
+
+**Étape 2 — backend** (nouveau terminal, depuis la racine du dépôt) :
+
+```bash
+cd backend
+uv sync
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload   # http://localhost:8000
+```
+
+**Étape 3 — frontend** (nouveau terminal, depuis la racine du dépôt) :
+
+```bash
+cd frontend
+bun install
+bun run dev   # http://localhost:5173  (proxie /api → localhost:8000)
+```
+
+---
 
 ## Structure du projet
 
 ```
 JARVIS/
-├── backend/           # Backend FastAPI (Python 3.13 + uv)
-│   ├── app/           # Code applicatif (agent/api/core/db/infra/rag/tools)
-│   ├── alembic/       # Migrations de base de données
-│   └── tests/         # Suite de tests pytest
-├── frontend/          # Frontend Vue 3 (Bun)
+├── backend/                    # FastAPI (Python 3.13 + uv)
+│   ├── app/
+│   │   ├── agent/              # Agent LangGraph ReAct
+│   │   ├── api/                # Routes HTTP (auth/chat/conversations/documents/settings)
+│   │   ├── core/               # Config, sécurité JWT/bcrypt/Fernet, limitation de débit
+│   │   ├── db/                 # Modèles async SQLAlchemy + sessions
+│   │   ├── infra/              # Singletons Qdrant / MinIO / Redis
+│   │   ├── rag/                # Découpeur + embedder + indexeur de documents
+│   │   └── tools/              # Outils LangGraph (search/code_exec/file/datetime)
+│   ├── alembic/                # Migrations de base de données
+│   └── tests/                  # Suite pytest
+├── frontend/                   # Vue 3 + TypeScript + Vite + Pinia
 │   └── src/
-│       ├── assets/styles/  # Système de design CSS (global/animations/components)
-│       ├── pages/          # Composants de page (Login/Register/Chat/Documents/Settings)
-│       ├── stores/         # Gestion d'état Pinia
-│       └── locales/        # i18n multilingue
-├── database/          # Scripts d'initialisation Docker (postgres/redis/qdrant)
-├── docker-compose.yml # Orchestration full-stack
-└── pyproject.toml     # Configuration des outils de développement (racine)
+│       ├── api/                # Singleton Axios + intercepteur d'auth
+│       ├── stores/             # Stores Pinia (auth + chat)
+│       ├── pages/              # Login / Register / Chat / Documents / Settings
+│       └── locales/            # i18n (zh/en/ja/ko/fr/de)
+├── database/                   # Scripts d'initialisation Docker (postgres/redis/qdrant)
+├── monitoring/                 # Config Prometheus + provisionnement Grafana
+├── traefik/                    # Config de routage dynamique Traefik
+├── scripts/
+│   └── init-env.sh             # Génère un .env sécurisé (nécessite uv)
+├── docker-compose.yml          # Orchestration de base
+├── docker-compose.override.yml # Surcharges dev (ports de débogage + rechargement à chaud)
+└── .env.example                # Référence des variables d'environnement
 ```
 
-## Démarrage rapide
-
-### Lancement full-stack (recommandé)
-
-Générez le fichier de variables d'environnement, puis lancez :
-
-```bash
-bash scripts/init-env.sh   # Génère automatiquement un .env sécurisé (première fois)
-docker compose up -d
-```
-
-Adresses des services : Frontend http://localhost:3000 · Backend http://localhost:8000
-
-> Reconstruction sans cache : `docker compose down && docker compose build --no-cache && docker compose up -d --force-recreate`
-
-### Développement local
-
-**Prérequis :** Docker (pour les services d'infrastructure), Python 3.13+, [uv](https://github.com/astral-sh/uv), [Bun](https://bun.sh)
-
-```bash
-# Démarrer les services d'infrastructure
-docker compose up -d postgres redis qdrant minio
-
-# Backend
-cd backend
-uv sync
-uv run alembic upgrade head           # Exécuter les migrations de base de données
-uv run uvicorn app.main:app --reload  # Serveur de développement (:8000)
-
-# Frontend (nouveau terminal)
-cd frontend
-bun install
-bun run dev                           # Serveur de développement (:5173)
-```
+---
 
 ## Développement
 
 ### Qualité du code
 
 ```bash
-# Backend (dans le répertoire backend/)
+# Backend (exécuter depuis backend/)
 uv run ruff check --fix && uv run ruff format
 uv run mypy app
 uv run pytest tests/ -v
 
-# Frontend (dans le répertoire frontend/)
-bun run lint
+# Frontend (exécuter depuis frontend/)
+bun run lint:fix
 bun run type-check
 ```
 
 ### Pre-commit Hooks
 
 ```bash
-pre-commit install         # Installer les git hooks (exécuter à la racine)
+# Exécuter depuis la racine du dépôt
+pre-commit install
 pre-commit run --all-files
 ```
 
+Hooks : validation YAML/TOML/JSON · synchronisation uv.lock · Ruff lint+format · ESLint · mypy · vue-tsc · analyse des secrets gitleaks · blocage des commits directs sur `main`.
+
+---
+
 ## Variables d'environnement
 
-Exécutez `bash scripts/init-env.sh` pour générer automatiquement un `.env` sécurisé avec des mots de passe et clés aléatoires.
+`bash scripts/init-env.sh` génère automatiquement tous les identifiants. Vous n'avez besoin de fournir qu'une clé API LLM.
 
-Le script configure : `POSTGRES_PASSWORD`, `MINIO_ROOT_USER/PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, `ENCRYPTION_KEY`, `DATABASE_URL`, `REDIS_URL`.
+| Variable | Description |
+|----------|-------------|
+| `POSTGRES_PASSWORD` | Mot de passe PostgreSQL |
+| `MINIO_ROOT_USER/PASSWORD` | Identifiants de stockage objet MinIO |
+| `REDIS_PASSWORD` | Mot de passe d'authentification Redis |
+| `JWT_SECRET` | Secret de signature JWT |
+| `ENCRYPTION_KEY` | Clé Fernet pour le chiffrement des clés API utilisateur au repos |
+| `GRAFANA_PASSWORD` | Mot de passe administrateur Grafana |
+| `DEEPSEEK_API_KEY` | **À renseigner manuellement** |
+| `OPENAI_API_KEY` | Optionnel |
+| `ANTHROPIC_API_KEY` | Optionnel |
 
-Seul `DEEPSEEK_API_KEY` doit être renseigné manuellement. Voir `.env.example` pour plus de détails.
+Consultez `.env.example` pour la référence complète.
+
+---
+
+## Contribuer
+
+Voir [CONTRIBUTING.md](../../../.github/CONTRIBUTING.md).
+
+## Licence
+
+[MIT](../../../LICENSE)
