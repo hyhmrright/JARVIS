@@ -49,10 +49,10 @@ repos:
         files: ^frontend/src/.*\.(ts|vue)$
         pass_filenames: false
 
-      - id: pyright
-        name: Pyright type check (backend)
+      - id: mypy
+        name: mypy type check (backend)
         language: system
-        entry: uv run pyright backend
+        entry: bash -c 'cd backend && uv run mypy app --cache-dir .mypy_cache'
         files: ^backend/.*\.py$
         pass_filenames: false
 

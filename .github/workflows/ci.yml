@@ -31,24 +31,22 @@ jobs:
   backend-type:
     name: "Backend Type Check"
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    # Pyright hangs resolving complex generics in langchain-core / langgraph.
-    # Non-blocking until ty (https://github.com/astral-sh/ty) stabilises and
-    # gains first-class Pydantic + LangChain support (expected mid-2026).
-    # NOTE: timeout is on the step (not job) so GitHub marks it "failure"
-    # rather than "cancelled", allowing continue-on-error to take effect.
-    continue-on-error: true
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
           python-version: "3.13"
+      - uses: actions/cache@v4
+        with:
+          path: backend/.mypy_cache
+          key: mypy-${{ runner.os }}-${{ runner.arch }}-py3.13-${{ hashFiles('backend/uv.lock') }}
+          restore-keys: mypy-${{ runner.os }}-${{ runner.arch }}-py3.13-
       - run: uv sync --frozen
         working-directory: backend
-      - run: uv run pyright
+      - run: uv run mypy app --cache-dir .mypy_cache
         working-directory: backend
-        timeout-minutes: 12
 
   backend-test:
     name: "Backend Test"

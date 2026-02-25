@@ -42,7 +42,7 @@ async def upload_document(
     user: User = Depends(get_current_user),
     llm: ResolvedLLMConfig = Depends(get_llm_config),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, str | int]:
     ext = (file.filename or "").rsplit(".", 1)[-1].lower()
     if ext not in ALLOWED_TYPES:
         raise HTTPException(status_code=400, detail=f"File type .{ext} not supported")

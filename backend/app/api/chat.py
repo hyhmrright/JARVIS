@@ -1,5 +1,6 @@
 import json
 import uuid
+from collections.abc import AsyncGenerator
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -31,7 +32,7 @@ async def chat_stream(
     user: User = Depends(get_current_user),
     llm: ResolvedLLMConfig = Depends(get_llm_config),
     db: AsyncSession = Depends(get_db),
-):
+) -> StreamingResponse:
     conv = await db.scalar(
         select(Conversation).where(
             Conversation.id == body.conversation_id,
@@ -60,7 +61,7 @@ async def chat_stream(
 
     conv_id = conv.id
 
-    async def generate():
+    async def generate() -> AsyncGenerator[str, None]:
         graph = create_graph(
             provider=llm.provider,
             model=llm.model_name,

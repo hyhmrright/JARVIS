@@ -28,7 +28,7 @@ async def create_conversation(
     body: ConversationCreate,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-):
+) -> ConversationOut:
     conv = Conversation(user_id=user.id, title=body.title)
     db.add(conv)
     await db.commit()
@@ -40,7 +40,7 @@ async def create_conversation(
 async def list_conversations(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[ConversationOut]:
     rows = await db.scalars(
         select(Conversation)
         .where(Conversation.user_id == user.id)
@@ -62,7 +62,7 @@ async def list_messages(
     conv_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[MessageOut]:
     conv = await db.scalar(
         select(Conversation).where(
             Conversation.id == conv_id, Conversation.user_id == user.id
@@ -83,7 +83,7 @@ async def delete_conversation(
     conv_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-):
+) -> None:
     conv = await db.scalar(
         select(Conversation).where(
             Conversation.id == conv_id, Conversation.user_id == user.id
