@@ -1,95 +1,95 @@
-[中文](README.md) | [English](docs/i18n/readme/README.en.md) | [日本語](docs/i18n/readme/README.ja.md) | [한국어](docs/i18n/readme/README.ko.md) | [Français](docs/i18n/readme/README.fr.md) | [Deutsch](docs/i18n/readme/README.de.md)
+[中文](docs/i18n/zh/README.md) | [日本語](docs/i18n/ja/README.md) | [한국어](docs/i18n/ko/README.md) | [Français](docs/i18n/fr/README.md) | [Deutsch](docs/i18n/de/README.md)
 
 # JARVIS
 
-具备 RAG 知识库、多 LLM 支持、流式对话的 AI 助手平台。采用暗黑奢华（Dark Luxury）设计风格，打造高端 AI 交互体验。
+An AI assistant platform with RAG knowledge base, multi-LLM support, and streaming conversations. Featuring a Dark Luxury design language for a premium AI interaction experience.
 
-## 特性
+## Features
 
-- **多模型支持** — DeepSeek / OpenAI / Anthropic，可在设置中自由切换
-- **RAG 知识库** — 上传文档（PDF/TXT/MD/DOCX），自动分块、向量化存储
-- **流式对话** — SSE 实时流式输出，逐字显示 AI 回复
-- **LangGraph Agent** — ReAct 循环架构，支持代码执行、文件操作等工具调用
-- **暗黑奢华 UI** — 玻璃拟态卡片、金色渐变点缀、精致动画过渡
-- **多语言** — 支持中/英/日/韩/法/德 6 种语言
-- **全栈 Docker** — 一键 `docker compose up -d` 启动完整服务
+- **Multi-Model Support** — DeepSeek / OpenAI / Anthropic, freely switchable in settings
+- **RAG Knowledge Base** — Upload documents (PDF/TXT/MD/DOCX) with automatic chunking and vector storage
+- **Streaming Chat** — SSE real-time streaming output, displaying AI replies token by token
+- **LangGraph Agent** — ReAct loop architecture with tool calling for code execution, file operations, and more
+- **Dark Luxury UI** — Glassmorphism cards, gold gradient accents, refined animation transitions
+- **Multilingual** — Supports 6 languages: Chinese / English / Japanese / Korean / French / German
+- **Full-Stack Docker** — One-command `docker compose up -d` to launch the complete stack
 
-## 技术栈
+## Tech Stack
 
-| 层级 | 技术 |
-|------|------|
-| 后端 | FastAPI · LangGraph · SQLAlchemy · Alembic |
-| 前端 | Vue 3 · TypeScript · Vite · Pinia |
-| 数据库 | PostgreSQL · Redis · Qdrant（向量库）|
-| 存储 | MinIO |
+| Layer | Technology |
+|-------|------------|
+| Backend | FastAPI · LangGraph · SQLAlchemy · Alembic |
+| Frontend | Vue 3 · TypeScript · Vite · Pinia |
+| Database | PostgreSQL · Redis · Qdrant (Vector DB) |
+| Storage | MinIO |
 | LLM | DeepSeek · OpenAI · Anthropic |
-| 设计 | CSS Variables 设计系统 · 玻璃拟态 · 暗黑主题 |
+| Design | CSS Variables Design System · Glassmorphism · Dark Theme |
 
-## 项目结构
+## Project Structure
 
 ```
 JARVIS/
-├── backend/           # FastAPI 后端（Python 3.13 + uv）
-│   ├── app/           # 应用代码（agent/api/core/db/infra/rag/tools）
-│   ├── alembic/       # 数据库迁移
-│   └── tests/         # pytest 测试套件
-├── frontend/          # Vue 3 前端（Bun）
+├── backend/           # FastAPI backend (Python 3.13 + uv)
+│   ├── app/           # Application code (agent/api/core/db/infra/rag/tools)
+│   ├── alembic/       # Database migrations
+│   └── tests/         # pytest test suite
+├── frontend/          # Vue 3 frontend (Bun)
 │   └── src/
-│       ├── assets/styles/  # CSS 设计系统（global/animations/components）
-│       ├── pages/          # 页面组件（Login/Register/Chat/Documents/Settings）
-│       ├── stores/         # Pinia 状态管理
-│       └── locales/        # i18n 多语言
-├── database/          # Docker 初始化脚本（postgres/redis/qdrant）
-├── docker-compose.yml # 全栈编排
-└── pyproject.toml     # 根目录开发工具配置
+│       ├── assets/styles/  # CSS design system (global/animations/components)
+│       ├── pages/          # Page components (Login/Register/Chat/Documents/Settings)
+│       ├── stores/         # Pinia state management
+│       └── locales/        # i18n multilingual
+├── database/          # Docker init scripts (postgres/redis/qdrant)
+├── docker-compose.yml # Full-stack orchestration
+└── pyproject.toml     # Root-level dev tooling config
 ```
 
-## 快速开始
+## Quick Start
 
-### 全栈启动（推荐）
+### Full-Stack Launch (Recommended)
 
-生成环境变量文件，然后启动：
+Generate the environment variables file, then start:
 
 ```bash
-bash scripts/init-env.sh   # 自动生成安全的 .env（首次运行）
+bash scripts/init-env.sh   # Auto-generate a secure .env (first time only)
 docker compose up -d
 ```
 
-服务地址：前端 http://localhost:3000 · 后端 http://localhost:8000
+Service URLs: Frontend http://localhost:3000 · Backend http://localhost:8000
 
-> 无缓存重新构建：`docker compose down && docker compose build --no-cache && docker compose up -d --force-recreate`
+> Rebuild without cache: `docker compose down && docker compose build --no-cache && docker compose up -d --force-recreate`
 
-### 本地开发
+### Local Development
 
-**前置条件：** Docker（用于基础服务）、Python 3.13+、[uv](https://github.com/astral-sh/uv)、[Bun](https://bun.sh)
+**Prerequisites:** Docker (for infrastructure services), Python 3.13+, [uv](https://github.com/astral-sh/uv), [Bun](https://bun.sh)
 
 ```bash
-# 启动基础服务
+# Start infrastructure services
 docker compose up -d postgres redis qdrant minio
 
-# 后端
+# Backend
 cd backend
 uv sync
-uv run alembic upgrade head           # 执行数据库迁移
-uv run uvicorn app.main:app --reload  # 开发服务器（:8000）
+uv run alembic upgrade head           # Run database migrations
+uv run uvicorn app.main:app --reload  # Dev server (:8000)
 
-# 前端（新终端）
+# Frontend (new terminal)
 cd frontend
 bun install
-bun run dev                           # 开发服务器（:5173）
+bun run dev                           # Dev server (:5173)
 ```
 
-## 开发
+## Development
 
-### 代码质量
+### Code Quality
 
 ```bash
-# 后端（在 backend/ 目录）
+# Backend (in backend/ directory)
 uv run ruff check --fix && uv run ruff format
 uv run mypy app
 uv run pytest tests/ -v
 
-# 前端（在 frontend/ 目录）
+# Frontend (in frontend/ directory)
 bun run lint
 bun run type-check
 ```
@@ -97,14 +97,14 @@ bun run type-check
 ### Pre-commit Hooks
 
 ```bash
-pre-commit install         # 安装 git hooks（根目录执行）
+pre-commit install         # Install git hooks (run from root)
 pre-commit run --all-files
 ```
 
-## 环境变量
+## Environment Variables
 
-运行 `bash scripts/init-env.sh` 自动生成安全的 `.env`（包含随机密码和密钥）。
+Run `bash scripts/init-env.sh` to auto-generate a secure `.env` with random passwords and keys.
 
-脚本会自动配置：`POSTGRES_PASSWORD`、`MINIO_ROOT_USER/PASSWORD`、`REDIS_PASSWORD`、`JWT_SECRET`、`ENCRYPTION_KEY`、`DATABASE_URL`、`REDIS_URL`。
+The script configures: `POSTGRES_PASSWORD`, `MINIO_ROOT_USER/PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, `ENCRYPTION_KEY`, `DATABASE_URL`, `REDIS_URL`.
 
-你只需手动填写 `DEEPSEEK_API_KEY`。详见 `.env.example`。
+You only need to manually fill in `DEEPSEEK_API_KEY`. See `.env.example` for details.

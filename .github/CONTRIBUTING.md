@@ -1,4 +1,4 @@
-[English](CONTRIBUTING.md) | [中文](../docs/i18n/contributing/CONTRIBUTING.zh.md)
+[English](CONTRIBUTING.md) | [中文](../docs/i18n/zh/CONTRIBUTING.md)
 
 # Contributing to JARVIS
 

@@ -1,4 +1,4 @@
-[English](CODE_OF_CONDUCT.md) | [中文](docs/i18n/code-of-conduct/CODE_OF_CONDUCT.zh.md)
+[English](CODE_OF_CONDUCT.md) | [中文](docs/i18n/zh/CODE_OF_CONDUCT.md)
 
 # Contributor Covenant Code of Conduct
 
