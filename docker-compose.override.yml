@@ -11,6 +11,13 @@ services:
       - "8000:8000"
 
   traefik:
+    # command replaces (not appends) the base list, so all base flags must be repeated here
+    command:
+      - "--providers.file.filename=/etc/traefik/dynamic.yml"
+      - "--providers.file.watch=false"
+      - "--entrypoints.web.address=:80"
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
     ports:
       - "8080:8080"
 

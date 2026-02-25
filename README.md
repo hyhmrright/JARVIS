@@ -65,8 +65,17 @@ docker compose up -d
 | **App (via Traefik)** | http://localhost |
 | Grafana (monitoring) | http://localhost:3001 |
 | Traefik dashboard | http://localhost:8080/dashboard/ |
+| Backend (direct) | http://localhost:8000 |
 
-> Dev mode also exposes: Backend `:8000`, Traefik dashboard `:8080`, MinIO console `:9001`
+> The default `docker compose up -d` merges `docker-compose.override.yml` automatically, exposing debug ports (`:8000`, `:8080`, etc.) and enabling hot-reload. This is intended for local development only.
+
+### Production Deploy (no debug ports)
+
+```bash
+docker compose -f docker-compose.yml up -d
+```
+
+This uses only the base compose file — no debug ports, no hot-reload, no Traefik dashboard. Only `:80` (app) and `:3001` (Grafana) are exposed.
 
 > Rebuild without cache: `docker compose down && docker compose build --no-cache && docker compose up -d --force-recreate`
 

@@ -65,8 +65,17 @@ docker compose up -d
 | **应用（经 Traefik）** | http://localhost |
 | Grafana（监控） | http://localhost:3001 |
 | Traefik 面板 | http://localhost:8080/dashboard/ |
+| 后端（直连） | http://localhost:8000 |
 
-> 开发模式还会暴露：后端 `:8000`、MinIO 控制台 `:9001`
+> 默认的 `docker compose up -d` 会自动合并 `docker-compose.override.yml`，暴露调试端口并启用热重载。仅供本地开发使用。
+
+### 生产部署（无调试端口）
+
+```bash
+docker compose -f docker-compose.yml up -d
+```
+
+仅使用基础配置文件——无调试端口、无热重载、无 Traefik 面板。仅暴露 `:80`（应用）和 `:3001`（Grafana）。
 
 > 无缓存重新构建：`docker compose down && docker compose build --no-cache && docker compose up -d --force-recreate`
 

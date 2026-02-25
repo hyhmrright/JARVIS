@@ -134,19 +134,21 @@ services:
     image: traefik:v3.3
     networks: [web]
     restart: unless-stopped
+    depends_on:
+      frontend:
+        condition: service_healthy
     command:
       - "--providers.file.filename=/etc/traefik/dynamic.yml"
+      # watch=false: routing is static; changes to dynamic.yml require `docker compose restart traefik`
       - "--providers.file.watch=false"
       - "--entrypoints.web.address=:80"
-      - "--api.dashboard=true"
-      - "--api.insecure=true"
     ports:
       - "80:80"
     volumes:
       - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
+    image: gcr.io/cadvisor/cadvisor:v0.51.0
     networks: [monitor]
     restart: unless-stopped
     privileged: true
@@ -157,7 +159,7 @@ services:
       - /var/lib/docker/:/var/lib/docker:ro
 
   postgres_exporter:
-    image: prometheuscommunity/postgres-exporter:latest
+    image: prometheuscommunity/postgres-exporter:v0.17.1
     networks: [infra, monitor]
     restart: unless-stopped
     environment:
@@ -167,7 +169,7 @@ services:
         condition: service_healthy
 
   redis_exporter:
-    image: oliver006/redis_exporter:latest
+    image: oliver006/redis_exporter:v1.67.0
     networks: [infra, monitor]
     restart: unless-stopped
     environment:
@@ -178,7 +180,7 @@ services:
         condition: service_healthy
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.2.1
     networks: [monitor]
     restart: unless-stopped
     volumes:
@@ -190,7 +192,7 @@ services:
       - "--storage.tsdb.retention.time=30d"
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.6.0
     networks: [monitor]
     restart: unless-stopped
     ports:
