@@ -14,6 +14,7 @@ jobs:
   backend-lint:
     name: "Backend Lint"
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -30,6 +31,7 @@ jobs:
   backend-type:
     name: "Backend Type Check"
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -44,6 +46,7 @@ jobs:
   backend-test:
     name: "Backend Test"
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:16
@@ -89,6 +92,7 @@ jobs:
   frontend-lint:
     name: "Frontend Lint"
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -100,6 +104,7 @@ jobs:
   frontend-type:
     name: "Frontend Type Check"
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
