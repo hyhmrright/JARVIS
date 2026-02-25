@@ -1,0 +1,32 @@
+# docker-compose.override.yml
+# 本地开发自动合并此文件，生产部署用:
+#   docker compose -f docker-compose.yml up -d
+services:
+  backend:
+    environment:
+      UVICORN_RELOAD: "1"
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+
+  traefik:
+    ports:
+      - "8080:8080"
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  qdrant:
+    ports:
+      - "6333:6333"
+
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"
