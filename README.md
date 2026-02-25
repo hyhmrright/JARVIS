@@ -60,12 +60,12 @@ bash scripts/init-env.sh   # Auto-generate a secure .env (first time only)
 docker compose up -d
 ```
 
-| Service | URL |
-|---------|-----|
-| **App (via Traefik)** | http://localhost |
-| Grafana (monitoring) | http://localhost:3001 |
-| Traefik dashboard | http://localhost:8080/dashboard/ |
-| Backend (direct) | http://localhost:8000 |
+| Service | URL | Mode |
+|---------|-----|------|
+| **App (via Traefik)** | http://localhost | dev + prod |
+| Grafana (monitoring) | http://localhost:3001 | dev + prod |
+| Traefik dashboard | http://localhost:8080/dashboard/ | dev only |
+| Backend (direct) | http://localhost:8000 | dev only |
 
 > The default `docker compose up -d` merges `docker-compose.override.yml` automatically, exposing debug ports (`:8000`, `:8080`, etc.) and enabling hot-reload. This is intended for local development only.
 

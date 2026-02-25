@@ -60,12 +60,12 @@ bash scripts/init-env.sh   # 自动生成安全的 .env（首次运行）
 docker compose up -d
 ```
 
-| 服务 | 地址 |
-|------|------|
-| **应用（经 Traefik）** | http://localhost |
-| Grafana（监控） | http://localhost:3001 |
-| Traefik 面板 | http://localhost:8080/dashboard/ |
-| 后端（直连） | http://localhost:8000 |
+| 服务 | 地址 | 模式 |
+|------|------|------|
+| **应用（经 Traefik）** | http://localhost | 开发 + 生产 |
+| Grafana（监控） | http://localhost:3001 | 开发 + 生产 |
+| Traefik 面板 | http://localhost:8080/dashboard/ | 仅开发 |
+| 后端（直连） | http://localhost:8000 | 仅开发 |
 
 > 默认的 `docker compose up -d` 会自动合并 `docker-compose.override.yml`，暴露调试端口并启用热重载。仅供本地开发使用。
 
