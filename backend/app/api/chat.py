@@ -61,7 +61,7 @@ async def chat_stream(
 
     conv_id = conv.id
 
-    async def generate() -> AsyncGenerator[str, None]:
+    async def generate() -> AsyncGenerator[str]:
         graph = create_graph(
             provider=llm.provider,
             model=llm.model_name,

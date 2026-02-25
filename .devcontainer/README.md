@@ -1,58 +1,58 @@
-[中文](README.md) | [English](docs/i18n/readme/README.en.md) | [日本語](docs/i18n/readme/README.ja.md) | [한국어](docs/i18n/readme/README.ko.md) | [Français](docs/i18n/readme/README.fr.md) | [Deutsch](docs/i18n/readme/README.de.md)
+[中文](../docs/i18n/zh/devcontainer/README.md) | [日本語](../docs/i18n/ja/devcontainer/README.md) | [한국어](../docs/i18n/ko/devcontainer/README.md) | [Français](../docs/i18n/fr/devcontainer/README.md) | [Deutsch](../docs/i18n/de/devcontainer/README.md)
 
-# Dev Container 使用指南
+# Dev Container User Guide
 
-## 什么是 Dev Container？
+## What is a Dev Container?
 
-Dev Container 是一个标准化的开发环境配置，使用 Docker 容器来提供一致的开发体验。无论在什么机器上，都能获得相同的开发环境。
+A Dev Container is a standardized development environment configuration that uses Docker containers to provide a consistent development experience. You get the same development environment regardless of what machine you are on.
 
-## 功能特性
+## Features
 
-✅ **预配置的 Python 3.13 环境**
-✅ **自动安装 uv 包管理器**
-✅ **预装 Bun 运行时**（前端开发）
-✅ **预装开发工具** (Ruff, Pyright, Pre-commit)
-✅ **VS Code 扩展自动安装**
-✅ **自动运行 `uv sync`、`pre-commit install` 和 `bun install`**
-✅ **代码格式化和 Linting 已配置**
+✅ **Pre-configured Python 3.13 environment**
+✅ **Automatic uv package manager installation**
+✅ **Pre-installed Bun runtime** (frontend development)
+✅ **Pre-installed development tools** (Ruff, Pyright, Pre-commit)
+✅ **Automatic VS Code extension installation**
+✅ **Automatic `uv sync`, `pre-commit install` and `bun install` execution**
+✅ **Code formatting and Linting pre-configured**
 
-## 如何使用
+## How to Use
 
-### 方法一：VS Code (推荐)
+### Method 1: VS Code (Recommended)
 
-1. **安装必需软件**:
-   - 安装 [Docker Desktop](https://www.docker.com/products/docker-desktop)
-   - 安装 [VS Code](https://code.visualstudio.com/)
-   - 安装 VS Code 扩展: `Dev Containers` (ms-vscode-remote.remote-containers)
+1. **Install required software**:
+   - Install [Docker Desktop](https://www.docker.com/products/docker-desktop)
+   - Install [VS Code](https://code.visualstudio.com/)
+   - Install VS Code extension: `Dev Containers` (ms-vscode-remote.remote-containers)
 
-2. **打开项目**:
-   - 在 VS Code 中打开此项目文件夹
-   - VS Code 会检测到 `.devcontainer` 配置
-   - 点击右下角弹出的 "Reopen in Container" 按钮
-   - 或者按 `F1` → 输入 "Dev Containers: Reopen in Container"
+2. **Open the project**:
+   - Open this project folder in VS Code
+   - VS Code will detect the `.devcontainer` configuration
+   - Click the "Reopen in Container" button that appears in the bottom right
+   - Or press `F1` → type "Dev Containers: Reopen in Container"
 
-3. **等待构建**:
-   - 首次打开会构建 Docker 镜像(约 2-5 分钟)
-   - 后续打开会很快(10-20 秒)
+3. **Wait for the build**:
+   - The first time you open it, the Docker image will be built (about 2-5 minutes)
+   - Subsequent opens will be fast (10-20 seconds)
 
-4. **开始开发**:
-   - 所有依赖已自动安装
-   - 代码质量工具已配置好
-   - 可以直接运行 `python main.py`
+4. **Start developing**:
+   - All dependencies are automatically installed
+   - Code quality tools are pre-configured
+   - You can directly run `python main.py`
 
-### 方法二：命令行
+### Method 2: Command Line
 
 ```bash
-# 构建容器
+# Build the container
 docker build -t jarvis-dev -f .devcontainer/Dockerfile .
 
-# 运行容器
+# Run the container
 docker run -it --rm \
   -v $(pwd):/workspace \
   -w /workspace \
   jarvis-dev bash
 
-# 在容器内
+# Inside the container
 uv sync
 python main.py
 ```
