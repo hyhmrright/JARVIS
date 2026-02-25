@@ -35,9 +35,9 @@ def anyio_backend():
 @pytest.fixture(autouse=True)
 def disable_rate_limiting():
     """测试期间禁用频率限制，避免多次注册请求触发 429。"""
-    limiter._enabled = False
+    limiter.enabled = False
     yield
-    limiter._enabled = True
+    limiter.enabled = True
 
 
 @pytest.fixture(scope="session")
@@ -56,9 +56,10 @@ async def db_session(setup_tables):
     engine = create_async_engine(TEST_DATABASE_URL, echo=False)
     try:
         async with engine.connect() as conn:
-            # Use await conn.begin() (not async with) so we can always
-            # rollback in the finally block. `async with conn.begin()`
-            # would auto-commit on success, defeating test isolation.
+            # Explicitly begin via await (not `async with conn.begin()`) so
+            # the AsyncTransaction is not held as a context manager, giving
+            # conn.rollback() in the finally block unconditional control over
+            # the root transaction regardless of what the session did.
             await conn.begin()
             session = AsyncSession(
                 bind=conn,
