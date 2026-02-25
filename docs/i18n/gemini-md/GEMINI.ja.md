@@ -87,7 +87,7 @@ docker-compose up -d             # 全サービスの起動（PostgreSQL、Redis
 
 **バックエンド**:
 - `ruff check --fix && ruff format`: Lint + フォーマット
-- `pyright`: 型チェック
+- `mypy`: 型チェック
 - `pytest`: テスト
 
 **フロントエンド**:

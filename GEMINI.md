@@ -87,7 +87,7 @@ docker-compose up -d             # 启动所有服务（PostgreSQL、Redis、Qdr
 
 **后端**:
 - `ruff check --fix && ruff format`：Lint + 格式化
-- `pyright`：类型检查
+- `mypy`：类型检查
 - `pytest`：测试
 
 **前端**:

@@ -55,7 +55,7 @@ uv run python main.py
 # 代码检查
 uv run ruff check main.py
 uv run ruff format main.py
-uv run pyright main.py
+uv run mypy app
 
 # Git 操作
 git status

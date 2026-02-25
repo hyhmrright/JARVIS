@@ -120,7 +120,7 @@ JARVIS/
 │       └── router/    # Vue Router + auth guard
 ├── database/          # Docker 初始化脚本（postgres/redis/qdrant）
 ├── docker-compose.yml # 全栈编排
-└── pyproject.toml     # 根目录开发工具配置（ruff/pyright/pre-commit），无运行时依赖
+└── pyproject.toml     # 根目录开发工具配置（ruff/pre-commit），无运行时依赖
 ```
 
 ### 后端架构要点
@@ -183,7 +183,7 @@ docker compose up -d                  # 前端 :3000 · 后端 :8000
 ruff check                   # lint
 ruff check --fix             # lint + 自动修复
 ruff format                  # 格式化
-pyright                      # 类型检查
+uv run mypy app              # 类型检查
 
 # 前端（在 frontend/ 目录）
 bun run lint                 # ESLint
@@ -205,7 +205,7 @@ uv run pytest tests/api/test_auth.py::test_login -v  # 单个用例
 pre-commit run --all-files   # 手动运行全部 hooks
 ```
 
-Hooks 包含：YAML/TOML/JSON 格式检查、uv.lock 同步、Ruff lint+format、ESLint、Pyright、vue-tsc 类型检查、gitleaks 密钥扫描、禁止直接提交 main。
+Hooks 包含：YAML/TOML/JSON 格式检查、uv.lock 同步、Ruff lint+format、ESLint、mypy、vue-tsc 类型检查、gitleaks 密钥扫描、禁止直接提交 main。
 
 ### 依赖管理
 ```bash
@@ -221,7 +221,7 @@ cd frontend && bun add <包名>
 ## 工具配置
 
 - **Ruff**：line-length=88, target-version="py313", quote-style="double"
-- **Pyright**：typeCheckingMode="basic"
+- **mypy**：plugins=pydantic.mypy+sqlalchemy, disallow_untyped_defs=true, ignore_missing_imports=true
 - **ESLint**：flat config, typescript-eslint + eslint-plugin-vue + prettier
 - **TypeScript**：strict, bundler resolution, `@/*` → `src/*`
 

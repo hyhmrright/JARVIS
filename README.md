@@ -86,7 +86,7 @@ bun run dev                           # 开发服务器（:5173）
 ```bash
 # 后端（在 backend/ 目录）
 uv run ruff check --fix && uv run ruff format
-uv run pyright
+uv run mypy app
 uv run pytest tests/ -v
 
 # 前端（在 frontend/ 目录）

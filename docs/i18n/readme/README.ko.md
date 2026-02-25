@@ -86,7 +86,7 @@ bun run dev                           # 개발 서버 (:5173)
 ```bash
 # 백엔드 (backend/ 디렉토리에서)
 uv run ruff check --fix && uv run ruff format
-uv run pyright
+uv run mypy app
 uv run pytest tests/ -v
 
 # 프론트엔드 (frontend/ 디렉토리에서)

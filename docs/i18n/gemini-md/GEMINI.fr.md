@@ -87,7 +87,7 @@ docker-compose up -d             # Démarrer tous les services (PostgreSQL, Redi
 
 **Backend** :
 - `ruff check --fix && ruff format` : Lint + formatage
-- `pyright` : Vérification de types
+- `mypy` : Vérification de types
 - `pytest` : Tests
 
 **Frontend** :

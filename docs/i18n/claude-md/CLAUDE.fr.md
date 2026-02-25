@@ -39,7 +39,7 @@ JARVIS/
 │       └── router/    # Vue Router + garde auth
 ├── database/          # Scripts d'initialisation Docker (postgres/redis/qdrant)
 ├── docker-compose.yml # Orchestration full-stack
-└── pyproject.toml     # Config outils de dev racine (ruff/pyright/pre-commit), pas de deps runtime
+└── pyproject.toml     # Config outils de dev racine (ruff/pre-commit), pas de deps runtime
 ```
 
 ### Points clés de l'architecture backend
@@ -102,7 +102,7 @@ docker compose up -d                  # Frontend :3000 · Backend :8000
 ruff check                   # Lint
 ruff check --fix             # Lint + correction automatique
 ruff format                  # Formatage
-pyright                      # Vérification des types
+uv run mypy app              # Vérification des types
 
 # Frontend (dans le répertoire frontend/)
 bun run lint                 # ESLint
@@ -124,7 +124,7 @@ uv run pytest tests/api/test_auth.py::test_login -v  # Cas de test unique
 pre-commit run --all-files   # Exécuter manuellement tous les hooks
 ```
 
-Les hooks incluent : vérifications de format YAML/TOML/JSON, synchronisation uv.lock, Ruff lint+format, ESLint, Pyright, vérification de types vue-tsc, scan de secrets gitleaks, blocage des commits directs sur main.
+Les hooks incluent : vérifications de format YAML/TOML/JSON, synchronisation uv.lock, Ruff lint+format, ESLint, mypy, vérification de types vue-tsc, scan de secrets gitleaks, blocage des commits directs sur main.
 
 ### Gestion des dépendances
 ```bash
@@ -140,7 +140,7 @@ cd frontend && bun add <paquet>
 ## Configuration des outils
 
 - **Ruff** : line-length=88, target-version="py313", quote-style="double"
-- **Pyright** : typeCheckingMode="basic"
+- **mypy** : plugins=pydantic.mypy+sqlalchemy, disallow_untyped_defs=true, ignore_missing_imports=true
 - **ESLint** : flat config, typescript-eslint + eslint-plugin-vue + prettier
 - **TypeScript** : strict, bundler resolution, `@/*` → `src/*`
 

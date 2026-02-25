@@ -87,7 +87,7 @@ docker-compose up -d             # Alle Dienste starten (PostgreSQL, Redis, Qdra
 
 **Backend**:
 - `ruff check --fix && ruff format`: Lint + Formatierung
-- `pyright`: Typprüfung
+- `mypy`: Typprüfung
 - `pytest`: Tests
 
 **Frontend**:

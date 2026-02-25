@@ -39,7 +39,7 @@ JARVIS/
 │       └── router/    # Vue Router + auth ガード
 ├── database/          # Docker 初期化スクリプト（postgres/redis/qdrant）
 ├── docker-compose.yml # フルスタックオーケストレーション
-└── pyproject.toml     # ルート開発ツール設定（ruff/pyright/pre-commit）、ランタイム依存関係なし
+└── pyproject.toml     # ルート開発ツール設定（ruff/pre-commit）、ランタイム依存関係なし
 ```
 
 ### バックエンドアーキテクチャのポイント
@@ -102,7 +102,7 @@ docker compose up -d                  # フロントエンド :3000 · バック
 ruff check                   # リント
 ruff check --fix             # リント + 自動修正
 ruff format                  # フォーマット
-pyright                      # 型チェック
+uv run mypy app              # 型チェック
 
 # フロントエンド（frontend/ ディレクトリ内）
 bun run lint                 # ESLint
@@ -124,7 +124,7 @@ uv run pytest tests/api/test_auth.py::test_login -v  # 単一テストケース
 pre-commit run --all-files   # すべての hooks を手動実行
 ```
 
-Hooks の内容：YAML/TOML/JSON フォーマットチェック、uv.lock 同期、Ruff lint+format、ESLint、Pyright、vue-tsc 型チェック、gitleaks シークレットスキャン、main への直接コミットをブロック。
+Hooks の内容：YAML/TOML/JSON フォーマットチェック、uv.lock 同期、Ruff lint+format、ESLint、mypy、vue-tsc 型チェック、gitleaks シークレットスキャン、main への直接コミットをブロック。
 
 ### 依存関係管理
 ```bash
@@ -140,7 +140,7 @@ cd frontend && bun add <パッケージ名>
 ## ツール設定
 
 - **Ruff**：line-length=88, target-version="py313", quote-style="double"
-- **Pyright**：typeCheckingMode="basic"
+- **mypy**：plugins=pydantic.mypy+sqlalchemy, disallow_untyped_defs=true, ignore_missing_imports=true
 - **ESLint**：flat config, typescript-eslint + eslint-plugin-vue + prettier
 - **TypeScript**：strict, bundler resolution, `@/*` → `src/*`
 
