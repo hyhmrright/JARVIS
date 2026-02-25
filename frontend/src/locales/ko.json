@@ -36,7 +36,8 @@
     "logout": "로그아웃",
     "voiceComingSoon": "음성 기능 출시 예정",
     "inputPlaceholder": "메시지를 입력하고 Enter로 전송...",
-    "send": "전송"
+    "send": "전송",
+    "copy": "메시지 복사"
   },
   "documents": {
     "title": "지식 베이스",

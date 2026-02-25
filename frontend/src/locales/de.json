@@ -36,7 +36,8 @@
     "logout": "Abmelden",
     "voiceComingSoon": "Sprachfunktion demnächst verfügbar",
     "inputPlaceholder": "Nachricht eingeben, Enter zum Senden...",
-    "send": "Senden"
+    "send": "Senden",
+    "copy": "Nachricht kopieren"
   },
   "documents": {
     "title": "Wissensdatenbank",

@@ -36,7 +36,8 @@
     "logout": "退出",
     "voiceComingSoon": "语音功能即将上线",
     "inputPlaceholder": "输入消息，Enter 发送...",
-    "send": "发送"
+    "send": "发送",
+    "copy": "复制消息"
   },
   "documents": {
     "title": "知识库",
