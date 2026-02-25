@@ -6,7 +6,12 @@ services:
     environment:
       UVICORN_RELOAD: "1"
     volumes:
-      - ./backend:/app
+      # Mount only source code — preserves .venv built into the image.
+      # Uvicorn --reload watches app/ for changes.
+      # tests/ intentionally omitted; run pytest locally via uv, not in the container.
+      - ./backend/app:/app/app
+      - ./backend/alembic:/app/alembic
+      - ./backend/alembic.ini:/app/alembic.ini
     ports:
       - "8000:8000"
 

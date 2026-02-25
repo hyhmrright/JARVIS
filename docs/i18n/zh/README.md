@@ -2,17 +2,20 @@
 
 # JARVIS
 
-具备 RAG 知识库、多 LLM 支持、流式对话的 AI 助手平台。采用暗黑奢华（Dark Luxury）设计风格，打造高端 AI 交互体验。
+> 具备 RAG 知识库、多 LLM 支持、流式对话的 AI 助手平台——采用暗黑奢华（Dark Luxury）设计风格。
+
+![License](https://img.shields.io/github/license/hyhmrright/JARVIS)
+![Python](https://img.shields.io/badge/python-3.13-blue)
+![Vue](https://img.shields.io/badge/vue-3-brightgreen)
 
 ## 特性
 
-- **多模型支持** — DeepSeek / OpenAI / Anthropic，可在设置中自由切换
-- **RAG 知识库** — 上传文档（PDF/TXT/MD/DOCX），自动分块、向量化存储
-- **流式对话** — SSE 实时流式输出，逐字显示 AI 回复
-- **LangGraph Agent** — ReAct 循环架构，支持代码执行、文件操作等工具调用
-- **暗黑奢华 UI** — 玻璃拟态卡片、金色渐变点缀、精致动画过渡
-- **多语言** — 支持中/英/日/韩/法/德 6 种语言
-- **生产级 Docker** — 4 层网络隔离、Traefik 边缘路由、完整可观测性栈
+- **多模型支持** — DeepSeek / OpenAI / Anthropic，可在设置中按用户自由切换
+- **RAG 知识库** — 上传 PDF / TXT / MD / DOCX，自动分块、向量化索引
+- **流式对话** — 通过 LangGraph ReAct agent 实现 SSE 逐 token 输出
+- **暗黑奢华 UI** — 玻璃拟态卡片、金色渐变点缀、流畅动画过渡
+- **多语言** — 支持 6 种语言：中文 / English / 日本語 / 한국어 / Français / Deutsch
+- **生产级基础设施** — 4 层网络隔离、Traefik 边缘路由、Prometheus + Grafana 可观测性
 
 ## 技术栈
 
@@ -25,106 +28,216 @@
 | LLM | DeepSeek · OpenAI · Anthropic |
 | 边缘路由 | Traefik v3 |
 | 可观测性 | Prometheus · Grafana · cAdvisor |
-| 设计 | CSS Variables 设计系统 · 玻璃拟态 · 暗黑主题 |
 
-## 项目结构
+## 前置条件
 
-```
-JARVIS/
-├── backend/           # FastAPI 后端（Python 3.13 + uv）
-│   ├── app/           # 应用代码（agent/api/core/db/infra/rag/tools）
-│   ├── alembic/       # 数据库迁移
-│   └── tests/         # pytest 测试套件
-├── frontend/          # Vue 3 前端（Bun）
-│   └── src/
-│       ├── assets/styles/  # CSS 设计系统（global/animations/components）
-│       ├── pages/          # 页面组件（Login/Register/Chat/Documents/Settings）
-│       ├── stores/         # Pinia 状态管理
-│       └── locales/        # i18n 多语言
-├── database/          # Docker 初始化脚本（postgres/redis/qdrant）
-├── monitoring/        # Prometheus 配置 + Grafana 预置
-├── traefik/           # Traefik 动态路由配置
-├── docker-compose.yml          # 生产编排（4 层网络）
-├── docker-compose.override.yml # 开发覆盖（暴露端口、热重载）
-└── pyproject.toml     # 根目录开发工具配置
-```
+| 工具 | 版本 | 安装方式 |
+|------|------|---------|
+| Docker + Docker Compose | 24+ | [docs.docker.com](https://docs.docker.com/get-docker/) |
+| uv | 最新版 | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+
+> **仅本地开发**额外需要 [Bun](https://bun.sh) 用于前端。
 
 ## 快速开始
 
-### 全栈启动（推荐）
-
-生成环境变量文件，然后启动：
+### 1. 克隆并生成环境变量
 
 ```bash
-bash scripts/init-env.sh   # 自动生成安全的 .env（首次运行）
+git clone https://github.com/hyhmrright/JARVIS.git
+cd JARVIS
+bash scripts/init-env.sh   # 生成包含随机安全凭证的 .env
+```
+
+> 需要安装 `uv`（内部用于生成 Fernet 加密密钥）。无需其他额外设置。
+
+### 2. 填写 LLM API 密钥
+
+打开 `.env`，填写至少一个密钥：
+
+```
+DEEPSEEK_API_KEY=sk-...      # https://platform.deepseek.com
+OPENAI_API_KEY=sk-...        # 可选
+ANTHROPIC_API_KEY=sk-ant-... # 可选
+```
+
+### 3. 启动
+
+```bash
 docker compose up -d
 ```
 
-| 服务 | 地址 | 模式 |
-|------|------|------|
-| **应用（经 Traefik）** | http://localhost | 开发 + 生产 |
-| Grafana（监控） | http://localhost:3001 | 开发 + 生产 |
+首次运行会构建 Docker 镜像——请等待几分钟。启动完成后：
+
+| 服务 | 地址 | 可用模式 |
+|------|-----|---------|
+| **应用** | http://localhost | 始终可用 |
+| Grafana（监控） | http://localhost:3001 | 始终可用 |
 | Traefik 面板 | http://localhost:8080/dashboard/ | 仅开发 |
-| 后端（直连） | http://localhost:8000 | 仅开发 |
+| 后端 API（直连） | http://localhost:8000 | 仅开发 |
 
-> 默认的 `docker compose up -d` 会自动合并 `docker-compose.override.yml`，暴露调试端口并启用热重载。仅供本地开发使用。
+> 默认的 `docker compose up -d` 会自动合并 `docker-compose.override.yml`，暴露调试端口并启用后端代码热重载。生产环境请参见下文。
 
-### 生产部署（无调试端口）
+### 故障排查
+
+**服务启动失败** — 查看日志：
+```bash
+docker compose logs backend
+docker compose logs traefik
+```
+
+**从头重新构建**（修改 Dockerfile 或依赖后）：
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up -d --force-recreate
+```
+
+**`:80` 端口冲突** — 停止占用 80 端口的进程后重试。
+
+---
+
+## Docker Compose 文件
+
+本项目使用两个协同工作的 compose 文件：
+
+| 文件 | 用途 |
+|------|------|
+| `docker-compose.yml` | **基础（生产）** — 最小暴露面：仅开放 `:80` 和 `:3001` |
+| `docker-compose.override.yml` | **开发覆盖** — 由 Docker Compose 自动合并；添加调试端口、热重载 |
+
+运行 `docker compose up -d` 时，Docker Compose 会自动合并覆盖文件，因此**本地开发无需任何额外参数**。生产环境需显式排除：
+
+```bash
+# 开发（默认）— 自动合并两个文件
+docker compose up -d
+
+# 生产 — 仅使用基础文件，无调试端口，无热重载
+docker compose -f docker-compose.yml up -d
+```
+
+## 生产部署
 
 ```bash
 docker compose -f docker-compose.yml up -d
 ```
 
-仅使用基础配置文件——无调试端口、无热重载、无 Traefik 面板。仅暴露 `:80`（应用）和 `:3001`（Grafana）。
+仅暴露 `:80`（应用）和 `:3001`（Grafana）端口。
 
-> 无缓存重新构建：`docker compose down && docker compose build --no-cache && docker compose up -d --force-recreate`
+---
 
-### 本地开发
+## 本地开发
 
-**前置条件：** Docker（用于基础服务）、Python 3.13+、[uv](https://github.com/astral-sh/uv)、[Bun](https://bun.sh)
+在本地运行后端和前端，迭代更快。
+
+**第一步 — 启动基础服务：**
 
 ```bash
-# 启动基础服务
 docker compose up -d postgres redis qdrant minio
+```
 
-# 后端
+**第二步 — 后端**（新终端，在仓库根目录）：
+
+```bash
 cd backend
 uv sync
-uv run alembic upgrade head           # 执行数据库迁移
-uv run uvicorn app.main:app --reload  # 开发服务器（:8000）
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload   # http://localhost:8000
+```
 
-# 前端（新终端）
+**第三步 — 前端**（新终端，在仓库根目录）：
+
+```bash
 cd frontend
 bun install
-bun run dev                           # 开发服务器（:5173）
+bun run dev   # http://localhost:5173（代理 /api → localhost:8000）
 ```
+
+---
+
+## 项目结构
+
+```
+JARVIS/
+├── backend/                    # FastAPI（Python 3.13 + uv）
+│   ├── app/
+│   │   ├── agent/              # LangGraph ReAct agent
+│   │   ├── api/                # HTTP 路由（auth/chat/conversations/documents/settings）
+│   │   ├── core/               # 配置、JWT/bcrypt/Fernet 安全、限流
+│   │   ├── db/                 # SQLAlchemy 异步模型 + 会话
+│   │   ├── infra/              # Qdrant / MinIO / Redis 单例
+│   │   ├── rag/                # 文档分块 + 向量化 + 索引
+│   │   └── tools/              # LangGraph 工具（search/code_exec/file/datetime）
+│   ├── alembic/                # 数据库迁移
+│   └── tests/                  # pytest 测试套件
+├── frontend/                   # Vue 3 + TypeScript + Vite + Pinia
+│   └── src/
+│       ├── api/                # Axios 单例 + 认证拦截器
+│       ├── stores/             # Pinia stores（auth + chat）
+│       ├── pages/              # Login / Register / Chat / Documents / Settings
+│       └── locales/            # i18n（zh/en/ja/ko/fr/de）
+├── database/                   # Docker 初始化脚本（postgres/redis/qdrant）
+├── monitoring/                 # Prometheus 配置 + Grafana 预置
+├── traefik/                    # Traefik 动态路由配置
+├── scripts/
+│   └── init-env.sh             # 生成安全 .env（需要 uv）
+├── docker-compose.yml          # 基础编排
+├── docker-compose.override.yml # 开发覆盖（调试端口 + 热重载）
+└── .env.example                # 环境变量参考
+```
+
+---
 
 ## 开发
 
 ### 代码质量
 
 ```bash
-# 后端（在 backend/ 目录）
+# 后端（在 backend/ 目录执行）
 uv run ruff check --fix && uv run ruff format
 uv run mypy app
 uv run pytest tests/ -v
 
-# 前端（在 frontend/ 目录）
-bun run lint
+# 前端（在 frontend/ 目录执行）
+bun run lint:fix
 bun run type-check
 ```
 
 ### Pre-commit Hooks
 
 ```bash
-pre-commit install         # 安装 git hooks（根目录执行）
+# 在仓库根目录执行
+pre-commit install
 pre-commit run --all-files
 ```
 
+Hooks 包含：YAML/TOML/JSON 校验 · uv.lock 同步 · Ruff lint+format · ESLint · mypy · vue-tsc · gitleaks 密钥扫描 · 禁止直接提交 `main`。
+
+---
+
 ## 环境变量
 
-运行 `bash scripts/init-env.sh` 自动生成安全的 `.env`（包含随机密码和密钥）。
+`bash scripts/init-env.sh` 会自动生成所有凭证。你只需提供 LLM API 密钥。
 
-脚本会自动配置：`POSTGRES_PASSWORD`、`MINIO_ROOT_USER/PASSWORD`、`REDIS_PASSWORD`、`JWT_SECRET`、`ENCRYPTION_KEY`、`GRAFANA_PASSWORD`、`DATABASE_URL`、`REDIS_URL`。
+| 变量 | 说明 |
+|------|------|
+| `POSTGRES_PASSWORD` | PostgreSQL 密码 |
+| `MINIO_ROOT_USER/PASSWORD` | MinIO 对象存储凭证 |
+| `REDIS_PASSWORD` | Redis 认证密码 |
+| `JWT_SECRET` | JWT 签名密钥 |
+| `ENCRYPTION_KEY` | 用于静态加密用户 API 密钥的 Fernet 密钥 |
+| `GRAFANA_PASSWORD` | Grafana 管理员密码 |
+| `DEEPSEEK_API_KEY` | **需手动填写** |
+| `OPENAI_API_KEY` | 可选 |
+| `ANTHROPIC_API_KEY` | 可选 |
 
-你只需手动填写 `DEEPSEEK_API_KEY`。详见 `.env.example`。
+完整参考见 `.env.example`。
+
+---
+
+## 贡献
+
+参见 [CONTRIBUTING.md](../../../.github/CONTRIBUTING.md)。
+
+## 许可证
+
+[MIT](../../../LICENSE)
