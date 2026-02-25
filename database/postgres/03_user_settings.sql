@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
     model_name      VARCHAR(100) NOT NULL DEFAULT 'deepseek-chat',
     api_keys        JSONB NOT NULL DEFAULT '{}',
     enabled_tools   JSONB NOT NULL DEFAULT '["search","code_exec","file","datetime"]',
+    persona_override TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_user_settings_user_id UNIQUE (user_id)
@@ -17,6 +18,7 @@ COMMENT ON COLUMN user_settings.model_provider IS 'LLM 提供商标识：deepsee
 COMMENT ON COLUMN user_settings.model_name IS '模型名称：deepseek-chat / gpt-4 / claude-3 等';
 COMMENT ON COLUMN user_settings.api_keys IS 'Fernet 加密后的 API Key JSON，格式 {"provider": "encrypted_key"}';
 COMMENT ON COLUMN user_settings.enabled_tools IS '已启用工具列表 JSON 数组';
+COMMENT ON COLUMN user_settings.persona_override IS '用户自定义 AI 人格/系统提示词，为空时使用默认';
 
 CREATE TRIGGER set_user_settings_updated_at
     BEFORE UPDATE ON user_settings

@@ -211,8 +211,11 @@ uv run uvicorn app.main:app --reload  # Dev server :8000
 # Frontend (in frontend/ directory) / 前端（在 frontend/ 目录）
 bun run dev                           # Dev server :5173 (proxies /api → backend:8000)
 
-# Full-stack Docker / 全栈 Docker
-docker compose up -d                  # Frontend :3000 · Backend :8000
+# Full-stack Docker (dev, with debug ports) / 全栈 Docker（开发模式，含调试端口）
+docker compose up -d                  # App :80 · Backend :8000 · Grafana :3001 · Traefik dashboard :8080
+
+# Full-stack Docker (production, no debug ports) / 全栈 Docker（生产模式，无调试端口）
+docker compose -f docker-compose.yml up -d  # App :80 · Grafana :3001 only
 ```
 
 ### Code Quality / 代码质量

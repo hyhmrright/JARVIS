@@ -9,6 +9,12 @@ RUN uv sync --frozen
 
 COPY . .
 
-RUN chmod +x entrypoint.sh
+RUN addgroup --system jarvis \
+ && adduser --system --ingroup jarvis --home /home/jarvis jarvis \
+ && mkdir -p /home/jarvis \
+ && chown -R jarvis:jarvis /app /home/jarvis \
+ && chmod +x entrypoint.sh
+
+USER jarvis
 
 CMD ["./entrypoint.sh"]
