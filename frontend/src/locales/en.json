@@ -36,7 +36,8 @@
     "logout": "Logout",
     "voiceComingSoon": "Voice feature coming soon",
     "inputPlaceholder": "Type a message, press Enter to send...",
-    "send": "Send"
+    "send": "Send",
+    "copy": "Copy message"
   },
   "documents": {
     "title": "Knowledge Base",
