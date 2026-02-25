@@ -32,7 +32,7 @@ async def test_login_success(client):
 
 
 async def test_register_rejects_password_over_72_bytes(client):
-    payload = {"email": "big@example.com", "password": "\U0001F600" * 19}  # 76 bytes
+    payload = {"email": "big@example.com", "password": "\U0001f600" * 19}  # 76 bytes
     resp = await client.post("/api/auth/register", json=payload)
     assert resp.status_code == 422
 

@@ -1,109 +1,109 @@
-[中文](GEMINI.md) | [English](docs/i18n/gemini-md/GEMINI.en.md) | [日本語](docs/i18n/gemini-md/GEMINI.ja.md) | [한국어](docs/i18n/gemini-md/GEMINI.ko.md) | [Français](docs/i18n/gemini-md/GEMINI.fr.md) | [Deutsch](docs/i18n/gemini-md/GEMINI.de.md)
+[中文](docs/i18n/zh/GEMINI.md) | [日本語](docs/i18n/ja/GEMINI.md) | [한국어](docs/i18n/ko/GEMINI.md) | [Français](docs/i18n/fr/GEMINI.md) | [Deutsch](docs/i18n/de/GEMINI.md)
 
-# Jarvis 项目上下文
+# Jarvis Project Context
 
-本文档为 Gemini 提供关于 `JARVIS` monorepo 的准确上下文信息。
+This document provides Gemini with accurate context information about the `JARVIS` monorepo.
 
-## 项目概览
+## Project Overview
 
-**名称**: Jarvis AI 助手
-**架构**: 多服务 monorepo（FastAPI 后端 + Vue 3 前端）
-**目的**: 具备 RAG 知识库、多 LLM 支持、流式对话的 AI 助手平台。
+**Name**: Jarvis AI Assistant
+**Architecture**: Multi-service monorepo (FastAPI backend + Vue 3 frontend)
+**Purpose**: AI assistant platform with RAG knowledge base, multi-LLM support, and streaming conversations.
 
-## 目录结构
+## Directory Structure
 
 ```
 JARVIS/
-├── backend/          # FastAPI 后端服务（Python 3.13 + SQLAlchemy + LangGraph）
-├── frontend/         # Vue 3 前端（Vite + TypeScript + Pinia）
+├── backend/          # FastAPI backend service (Python 3.13 + SQLAlchemy + LangGraph)
+├── frontend/         # Vue 3 frontend (Vite + TypeScript + Pinia)
 ├── docker-compose.yml
-├── pyproject.toml    # 根目录（仅开发工具，无运行时依赖）
+├── pyproject.toml    # Root directory (dev tools only, no runtime dependencies)
 └── CLAUDE.md / GEMINI.md
 ```
 
-## 后端架构（backend/）
+## Backend Architecture (backend/)
 
-- **框架**: FastAPI + Uvicorn
-- **数据库**: PostgreSQL（asyncpg 驱动）+ SQLAlchemy async ORM + Alembic 迁移
-- **缓存**: Redis
-- **向量存储**: Qdrant（RAG 知识库）
-- **对象存储**: MinIO（文件上传）
-- **LLM**: LangGraph + LangChain，支持 DeepSeek / OpenAI / Anthropic
-- **认证**: JWT（python-jose）+ bcrypt（passlib）
+- **Framework**: FastAPI + Uvicorn
+- **Database**: PostgreSQL (asyncpg driver) + SQLAlchemy async ORM + Alembic migrations
+- **Cache**: Redis
+- **Vector Store**: Qdrant (RAG knowledge base)
+- **Object Storage**: MinIO (file uploads)
+- **LLM**: LangGraph + LangChain, supporting DeepSeek / OpenAI / Anthropic
+- **Authentication**: JWT (python-jose) + bcrypt (passlib)
 
-### 主要模块
+### Main Modules
 
 ```
 backend/app/
-├── api/          # FastAPI 路由（auth、conversations、documents、settings）
-├── agent/        # LangGraph agent graph + LLM 工厂
-├── core/         # 配置（pydantic-settings）、数据库、安全工具
-├── models/       # SQLAlchemy ORM 模型
-├── rag/          # 文档解析、分块、Qdrant 索引
-└── main.py       # 应用入口（CORS、路由注册、健康检查）
+├── api/          # FastAPI routes (auth, conversations, documents, settings)
+├── agent/        # LangGraph agent graph + LLM factory
+├── core/         # Configuration (pydantic-settings), database, security utilities
+├── models/       # SQLAlchemy ORM models
+├── rag/          # Document parsing, chunking, Qdrant indexing
+└── main.py       # Application entry point (CORS, route registration, health check)
 ```
 
-## 前端架构（frontend/）
+## Frontend Architecture (frontend/)
 
-- **框架**: Vue 3 + TypeScript + Vite
-- **状态管理**: Pinia（auth store、chat store）
-- **路由**: Vue Router 4（懒加载 + 路由守卫）
-- **UI**: 自定义 CSS 样式
+- **Framework**: Vue 3 + TypeScript + Vite
+- **State Management**: Pinia (auth store, chat store)
+- **Routing**: Vue Router 4 (lazy loading + route guards)
+- **UI**: Custom CSS styles
 
-## 环境与依赖
+## Environment & Dependencies
 
-### 后端（使用 uv）
+### Backend (using uv)
 ```bash
 cd backend
-uv sync                          # 安装依赖
-uv run uvicorn app.main:app --reload  # 开发服务器
-uv run pytest tests/ -v          # 运行测试
-uv run alembic upgrade head      # 执行数据库迁移
+uv sync                          # Install dependencies
+uv run uvicorn app.main:app --reload  # Development server
+uv run pytest tests/ -v          # Run tests
+uv run alembic upgrade head      # Run database migrations
 ```
 
-### 前端（使用 bun）
+### Frontend (using bun)
 ```bash
 cd frontend
-bun install                      # 安装依赖
-bun run dev                      # 开发服务器
-bun run build                    # 生产构建
-bun run lint                     # ESLint 检查
-bun run type-check               # TypeScript 类型检查
+bun install                      # Install dependencies
+bun run dev                      # Development server
+bun run build                    # Production build
+bun run lint                     # ESLint check
+bun run type-check               # TypeScript type check
 ```
 
-### Docker 环境
+### Docker Environment
 ```bash
-docker-compose up -d             # 启动所有服务（PostgreSQL、Redis、Qdrant、MinIO、backend、frontend）
+docker-compose up -d             # Start all services (PostgreSQL, Redis, Qdrant, MinIO, backend, frontend)
 ```
 
-## 开发工作流
+## Development Workflow
 
-### 分支策略
-- **main**: 稳定版本（部署分支）
-- **dev**: 日常开发分支（所有改动在此进行）
-- 仅在明确指令时将 `dev` 合并至 `main`
+### Branch Strategy
+- **main**: Stable version (deployment branch)
+- **dev**: Daily development branch (all changes are made here)
+- Only merge `dev` into `main` when explicitly instructed
 
-### 代码质量工具
+### Code Quality Tools
 
-**后端**:
-- `ruff check --fix && ruff format`：Lint + 格式化
-- `pyright`：类型检查
-- `pytest`：测试
+**Backend**:
+- `ruff check --fix && ruff format`: Lint + formatting
+- `mypy`: Type checking
+- `pytest`: Testing
 
-**前端**:
-- `bun run lint`：ESLint 检查
-- `bun run type-check`：TypeScript 类型检查
+**Frontend**:
+- `bun run lint`: ESLint check
+- `bun run type-check`: TypeScript type check
 
-**提交前（pre-commit hooks 自动运行）**:
-- YAML/TOML/JSON 格式检查
-- uv.lock 同步检查
+**Pre-commit (pre-commit hooks run automatically)**:
+- YAML/TOML/JSON format check
+- uv.lock sync check
 - ruff lint + format
-- 前端 ESLint + TypeScript 类型检查
+- Frontend ESLint + TypeScript type check
 
-## 关键配置
+## Key Configuration
 
 - **DATABASE_URL**: `postgresql+asyncpg://jarvis:jarvis@localhost:5432/jarvis`
 - **REDIS_URL**: `redis://localhost:6379`
-- **JWT_SECRET**: 通过环境变量配置
-- **DEEPSEEK_API_KEY**: 通过环境变量配置
-- **Alembic 迁移**: 自动从 `DATABASE_URL` 读取并转换为 psycopg2 同步驱动
+- **JWT_SECRET**: Configured via environment variable
+- **DEEPSEEK_API_KEY**: Configured via environment variable
+- **Alembic migrations**: Automatically reads from `DATABASE_URL` and converts to psycopg2 synchronous driver

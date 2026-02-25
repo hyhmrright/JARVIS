@@ -3,6 +3,7 @@ import uuid
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import create_engine as sync_create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.core.limiter import limiter
@@ -17,8 +18,12 @@ except KeyError:
         "POSTGRES_PASSWORD env var is required to run tests. "
         "Run 'bash scripts/init-env.sh' or export it manually."
     ) from None
+
 TEST_DATABASE_URL = (
     f"postgresql+asyncpg://jarvis:{_pg_password}@localhost:5432/jarvis_test"
+)
+_SYNC_DATABASE_URL = (
+    f"postgresql+psycopg2://jarvis:{_pg_password}@localhost:5432/jarvis_test"
 )
 
 
@@ -30,33 +35,44 @@ def anyio_backend():
 @pytest.fixture(autouse=True)
 def disable_rate_limiting():
     """测试期间禁用频率限制，避免多次注册请求触发 429。"""
-    limiter._enabled = False
+    limiter.enabled = False
     yield
-    limiter._enabled = True
+    limiter.enabled = True
 
 
 @pytest.fixture(scope="session")
-async def test_engine():
-    """每次测试 session 创建所有表，结束后删除。"""
-    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield engine
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-    await engine.dispose()
+def setup_tables():
+    """使用同步 psycopg2 驱动建表/删表，避免 session 与 function 事件循环交叉引用。"""
+    engine = sync_create_engine(_SYNC_DATABASE_URL, echo=False)
+    Base.metadata.create_all(engine)
+    yield
+    Base.metadata.drop_all(engine)
+    engine.dispose()
 
 
 @pytest.fixture
-async def db_session(test_engine):
-    """每个测试使用独立事务，测试结束后回滚，保证测试间互不影响。"""
-    async with test_engine.begin() as conn:
-        session = AsyncSession(bind=conn, expire_on_commit=False)
-        try:
-            yield session
-        finally:
-            await session.close()
-            await conn.rollback()
+async def db_session(setup_tables):
+    """每个测试创建独立的 async engine 和事务，结束后回滚，保证测试间互不影响。"""
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+    try:
+        async with engine.connect() as conn:
+            # Explicitly begin via await (not `async with conn.begin()`) so
+            # the AsyncTransaction is not held as a context manager, giving
+            # conn.rollback() in the finally block unconditional control over
+            # the root transaction regardless of what the session did.
+            await conn.begin()
+            session = AsyncSession(
+                bind=conn,
+                expire_on_commit=False,
+                join_transaction_mode="create_savepoint",
+            )
+            try:
+                yield session
+            finally:
+                await session.close()
+                await conn.rollback()
+    finally:
+        await engine.dispose()
 
 
 @pytest.fixture
