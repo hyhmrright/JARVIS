@@ -312,11 +312,20 @@ Were files modified in this session?
 
 ### Tool Reference / 工具说明
 
-| Tool | Type | Invocation | Timing |
-|------|------|-----------|--------|
-| code-simplifier | Task agent | `Task` tool, `subagent_type: "code-simplifier:code-simplifier"` | Before commit |
-| Pre-push code review | Skill | `Skill: superpowers:requesting-code-review` | After commit, before push |
-| PR code review | Skill | `Skill: code-review:code-review --comment` | After push (requires existing PR) |
+| Tool | Type | Invocation | Model | Timing |
+|------|------|-----------|-------|--------|
+| code-simplifier | Task agent | `Task` tool, `subagent_type: "code-simplifier:code-simplifier"`, `model: "opus"` | **opus** | Before commit |
+| Pre-push code review | Skill | `Skill: superpowers:requesting-code-review` | **opus** (see note) | After commit, before push |
+| PR code review | Skill | `Skill: code-review:code-review --comment` | session default | After push (requires existing PR) |
+
+> **Model notes / 模型说明：**
+>
+> - **code-simplifier**: Always pass `model: "opus"` explicitly when invoking via Task tool.
+>   通过 Task 工具调用时，**必须**显式传入 `model: "opus"`。
+> - **superpowers:requesting-code-review**: This Skill's instructions tell Claude to dispatch `superpowers:code-reviewer` via Task tool. Claude makes that Task call directly, so **always pass `model: "opus"`** in that Task call to override the agent's `model: inherit` default.
+>   该 Skill 的指令会让 Claude 通过 Task 工具派发 `superpowers:code-reviewer`，Claude 直接执行该 Task 调用，因此派发时**必须**传入 `model: "opus"` 以覆盖 agent 默认的 `model: inherit`。
+> - **code-review:code-review --comment**: Invoked via Skill tool (no model parameter available); runs with session model. No override possible via CLAUDE.md.
+>   通过 Skill 工具调用，无 model 参数，继承 session 模型，无法通过 CLAUDE.md 控制。
 
 ### Trigger Conditions / 触发条件（满足任一即触发）
 
@@ -340,8 +349,8 @@ Write code / Modify files
 ╔══════════════════ Quality Loop (repeat until no issues) ═════════════════╗
 ║ 质量循环（重复直到无问题）                                                ║
 ║                                                                          ║
-║  A. [REQUIRED] Task: code-simplifier                                     ║
-║     【必须】Task: code-simplifier                                         ║
+║  A. [REQUIRED] Task: code-simplifier (model: "opus")                     ║
+║     【必须】Task: code-simplifier（model: "opus"）                        ║
 ║     (Task agent, directly modifies files / Task agent，会直接修改文件)   ║
 ║          ↓                                                               ║
 ║  B. git add + commit                                                     ║
@@ -352,7 +361,10 @@ Write code / Modify files
 ║          ↓                                                               ║
 ║  C. [REQUIRED] Skill: superpowers:requesting-code-review                 ║
 ║     【必须】Skill: superpowers:requesting-code-review                    ║
-║     (Provide BASE_SHA=HEAD~1, HEAD_SHA=HEAD)                             ║
+║     (Provide BASE_SHA=HEAD~1, HEAD_SHA=HEAD;                             ║
+║      dispatch code-reviewer Task with model: "opus" — see Model notes   ║
+║      提供 BASE_SHA=HEAD~1, HEAD_SHA=HEAD；                               ║
+║      派发 code-reviewer Task 时传 model: "opus" — 见模型说明)            ║
 ║          ↓                                                               ║
 ║     Issues found? / 发现问题？                                           ║
 ║       Yes → Fix code ──────────────────────────→ Back to step A         ║
