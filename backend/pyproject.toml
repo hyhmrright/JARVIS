@@ -29,6 +29,7 @@ dependencies = [
     "tiktoken>=0.8.0",
     "httpx>=0.28.0",
     "prometheus-fastapi-instrumentator>=7.0",
+    "structlog>=25.0.0",
 ]
 
 [dependency-groups]

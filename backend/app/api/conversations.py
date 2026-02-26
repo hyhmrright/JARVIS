@@ -1,6 +1,8 @@
 import uuid
 from datetime import datetime
 
+import structlog
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -9,6 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.db.models import Conversation, Message, User
 from app.db.session import get_db
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/conversations", tags=["conversations"])
 
@@ -33,6 +37,7 @@ async def create_conversation(
     db.add(conv)
     await db.commit()
     await db.refresh(conv)
+    logger.info("conversation_created", user_id=str(user.id), conv_id=str(conv.id), title=conv.title)
     return conv
 
 
@@ -93,3 +98,4 @@ async def delete_conversation(
         raise HTTPException(status_code=404, detail="Conversation not found")
     await db.delete(conv)
     await db.commit()
+    logger.info("conversation_deleted", user_id=str(user.id), conv_id=str(conv_id))

@@ -3,6 +3,8 @@ import io
 import uuid
 from pathlib import Path
 
+import structlog
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +15,8 @@ from app.db.session import get_db
 from app.infra.minio import get_minio_client
 from app.infra.qdrant import user_collection_name
 from app.rag.indexer import index_document
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -77,4 +81,13 @@ async def upload_document(
     chunk_count = await index_document(str(user.id), str(doc.id), text, llm.api_key)
     doc.chunk_count = chunk_count
     await db.commit()
+    logger.info(
+        "document_uploaded",
+        user_id=str(user.id),
+        doc_id=str(doc.id),
+        filename=doc.filename,
+        file_type=ext,
+        file_size_bytes=len(content),
+        chunk_count=chunk_count,
+    )
     return {"id": str(doc.id), "filename": doc.filename, "chunk_count": chunk_count}
