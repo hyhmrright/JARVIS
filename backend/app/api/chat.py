@@ -3,7 +3,6 @@ import uuid
 from collections.abc import AsyncGenerator
 
 import structlog
-
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -103,6 +102,10 @@ async def chat_stream(
                         model_name=llm.model_name,
                     )
                 )
-        logger.info("chat_stream_completed", conv_id=str(conv_id), response_chars=len(full_content))
+        logger.info(
+            "chat_stream_completed",
+            conv_id=str(conv_id),
+            response_chars=len(full_content),
+        )
 
     return StreamingResponse(generate(), media_type="text/event-stream")

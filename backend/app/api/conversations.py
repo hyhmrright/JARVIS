@@ -2,7 +2,6 @@ import uuid
 from datetime import datetime
 
 import structlog
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -37,7 +36,12 @@ async def create_conversation(
     db.add(conv)
     await db.commit()
     await db.refresh(conv)
-    logger.info("conversation_created", user_id=str(user.id), conv_id=str(conv.id), title=conv.title)
+    logger.info(
+        "conversation_created",
+        user_id=str(user.id),
+        conv_id=str(conv.id),
+        title=conv.title,
+    )
     return conv
 
 
