@@ -84,7 +84,7 @@ New validation keys added to all 6 locale files (zh/en/ja/ko/fr/de):
 |------|--------|
 | `frontend/src/pages/LoginPage.vue` | Password toggle, validation logic, field-level errors, button disabled binding |
 | `frontend/src/pages/RegisterPage.vue` | Same as above |
-| `frontend/src/assets/global.css` | `.field-error` text style, `.input-error` border style |
+| `frontend/src/assets/styles/components.css` | `.field-error`, `.input-error`, `.password-wrapper`, `.password-toggle` styles |
 | `frontend/src/locales/zh.json` | Add `validation.*` keys |
 | `frontend/src/locales/en.json` | Add `validation.*` keys |
 | `frontend/src/locales/ja.json` | Add `validation.*` keys |
