@@ -55,5 +55,11 @@
     "saved": "保存しました",
     "personaOverride": "カスタム指示",
     "personaPlaceholder": "例：ボスと呼んで、もっとカジュアルに..."
+  },
+  "validation": {
+    "emailRequired": "メールアドレスを入力してください",
+    "emailInvalid": "有効なメールアドレスを入力してください",
+    "passwordRequired": "パスワードを入力してください",
+    "passwordMinLength": "パスワードは8文字以上必要です"
   }
 }
