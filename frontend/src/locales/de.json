@@ -54,7 +54,9 @@
     "save": "Speichern",
     "saved": "Gespeichert",
     "personaOverride": "Benutzerdefinierte Anweisungen",
-    "personaPlaceholder": "z.B.: Nenn mich Chef, verwende einen lockereren Ton..."
+    "personaPlaceholder": "z.B.: Nenn mich Chef, verwende einen lockereren Ton...",
+    "customModel": "Benutzerdefiniert...",
+    "customModelPlaceholder": "Modellname eingeben, z.B. glm-4.7-FlashX"
   },
   "validation": {
     "emailRequired": "Bitte geben Sie Ihre E-Mail-Adresse ein",
