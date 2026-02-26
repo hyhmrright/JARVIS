@@ -45,7 +45,7 @@
 ```bash
 git clone https://github.com/hyhmrright/JARVIS.git
 cd JARVIS
-bash scripts/init-env.sh   # génère .env avec des identifiants sécurisés aléatoires
+bash scripts/init-env.sh
 ```
 
 > Nécessite `uv` (utilisé en interne pour générer la clé de chiffrement Fernet). Aucune autre configuration requise.

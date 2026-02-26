@@ -45,7 +45,7 @@
 ```bash
 git clone https://github.com/hyhmrright/JARVIS.git
 cd JARVIS
-bash scripts/init-env.sh   # 랜덤 보안 자격 증명으로 .env 생성
+bash scripts/init-env.sh
 ```
 
 > 내부적으로 Fernet 암호화 키 생성에 `uv`를 사용합니다. 그 외 별도 설정은 필요하지 않습니다.

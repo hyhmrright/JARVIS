@@ -3,12 +3,32 @@
 # Usage: bash scripts/init-env.sh
 set -euo pipefail
 
-ENV_FILE="${1:-.env}"
+ENV_FILE=".env"
 
 if [ -f "$ENV_FILE" ]; then
     echo "⚠  $ENV_FILE already exists — skipping to avoid overwriting."
     echo "   Delete it first if you want to regenerate."
     exit 0
+fi
+
+# Warn if persistent data directories already exist (passwords are baked into
+# the data on first run; a newly generated .env will have different passwords).
+DATA_DIR="${HOME}/jarvis-data"
+if [ -d "$DATA_DIR/postgres" ] || [ -d "$DATA_DIR/redis" ] || [ -d "$DATA_DIR/minio" ]; then
+    echo ""
+    echo "⚠  Existing data detected in $DATA_DIR"
+    echo "   Passwords are set during first database initialization."
+    echo "   A new .env will contain different random passwords, causing auth failures."
+    echo ""
+    echo "   Options:"
+    echo "     1) Delete old data:  rm -rf $DATA_DIR"
+    echo "     2) Reuse old .env:   copy the previous .env into this directory"
+    echo ""
+    read -r -p "   Continue generating a new .env anyway? [y/N] " ans || true
+    case "$ans" in
+        [yY]*) ;;
+        *) echo "   Aborted."; exit 0 ;;
+    esac
 fi
 
 rand_password() { openssl rand -hex 18; }

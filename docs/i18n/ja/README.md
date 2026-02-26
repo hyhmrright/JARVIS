@@ -45,7 +45,7 @@
 ```bash
 git clone https://github.com/hyhmrright/JARVIS.git
 cd JARVIS
-bash scripts/init-env.sh   # ランダムな安全な認証情報で .env を生成
+bash scripts/init-env.sh
 ```
 
 > `uv` が必要です（Fernet 暗号化キーの生成に内部で使用）。その他のセットアップは不要です。
