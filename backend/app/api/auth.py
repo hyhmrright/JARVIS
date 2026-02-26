@@ -12,8 +12,6 @@ HTTP 状态码说明（前端依赖这些状态码显示对应的中文提示）
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
-
-logger = structlog.get_logger(__name__)
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +20,8 @@ from app.core.limiter import limiter
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.models import User, UserSettings
 from app.db.session import get_db
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
