@@ -45,7 +45,7 @@
 ```bash
 git clone https://github.com/hyhmrright/JARVIS.git
 cd JARVIS
-bash scripts/init-env.sh   # generates .env with random secure credentials
+bash scripts/init-env.sh
 ```
 
 > Requires `uv` (used internally to generate the Fernet encryption key). No other setup needed.
