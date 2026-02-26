@@ -4,16 +4,20 @@
 
 **Goal:** Add ZhipuAI GLM model support and upgrade the settings UI to a provider-aware model selector (predefined list + custom option) for all providers.
 
-**Architecture:** Backend adds a `case "zhipuai"` branch using `langchain-zhipuai` (MetaGLM official package) to the existing `match/case` LLM factory. Frontend replaces the free-text model input with a dynamic `<select>` that switches its option list based on the chosen provider, plus a "Custom…" escape hatch that reveals a text input.
+**Architecture:** Backend adds a `case "zhipuai"` branch using `langchain-community`'s `ChatZhipuAI` to the existing `match/case` LLM factory. Frontend replaces the free-text model input with a dynamic `<select>` that switches its option list based on the chosen provider, plus a "Custom…" escape hatch that reveals a text input.
 
-**Tech Stack:** Python 3.13 / FastAPI / LangGraph / `langchain-zhipuai` / Vue 3 + TypeScript / Pinia / uv / bun
+**Tech Stack:** Python 3.13 / FastAPI / LangGraph / `langchain-community` (ChatZhipuAI) / Vue 3 + TypeScript / Pinia / uv / bun
+
+> **2026-02-26 更新：** `langchain-zhipuai` 在 PyPI 是空壳包（v0.0.1），`langchain-glm` 与项目 `langchain-core>=1.x` 不兼容。改用 `langchain-community>=0.3.0`，import 路径：`from langchain_community.chat_models.zhipuai import ChatZhipuAI`。
+>
+> **dev 分支 merge 说明（2026-02-26）：** dev 新增了 Login/Register 密码显示切换和实时字段校验（feature/frontend PR#21），以及新的 `components.css` 共享样式。i18n 文件新增了 `validation` 键组，与本计划需要添加的 `settings.customModel` 键不冲突。
 
 ---
 
 ## Checklist
 
-- [ ] Task 1: Add `langchain-zhipuai` dependency
-- [ ] Task 2: Write failing unit tests for `get_llm()`
+- [x] Task 1: ~~Add `langchain-zhipuai` dependency~~ → 改用 `langchain-community>=0.3.0`（已完成）
+- [x] Task 2: Write failing unit tests for `get_llm()`（已完成）
 - [ ] Task 3: Implement `zhipuai` case in `llm.py` (make tests pass)
 - [ ] Task 4: Add `zhipuai_api_key` to config and env template
 - [ ] Task 5: Upgrade frontend to provider-model linked selector
@@ -161,10 +165,10 @@ Replace the entire file with:
 
 ```python
 from langchain_anthropic import ChatAnthropic
+from langchain_community.chat_models.zhipuai import ChatZhipuAI
 from langchain_core.language_models import BaseChatModel
 from langchain_deepseek import ChatDeepSeek
 from langchain_openai import ChatOpenAI
-from langchain_zhipuai import ChatZhipuAI
 
 
 def get_llm(provider: str, model: str, api_key: str) -> BaseChatModel:
@@ -180,6 +184,8 @@ def get_llm(provider: str, model: str, api_key: str) -> BaseChatModel:
         case _:
             raise ValueError(f"Unknown provider: {provider}")
 ```
+
+> **注意：** import 路径使用 `langchain_community.chat_models.zhipuai`（不是 `langchain_zhipuai`）。import 按字母序排列（ruff isort 要求）。
 
 **Step 3: Run the tests — all must pass**
 
