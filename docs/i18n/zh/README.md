@@ -45,7 +45,7 @@
 ```bash
 git clone https://github.com/hyhmrright/JARVIS.git
 cd JARVIS
-bash scripts/init-env.sh   # 生成包含随机安全凭证的 .env
+bash scripts/init-env.sh
 ```
 
 > 需要安装 `uv`（内部用于生成 Fernet 加密密钥）。无需其他额外设置。
