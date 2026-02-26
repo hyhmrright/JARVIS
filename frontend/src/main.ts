@@ -30,7 +30,7 @@ function reportError(message: string, source: string, stack?: string): void {
   });
 }
 
-app.config.errorHandler = (err, _instance, info) => {
+app.config.errorHandler = (err: unknown, _instance: unknown, info: string) => {
   console.error("[Vue error]", err, info);
   reportError(String(err), `vue:${info}`);
 };
