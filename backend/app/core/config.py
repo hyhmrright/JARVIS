@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     deepseek_api_key: str = ""
     openai_api_key: str = ""
     anthropic_api_key: str = ""
+    zhipuai_api_key: str = ""
 
     # Non-sensitive — safe defaults for local development
     qdrant_url: str = "http://localhost:6333"
