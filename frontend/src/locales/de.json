@@ -38,7 +38,9 @@
     "inputPlaceholder": "Nachricht eingeben, Enter zum Senden...",
     "send": "Senden",
     "copy": "Nachricht kopieren",
-    "streamError": "Nachricht konnte nicht gesendet werden, bitte erneut versuchen"
+    "streamError": "Nachricht konnte nicht gesendet werden, bitte erneut versuchen",
+    "toolResult": "Werkzeugergebnis",
+    "toolRunning": "Wird ausgeführt..."
   },
   "documents": {
     "title": "Wissensdatenbank",

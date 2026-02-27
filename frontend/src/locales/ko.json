@@ -38,7 +38,9 @@
     "inputPlaceholder": "메시지를 입력하고 Enter로 전송...",
     "send": "전송",
     "copy": "메시지 복사",
-    "streamError": "메시지 전송에 실패했습니다. 다시 시도해 주세요"
+    "streamError": "메시지 전송에 실패했습니다. 다시 시도해 주세요",
+    "toolResult": "도구 결과",
+    "toolRunning": "실행 중..."
   },
   "documents": {
     "title": "지식 베이스",

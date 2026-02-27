@@ -61,6 +61,18 @@
           </div>
           <div class="msg-bubble">
             <p>{{ msg.content }}</p>
+            <div v-if="msg.toolCalls?.length" class="tool-calls">
+              <div v-for="(tc, ti) in msg.toolCalls" :key="ti" class="tool-call-card">
+                <span class="tool-icon">&#9881;</span>
+                <span class="tool-name">{{ tc.name }}</span>
+                <span v-if="tc.status === 'running'" class="tool-status running">{{ $t('chat.toolRunning') }}</span>
+                <span v-else class="tool-status done">&#10003;</span>
+                <details v-if="tc.result" class="tool-result">
+                  <summary>{{ $t('chat.toolResult') }}</summary>
+                  <pre>{{ tc.result }}</pre>
+                </details>
+              </div>
+            </div>
             <button
               v-if="!(chat.streaming && i === chat.messages.length - 1)"
               class="copy-btn"
@@ -607,6 +619,68 @@ async function confirmDelete(convId: string): Promise<void> {
     animation: none;
     opacity: 0.6;
   }
+}
+
+/* ── Tool Calls ── */
+.tool-calls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 4px;
+}
+
+.tool-call-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 6px 10px;
+  background: var(--white-a04);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.tool-icon {
+  font-size: 14px;
+  color: var(--accent);
+}
+
+.tool-name {
+  font-family: var(--font-mono, monospace);
+  font-weight: 500;
+}
+
+.tool-status.running {
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.tool-status.done {
+  color: var(--success, #4caf50);
+  font-size: 14px;
+}
+
+.tool-result {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.tool-result summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.tool-result pre {
+  margin-top: 4px;
+  padding: 8px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 /* ── Responsive ── */

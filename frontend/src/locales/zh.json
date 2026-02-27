@@ -38,7 +38,9 @@
     "inputPlaceholder": "输入消息，Enter 发送...",
     "send": "发送",
     "copy": "复制消息",
-    "streamError": "消息发送失败，请重试"
+    "streamError": "消息发送失败，请重试",
+    "toolResult": "工具结果",
+    "toolRunning": "执行中..."
   },
   "documents": {
     "title": "知识库",

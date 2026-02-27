@@ -38,7 +38,9 @@
     "inputPlaceholder": "メッセージを入力、Enter で送信...",
     "send": "送信",
     "copy": "メッセージをコピー",
-    "streamError": "メッセージの送信に失敗しました。再試行してください"
+    "streamError": "メッセージの送信に失敗しました。再試行してください",
+    "toolResult": "ツール結果",
+    "toolRunning": "実行中..."
   },
   "documents": {
     "title": "ナレッジベース",

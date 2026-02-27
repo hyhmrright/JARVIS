@@ -26,6 +26,55 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 _ROLE_TO_MESSAGE = {"human": HumanMessage, "ai": AIMessage}
 
 
+def _format_sse(payload: dict) -> str:
+    """Encode a dict as an SSE data line."""
+    return "data: " + json.dumps(payload) + "\n\n"
+
+
+def _sse_events_from_chunk(chunk: dict, full_content: str) -> tuple[list[str], str]:
+    """Convert a LangGraph stream chunk into SSE event lines.
+
+    Returns (list_of_sse_lines, updated_full_content).
+    """
+    events: list[str] = []
+
+    if "llm" in chunk:
+        ai_msg = chunk["llm"]["messages"][-1]
+        # Emit tool_start events when the LLM decides to call tools
+        if hasattr(ai_msg, "tool_calls") and ai_msg.tool_calls:
+            for tc in ai_msg.tool_calls:
+                events.append(
+                    _format_sse(
+                        {
+                            "type": "tool_start",
+                            "tool": tc["name"],
+                            "args": tc.get("args", {}),
+                        }
+                    )
+                )
+        # Delta logic
+        new_content = ai_msg.content
+        delta = new_content[len(full_content) :]
+        full_content = new_content
+        if delta:
+            events.append(
+                _format_sse({"type": "delta", "delta": delta, "content": full_content})
+            )
+    elif "tools" in chunk:
+        for tm in chunk["tools"]["messages"]:
+            events.append(
+                _format_sse(
+                    {
+                        "type": "tool_end",
+                        "tool": tm.name,
+                        "result_preview": tm.content[:200],
+                    }
+                )
+            )
+
+    return events, full_content
+
+
 class ChatRequest(BaseModel):
     conversation_id: uuid.UUID
     content: str = Field(max_length=50000)
@@ -92,14 +141,9 @@ async def chat_stream(
         full_content = ""
         try:
             async for chunk in graph.astream(AgentState(messages=lc_messages)):
-                if "llm" in chunk:
-                    ai_msg = chunk["llm"]["messages"][-1]
-                    new_content = ai_msg.content
-                    delta = new_content[len(full_content) :]
-                    full_content = new_content
-                    if delta:
-                        data = json.dumps({"delta": delta, "content": full_content})
-                        yield "data: " + data + "\n\n"
+                events, full_content = _sse_events_from_chunk(chunk, full_content)
+                for event in events:
+                    yield event
         except Exception:
             logger.exception("chat_stream_error", conv_id=str(conv_id))
             raise

@@ -38,7 +38,9 @@
     "inputPlaceholder": "Tapez un message, appuyez sur Entrée pour envoyer...",
     "send": "Envoyer",
     "copy": "Copier le message",
-    "streamError": "Échec de l'envoi du message, veuillez réessayer"
+    "streamError": "Échec de l'envoi du message, veuillez réessayer",
+    "toolResult": "Résultat de l'outil",
+    "toolRunning": "En cours..."
   },
   "documents": {
     "title": "Base de connaissances",

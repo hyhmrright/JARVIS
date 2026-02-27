@@ -38,7 +38,9 @@
     "inputPlaceholder": "Type a message, press Enter to send...",
     "send": "Send",
     "copy": "Copy message",
-    "streamError": "Failed to send message, please try again"
+    "streamError": "Failed to send message, please try again",
+    "toolResult": "Tool Result",
+    "toolRunning": "Running..."
   },
   "documents": {
     "title": "Knowledge Base",
