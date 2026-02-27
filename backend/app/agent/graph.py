@@ -9,13 +9,10 @@ from app.agent.state import AgentState
 from app.tools.code_exec_tool import execute_code
 from app.tools.datetime_tool import get_datetime
 from app.tools.rag_tool import create_rag_search_tool
-from app.tools.search_tool import web_search
+from app.tools.search_tool import create_web_search_tool
 
-# 工具名称 → 工具对象的映射（与 UserSettings.enabled_tools 的值对应）
-# NOTE: "rag_search" is not in this map because it requires per-request
-# user context (user_id + openai_api_key) and is created dynamically.
+# Static tools that need no per-request context
 _TOOL_MAP = {
-    "search": web_search,
     "code_exec": execute_code,
     "datetime": get_datetime,
 }
@@ -33,11 +30,16 @@ def create_graph(
     *,
     user_id: str | None = None,
     openai_api_key: str | None = None,
+    tavily_api_key: str | None = None,
 ) -> CompiledStateGraph:
     if enabled_tools is not None:
         tools = [_TOOL_MAP[name] for name in enabled_tools if name in _TOOL_MAP]
     else:
         tools = list(_DEFAULT_TOOLS)
+
+    # Dynamically create web search tool when Tavily key is available
+    if tavily_api_key and (enabled_tools is None or "search" in enabled_tools):
+        tools.append(create_web_search_tool(tavily_api_key))
 
     # Dynamically create RAG search tool when user context is available
     if (

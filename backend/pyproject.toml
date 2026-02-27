@@ -30,6 +30,7 @@ dependencies = [
     "httpx>=0.28.0",
     "prometheus-fastapi-instrumentator>=7.0",
     "structlog>=25.0.0",
+    "tavily-python>=0.7.22",
 ]
 
 [dependency-groups]
