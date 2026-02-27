@@ -27,7 +27,11 @@ def create_rag_search_tool(user_id: str, openai_api_key: str) -> BaseTool:
             results = await search_documents(user_id, query, openai_api_key, top_k=5)
         except UnexpectedResponse as e:
             if e.status_code == 404:
-                return "No documents have been uploaded yet. Upload documents first to use knowledge base search."
+                return (
+                    "No documents have been uploaded yet."
+                    " Upload documents first to use"
+                    " knowledge base search."
+                )
             logger.exception("rag_search_error", user_id=user_id)
             return "Error: failed to search the knowledge base."
         except Exception:

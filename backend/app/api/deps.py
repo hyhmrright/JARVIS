@@ -5,7 +5,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import decode_access_token, resolve_api_key
+from app.core.security import decode_access_token, resolve_api_keys
 from app.db.models import User, UserSettings
 from app.db.session import get_db
 
@@ -19,6 +19,7 @@ class ResolvedLLMConfig:
     provider: str
     model_name: str
     api_key: str
+    api_keys: list[str]
     enabled_tools: list[str] | None
     persona_override: str | None
     raw_keys: dict[str, str]
@@ -61,8 +62,8 @@ async def get_llm_config(
     model_name = settings.model_name if settings else "deepseek-chat"
     raw_keys = settings.api_keys if settings else {}
 
-    api_key = resolve_api_key(provider, raw_keys)
-    if not api_key:
+    api_keys = resolve_api_keys(provider, raw_keys)
+    if not api_keys:
         raise HTTPException(
             status_code=400,
             detail=f"No API key configured for provider '{provider}'. "
@@ -72,7 +73,8 @@ async def get_llm_config(
     return ResolvedLLMConfig(
         provider=provider,
         model_name=model_name,
-        api_key=api_key,
+        api_key=api_keys[0],
+        api_keys=api_keys,
         enabled_tools=settings.enabled_tools if settings else None,
         persona_override=settings.persona_override if settings else None,
         raw_keys=raw_keys,

@@ -20,7 +20,7 @@
 
         <div class="form-group animate-slide-up-delay-2">
           <label for="modelSelect">{{ $t("settings.modelName") }}</label>
-          <select id="modelSelect" v-model="modelSelect" @change="onModelSelectChange">
+          <select id="modelSelect" v-model="modelSelect">
             <option v-for="m in currentProviderModels" :key="m" :value="m">{{ m }}</option>
             <option value="__custom__">{{ $t("settings.customModel") }}</option>
           </select>
@@ -35,8 +35,28 @@
         </div>
 
         <div class="form-group animate-slide-up-delay-2">
-          <label for="apiKey">{{ $t("settings.apiKey") }}</label>
-          <input id="apiKey" v-model="apiKey" type="password" />
+          <label>{{ $t("settings.apiKeys") }}</label>
+          <div v-for="(_, index) in apiKeys" :key="index" class="api-key-row">
+            <input
+              v-model="apiKeys[index]"
+              type="password"
+              :placeholder="$t('settings.apiKeyPlaceholder')"
+            />
+            <button
+              v-if="apiKeys.length > 1"
+              type="button"
+              class="btn-remove-key"
+              @click="apiKeys.splice(index, 1)"
+            >
+              &times;
+            </button>
+          </div>
+          <button type="button" class="btn-add-key" @click="apiKeys.push('')">
+            + {{ $t("settings.addApiKey") }}
+          </button>
+          <div v-if="existingKeyCount > 0" class="key-info">
+            {{ $t("settings.existingKeys", { count: existingKeyCount }) }}
+          </div>
         </div>
 
         <div class="form-group animate-slide-up-delay-3">
@@ -99,7 +119,8 @@ const DEFAULT_MODEL: Record<string, string> = {
 const provider = ref("deepseek");
 const modelSelect = ref("deepseek-chat");
 const customModelName = ref("");
-const apiKey = ref("");
+const apiKeys = ref<string[]>([""]);
+const keyCounts = ref<Record<string, number>>({});
 const personaOverride = ref("");
 const saved = ref(false);
 const saving = ref(false);
@@ -113,14 +134,13 @@ const effectiveModelName = computed(() =>
   modelSelect.value === "__custom__" ? customModelName.value : modelSelect.value,
 );
 
+const existingKeyCount = computed(() => keyCounts.value[provider.value] ?? 0);
+
 function onProviderChange() {
   const defaultModel = DEFAULT_MODEL[provider.value] ?? PROVIDER_MODELS[provider.value]?.[0] ?? "";
   modelSelect.value = defaultModel;
   customModelName.value = "";
-}
-
-function onModelSelectChange() {
-  // reactive — template handles show/hide of custom input
+  apiKeys.value = [""];
 }
 
 onMounted(async () => {
@@ -128,6 +148,8 @@ onMounted(async () => {
     const { data } = await client.get("/settings");
     provider.value = data.model_provider;
     personaOverride.value = data.persona_override ?? "";
+
+    keyCounts.value = (data.key_counts ?? {}) as Record<string, number>;
 
     const savedModel: string = data.model_name ?? "";
     const models = PROVIDER_MODELS[provider.value] ?? [];
@@ -151,11 +173,15 @@ async function save() {
       model_name: effectiveModelName.value,
       persona_override: personaOverride.value || null,
     };
-    if (apiKey.value) {
-      payload.api_keys = { [provider.value]: apiKey.value };
+    const nonEmptyKeys = apiKeys.value.filter((k: string) => k.trim());
+    if (nonEmptyKeys.length > 0) {
+      payload.api_keys = { [provider.value]: nonEmptyKeys };
     }
     await client.put("/settings", payload);
-    apiKey.value = "";
+    // Refresh key counts from server after save
+    const { data: refreshed } = await client.get("/settings");
+    keyCounts.value = (refreshed.key_counts ?? {}) as Record<string, number>;
+    apiKeys.value = [""];
     saved.value = true;
     setTimeout(() => (saved.value = false), 2000);
   } catch {
@@ -180,6 +206,54 @@ async function save() {
 
 .custom-model-input {
   margin-top: var(--space-sm);
+}
+
+.api-key-row {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.api-key-row input {
+  flex: 1;
+}
+
+.btn-remove-key {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--danger-a10, rgba(255, 59, 48, 0.1));
+  border: 1px solid var(--danger, #ff3b30);
+  color: var(--danger, #ff3b30);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.btn-add-key {
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+}
+
+.btn-add-key:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.key-info {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: var(--space-xs);
 }
 
 .toast-success {

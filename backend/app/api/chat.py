@@ -124,9 +124,9 @@ async def chat_stream(
     )
 
     # Resolve OpenAI API key for RAG embeddings (user key or server fallback)
-    openai_key = resolve_api_key("openai", llm.raw_keys) or None
+    openai_key = resolve_api_key("openai", llm.raw_keys)
     # Resolve Tavily API key for web search (server-level only)
-    tavily_key = settings.tavily_api_key or None
+    tavily_key = settings.tavily_api_key
 
     async def generate() -> AsyncGenerator[str]:
         graph = create_graph(
@@ -134,6 +134,7 @@ async def chat_stream(
             model=llm.model_name,
             api_key=llm.api_key,
             enabled_tools=llm.enabled_tools,
+            api_keys=llm.api_keys,
             user_id=str(user.id),
             openai_api_key=openai_key,
             tavily_api_key=tavily_key,
