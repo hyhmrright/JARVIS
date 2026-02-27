@@ -94,8 +94,12 @@ export const useChatStore = defineStore("chat", {
           }
         }
       } catch (err) {
-        // Roll back the human + ai messages on error
-        this.messages.splice(-2, 2);
+        // Remove the empty AI placeholder; keep the human message since it is
+        // already persisted in the backend database.
+        const aiMsg = this.messages[this.messages.length - 1];
+        if (aiMsg?.role === "ai" && !aiMsg.content) {
+          this.messages.pop();
+        }
         throw err;
       } finally {
         this.streaming = false;

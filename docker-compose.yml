@@ -307,7 +307,7 @@ services:
     ports:
       - "127.0.0.1:3001:3000"
     environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
     volumes:
       - ${HOME}/jarvis-data/grafana:/var/lib/grafana

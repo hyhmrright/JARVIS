@@ -15,8 +15,10 @@ _COLLECTIONS_JSON = (
 
 _DEFAULT_VECTOR_CONFIG: dict[str, Any] = {"size": 1536, "distance": "Cosine"}
 
-# Eagerly initialized at module load (lifespan guarantees startup call).
-_client: AsyncQdrantClient = AsyncQdrantClient(url=settings.qdrant_url)
+# Lazy-initialized on first use; avoids import-time network calls that
+# break test collection and CLI scripts that import this module.
+_client: AsyncQdrantClient | None = None
+_client_lock = asyncio.Lock()
 
 # Track which collections have been confirmed/created this process,
 # guarded by a single lock to avoid unbounded dict growth.
@@ -38,14 +40,23 @@ def _load_vector_config() -> dict[str, Any]:
     return _DEFAULT_VECTOR_CONFIG
 
 
-def get_qdrant_client() -> AsyncQdrantClient:
-    """返回 Qdrant 异步客户端单例。"""
-    return _client
+async def get_qdrant_client() -> AsyncQdrantClient:
+    """返回 Qdrant 异步客户端单例（首次调用时创建）。"""
+    global _client
+    if _client is not None:
+        return _client
+    async with _client_lock:
+        if _client is None:
+            _client = AsyncQdrantClient(url=settings.qdrant_url)
+        return _client
 
 
 async def close_qdrant_client() -> None:
     """关闭 Qdrant 客户端连接。"""
-    await _client.close()
+    global _client
+    if _client is not None:
+        await _client.close()
+        _client = None
 
 
 async def ensure_user_collection(user_id: str) -> None:
@@ -57,7 +68,7 @@ async def ensure_user_collection(user_id: str) -> None:
         # Double-check after acquiring lock
         if collection_name in _created_collections:
             return
-        client = get_qdrant_client()
+        client = await get_qdrant_client()
         if await client.collection_exists(collection_name):
             _created_collections.add(collection_name)
             return
