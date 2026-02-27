@@ -159,9 +159,9 @@ JARVIS/
 
 **数据库模型**：5 张表 — `users`、`user_settings`（JSONB 存 Fernet 加密的 API keys）、`conversations`、`messages`（不可变）、`documents`（软删除）。全部使用 UUID 主键。
 
-**Infrastructure Singletons**: Qdrant uses module-level eager init + asyncio.Lock for collection creation; MinIO uses `@lru_cache` + `asyncio.to_thread()` (sync SDK); PostgreSQL uses module-level engine + sessionmaker.
+**Infrastructure Singletons**: Qdrant uses lazy async init with `asyncio.Lock` (client + collection creation each have their own lock); MinIO uses `@lru_cache` + `asyncio.to_thread()` (sync SDK); PostgreSQL uses module-level engine + sessionmaker.
 
-**基础设施单例**：Qdrant 用模块级变量（启动即初始化）+ asyncio.Lock 保护 collection 创建；MinIO 用 `@lru_cache` + `asyncio.to_thread()`（同步 SDK）；PostgreSQL 用模块级 engine + sessionmaker。
+**基础设施单例**：Qdrant 用 lazy 异步初始化 + `asyncio.Lock`（客户端和 collection 创建各有独立锁）；MinIO 用 `@lru_cache` + `asyncio.to_thread()`（同步 SDK）；PostgreSQL 用模块级 engine + sessionmaker。
 
 ### Frontend Architecture Highlights / 前端架构要点
 

@@ -30,7 +30,7 @@ logger = structlog.get_logger(__name__)
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """应用启动/关闭生命周期：验证基础设施连接。"""
     logger.info("Checking infrastructure connections...")
-    qdrant = get_qdrant_client()
+    qdrant = await get_qdrant_client()
     await qdrant.get_collections()
     minio = get_minio_client()
     await asyncio.to_thread(minio.bucket_exists, settings.minio_bucket)
