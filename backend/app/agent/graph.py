@@ -8,9 +8,12 @@ from app.agent.llm import get_llm
 from app.agent.state import AgentState
 from app.tools.code_exec_tool import execute_code
 from app.tools.datetime_tool import get_datetime
+from app.tools.rag_tool import create_rag_search_tool
 from app.tools.search_tool import web_search
 
 # 工具名称 → 工具对象的映射（与 UserSettings.enabled_tools 的值对应）
+# NOTE: "rag_search" is not in this map because it requires per-request
+# user context (user_id + openai_api_key) and is created dynamically.
 _TOOL_MAP = {
     "search": web_search,
     "code_exec": execute_code,
@@ -27,11 +30,22 @@ def create_graph(
     model: str,
     api_key: str,
     enabled_tools: list[str] | None = None,
+    *,
+    user_id: str | None = None,
+    openai_api_key: str | None = None,
 ) -> CompiledStateGraph:
     if enabled_tools is not None:
         tools = [_TOOL_MAP[name] for name in enabled_tools if name in _TOOL_MAP]
     else:
-        tools = _DEFAULT_TOOLS
+        tools = list(_DEFAULT_TOOLS)
+
+    # Dynamically create RAG search tool when user context is available
+    if (
+        user_id
+        and openai_api_key
+        and (enabled_tools is None or "rag_search" in enabled_tools)
+    ):
+        tools.append(create_rag_search_tool(user_id, openai_api_key))
 
     llm = get_llm(provider, model, api_key)
     llm_with_tools = llm.bind_tools(tools)

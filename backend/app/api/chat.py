@@ -14,6 +14,7 @@ from app.agent.graph import create_graph
 from app.agent.persona import build_system_prompt
 from app.agent.state import AgentState
 from app.api.deps import ResolvedLLMConfig, get_current_user, get_llm_config
+from app.core.security import resolve_api_key
 from app.db.models import Conversation, Message, User
 from app.db.session import AsyncSessionLocal, get_db
 
@@ -72,12 +73,17 @@ async def chat_stream(
         model=llm.model_name,
     )
 
+    # Resolve OpenAI API key for RAG embeddings (user key or server fallback)
+    openai_key = resolve_api_key("openai", llm.raw_keys) or None
+
     async def generate() -> AsyncGenerator[str]:
         graph = create_graph(
             provider=llm.provider,
             model=llm.model_name,
             api_key=llm.api_key,
             enabled_tools=llm.enabled_tools,
+            user_id=str(user.id),
+            openai_api_key=openai_key,
         )
         full_content = ""
         try:
