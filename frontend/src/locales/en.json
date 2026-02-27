@@ -37,7 +37,8 @@
     "voiceComingSoon": "Voice feature coming soon",
     "inputPlaceholder": "Type a message, press Enter to send...",
     "send": "Send",
-    "copy": "Copy message"
+    "copy": "Copy message",
+    "streamError": "Failed to send message, please try again"
   },
   "documents": {
     "title": "Knowledge Base",
@@ -55,6 +56,8 @@
     "saved": "Saved",
     "personaOverride": "Custom Instructions",
     "personaPlaceholder": "e.g., Call me Boss, use a more casual tone...",
+    "saving": "Saving...",
+    "saveError": "Save failed, please try again later",
     "customModel": "Custom...",
     "customModelPlaceholder": "Enter model name, e.g. glm-4.7-FlashX"
   },

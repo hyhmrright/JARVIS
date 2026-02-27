@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS documents (
     user_id             UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     filename            VARCHAR(255) NOT NULL,
     file_type           VARCHAR(20) NOT NULL,
-    file_size_bytes     INTEGER NOT NULL,
+    file_size_bytes     BIGINT NOT NULL,
     chunk_count         INTEGER NOT NULL DEFAULT 0,
     qdrant_collection   VARCHAR(255) NOT NULL,
     minio_object_key    VARCHAR(500) NOT NULL,

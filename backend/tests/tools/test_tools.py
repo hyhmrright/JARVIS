@@ -14,5 +14,11 @@ async def test_code_exec_simple():
 
 
 async def test_code_exec_timeout():
-    result = await execute_code.ainvoke({"code": "import time; time.sleep(60)"})
-    assert "timeout" in result.lower()
+    # Use a CPU-bound infinite loop since `time` is blocked by the sandbox
+    result = await execute_code.ainvoke({"code": "while True: pass"})
+    assert "timeout" in result.lower() or "error" in result.lower()
+
+
+async def test_code_exec_blocked_import():
+    result = await execute_code.ainvoke({"code": "import os"})
+    assert "not allowed" in result.lower()

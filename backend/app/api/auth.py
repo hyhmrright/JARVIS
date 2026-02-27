@@ -10,6 +10,8 @@ HTTP 状态码说明（前端依赖这些状态码显示对应的中文提示）
   429 → 速率限制超出（slowapi 自动返回）
 """
 
+import asyncio
+
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field, field_validator
@@ -66,7 +68,7 @@ async def register(
         raise HTTPException(status_code=409, detail="Email already registered")
     user = User(
         email=body.email,
-        password_hash=hash_password(body.password),
+        password_hash=await asyncio.to_thread(hash_password, body.password),
         display_name=body.display_name,
     )
     db.add(user)
@@ -84,7 +86,9 @@ async def login(
 ) -> TokenResponse:
     """验证邮箱和密码，成功后返回 JWT token。"""
     user = await db.scalar(select(User).where(User.email == body.email))
-    if not user or not verify_password(body.password, user.password_hash):
+    if not user or not await asyncio.to_thread(
+        verify_password, body.password, user.password_hash
+    ):
         # 统一返回 401，不区分"用户不存在"和"密码错误"以防枚举攻击
         logger.warning("login_failed", email=body.email)
         raise HTTPException(status_code=401, detail="Invalid credentials")

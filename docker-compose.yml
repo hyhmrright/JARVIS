@@ -63,7 +63,7 @@ services:
       - ${HOME}/jarvis-data/redis:/data
       - ./database/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=${REDIS_PASSWORD} redis-cli ping"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -200,6 +200,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    # SECURITY: privileged mode is required for cadvisor to read cgroup/device stats
     privileged: true
     volumes:
       - /:/rootfs:ro
@@ -283,6 +284,7 @@ services:
       - ./monitoring/promtail/promtail-config.yaml:/etc/promtail/config.yaml:ro
       - ${HOME}/jarvis-data/promtail:/promtail-data
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      # SECURITY: docker.sock access is required for Promtail to discover container logs
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       loki:
@@ -303,8 +305,9 @@ services:
         max-size: "10m"
         max-file: "3"
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
     volumes:
       - ${HOME}/jarvis-data/grafana:/var/lib/grafana

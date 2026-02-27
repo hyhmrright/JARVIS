@@ -133,21 +133,29 @@ async function copyMessage(content: string, index: number): Promise<void> {
 
 onMounted(() => chat.loadConversations());
 
+let scrollThrottleId: ReturnType<typeof setTimeout> | null = null;
+
 watch(
-  () => chat.messages.length,
-  async () => {
-    await nextTick();
-    messagesEl.value?.scrollTo(0, messagesEl.value.scrollHeight);
+  () => [chat.messages.length, chat.messages[chat.messages.length - 1]?.content] as const,
+  () => {
+    if (scrollThrottleId) return;
+    scrollThrottleId = setTimeout(async () => {
+      scrollThrottleId = null;
+      await nextTick();
+      messagesEl.value?.scrollTo(0, messagesEl.value.scrollHeight);
+    }, 16);
   },
 );
 
 async function send(): Promise<void> {
-  if (!input.value.trim() || chat.streaming) return;
+  const text = input.value.trim();
+  if (!text || chat.streaming) return;
   try {
-    await chat.sendMessage(input.value);
     input.value = "";
+    await chat.sendMessage(text);
   } catch {
-    // Preserve input on send failure for user to retry
+    // Restore input on send failure so the user can retry
+    input.value = text;
   }
 }
 

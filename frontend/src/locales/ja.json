@@ -37,7 +37,8 @@
     "voiceComingSoon": "音声機能は近日公開予定",
     "inputPlaceholder": "メッセージを入力、Enter で送信...",
     "send": "送信",
-    "copy": "メッセージをコピー"
+    "copy": "メッセージをコピー",
+    "streamError": "メッセージの送信に失敗しました。再試行してください"
   },
   "documents": {
     "title": "ナレッジベース",
@@ -55,6 +56,8 @@
     "saved": "保存しました",
     "personaOverride": "カスタム指示",
     "personaPlaceholder": "例：ボスと呼んで、もっとカジュアルに...",
+    "saving": "保存中...",
+    "saveError": "保存に失敗しました。しばらくしてから再試行してください",
     "customModel": "カスタム...",
     "customModelPlaceholder": "モデル名を入力（例：glm-4.7-FlashX）"
   },

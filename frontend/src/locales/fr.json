@@ -37,7 +37,8 @@
     "voiceComingSoon": "Fonction vocale bientôt disponible",
     "inputPlaceholder": "Tapez un message, appuyez sur Entrée pour envoyer...",
     "send": "Envoyer",
-    "copy": "Copier le message"
+    "copy": "Copier le message",
+    "streamError": "Échec de l'envoi du message, veuillez réessayer"
   },
   "documents": {
     "title": "Base de connaissances",
@@ -55,6 +56,8 @@
     "saved": "Enregistré",
     "personaOverride": "Instructions personnalisées",
     "personaPlaceholder": "Ex. : Appelez-moi Chef, utilisez un ton plus décontracté...",
+    "saving": "Enregistrement...",
+    "saveError": "Échec de l'enregistrement, veuillez réessayer plus tard",
     "customModel": "Personnalisé...",
     "customModelPlaceholder": "Entrez le nom du modèle, ex: glm-4.7-FlashX"
   },

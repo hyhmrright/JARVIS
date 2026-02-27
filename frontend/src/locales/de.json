@@ -37,7 +37,8 @@
     "voiceComingSoon": "Sprachfunktion demnächst verfügbar",
     "inputPlaceholder": "Nachricht eingeben, Enter zum Senden...",
     "send": "Senden",
-    "copy": "Nachricht kopieren"
+    "copy": "Nachricht kopieren",
+    "streamError": "Nachricht konnte nicht gesendet werden, bitte erneut versuchen"
   },
   "documents": {
     "title": "Wissensdatenbank",
@@ -55,6 +56,8 @@
     "saved": "Gespeichert",
     "personaOverride": "Benutzerdefinierte Anweisungen",
     "personaPlaceholder": "z.B.: Nenn mich Chef, verwende einen lockereren Ton...",
+    "saving": "Wird gespeichert...",
+    "saveError": "Speichern fehlgeschlagen, bitte versuchen Sie es später erneut",
     "customModel": "Benutzerdefiniert...",
     "customModelPlaceholder": "Modellname eingeben, z.B. glm-4.7-FlashX"
   },

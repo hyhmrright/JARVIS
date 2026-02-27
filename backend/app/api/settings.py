@@ -1,3 +1,5 @@
+from typing import Literal
+
 import structlog
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -16,14 +18,22 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 DEFAULT_SETTINGS: dict[str, object] = {
     "model_provider": "deepseek",
     "model_name": "deepseek-chat",
-    "api_keys": {},
+    "masked_api_keys": {},
+    "has_api_key": {},
     "persona_override": None,
 }
 
 
+def _mask_key(key: str) -> str:
+    """Mask an API key for safe display: show first 3 and last 4 chars."""
+    if len(key) > 8:
+        return f"{key[:3]}...{key[-4:]}"
+    return "****"
+
+
 class SettingsUpdate(BaseModel):
-    model_provider: str
-    model_name: str
+    model_provider: Literal["deepseek", "openai", "anthropic", "zhipuai"]
+    model_name: str = Field(max_length=100)
     api_keys: dict[str, str] | None = None
     persona_override: str | None = Field(default=None, max_length=2000)
 
@@ -68,9 +78,11 @@ async def get_settings(
     )
     if not settings:
         return DEFAULT_SETTINGS
+    raw_keys = decrypt_api_keys(settings.api_keys)
     return {
         "model_provider": settings.model_provider,
         "model_name": settings.model_name,
-        "api_keys": decrypt_api_keys(settings.api_keys),
+        "masked_api_keys": {k: _mask_key(v) for k, v in raw_keys.items() if v},
+        "has_api_key": {k: bool(v) for k, v in raw_keys.items()},
         "persona_override": settings.persona_override,
     }
