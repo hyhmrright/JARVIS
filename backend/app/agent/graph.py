@@ -10,11 +10,13 @@ from app.tools.code_exec_tool import execute_code
 from app.tools.datetime_tool import get_datetime
 from app.tools.rag_tool import create_rag_search_tool
 from app.tools.search_tool import create_web_search_tool
+from app.tools.web_fetch_tool import web_fetch
 
 # Static tools that need no per-request context
 _TOOL_MAP = {
     "code_exec": execute_code,
     "datetime": get_datetime,
+    "web_fetch": web_fetch,
 }
 
 _DEFAULT_TOOLS = list(_TOOL_MAP.values())

@@ -74,7 +74,7 @@ class UserSettings(Base):
     enabled_tools: Mapped[list[str]] = mapped_column(
         JSONB,
         nullable=False,
-        default=lambda: ["search", "code_exec", "datetime", "rag_search"],
+        default=lambda: ["search", "code_exec", "datetime", "rag_search", "web_fetch"],
     )
     persona_override: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
