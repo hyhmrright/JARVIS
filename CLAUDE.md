@@ -85,14 +85,14 @@ Docker 基础服务（postgres/redis/qdrant/minio）所有 worktree 共享。开
 
 | Working Directory | Backend Port | Frontend Port |
 |-------------------|-------------|---------------|
-| Main (root) | 8000 | 5173 |
-| Worktree 1 | 8001 | 5174 |
-| Worktree 2 | 8002 | 5175 |
+| Main (root) | 8000 | 3000 |
+| Worktree 1 | 8001 | 3100 |
+| Worktree 2 | 8002 | 3200 |
 
 ```bash
 # Specify ports when starting in a worktree
 uv run uvicorn app.main:app --reload --port 8001
-bun run dev --port 5174
+bun run dev --port 3100
 ```
 
 ### Notes / 注意事项
@@ -120,13 +120,13 @@ JARVIS/
 ├── backend/           # FastAPI backend (Python 3.13 + uv)
 │   ├── app/
 │   │   ├── main.py    # FastAPI entry point, lifespan manages infra connections
-│   │   ├── agent/     # LangGraph ReAct agent (graph/llm/state)
-│   │   ├── api/       # HTTP routes (auth/chat/conversations/documents/settings)
-│   │   ├── core/      # Config (Pydantic Settings), security (JWT/bcrypt/Fernet), rate limiting
+│   │   ├── agent/     # LangGraph ReAct agent (graph/llm/state/persona)
+│   │   ├── api/       # HTTP routes (auth/chat/conversations/documents/settings/logs)
+│   │   ├── core/      # Config (Pydantic Settings), security (JWT/bcrypt/Fernet), rate limiting, logging (structlog), logging middleware
 │   │   ├── db/        # SQLAlchemy async models and sessions
 │   │   ├── infra/     # Infrastructure client singletons (Qdrant/MinIO/Redis)
 │   │   ├── rag/       # RAG pipeline (chunker/embedder/indexer)
-│   │   └── tools/     # LangGraph tools (search/code_exec/file/datetime)
+│   │   └── tools/     # LangGraph tools (search/code_exec/datetime; file tool disabled pending refactor)
 │   ├── alembic/       # Database migrations
 │   └── tests/         # pytest test suite
 ├── frontend/          # Vue 3 + TypeScript + Vite + Pinia
@@ -159,9 +159,9 @@ JARVIS/
 
 **数据库模型**：5 张表 — `users`、`user_settings`（JSONB 存 Fernet 加密的 API keys）、`conversations`、`messages`（不可变）、`documents`（软删除）。全部使用 UUID 主键。
 
-**Infrastructure Singletons**: Qdrant uses module-level global + lazy init + asyncio.Lock; MinIO uses `@lru_cache` + `asyncio.to_thread()` (sync SDK); PostgreSQL uses module-level engine + sessionmaker.
+**Infrastructure Singletons**: Qdrant uses module-level eager init + asyncio.Lock for collection creation; MinIO uses `@lru_cache` + `asyncio.to_thread()` (sync SDK); PostgreSQL uses module-level engine + sessionmaker.
 
-**基础设施单例**：Qdrant 用模块级全局变量 + lazy init + asyncio.Lock；MinIO 用 `@lru_cache` + `asyncio.to_thread()`（同步 SDK）；PostgreSQL 用模块级 engine + sessionmaker。
+**基础设施单例**：Qdrant 用模块级变量（启动即初始化）+ asyncio.Lock 保护 collection 创建；MinIO 用 `@lru_cache` + `asyncio.to_thread()`（同步 SDK）；PostgreSQL 用模块级 engine + sessionmaker。
 
 ### Frontend Architecture Highlights / 前端架构要点
 
@@ -173,9 +173,9 @@ JARVIS/
 
 **路由**：5 条路由，页面组件全部 lazy-loaded。`beforeEach` 守卫检查 `auth.isLoggedIn`。
 
-**API Client**: Axios instance with `baseURL: "/api"`, request interceptor reads token from localStorage. Dev server proxies `/api` → `http://backend:8000`.
+**API Client**: Axios instance with `baseURL: "/api"`, request interceptor reads token from localStorage, response interceptor handles 401 → auto logout. Dev server proxies `/api` → `http://localhost:8000` (Docker: `http://backend:8000`).
 
-**API 客户端**：Axios 实例 `baseURL: "/api"`，请求拦截器从 localStorage 读取 token。dev server proxy `/api` → `http://backend:8000`。
+**API 客户端**：Axios 实例 `baseURL: "/api"`，请求拦截器从 localStorage 读取 token，响应拦截器处理 401 → 自动登出。dev server proxy `/api` → `http://localhost:8000`（Docker 内：`http://backend:8000`）。
 
 **Internationalization**: vue-i18n, 6 languages, detection priority: localStorage → navigator.language → zh.
 
@@ -209,7 +209,7 @@ uv run alembic upgrade head           # Database migration / 数据库迁移
 uv run uvicorn app.main:app --reload  # Dev server :8000
 
 # Frontend (in frontend/ directory) / 前端（在 frontend/ 目录）
-bun run dev                           # Dev server :5173 (proxies /api → backend:8000)
+bun run dev                           # Dev server :3000 (proxies /api → backend:8000)
 
 # Full-stack Docker (dev, with debug ports) / 全栈 Docker（开发模式，含调试端口）
 docker compose up -d                  # App :80 · Backend :8000 · Grafana :3001 · Traefik dashboard :8080

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import ResolvedLLMConfig, get_current_user, get_llm_config
 from app.core.config import settings
+from app.core.security import resolve_api_key
 from app.db.models import Document, User
 from app.db.session import get_db
 from app.infra.minio import get_minio_client
@@ -66,7 +67,7 @@ async def upload_document(
         len(content),
     )
 
-    text = extract_text(content, ext)
+    text = await asyncio.to_thread(extract_text, content, ext)
     doc = Document(
         user_id=user.id,
         filename=safe_name,
@@ -77,7 +78,16 @@ async def upload_document(
     )
     db.add(doc)
     await db.flush()
-    chunk_count = await index_document(str(user.id), str(doc.id), text, llm.api_key)
+    # Embeddings always use OpenAI (text-embedding-3-small), resolve the
+    # OpenAI key regardless of which LLM provider the user has selected.
+    openai_key = resolve_api_key("openai", llm.raw_keys)
+    if not openai_key:
+        raise HTTPException(
+            status_code=400,
+            detail="OpenAI API key is required for document embedding. "
+            "Configure it in Settings or ask the admin.",
+        )
+    chunk_count = await index_document(str(user.id), str(doc.id), text, openai_key)
     doc.chunk_count = chunk_count
     await db.commit()
     logger.info(

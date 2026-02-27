@@ -37,7 +37,8 @@
     "voiceComingSoon": "语音功能即将上线",
     "inputPlaceholder": "输入消息，Enter 发送...",
     "send": "发送",
-    "copy": "复制消息"
+    "copy": "复制消息",
+    "streamError": "消息发送失败，请重试"
   },
   "documents": {
     "title": "知识库",
@@ -55,6 +56,8 @@
     "saved": "已保存",
     "personaOverride": "自定义指令",
     "personaPlaceholder": "例如：叫我老板、用更轻松的语气...",
+    "saving": "保存中...",
+    "saveError": "保存失败，请稍后再试",
     "customModel": "自定义...",
     "customModelPlaceholder": "输入模型名称，例如 glm-4.7-FlashX"
   },

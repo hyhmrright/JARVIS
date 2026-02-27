@@ -21,6 +21,7 @@ class ResolvedLLMConfig:
     api_key: str
     enabled_tools: list[str] | None
     persona_override: str | None
+    raw_keys: dict[str, str]
 
 
 async def get_current_user(
@@ -74,4 +75,5 @@ async def get_llm_config(
         api_key=api_key,
         enabled_tools=settings.enabled_tools if settings else None,
         persona_override=settings.persona_override if settings else None,
+        raw_keys=raw_keys,
     )

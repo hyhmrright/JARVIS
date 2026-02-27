@@ -50,14 +50,19 @@
           />
         </div>
 
-        <button type="submit" class="btn-primary animate-slide-up-delay-4">
-          {{ $t("settings.save") }}
+        <button type="submit" class="btn-primary animate-slide-up-delay-4" :disabled="saving">
+          {{ saving ? $t("settings.saving") : $t("settings.save") }}
         </button>
       </form>
 
       <Transition name="toast">
         <div v-if="saved" class="toast-success">
           {{ $t("settings.saved") }}
+        </div>
+      </Transition>
+      <Transition name="toast">
+        <div v-if="saveError" class="toast-error">
+          {{ $t("settings.saveError") }}
         </div>
       </Transition>
     </div>
@@ -97,6 +102,8 @@ const customModelName = ref("");
 const apiKey = ref("");
 const personaOverride = ref("");
 const saved = ref(false);
+const saving = ref(false);
+const saveError = ref(false);
 
 const currentProviderModels = computed(
   () => PROVIDER_MODELS[provider.value] ?? [],
@@ -136,17 +143,27 @@ onMounted(async () => {
 });
 
 async function save() {
-  const payload: Record<string, unknown> = {
-    model_provider: provider.value,
-    model_name: effectiveModelName.value,
-    persona_override: personaOverride.value || null,
-  };
-  if (apiKey.value) {
-    payload.api_keys = { [provider.value]: apiKey.value };
+  saving.value = true;
+  saveError.value = false;
+  try {
+    const payload: Record<string, unknown> = {
+      model_provider: provider.value,
+      model_name: effectiveModelName.value,
+      persona_override: personaOverride.value || null,
+    };
+    if (apiKey.value) {
+      payload.api_keys = { [provider.value]: apiKey.value };
+    }
+    await client.put("/settings", payload);
+    apiKey.value = "";
+    saved.value = true;
+    setTimeout(() => (saved.value = false), 2000);
+  } catch {
+    saveError.value = true;
+    setTimeout(() => (saveError.value = false), 3000);
+  } finally {
+    saving.value = false;
   }
-  await client.put("/settings", payload);
-  saved.value = true;
-  setTimeout(() => (saved.value = false), 2000);
 }
 </script>
 
@@ -172,6 +189,17 @@ async function save() {
   border: 1px solid var(--border-glow);
   border-radius: var(--radius-md);
   color: var(--accent);
+  text-align: center;
+  font-size: 14px;
+}
+
+.toast-error {
+  margin-top: var(--space-lg);
+  padding: var(--space-md);
+  background: var(--danger-a10, rgba(255, 59, 48, 0.1));
+  border: 1px solid var(--danger, #ff3b30);
+  border-radius: var(--radius-md);
+  color: var(--danger, #ff3b30);
   text-align: center;
   font-size: 14px;
 }

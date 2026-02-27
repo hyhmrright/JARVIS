@@ -15,8 +15,13 @@ _COLLECTIONS_JSON = (
 
 _DEFAULT_VECTOR_CONFIG: dict[str, Any] = {"size": 1536, "distance": "Cosine"}
 
-_client: AsyncQdrantClient | None = None
-_collection_locks: dict[str, asyncio.Lock] = {}
+# Eagerly initialized at module load (lifespan guarantees startup call).
+_client: AsyncQdrantClient = AsyncQdrantClient(url=settings.qdrant_url)
+
+# Track which collections have been confirmed/created this process,
+# guarded by a single lock to avoid unbounded dict growth.
+_created_collections: set[str] = set()
+_collection_lock = asyncio.Lock()
 
 
 def user_collection_name(user_id: str) -> str:
@@ -35,27 +40,26 @@ def _load_vector_config() -> dict[str, Any]:
 
 def get_qdrant_client() -> AsyncQdrantClient:
     """返回 Qdrant 异步客户端单例。"""
-    global _client
-    if _client is None:
-        _client = AsyncQdrantClient(url=settings.qdrant_url)
     return _client
 
 
 async def close_qdrant_client() -> None:
     """关闭 Qdrant 客户端连接。"""
-    global _client
-    if _client is not None:
-        await _client.close()
-        _client = None
+    await _client.close()
 
 
 async def ensure_user_collection(user_id: str) -> None:
     """确保用户的 Qdrant Collection 存在（幂等、并发安全）。"""
     collection_name = user_collection_name(user_id)
-    lock = _collection_locks.setdefault(collection_name, asyncio.Lock())
-    async with lock:
+    if collection_name in _created_collections:
+        return
+    async with _collection_lock:
+        # Double-check after acquiring lock
+        if collection_name in _created_collections:
+            return
         client = get_qdrant_client()
         if await client.collection_exists(collection_name):
+            _created_collections.add(collection_name)
             return
         vec_cfg = _load_vector_config()
         distance = getattr(Distance, vec_cfg["distance"].upper(), Distance.COSINE)
@@ -63,3 +67,4 @@ async def ensure_user_collection(user_id: str) -> None:
             collection_name=collection_name,
             vectors_config=VectorParams(size=vec_cfg["size"], distance=distance),
         )
+        _created_collections.add(collection_name)

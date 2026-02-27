@@ -52,8 +52,7 @@ export const useChatStore = defineStore("chat", {
       }
       this.messages.push({ role: "human", content });
       this.streaming = true;
-      const aiMsg: Message = { role: "ai", content: "" };
-      this.messages.push(aiMsg);
+      this.messages.push({ role: "ai", content: "" });
 
       try {
         const token = localStorage.getItem("token");
@@ -68,21 +67,36 @@ export const useChatStore = defineStore("chat", {
 
         const reader = resp.body.getReader();
         const decoder = new TextDecoder();
+        let buffer = "";
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          const text = decoder.decode(value);
-          for (const line of text.split("\n")) {
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          // Keep the last (potentially incomplete) line in the buffer
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
             if (line.startsWith("data: ")) {
               try {
                 const data = JSON.parse(line.slice(6));
-                aiMsg.content = data.content;
+                // Access through reactive proxy via array index
+                const aiMsg = this.messages[this.messages.length - 1];
+                if (data.delta) {
+                  aiMsg.content += data.delta;
+                } else if (data.content) {
+                  aiMsg.content = data.content;
+                }
               } catch {
-                // 跳过无法解析的 SSE 行
+                // Skip unparseable SSE lines
               }
             }
           }
         }
+      } catch (err) {
+        // Roll back the human + ai messages on error
+        this.messages.splice(-2, 2);
+        throw err;
       } finally {
         this.streaming = false;
       }

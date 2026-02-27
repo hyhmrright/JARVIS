@@ -6,7 +6,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,7 +26,7 @@ _ROLE_TO_MESSAGE = {"human": HumanMessage, "ai": AIMessage}
 
 class ChatRequest(BaseModel):
     conversation_id: uuid.UUID
-    content: str
+    content: str = Field(max_length=50000)
 
 
 @router.post("/stream")
@@ -84,28 +84,38 @@ async def chat_stream(
             async for chunk in graph.astream(AgentState(messages=lc_messages)):
                 if "llm" in chunk:
                     ai_msg = chunk["llm"]["messages"][-1]
-                    full_content = ai_msg.content
-                    data = json.dumps({"content": full_content})
-                    yield "data: " + data + "\n\n"
+                    new_content = ai_msg.content
+                    delta = new_content[len(full_content) :]
+                    full_content = new_content
+                    if delta:
+                        data = json.dumps({"delta": delta, "content": full_content})
+                        yield "data: " + data + "\n\n"
         except Exception:
             logger.exception("chat_stream_error", conv_id=str(conv_id))
             raise
-
-        async with AsyncSessionLocal() as session:
-            async with session.begin():
-                session.add(
-                    Message(
-                        conversation_id=conv_id,
-                        role="ai",
-                        content=full_content,
-                        model_provider=llm.provider,
-                        model_name=llm.model_name,
+        finally:
+            if full_content:
+                try:
+                    async with AsyncSessionLocal() as session:
+                        async with session.begin():
+                            session.add(
+                                Message(
+                                    conversation_id=conv_id,
+                                    role="ai",
+                                    content=full_content,
+                                    model_provider=llm.provider,
+                                    model_name=llm.model_name,
+                                )
+                            )
+                    logger.info(
+                        "chat_stream_completed",
+                        conv_id=str(conv_id),
+                        response_chars=len(full_content),
                     )
-                )
-        logger.info(
-            "chat_stream_completed",
-            conv_id=str(conv_id),
-            response_chars=len(full_content),
-        )
+                except Exception:
+                    logger.exception(
+                        "failed_to_save_partial_response",
+                        conv_id=str(conv_id),
+                    )
 
     return StreamingResponse(generate(), media_type="text/event-stream")

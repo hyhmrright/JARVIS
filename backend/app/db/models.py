@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -73,7 +74,7 @@ class UserSettings(Base):
     enabled_tools: Mapped[list[str]] = mapped_column(
         JSONB,
         nullable=False,
-        default=lambda: ["search", "code_exec", "file", "datetime"],
+        default=lambda: ["search", "code_exec", "datetime"],
     )
     persona_override: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
@@ -174,7 +175,7 @@ class Document(Base):
     )
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     file_type: Mapped[str] = mapped_column(String(20), nullable=False)
-    file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    file_size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     chunk_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     qdrant_collection: Mapped[str] = mapped_column(String(255), nullable=False)
     minio_object_key: Mapped[str] = mapped_column(String(500), nullable=False)
