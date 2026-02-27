@@ -22,7 +22,8 @@ export const useChatStore = defineStore("chat", {
       try {
         const { data } = await client.get<Message[]>(`/conversations/${convId}/messages`);
         this.messages = data;
-      } catch {
+      } catch (err) {
+        console.error("[chat] selectConversation failed", err);
         this.currentConvId = null;
       }
     },
@@ -38,8 +39,8 @@ export const useChatStore = defineStore("chat", {
           this.currentConvId = null;
           this.messages = [];
         }
-      } catch {
-        // 删除失败时保持列表不变，静默处理
+      } catch (err) {
+        console.error("[chat] deleteConversation failed", err);
       }
     },
     async sendMessage(content: string) {

@@ -73,6 +73,7 @@ GRAFANA_PASSWORD=${GRAFANA_PASSWORD}
 DEEPSEEK_API_KEY=
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
+ZHIPUAI_API_KEY=
 
 # Composed URLs — for local dev (docker-compose overrides these with container hostnames)
 DATABASE_URL=postgresql+asyncpg://jarvis:${POSTGRES_PASSWORD}@localhost:5432/jarvis

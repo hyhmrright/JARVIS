@@ -54,6 +54,14 @@
     "save": "Save",
     "saved": "Saved",
     "personaOverride": "Custom Instructions",
-    "personaPlaceholder": "e.g., Call me Boss, use a more casual tone..."
+    "personaPlaceholder": "e.g., Call me Boss, use a more casual tone...",
+    "customModel": "Custom...",
+    "customModelPlaceholder": "Enter model name, e.g. glm-4.7-FlashX"
+  },
+  "validation": {
+    "emailRequired": "Please enter your email address",
+    "emailInvalid": "Please enter a valid email address",
+    "passwordRequired": "Please enter your password",
+    "passwordMinLength": "Password must be at least 8 characters"
   }
 }

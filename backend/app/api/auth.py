@@ -10,6 +10,7 @@ HTTP 状态码说明（前端依赖这些状态码显示对应的中文提示）
   429 → 速率限制超出（slowapi 自动返回）
 """
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import select
@@ -19,6 +20,8 @@ from app.core.limiter import limiter
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.models import User, UserSettings
 from app.db.session import get_db
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -70,6 +73,7 @@ async def register(
     await db.flush()  # flush 以获取 user.id，用于创建关联的 UserSettings
     db.add(UserSettings(user_id=user.id))
     await db.commit()
+    logger.info("user_registered", user_id=str(user.id), email=body.email)
     return TokenResponse(access_token=create_access_token(str(user.id)))
 
 
@@ -82,5 +86,7 @@ async def login(
     user = await db.scalar(select(User).where(User.email == body.email))
     if not user or not verify_password(body.password, user.password_hash):
         # 统一返回 401，不区分"用户不存在"和"密码错误"以防枚举攻击
+        logger.warning("login_failed", email=body.email)
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    logger.info("login_success", user_id=str(user.id), email=user.email)
     return TokenResponse(access_token=create_access_token(str(user.id)))

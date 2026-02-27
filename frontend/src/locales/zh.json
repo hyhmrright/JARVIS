@@ -54,6 +54,14 @@
     "save": "保存",
     "saved": "已保存",
     "personaOverride": "自定义指令",
-    "personaPlaceholder": "例如：叫我老板、用更轻松的语气..."
+    "personaPlaceholder": "例如：叫我老板、用更轻松的语气...",
+    "customModel": "自定义...",
+    "customModelPlaceholder": "输入模型名称，例如 glm-4.7-FlashX"
+  },
+  "validation": {
+    "emailRequired": "请输入邮箱地址",
+    "emailInvalid": "请输入有效的邮箱地址",
+    "passwordRequired": "请输入密码",
+    "passwordMinLength": "密码至少需要 8 个字符"
   }
 }

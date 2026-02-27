@@ -54,6 +54,14 @@
     "save": "Enregistrer",
     "saved": "Enregistré",
     "personaOverride": "Instructions personnalisées",
-    "personaPlaceholder": "Ex. : Appelez-moi Chef, utilisez un ton plus décontracté..."
+    "personaPlaceholder": "Ex. : Appelez-moi Chef, utilisez un ton plus décontracté...",
+    "customModel": "Personnalisé...",
+    "customModelPlaceholder": "Entrez le nom du modèle, ex: glm-4.7-FlashX"
+  },
+  "validation": {
+    "emailRequired": "Veuillez saisir votre adresse e-mail",
+    "emailInvalid": "Veuillez saisir une adresse e-mail valide",
+    "passwordRequired": "Veuillez saisir votre mot de passe",
+    "passwordMinLength": "Le mot de passe doit contenir au moins 8 caractères"
   }
 }

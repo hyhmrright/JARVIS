@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     deepseek_api_key: str = ""
     openai_api_key: str = ""
     anthropic_api_key: str = ""
+    zhipuai_api_key: str = ""
 
     # Non-sensitive — safe defaults for local development
     qdrant_url: str = "http://localhost:6333"
@@ -24,6 +25,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
     cors_origins: list[str] = ["http://localhost:3000"]
+    log_level: str = "INFO"
 
 
 settings = Settings()

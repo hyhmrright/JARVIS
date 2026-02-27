@@ -1,3 +1,4 @@
+import structlog
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -7,6 +8,8 @@ from app.api.deps import get_current_user
 from app.core.security import decrypt_api_keys, encrypt_api_keys
 from app.db.models import User, UserSettings
 from app.db.session import get_db
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -44,6 +47,14 @@ async def update_settings(
     stripped = body.persona_override.strip() if body.persona_override else None
     settings.persona_override = stripped or None
     await db.commit()
+    logger.info(
+        "settings_updated",
+        user_id=str(user.id),
+        model_provider=body.model_provider,
+        model_name=body.model_name,
+        api_keys_updated=body.api_keys is not None,
+        persona_updated=body.persona_override is not None,
+    )
     return {"status": "ok"}
 
 

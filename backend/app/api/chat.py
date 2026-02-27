@@ -2,6 +2,7 @@ import json
 import uuid
 from collections.abc import AsyncGenerator
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -15,6 +16,8 @@ from app.agent.state import AgentState
 from app.api.deps import ResolvedLLMConfig, get_current_user, get_llm_config
 from app.db.models import Conversation, Message, User
 from app.db.session import AsyncSessionLocal, get_db
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -61,6 +64,14 @@ async def chat_stream(
 
     conv_id = conv.id
 
+    logger.info(
+        "chat_stream_started",
+        user_id=str(user.id),
+        conv_id=str(body.conversation_id),
+        provider=llm.provider,
+        model=llm.model_name,
+    )
+
     async def generate() -> AsyncGenerator[str]:
         graph = create_graph(
             provider=llm.provider,
@@ -69,12 +80,16 @@ async def chat_stream(
             enabled_tools=llm.enabled_tools,
         )
         full_content = ""
-        async for chunk in graph.astream(AgentState(messages=lc_messages)):
-            if "llm" in chunk:
-                ai_msg = chunk["llm"]["messages"][-1]
-                full_content = ai_msg.content
-                data = json.dumps({"content": full_content})
-                yield "data: " + data + "\n\n"
+        try:
+            async for chunk in graph.astream(AgentState(messages=lc_messages)):
+                if "llm" in chunk:
+                    ai_msg = chunk["llm"]["messages"][-1]
+                    full_content = ai_msg.content
+                    data = json.dumps({"content": full_content})
+                    yield "data: " + data + "\n\n"
+        except Exception:
+            logger.exception("chat_stream_error", conv_id=str(conv_id))
+            raise
 
         async with AsyncSessionLocal() as session:
             async with session.begin():
@@ -87,5 +102,10 @@ async def chat_stream(
                         model_name=llm.model_name,
                     )
                 )
+        logger.info(
+            "chat_stream_completed",
+            conv_id=str(conv_id),
+            response_chars=len(full_content),
+        )
 
     return StreamingResponse(generate(), media_type="text/event-stream")

@@ -1,3 +1,4 @@
+import structlog
 from langchain_core.messages import BaseMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -18,6 +19,8 @@ _TOOL_MAP = {
 
 _DEFAULT_TOOLS = list(_TOOL_MAP.values())
 
+logger = structlog.get_logger(__name__)
+
 
 def create_graph(
     provider: str,
@@ -36,6 +39,11 @@ def create_graph(
 
     async def call_llm(state: AgentState) -> dict[str, list[BaseMessage]]:
         response = await llm_with_tools.ainvoke(state.messages)
+        if hasattr(response, "tool_calls") and response.tool_calls:
+            tool_names = [tc["name"] for tc in response.tool_calls]
+            logger.info("agent_tool_calls", tools=tool_names)
+        else:
+            logger.info("agent_llm_response", content_chars=len(str(response.content)))
         return {"messages": [response]}
 
     def should_use_tool(state: AgentState) -> str:
