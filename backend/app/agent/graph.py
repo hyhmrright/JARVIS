@@ -45,6 +45,11 @@ def _resolve_tools(
     user_id: str | None,
     openai_api_key: str | None,
     tavily_api_key: str | None,
+    provider: str | None = None,
+    model: str | None = None,
+    api_key: str | None = None,
+    api_keys: list[str] | None = None,
+    depth: int = 0,
 ) -> list[BaseTool]:
     """Build the tool list based on enabled flags and available keys."""
     if enabled_tools is not None:
@@ -65,6 +70,29 @@ def _resolve_tools(
     if user_id and (enabled_tools is None or "file" in enabled_tools):
         tools.extend(create_file_tools(user_id))
 
+    if (
+        enabled_tools is not None
+        and "subagent" in enabled_tools
+        and provider
+        and model
+        and api_key
+    ):
+        from app.tools.subagent_tool import create_subagent_tool
+
+        tools.append(
+            create_subagent_tool(
+                provider=provider,
+                model=model,
+                api_key=api_key,
+                api_keys=api_keys,
+                current_depth=depth,
+                user_id=user_id,
+                openai_api_key=openai_api_key,
+                tavily_api_key=tavily_api_key,
+                enabled_tools=enabled_tools,
+            )
+        )
+
     return tools
 
 
@@ -78,6 +106,7 @@ def create_graph(
     user_id: str | None = None,
     openai_api_key: str | None = None,
     tavily_api_key: str | None = None,
+    depth: int = 0,
 ) -> CompiledStateGraph:
     all_keys = api_keys if api_keys else [api_key]
 
@@ -86,6 +115,11 @@ def create_graph(
         user_id=user_id,
         openai_api_key=openai_api_key,
         tavily_api_key=tavily_api_key,
+        provider=provider,
+        model=model,
+        api_key=api_key,
+        api_keys=api_keys,
+        depth=depth,
     )
 
     llm = get_llm(provider, model, all_keys[0])

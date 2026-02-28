@@ -317,7 +317,7 @@ async def test_router_linked_user_dispatches_to_agent() -> None:
     )
     await router.handle_message(link_msg)
 
-    async def _fake_agent(user_id: str, message: GatewayMessage) -> str:
+    async def _fake_agent(user_id: str, message: GatewayMessage, **_kw: object) -> str:
         return f"agent-reply-for-{user_id}"
 
     router._run_agent = _fake_agent  # type: ignore[method-assign]
