@@ -11,7 +11,9 @@ from app.rag.chunker import chunk_text
 from app.rag.embedder import get_embedder
 
 
-async def index_document(user_id: str, doc_id: str, text: str, api_key: str) -> int:
+async def index_document(
+    user_id: str, doc_id: str, text: str, api_key: str, doc_name: str = ""
+) -> int:
     """将文档切片、向量化并写入 Qdrant。返回切片数量。"""
     await ensure_user_collection(user_id)
     client = await get_qdrant_client()
@@ -25,7 +27,12 @@ async def index_document(user_id: str, doc_id: str, text: str, api_key: str) -> 
         PointStruct(
             id=str(uuid.uuid4()),
             vector=vec,
-            payload={"doc_id": doc_id, "chunk_index": i, "text": chunk},
+            payload={
+                "doc_id": doc_id,
+                "chunk_index": i,
+                "text": chunk,
+                "doc_name": doc_name,
+            },
         )
         for i, (chunk, vec) in enumerate(zip(chunks, vectors, strict=True))
     ]

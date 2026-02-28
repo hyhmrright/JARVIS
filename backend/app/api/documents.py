@@ -87,7 +87,9 @@ async def upload_document(
             detail="OpenAI API key is required for document embedding. "
             "Configure it in Settings or ask the admin.",
         )
-    chunk_count = await index_document(str(user.id), str(doc.id), text, openai_key)
+    chunk_count = await index_document(
+        str(user.id), str(doc.id), text, openai_key, doc_name=safe_name
+    )
     doc.chunk_count = chunk_count
     await db.commit()
     logger.info(

@@ -144,3 +144,37 @@ def test_format_rag_context_empty_list():
     """format_rag_context returns empty string for an empty chunk list."""
     result = format_rag_context([])
     assert result == ""
+
+
+@pytest.mark.asyncio
+async def test_index_document_stores_doc_name_in_payload() -> None:
+    """index_document should store doc_name in each Qdrant point payload."""
+    from app.rag.indexer import index_document
+
+    captured_points: list = []
+
+    async def fake_upsert(collection_name: str, points: list) -> None:
+        captured_points.extend(points)
+
+    mock_client = AsyncMock()
+    mock_client.upsert = fake_upsert
+
+    with (
+        patch("app.rag.indexer.get_qdrant_client", return_value=mock_client),
+        patch("app.rag.indexer.ensure_user_collection", new_callable=AsyncMock),
+        patch("app.rag.indexer.get_embedder") as mock_ef,
+    ):
+        mock_emb = AsyncMock()
+        mock_emb.aembed_documents.return_value = [[0.1] * 1536]
+        mock_ef.return_value = mock_emb
+
+        await index_document(
+            user_id="u1",
+            doc_id="d1",
+            text="hello world",
+            api_key="key",
+            doc_name="report.pdf",
+        )
+
+    assert len(captured_points) > 0
+    assert all(p.payload.get("doc_name") == "report.pdf" for p in captured_points)
