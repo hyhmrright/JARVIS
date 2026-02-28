@@ -65,7 +65,9 @@
     "saving": "保存中...",
     "saveError": "保存に失敗しました。しばらくしてから再試行してください",
     "customModel": "カスタム...",
-    "customModelPlaceholder": "モデル名を入力（例：glm-4.7-FlashX）"
+    "customModelPlaceholder": "モデル名を入力（例：glm-4.7-FlashX）",
+    "toolPermissions": "ツール権限",
+    "toolPermissionsDescription": "AIアシスタントが使用できるツールを有効・無効にします。"
   },
   "validation": {
     "emailRequired": "メールアドレスを入力してください",

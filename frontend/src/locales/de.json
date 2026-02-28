@@ -65,7 +65,9 @@
     "saving": "Wird gespeichert...",
     "saveError": "Speichern fehlgeschlagen, bitte versuchen Sie es später erneut",
     "customModel": "Benutzerdefiniert...",
-    "customModelPlaceholder": "Modellname eingeben, z.B. glm-4.7-FlashX"
+    "customModelPlaceholder": "Modellname eingeben, z.B. glm-4.7-FlashX",
+    "toolPermissions": "Werkzeugberechtigungen",
+    "toolPermissionsDescription": "Aktivieren oder deaktivieren Sie die Werkzeuge, die dem KI-Assistenten zur Verfügung stehen."
   },
   "validation": {
     "emailRequired": "Bitte geben Sie Ihre E-Mail-Adresse ein",

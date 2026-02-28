@@ -126,7 +126,7 @@ JARVIS/
 │   │   ├── db/        # SQLAlchemy async models and sessions
 │   │   ├── infra/     # Infrastructure client singletons (Qdrant/MinIO/Redis)
 │   │   ├── rag/       # RAG pipeline (chunker/embedder/indexer)
-│   │   └── tools/     # LangGraph tools (search/code_exec/datetime; file tool disabled pending refactor)
+│   │   └── tools/     # LangGraph tools (search/code_exec/datetime/file/shell/browser)
 │   ├── alembic/       # Database migrations
 │   └── tests/         # pytest test suite
 ├── frontend/          # Vue 3 + TypeScript + Vite + Pinia

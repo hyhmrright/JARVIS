@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from app.tools.web_fetch_tool import _MAX_CONTENT_LENGTH, _is_safe_url, web_fetch
+from app.tools.web_fetch_tool import _MAX_CONTENT_LENGTH, is_safe_url, web_fetch
 
 
 @pytest.fixture()
@@ -100,7 +100,7 @@ async def test_web_fetch_blocks_internal_urls():
     ],
 )
 def test_is_safe_url(url: str, expected: bool):
-    assert _is_safe_url(url) == expected
+    assert is_safe_url(url) == expected
 
 
 async def test_web_fetch_tool_name():

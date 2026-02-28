@@ -5,6 +5,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.permissions import DEFAULT_ENABLED_TOOLS
 from app.core.security import decode_access_token, resolve_api_keys
 from app.db.models import User, UserSettings
 from app.db.session import get_db
@@ -75,7 +76,11 @@ async def get_llm_config(
         model_name=model_name,
         api_key=api_keys[0],
         api_keys=api_keys,
-        enabled_tools=settings.enabled_tools if settings else None,
+        enabled_tools=(
+            settings.enabled_tools
+            if settings and settings.enabled_tools is not None
+            else DEFAULT_ENABLED_TOOLS
+        ),
         persona_override=settings.persona_override if settings else None,
         raw_keys=raw_keys,
     )
