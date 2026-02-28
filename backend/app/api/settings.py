@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.permissions import DEFAULT_ENABLED_TOOLS, TOOL_NAMES, TOOL_REGISTRY
 from app.core.security import decrypt_api_keys, encrypt_api_keys
 from app.db.models import User, UserSettings
 from app.db.session import get_db
@@ -15,12 +16,24 @@ logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
+_TOOL_REGISTRY_DICTS = [
+    {
+        "name": t.name,
+        "label": t.label,
+        "description": t.description,
+        "default_enabled": t.default_enabled,
+    }
+    for t in TOOL_REGISTRY
+]
+
 DEFAULT_SETTINGS: dict[str, object] = {
     "model_provider": "deepseek",
     "model_name": "deepseek-chat",
     "masked_api_keys": {},
     "has_api_key": {},
     "persona_override": None,
+    "enabled_tools": DEFAULT_ENABLED_TOOLS,
+    "tool_registry": _TOOL_REGISTRY_DICTS,
 }
 
 
@@ -36,6 +49,7 @@ class SettingsUpdate(BaseModel):
     model_name: str = Field(max_length=100)
     api_keys: dict[str, str | list[str]] | None = None
     persona_override: str | None = Field(default=None, max_length=2000)
+    enabled_tools: list[str] | None = None
 
 
 @router.put("")
@@ -58,6 +72,9 @@ async def update_settings(
         settings.api_keys = encrypt_api_keys(existing)
     stripped = body.persona_override.strip() if body.persona_override else None
     settings.persona_override = stripped or None
+    if body.enabled_tools is not None:
+        validated = [t for t in body.enabled_tools if t in TOOL_NAMES]
+        settings.enabled_tools = validated
     await db.commit()
     logger.info(
         "settings_updated",
@@ -96,4 +113,6 @@ async def get_settings(
         "key_counts": key_counts,
         "has_api_key": {provider: True for provider in key_counts},
         "persona_override": settings.persona_override,
+        "enabled_tools": settings.enabled_tools,
+        "tool_registry": _TOOL_REGISTRY_DICTS,
     }

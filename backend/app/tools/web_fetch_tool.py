@@ -12,7 +12,7 @@ _MAX_CONTENT_LENGTH = 8000  # chars, ~2000 tokens
 _BLOCKED_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "[::1]"}
 
 
-def _is_safe_url(url: str) -> bool:
+def is_safe_url(url: str) -> bool:
     """Reject URLs targeting internal/private networks (SSRF protection)."""
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
@@ -35,7 +35,7 @@ async def web_fetch(url: str) -> str:
 
     Use this to read articles, documentation, or any web page.
     """
-    if not _is_safe_url(url):
+    if not is_safe_url(url):
         return "Blocked: cannot fetch internal or private network URLs."
 
     try:

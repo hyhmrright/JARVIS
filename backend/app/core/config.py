@@ -30,5 +30,12 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000"]
     log_level: str = "INFO"
 
+    # Sandbox settings
+    sandbox_enabled: bool = False
+    sandbox_image: str = "jarvis-sandbox:latest"
+    sandbox_cpu_limit: float = 1.0
+    sandbox_memory_limit: str = "512m"
+    sandbox_timeout: int = 300
+
 
 settings = Settings()

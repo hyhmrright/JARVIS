@@ -65,7 +65,9 @@
     "saving": "Saving...",
     "saveError": "Save failed, please try again later",
     "customModel": "Custom...",
-    "customModelPlaceholder": "Enter model name, e.g. glm-4.7-FlashX"
+    "customModelPlaceholder": "Enter model name, e.g. glm-4.7-FlashX",
+    "toolPermissions": "Tool Permissions",
+    "toolPermissionsDescription": "Enable or disable tools available to the AI assistant."
   },
   "validation": {
     "emailRequired": "Please enter your email address",

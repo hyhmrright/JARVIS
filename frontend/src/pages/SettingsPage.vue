@@ -70,6 +70,26 @@
           />
         </div>
 
+        <div class="form-group animate-slide-up-delay-4">
+          <label>{{ $t("settings.toolPermissions") }}</label>
+          <p class="field-description">{{ $t("settings.toolPermissionsDescription") }}</p>
+          <div class="tool-list">
+            <label
+              v-for="tool in toolRegistry"
+              :key="tool.name"
+              class="tool-item"
+            >
+              <input
+                type="checkbox"
+                :checked="enabledTools.includes(tool.name)"
+                @change="toggleTool(tool.name)"
+              />
+              <span class="tool-label">{{ tool.label }}</span>
+              <span class="tool-desc">{{ tool.description }}</span>
+            </label>
+          </div>
+        </div>
+
         <button type="submit" class="btn-primary animate-slide-up-delay-4" :disabled="saving">
           {{ saving ? $t("settings.saving") : $t("settings.save") }}
         </button>
@@ -122,6 +142,8 @@ const customModelName = ref("");
 const apiKeys = ref<string[]>([""]);
 const keyCounts = ref<Record<string, number>>({});
 const personaOverride = ref("");
+const enabledTools = ref<string[]>([]);
+const toolRegistry = ref<{ name: string; label: string; description: string; default_enabled: boolean }[]>([]);
 const saved = ref(false);
 const saving = ref(false);
 const saveError = ref(false);
@@ -143,6 +165,15 @@ function onProviderChange() {
   apiKeys.value = [""];
 }
 
+function toggleTool(name: string) {
+  const idx = enabledTools.value.indexOf(name);
+  if (idx >= 0) {
+    enabledTools.value.splice(idx, 1);
+  } else {
+    enabledTools.value.push(name);
+  }
+}
+
 onMounted(async () => {
   try {
     const { data } = await client.get("/settings");
@@ -150,6 +181,8 @@ onMounted(async () => {
     personaOverride.value = data.persona_override ?? "";
 
     keyCounts.value = (data.key_counts ?? {}) as Record<string, number>;
+    toolRegistry.value = (data.tool_registry ?? []) as typeof toolRegistry.value;
+    enabledTools.value = (data.enabled_tools ?? []) as string[];
 
     const savedModel: string = data.model_name ?? "";
     const models = PROVIDER_MODELS[provider.value] ?? [];
@@ -172,6 +205,7 @@ async function save() {
       model_provider: provider.value,
       model_name: effectiveModelName.value,
       persona_override: personaOverride.value || null,
+      enabled_tools: enabledTools.value,
     };
     const nonEmptyKeys = apiKeys.value.filter((k: string) => k.trim());
     if (nonEmptyKeys.length > 0) {
@@ -254,6 +288,54 @@ async function save() {
   font-size: 12px;
   color: var(--text-muted);
   margin-top: var(--space-xs);
+}
+
+.field-description {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 0 var(--space-sm) 0;
+}
+
+.tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.tool-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.tool-item:hover {
+  border-color: var(--accent);
+}
+
+.tool-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+
+.tool-label {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tool-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .toast-success {

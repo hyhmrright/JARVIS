@@ -16,6 +16,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.permissions import DEFAULT_ENABLED_TOOLS
 from app.db.base import Base
 
 
@@ -74,7 +75,7 @@ class UserSettings(Base):
     enabled_tools: Mapped[list[str]] = mapped_column(
         JSONB,
         nullable=False,
-        default=lambda: ["search", "code_exec", "datetime", "rag_search", "web_fetch"],
+        default=lambda: list(DEFAULT_ENABLED_TOOLS),
     )
     persona_override: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(

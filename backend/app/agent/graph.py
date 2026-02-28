@@ -7,16 +7,21 @@ from langgraph.prebuilt import ToolNode
 
 from app.agent.llm import get_llm
 from app.agent.state import AgentState
+from app.tools.browser_tool import browser_navigate
 from app.tools.code_exec_tool import execute_code
 from app.tools.datetime_tool import get_datetime
+from app.tools.file_tool import create_file_tools
 from app.tools.rag_tool import create_rag_search_tool
 from app.tools.search_tool import create_web_search_tool
+from app.tools.shell_tool import shell_exec
 from app.tools.web_fetch_tool import web_fetch
 
 # Static tools that need no per-request context
 _TOOL_MAP = {
+    "browser": browser_navigate,
     "code_exec": execute_code,
     "datetime": get_datetime,
+    "shell": shell_exec,
     "web_fetch": web_fetch,
 }
 
@@ -56,6 +61,9 @@ def _resolve_tools(
         and (enabled_tools is None or "rag_search" in enabled_tools)
     ):
         tools.append(create_rag_search_tool(user_id, openai_api_key))
+
+    if user_id and (enabled_tools is None or "file" in enabled_tools):
+        tools.extend(create_file_tools(user_id))
 
     return tools
 
