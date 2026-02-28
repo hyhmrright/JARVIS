@@ -19,6 +19,7 @@ from app.core.config import settings
 from app.core.security import resolve_api_key
 from app.db.models import Conversation, Message, User
 from app.db.session import AsyncSessionLocal, get_db
+from app.rag.retriever import maybe_inject_rag_context
 
 logger = structlog.get_logger(__name__)
 
@@ -114,6 +115,11 @@ async def chat_stream(
     system_msg = SystemMessage(content=build_system_prompt(llm.persona_override))
     lc_messages = [system_msg, *lc_messages]
 
+    openai_key = resolve_api_key("openai", llm.raw_keys)
+    lc_messages = await maybe_inject_rag_context(
+        lc_messages, body.content, str(user.id), openai_key
+    )
+
     conv_id = conv.id
 
     logger.info(
@@ -124,8 +130,6 @@ async def chat_stream(
         model=llm.model_name,
     )
 
-    # Resolve OpenAI API key for RAG embeddings (user key or server fallback)
-    openai_key = resolve_api_key("openai", llm.raw_keys)
     # Resolve Tavily API key for web search (server-level only)
     tavily_key = settings.tavily_api_key
 

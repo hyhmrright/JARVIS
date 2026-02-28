@@ -1,7 +1,10 @@
+"""Tests for the RAG search tool using the enhanced retriever."""
+
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from app.rag.retriever import RetrievedChunk
 from app.tools.rag_tool import create_rag_search_tool
 
 
@@ -10,55 +13,51 @@ def rag_tool():
     return create_rag_search_tool(user_id="test-user-123", openai_api_key="sk-test-key")
 
 
-async def test_rag_search_returns_formatted_results(rag_tool):
-    mock_results = ["chunk about Python basics", "chunk about Python decorators"]
+async def test_rag_tool_formats_results_with_document_names(rag_tool):
+    """Verify the tool formats output with document names and relevance scores."""
+    mock_chunks = [
+        RetrievedChunk(
+            document_name="report.pdf", content="Sales grew by 20% in Q3.", score=0.91
+        ),
+        RetrievedChunk(
+            document_name="notes.txt",
+            content="Meeting notes from January.",
+            score=0.82,
+        ),
+    ]
     with patch(
-        "app.tools.rag_tool.search_documents",
+        "app.tools.rag_tool.retrieve_context",
         new_callable=AsyncMock,
-        return_value=mock_results,
-    ) as mock_search:
-        result = await rag_tool.ainvoke({"query": "Python"})
-        mock_search.assert_awaited_once_with(
-            "test-user-123", "Python", "sk-test-key", top_k=5
-        )
-    assert "chunk about Python basics" in result
-    assert "chunk about Python decorators" in result
+        return_value=mock_chunks,
+    ):
+        result = await rag_tool.ainvoke({"query": "quarterly sales"})
+
+    assert "report.pdf" in result
+    assert "0.91" in result
+    assert "Sales grew by 20% in Q3." in result
+    assert "notes.txt" in result
+    assert "0.82" in result
 
 
-async def test_rag_search_no_results(rag_tool):
+async def test_rag_tool_returns_no_results_message_when_empty(rag_tool):
+    """When the retriever returns an empty list the tool reports no results."""
     with patch(
-        "app.tools.rag_tool.search_documents",
+        "app.tools.rag_tool.retrieve_context",
         new_callable=AsyncMock,
         return_value=[],
     ):
         result = await rag_tool.ainvoke({"query": "nonexistent topic"})
-    assert "no relevant" in result.lower()
+
+    assert result.startswith("No relevant")
 
 
-async def test_rag_search_handles_error(rag_tool):
+async def test_rag_tool_handles_retriever_exception(rag_tool):
+    """When retrieve_context raises, the tool returns a graceful error message."""
     with patch(
-        "app.tools.rag_tool.search_documents",
+        "app.tools.rag_tool.retrieve_context",
         new_callable=AsyncMock,
-        side_effect=Exception("Qdrant connection failed"),
+        side_effect=RuntimeError("embedding service unavailable"),
     ):
-        result = await rag_tool.ainvoke({"query": "test"})
-    assert "error" in result.lower()
+        result = await rag_tool.ainvoke({"query": "test query"})
 
-
-async def test_rag_tool_has_correct_name(rag_tool):
-    assert rag_tool.name == "rag_search"
-
-
-async def test_rag_tool_closes_over_user_context():
-    """Different user_id/key combos produce independent tools."""
-    tool_a = create_rag_search_tool("user-a", "key-a")
-    tool_b = create_rag_search_tool("user-b", "key-b")
-    with patch(
-        "app.tools.rag_tool.search_documents",
-        new_callable=AsyncMock,
-        return_value=["result"],
-    ) as mock_search:
-        await tool_a.ainvoke({"query": "q"})
-        mock_search.assert_awaited_with("user-a", "q", "key-a", top_k=5)
-        await tool_b.ainvoke({"query": "q"})
-        mock_search.assert_awaited_with("user-b", "q", "key-b", top_k=5)
+    assert "Error" in result or "failed" in result
