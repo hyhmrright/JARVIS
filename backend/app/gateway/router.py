@@ -29,6 +29,7 @@ from app.gateway.security import (
     PairingManager,
 )
 from app.gateway.session_manager import SessionManager
+from app.rag.retriever import format_rag_context, retrieve_context
 
 logger = structlog.get_logger(__name__)
 
@@ -329,6 +330,35 @@ class GatewayRouter:
         channel: str,
     ) -> str:
         """Create and invoke the LangGraph agent, returning the AI reply."""
+        # Auto-inject RAG context when user has relevant documents
+        openai_key_for_rag = resolve_api_key("openai", raw_keys)
+        if openai_key_for_rag:
+            try:
+                last_human_raw = next(
+                    (
+                        m.content
+                        for m in reversed(lc_messages)
+                        if isinstance(m, HumanMessage)
+                    ),
+                    "",
+                )
+                last_human = last_human_raw if isinstance(last_human_raw, str) else ""
+                if last_human:
+                    rag_chunks = await retrieve_context(
+                        last_human, user_id, openai_key_for_rag
+                    )
+                    if rag_chunks:
+                        rag_msg = SystemMessage(content=format_rag_context(rag_chunks))
+                        lc_messages = [lc_messages[0], rag_msg, *lc_messages[1:]]
+                        logger.info(
+                            "gateway_rag_context_injected",
+                            user_id=user_id,
+                            chunk_count=len(rag_chunks),
+                            channel=channel,
+                        )
+            except Exception:
+                logger.warning("gateway_rag_auto_inject_failed", exc_info=True)
+
         graph = create_graph(
             provider=provider,
             model=model_name,
