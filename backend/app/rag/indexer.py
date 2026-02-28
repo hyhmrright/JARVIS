@@ -38,17 +38,3 @@ async def index_document(
     ]
     await client.upsert(collection_name=collection, points=points)
     return len(chunks)
-
-
-async def search_documents(
-    user_id: str, query: str, api_key: str, top_k: int = 5
-) -> list[str]:
-    """在用户 Collection 中检索最相关的文档切片。"""
-    client = await get_qdrant_client()
-    collection = user_collection_name(user_id)
-    embedder = get_embedder(api_key)
-    query_vec = await embedder.aembed_query(query)
-    results = await client.search(  # type: ignore[attr-defined]
-        collection_name=collection, query_vector=query_vec, limit=top_k
-    )
-    return [r.payload["text"] for r in results if r.payload]

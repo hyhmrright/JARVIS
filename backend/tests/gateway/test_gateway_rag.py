@@ -50,7 +50,7 @@ async def test_invoke_agent_injects_rag_context_when_chunks_found():
     with (
         patch("app.gateway.router.resolve_api_key", return_value="fake-openai-key"),
         patch(
-            "app.gateway.router.retrieve_context",
+            "app.rag.retriever.retrieve_context",
             new_callable=AsyncMock,
             return_value=[fake_chunk],
         ),
@@ -103,7 +103,7 @@ async def test_invoke_agent_skips_rag_when_no_openai_key():
             return_value=None,  # No OpenAI key
         ),
         patch(
-            "app.gateway.router.retrieve_context",
+            "app.rag.retriever.retrieve_context",
             new_callable=AsyncMock,
         ) as mock_retrieve,
         patch("app.gateway.router.create_graph", return_value=mock_graph),
@@ -145,7 +145,7 @@ async def test_invoke_agent_skips_rag_when_no_human_message():
     with (
         patch("app.gateway.router.resolve_api_key", return_value="fake-openai-key"),
         patch(
-            "app.gateway.router.retrieve_context",
+            "app.rag.retriever.retrieve_context",
             new_callable=AsyncMock,
         ) as mock_retrieve,
         patch("app.gateway.router.create_graph", return_value=mock_graph),
@@ -178,7 +178,7 @@ async def test_invoke_agent_continues_on_rag_error():
     with (
         patch("app.gateway.router.resolve_api_key", return_value="openai-key"),
         patch(
-            "app.gateway.router.retrieve_context",
+            "app.rag.retriever.retrieve_context",
             new_callable=AsyncMock,
             side_effect=RuntimeError("Qdrant unavailable"),
         ),
@@ -216,7 +216,7 @@ async def test_invoke_agent_skips_rag_when_no_chunks_returned():
     with (
         patch("app.gateway.router.resolve_api_key", return_value="openai-key"),
         patch(
-            "app.gateway.router.retrieve_context",
+            "app.rag.retriever.retrieve_context",
             new_callable=AsyncMock,
             return_value=[],  # No relevant chunks
         ),

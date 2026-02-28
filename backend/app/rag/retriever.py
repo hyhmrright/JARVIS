@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 import structlog
+from langchain_core.messages import BaseMessage, SystemMessage
 from qdrant_client.http.exceptions import UnexpectedResponse
 
 from app.infra.qdrant import get_qdrant_client, user_collection_name
@@ -57,6 +58,34 @@ async def retrieve_context(
         for hit in hits
         if hit.score >= score_threshold and hit.payload
     ]
+
+
+async def maybe_inject_rag_context(
+    messages: list[BaseMessage],
+    query: str,
+    user_id: str,
+    openai_key: str | None,
+) -> list[BaseMessage]:
+    """Return messages with RAG context inserted at position 1, if available.
+
+    Silently returns the original list when messages is empty, no key is
+    provided, no chunks are found, or retrieval fails.
+    """
+    if not messages or not openai_key:
+        return messages
+    try:
+        chunks = await retrieve_context(query, user_id, openai_key)
+        if chunks:
+            rag_msg = SystemMessage(content=format_rag_context(chunks))
+            logger.info(
+                "rag_context_injected",
+                user_id=user_id,
+                chunk_count=len(chunks),
+            )
+            return [messages[0], rag_msg, *messages[1:]]
+    except Exception:
+        logger.warning("rag_auto_inject_failed", exc_info=True)
+    return messages
 
 
 def format_rag_context(chunks: list[RetrievedChunk]) -> str:
