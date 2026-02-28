@@ -5,7 +5,7 @@ from collections.abc import AsyncGenerator
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +19,7 @@ from app.core.config import settings
 from app.core.security import resolve_api_key
 from app.db.models import Conversation, Message, User
 from app.db.session import AsyncSessionLocal, get_db
+from app.rag.retriever import format_rag_context, retrieve_context
 
 logger = structlog.get_logger(__name__)
 
@@ -76,6 +77,30 @@ def _sse_events_from_chunk(chunk: dict, full_content: str) -> tuple[list[str], s
     return events, full_content
 
 
+async def _maybe_inject_rag(
+    messages: list[BaseMessage],
+    query: str,
+    user_id: str,
+    openai_key: str | None,
+) -> list[BaseMessage]:
+    """Return messages with RAG context inserted at position 1, if available."""
+    if not openai_key:
+        return messages
+    try:
+        rag_chunks = await retrieve_context(query, user_id, openai_key)
+        if rag_chunks:
+            rag_msg = SystemMessage(content=format_rag_context(rag_chunks))
+            logger.info(
+                "rag_context_injected",
+                user_id=user_id,
+                chunk_count=len(rag_chunks),
+            )
+            return [messages[0], rag_msg, *messages[1:]]
+    except Exception:
+        logger.warning("rag_auto_inject_failed", exc_info=True)
+    return messages
+
+
 class ChatRequest(BaseModel):
     conversation_id: uuid.UUID
     content: str = Field(max_length=50000)
@@ -114,6 +139,11 @@ async def chat_stream(
     system_msg = SystemMessage(content=build_system_prompt(llm.persona_override))
     lc_messages = [system_msg, *lc_messages]
 
+    openai_key = resolve_api_key("openai", llm.raw_keys)
+    lc_messages = await _maybe_inject_rag(
+        lc_messages, body.content, str(user.id), openai_key
+    )
+
     conv_id = conv.id
 
     logger.info(
@@ -124,8 +154,6 @@ async def chat_stream(
         model=llm.model_name,
     )
 
-    # Resolve OpenAI API key for RAG embeddings (user key or server fallback)
-    openai_key = resolve_api_key("openai", llm.raw_keys)
     # Resolve Tavily API key for web search (server-level only)
     tavily_key = settings.tavily_api_key
 
