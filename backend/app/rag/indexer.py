@@ -14,7 +14,7 @@ from app.rag.embedder import get_embedder
 async def index_document(user_id: str, doc_id: str, text: str, api_key: str) -> int:
     """将文档切片、向量化并写入 Qdrant。返回切片数量。"""
     await ensure_user_collection(user_id)
-    client = get_qdrant_client()
+    client = await get_qdrant_client()
     collection = user_collection_name(user_id)
 
     chunks = chunk_text(text)
@@ -37,7 +37,7 @@ async def search_documents(
     user_id: str, query: str, api_key: str, top_k: int = 5
 ) -> list[str]:
     """在用户 Collection 中检索最相关的文档切片。"""
-    client = get_qdrant_client()
+    client = await get_qdrant_client()
     collection = user_collection_name(user_id)
     embedder = get_embedder(api_key)
     query_vec = await embedder.aembed_query(query)
