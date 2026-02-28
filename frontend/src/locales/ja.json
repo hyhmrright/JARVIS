@@ -38,7 +38,9 @@
     "inputPlaceholder": "メッセージを入力、Enter で送信...",
     "send": "送信",
     "copy": "メッセージをコピー",
-    "streamError": "メッセージの送信に失敗しました。再試行してください"
+    "streamError": "メッセージの送信に失敗しました。再試行してください",
+    "toolResult": "ツール結果",
+    "toolRunning": "実行中..."
   },
   "documents": {
     "title": "ナレッジベース",
@@ -52,6 +54,10 @@
     "provider": "モデルプロバイダー",
     "modelName": "モデル名",
     "apiKey": "API キー",
+    "apiKeys": "API キー",
+    "apiKeyPlaceholder": "API キーを入力",
+    "addApiKey": "キーを追加",
+    "existingKeys": "{count} 個のキーが保存済み",
     "save": "保存",
     "saved": "保存しました",
     "personaOverride": "カスタム指示",

@@ -38,7 +38,9 @@
     "inputPlaceholder": "Nachricht eingeben, Enter zum Senden...",
     "send": "Senden",
     "copy": "Nachricht kopieren",
-    "streamError": "Nachricht konnte nicht gesendet werden, bitte erneut versuchen"
+    "streamError": "Nachricht konnte nicht gesendet werden, bitte erneut versuchen",
+    "toolResult": "Werkzeugergebnis",
+    "toolRunning": "Wird ausgeführt..."
   },
   "documents": {
     "title": "Wissensdatenbank",
@@ -52,6 +54,10 @@
     "provider": "Modellanbieter",
     "modelName": "Modellname",
     "apiKey": "API-Schlüssel",
+    "apiKeys": "API-Schlüssel",
+    "apiKeyPlaceholder": "API-Schlüssel eingeben",
+    "addApiKey": "Schlüssel hinzufügen",
+    "existingKeys": "{count} Schlüssel gespeichert",
     "save": "Speichern",
     "saved": "Gespeichert",
     "personaOverride": "Benutzerdefinierte Anweisungen",

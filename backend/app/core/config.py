@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     zhipuai_api_key: str = ""
 
+    # Tool API keys — optional, used as server-level fallback
+    tavily_api_key: str = ""
+
     # Non-sensitive — safe defaults for local development
     qdrant_url: str = "http://localhost:6333"
     minio_endpoint: str = "localhost:9000"

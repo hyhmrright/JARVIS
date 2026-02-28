@@ -1,7 +1,19 @@
 import { defineStore } from "pinia";
 import client from "@/api/client";
 
-interface Message { role: "human" | "ai"; content: string }
+interface ToolCall {
+  name: string;
+  args: Record<string, unknown>;
+  status: "running" | "done";
+  result?: string;
+}
+
+interface Message {
+  role: "human" | "ai";
+  content: string;
+  toolCalls?: ToolCall[];
+}
+
 interface Conversation { id: string; title: string }
 
 export const useChatStore = defineStore("chat", {
@@ -82,10 +94,29 @@ export const useChatStore = defineStore("chat", {
                 const data = JSON.parse(line.slice(6));
                 // Access through reactive proxy via array index
                 const aiMsg = this.messages[this.messages.length - 1];
-                if (data.delta) {
-                  aiMsg.content += data.delta;
-                } else if (data.content) {
-                  aiMsg.content = data.content;
+                const eventType = data.type;
+                if (eventType === "tool_start") {
+                  if (!aiMsg.toolCalls) aiMsg.toolCalls = [];
+                  aiMsg.toolCalls.push({
+                    name: data.tool,
+                    args: data.args ?? {},
+                    status: "running",
+                  });
+                } else if (eventType === "tool_end") {
+                  const tc = aiMsg.toolCalls?.find(
+                    (t: ToolCall) => t.name === data.tool && t.status === "running",
+                  );
+                  if (tc) {
+                    tc.status = "done";
+                    tc.result = data.result_preview;
+                  }
+                } else {
+                  // delta event (type === "delta" or legacy events without type)
+                  if (data.delta) {
+                    aiMsg.content += data.delta;
+                  } else if (data.content) {
+                    aiMsg.content = data.content;
+                  }
                 }
               } catch {
                 // Skip unparseable SSE lines

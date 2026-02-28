@@ -1,22 +1,53 @@
-import httpx
-from langchain_core.tools import tool
+"""Web search tool using Tavily Search API."""
+
+import structlog
+from langchain_core.tools import BaseTool, tool
+from tavily import AsyncTavilyClient
+
+logger = structlog.get_logger(__name__)
+
+_DEFAULT_MAX_RESULTS = 5
 
 
-@tool
-async def web_search(query: str) -> str:
-    """Search using DuckDuckGo Instant Answer API.
+async def _web_search_impl(
+    query: str, api_key: str, max_results: int = _DEFAULT_MAX_RESULTS
+) -> str:
+    """Execute a Tavily web search and format results.
 
-    Note: This API returns Wikipedia-style abstracts and related topics only.
-    It does NOT perform general web search. Most queries will return empty results.
-    query is the search term.
+    Separated from the tool wrapper for testability.
     """
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(
-            "https://api.duckduckgo.com/",
-            params={"q": query, "format": "json", "no_html": 1},
-            timeout=10.0,
-        )
-    data = resp.json()
-    abstract = data.get("AbstractText", "")
-    related = [r.get("Text", "") for r in data.get("RelatedTopics", [])[:3]]
-    return abstract or "\n".join(related) or "No results found."
+    client = AsyncTavilyClient(api_key=api_key)
+    response = await client.search(query=query, max_results=max_results)
+
+    results = response.get("results", [])
+    if not results:
+        return "No results found."
+
+    formatted = []
+    for i, item in enumerate(results, 1):
+        title = item.get("title", "")
+        url = item.get("url", "")
+        content = item.get("content", "")
+        formatted.append(f"[{i}] {title}\n    {url}\n    {content}")
+
+    return "\n\n".join(formatted)
+
+
+def create_web_search_tool(api_key: str) -> BaseTool:
+    """Factory that returns a web search tool closed over a Tavily API key."""
+
+    @tool
+    async def web_search(query: str) -> str:
+        """Search the web for current information.
+
+        Use this when the user asks about recent events, facts, or anything
+        that may require up-to-date information from the internet.
+        query is a natural language search phrase.
+        """
+        try:
+            return await _web_search_impl(query, api_key)
+        except Exception:
+            logger.exception("web_search_error", query=query)
+            return "Error: failed to perform web search."
+
+    return web_search

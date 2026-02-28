@@ -14,6 +14,8 @@ from app.agent.graph import create_graph
 from app.agent.persona import build_system_prompt
 from app.agent.state import AgentState
 from app.api.deps import ResolvedLLMConfig, get_current_user, get_llm_config
+from app.core.config import settings
+from app.core.security import resolve_api_key
 from app.db.models import Conversation, Message, User
 from app.db.session import AsyncSessionLocal, get_db
 
@@ -22,6 +24,55 @@ logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 _ROLE_TO_MESSAGE = {"human": HumanMessage, "ai": AIMessage}
+
+
+def _format_sse(payload: dict) -> str:
+    """Encode a dict as an SSE data line."""
+    return "data: " + json.dumps(payload) + "\n\n"
+
+
+def _sse_events_from_chunk(chunk: dict, full_content: str) -> tuple[list[str], str]:
+    """Convert a LangGraph stream chunk into SSE event lines.
+
+    Returns (list_of_sse_lines, updated_full_content).
+    """
+    events: list[str] = []
+
+    if "llm" in chunk:
+        ai_msg = chunk["llm"]["messages"][-1]
+        # Emit tool_start events when the LLM decides to call tools
+        if hasattr(ai_msg, "tool_calls") and ai_msg.tool_calls:
+            for tc in ai_msg.tool_calls:
+                events.append(
+                    _format_sse(
+                        {
+                            "type": "tool_start",
+                            "tool": tc["name"],
+                            "args": tc.get("args", {}),
+                        }
+                    )
+                )
+        # Delta logic
+        new_content = ai_msg.content
+        delta = new_content[len(full_content) :]
+        full_content = new_content
+        if delta:
+            events.append(
+                _format_sse({"type": "delta", "delta": delta, "content": full_content})
+            )
+    elif "tools" in chunk:
+        for tm in chunk["tools"]["messages"]:
+            events.append(
+                _format_sse(
+                    {
+                        "type": "tool_end",
+                        "tool": tm.name,
+                        "result_preview": tm.content[:200],
+                    }
+                )
+            )
+
+    return events, full_content
 
 
 class ChatRequest(BaseModel):
@@ -72,24 +123,28 @@ async def chat_stream(
         model=llm.model_name,
     )
 
+    # Resolve OpenAI API key for RAG embeddings (user key or server fallback)
+    openai_key = resolve_api_key("openai", llm.raw_keys)
+    # Resolve Tavily API key for web search (server-level only)
+    tavily_key = settings.tavily_api_key
+
     async def generate() -> AsyncGenerator[str]:
         graph = create_graph(
             provider=llm.provider,
             model=llm.model_name,
             api_key=llm.api_key,
             enabled_tools=llm.enabled_tools,
+            api_keys=llm.api_keys,
+            user_id=str(user.id),
+            openai_api_key=openai_key,
+            tavily_api_key=tavily_key,
         )
         full_content = ""
         try:
             async for chunk in graph.astream(AgentState(messages=lc_messages)):
-                if "llm" in chunk:
-                    ai_msg = chunk["llm"]["messages"][-1]
-                    new_content = ai_msg.content
-                    delta = new_content[len(full_content) :]
-                    full_content = new_content
-                    if delta:
-                        data = json.dumps({"delta": delta, "content": full_content})
-                        yield "data: " + data + "\n\n"
+                events, full_content = _sse_events_from_chunk(chunk, full_content)
+                for event in events:
+                    yield event
         except Exception:
             logger.exception("chat_stream_error", conv_id=str(conv_id))
             raise

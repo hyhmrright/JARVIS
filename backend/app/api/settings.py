@@ -34,7 +34,7 @@ def _mask_key(key: str) -> str:
 class SettingsUpdate(BaseModel):
     model_provider: Literal["deepseek", "openai", "anthropic", "zhipuai"]
     model_name: str = Field(max_length=100)
-    api_keys: dict[str, str] | None = None
+    api_keys: dict[str, str | list[str]] | None = None
     persona_override: str | None = Field(default=None, max_length=2000)
 
 
@@ -53,7 +53,9 @@ async def update_settings(
     settings.model_provider = body.model_provider
     settings.model_name = body.model_name
     if body.api_keys is not None:
-        settings.api_keys = encrypt_api_keys(dict(body.api_keys))
+        existing = decrypt_api_keys(settings.api_keys) if settings.api_keys else {}
+        existing.update(body.api_keys)
+        settings.api_keys = encrypt_api_keys(existing)
     stripped = body.persona_override.strip() if body.persona_override else None
     settings.persona_override = stripped or None
     await db.commit()
@@ -79,10 +81,19 @@ async def get_settings(
     if not settings:
         return DEFAULT_SETTINGS
     raw_keys = decrypt_api_keys(settings.api_keys)
+    masked: dict[str, list[str]] = {}
+    key_counts: dict[str, int] = {}
+    for provider, value in raw_keys.items():
+        keys = value if isinstance(value, list) else [value] if value else []
+        keys = [k for k in keys if k]
+        if keys:
+            masked[provider] = [_mask_key(k) for k in keys]
+            key_counts[provider] = len(keys)
     return {
         "model_provider": settings.model_provider,
         "model_name": settings.model_name,
-        "masked_api_keys": {k: _mask_key(v) for k, v in raw_keys.items() if v},
-        "has_api_key": {k: bool(v) for k, v in raw_keys.items()},
+        "masked_api_keys": masked,
+        "key_counts": key_counts,
+        "has_api_key": {provider: True for provider in key_counts},
         "persona_override": settings.persona_override,
     }
