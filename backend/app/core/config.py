@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     # Tool API keys — optional, used as server-level fallback
     tavily_api_key: str = ""
 
+    # Channel bot tokens — optional, leave empty to disable the channel
+    telegram_bot_token: str = ""
+    discord_bot_token: str = ""
+
     # Non-sensitive — safe defaults for local development
     qdrant_url: str = "http://localhost:6333"
     minio_endpoint: str = "localhost:9000"
