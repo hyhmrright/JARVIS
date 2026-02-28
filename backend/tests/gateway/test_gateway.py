@@ -274,7 +274,7 @@ async def test_router_dispatches_to_agent() -> None:
     router = GatewayRouter(registry, manager)
 
     # Patch _run_agent to avoid requiring LangGraph infrastructure
-    async def _fake_agent(user_id: str, message: GatewayMessage) -> str:
+    async def _fake_agent(user_id: str, message: GatewayMessage, **_kw: object) -> str:
         return f"Hello from agent, {user_id}"
 
     router._run_agent = _fake_agent  # type: ignore[method-assign]

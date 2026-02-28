@@ -52,6 +52,19 @@ class SessionManager:
             user_id=user_id,
         )
 
+    async def update_session(self, sender_id: str, channel: str, **fields: Any) -> None:
+        """Merge *fields* into the existing session dict."""
+        session = await self.get_or_create_session(sender_id, channel)
+        session.update(fields)
+        key = _session_key(channel, sender_id)
+        await self._redis.setex(key, _SESSION_TTL_SECONDS, json.dumps(session))
+        logger.info(
+            "session_updated",
+            channel=channel,
+            sender_id=sender_id,
+            fields=list(fields),
+        )
+
     async def delete_session(self, sender_id: str, channel: str) -> None:
         """Remove the session for (channel, sender_id)."""
         key = _session_key(channel, sender_id)

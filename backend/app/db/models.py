@@ -124,6 +124,52 @@ class Conversation(Base):
     )
 
 
+class AgentSession(Base):
+    __tablename__ = "agent_sessions"
+    __table_args__ = (
+        CheckConstraint(
+            "agent_type IN ('main', 'subagent', 'supervisor')",
+            name="ck_agent_sessions_type",
+        ),
+        CheckConstraint(
+            "status IN ('active', 'completed', 'aborted', 'error')",
+            name="ck_agent_sessions_status",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    parent_session_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_sessions.id", ondelete="SET NULL"),
+    )
+    agent_type: Mapped[str] = mapped_column(String(20), nullable=False, default="main")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    depth: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    context_summary: Mapped[str | None] = mapped_column(Text)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    conversation: Mapped["Conversation"] = relationship()
+    parent_session: Mapped["AgentSession | None"] = relationship(
+        remote_side="AgentSession.id",
+    )
+    messages: Mapped[list["Message"]] = relationship(
+        back_populates="agent_session",
+        order_by="Message.created_at",
+    )
+
+
 class Message(Base):
     __tablename__ = "messages"
     __table_args__ = (
@@ -142,6 +188,10 @@ class Message(Base):
         nullable=False,
         index=True,
     )
+    agent_session_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_sessions.id", ondelete="SET NULL"),
+    )
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     tool_calls: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
@@ -154,6 +204,9 @@ class Message(Base):
     )
 
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")
+    agent_session: Mapped["AgentSession | None"] = relationship(
+        back_populates="messages"
+    )
 
 
 class Document(Base):

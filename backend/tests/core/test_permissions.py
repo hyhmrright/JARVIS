@@ -21,6 +21,7 @@ def test_tool_registry_contains_expected_tools() -> None:
         "shell",
         "browser",
         "file",
+        "subagent",
     }
     assert TOOL_NAMES == expected
 
@@ -38,6 +39,7 @@ def test_default_enabled_tools_match_registry() -> None:
 def test_shell_and_browser_disabled_by_default() -> None:
     assert "shell" not in DEFAULT_ENABLED_TOOLS
     assert "browser" not in DEFAULT_ENABLED_TOOLS
+    assert "subagent" not in DEFAULT_ENABLED_TOOLS
 
 
 def test_tool_names_set_matches_registry() -> None:

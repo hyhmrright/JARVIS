@@ -63,6 +63,12 @@ TOOL_REGISTRY: list[ToolDef] = [
         "Read/write/list user files",
         default_enabled=True,
     ),
+    ToolDef(
+        "subagent",
+        "Sub-Agent",
+        "Delegate subtasks to an independent sub-agent",
+        default_enabled=False,
+    ),
 ]
 
 TOOL_NAMES: set[str] = {t.name for t in TOOL_REGISTRY}

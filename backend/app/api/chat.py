@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent.compressor import compact_messages
 from app.agent.graph import create_graph
 from app.agent.persona import build_system_prompt
 from app.agent.state import AgentState
@@ -129,6 +130,16 @@ async def chat_stream(
     tavily_key = settings.tavily_api_key
 
     async def generate() -> AsyncGenerator[str]:
+        nonlocal lc_messages
+        try:
+            lc_messages = await compact_messages(
+                lc_messages,
+                provider=llm.provider,
+                model=llm.model_name,
+                api_key=llm.api_key,
+            )
+        except Exception:
+            logger.warning("context_compression_failed", exc_info=True)
         graph = create_graph(
             provider=llm.provider,
             model=llm.model_name,
