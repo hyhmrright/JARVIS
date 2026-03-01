@@ -9,6 +9,7 @@ const router = createRouter({
     { path: "/", component: () => import("@/pages/ChatPage.vue"), meta: { requiresAuth: true } },
     { path: "/documents", component: () => import("@/pages/DocumentsPage.vue"), meta: { requiresAuth: true } },
     { path: "/settings", component: () => import("@/pages/SettingsPage.vue"), meta: { requiresAuth: true } },
+    { path: "/usage", component: () => import("@/pages/UsagePage.vue"), meta: { requiresAuth: true } },
   ],
 });
 
