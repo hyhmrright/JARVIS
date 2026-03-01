@@ -81,6 +81,12 @@ TOOL_REGISTRY: list[ToolDef] = [
         "Schedule recurring tasks with cron expressions",
         default_enabled=False,
     ),
+    ToolDef(
+        "canvas",
+        "Live Canvas",
+        "Render HTML visualizations in the frontend canvas panel",
+        default_enabled=True,
+    ),
 ]
 
 TOOL_NAMES: set[str] = {t.name for t in TOOL_REGISTRY}

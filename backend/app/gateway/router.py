@@ -203,6 +203,7 @@ class GatewayRouter:
                 user_id=user_id,
                 lc_messages=lc_messages,
                 channel=message.channel,
+                conversation_id=str(conv.id),
             )
 
             # Persist AI response
@@ -328,6 +329,7 @@ class GatewayRouter:
         user_id: str,
         lc_messages: list[BaseMessage],
         channel: str,
+        conversation_id: str | None = None,
     ) -> str:
         """Create and invoke the LangGraph agent, returning the AI reply."""
         # Auto-inject RAG context when user has relevant documents
@@ -341,6 +343,9 @@ class GatewayRouter:
                 lc_messages, str(last_human), user_id, openai_key_for_rag
             )
 
+        from app.tools.mcp_client import create_mcp_tools, parse_mcp_configs
+
+        mcp_tools = await create_mcp_tools(parse_mcp_configs(settings.mcp_servers_json))
         graph = create_graph(
             provider=provider,
             model=model_name,
@@ -350,6 +355,8 @@ class GatewayRouter:
             user_id=user_id,
             openai_api_key=resolve_api_key("openai", raw_keys),
             tavily_api_key=settings.tavily_api_key,
+            mcp_tools=mcp_tools,
+            conversation_id=conversation_id,
         )
 
         try:

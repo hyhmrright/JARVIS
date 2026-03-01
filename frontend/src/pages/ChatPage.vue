@@ -1,5 +1,6 @@
 <template>
   <div class="chat-layout">
+    <CanvasPanel v-if="chat.currentConvId" :conversation-id="chat.currentConvId" />
     <aside class="sidebar">
       <div class="sidebar-brand">
         <span class="brand-icon">&#10022;</span>
@@ -148,6 +149,7 @@ import { useI18n } from "vue-i18n";
 import { useChatStore } from "@/stores/chat";
 import { useAuthStore } from "@/stores/auth";
 import { useSpeechInput } from "@/composables/useSpeechInput";
+import CanvasPanel from "@/components/CanvasPanel.vue";
 
 const { t } = useI18n();
 const chat = useChatStore();

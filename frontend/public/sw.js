@@ -2,7 +2,7 @@
 // Network-first strategy: always fetch fresh content, SW just enables installation
 const CACHE_NAME = 'jarvis-v1'
 
-self.addEventListener('install', (event) => {
+self.addEventListener('install', () => {
   self.skipWaiting()
 })
 

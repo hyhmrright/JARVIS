@@ -22,6 +22,7 @@ def test_tool_registry_contains_expected_tools() -> None:
         "browser",
         "file",
         "subagent",
+        "mcp",
     }
     assert TOOL_NAMES == expected
 
