@@ -38,9 +38,22 @@
     "inputPlaceholder": "Type a message, press Enter to send...",
     "send": "Send",
     "copy": "Copy message",
+    "ttsPlay": "Play audio",
+    "ttsStop": "Stop playback",
     "streamError": "Failed to send message, please try again",
     "toolResult": "Tool Result",
-    "toolRunning": "Running..."
+    "toolRunning": "Running...",
+    "usage": "Usage"
+  },
+  "usage": {
+    "title": "Usage Statistics",
+    "tokensIn": "Input Tokens",
+    "tokensOut": "Output Tokens",
+    "messages": "Messages",
+    "days": " days",
+    "loading": "Loading...",
+    "noData": "No usage data available",
+    "chartTitle": "Output Token Usage — Last {days} Days"
   },
   "documents": {
     "title": "Knowledge Base",

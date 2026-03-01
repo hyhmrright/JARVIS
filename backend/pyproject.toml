@@ -38,6 +38,7 @@ dependencies = [
     "pyyaml>=6.0.3",
     "mcp>=1.0.0",
     "apscheduler>=3.10",
+    "edge-tts>=7.2.7",
 ]
 
 [dependency-groups]

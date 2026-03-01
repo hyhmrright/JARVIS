@@ -38,9 +38,22 @@
     "inputPlaceholder": "メッセージを入力、Enter で送信...",
     "send": "送信",
     "copy": "メッセージをコピー",
+    "ttsPlay": "音声再生",
+    "ttsStop": "再生停止",
     "streamError": "メッセージの送信に失敗しました。再試行してください",
     "toolResult": "ツール結果",
-    "toolRunning": "実行中..."
+    "toolRunning": "実行中...",
+    "usage": "利用統計"
+  },
+  "usage": {
+    "title": "利用統計",
+    "tokensIn": "入力トークン",
+    "tokensOut": "出力トークン",
+    "messages": "メッセージ数",
+    "days": "日間",
+    "loading": "読み込み中...",
+    "noData": "利用データがありません",
+    "chartTitle": "過去 {days} 日間の出力トークン数"
   },
   "documents": {
     "title": "ナレッジベース",

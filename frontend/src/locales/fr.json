@@ -38,9 +38,22 @@
     "inputPlaceholder": "Tapez un message, appuyez sur Entrée pour envoyer...",
     "send": "Envoyer",
     "copy": "Copier le message",
+    "ttsPlay": "Lire en audio",
+    "ttsStop": "Arrêter la lecture",
     "streamError": "Échec de l'envoi du message, veuillez réessayer",
     "toolResult": "Résultat de l'outil",
-    "toolRunning": "En cours..."
+    "toolRunning": "En cours...",
+    "usage": "Statistiques"
+  },
+  "usage": {
+    "title": "Statistiques d'utilisation",
+    "tokensIn": "Tokens en entrée",
+    "tokensOut": "Tokens en sortie",
+    "messages": "Messages",
+    "days": " jours",
+    "loading": "Chargement...",
+    "noData": "Aucune donnée d'utilisation",
+    "chartTitle": "Tokens de sortie — {days} derniers jours"
   },
   "documents": {
     "title": "Base de connaissances",

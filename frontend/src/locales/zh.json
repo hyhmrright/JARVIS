@@ -38,9 +38,22 @@
     "inputPlaceholder": "输入消息，Enter 发送...",
     "send": "发送",
     "copy": "复制消息",
+    "ttsPlay": "语音播放",
+    "ttsStop": "停止播放",
     "streamError": "消息发送失败，请重试",
     "toolResult": "工具结果",
-    "toolRunning": "执行中..."
+    "toolRunning": "执行中...",
+    "usage": "用量统计"
+  },
+  "usage": {
+    "title": "用量统计",
+    "tokensIn": "输入 Tokens",
+    "tokensOut": "输出 Tokens",
+    "messages": "消息数",
+    "days": "天",
+    "loading": "加载中...",
+    "noData": "暂无使用数据",
+    "chartTitle": "近 {days} 天输出 Token 用量"
   },
   "documents": {
     "title": "知识库",
