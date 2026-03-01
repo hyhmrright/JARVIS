@@ -36,6 +36,8 @@ dependencies = [
     "aiogram>=3.25.0",
     "discord-py>=2.7.0",
     "pyyaml>=6.0.3",
+    "mcp>=1.0.0",
+    "apscheduler>=3.10",
 ]
 
 [dependency-groups]

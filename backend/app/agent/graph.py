@@ -50,6 +50,7 @@ def _resolve_tools(
     api_key: str | None = None,
     api_keys: list[str] | None = None,
     depth: int = 0,
+    mcp_tools: list[BaseTool] | None = None,
 ) -> list[BaseTool]:
     """Build the tool list based on enabled flags and available keys."""
     if enabled_tools is not None:
@@ -93,6 +94,16 @@ def _resolve_tools(
             )
         )
 
+    if user_id and (enabled_tools is None or "cron" in enabled_tools):
+        from app.tools.cron_tool import create_cron_tools
+
+        cron_set, cron_list, cron_delete = create_cron_tools(user_id)
+        tools.extend([cron_set, cron_list, cron_delete])
+
+    # MCP tools (pre-loaded by caller, bypass the enabled_tools filter)
+    if mcp_tools:
+        tools.extend(mcp_tools)
+
     return tools
 
 
@@ -107,6 +118,7 @@ def create_graph(
     openai_api_key: str | None = None,
     tavily_api_key: str | None = None,
     depth: int = 0,
+    mcp_tools: list[BaseTool] | None = None,
 ) -> CompiledStateGraph:
     all_keys = api_keys if api_keys else [api_key]
 
@@ -120,6 +132,7 @@ def create_graph(
         api_key=api_key,
         api_keys=api_keys,
         depth=depth,
+        mcp_tools=mcp_tools,
     )
 
     llm = get_llm(provider, model, all_keys[0])

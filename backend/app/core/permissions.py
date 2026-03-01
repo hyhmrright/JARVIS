@@ -69,6 +69,18 @@ TOOL_REGISTRY: list[ToolDef] = [
         "Delegate subtasks to an independent sub-agent",
         default_enabled=False,
     ),
+    ToolDef(
+        "mcp",
+        "MCP Servers",
+        "Tools from connected MCP servers (configured via MCP_SERVERS_JSON)",
+        default_enabled=False,
+    ),
+    ToolDef(
+        "cron",
+        "Cron Scheduler",
+        "Schedule recurring tasks with cron expressions",
+        default_enabled=False,
+    ),
 ]
 
 TOOL_NAMES: set[str] = {t.name for t in TOOL_REGISTRY}

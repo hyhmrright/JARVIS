@@ -22,6 +22,7 @@ from app.core.logging import configure_logging
 from app.core.logging_middleware import LoggingMiddleware
 from app.infra.minio import get_minio_client
 from app.infra.qdrant import close_qdrant_client, get_qdrant_client
+from app.scheduler.runner import start_scheduler, stop_scheduler
 
 configure_logging()
 logger = structlog.get_logger(__name__)
@@ -36,7 +37,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     minio = get_minio_client()
     await asyncio.to_thread(minio.bucket_exists, settings.minio_bucket)
     logger.info("Infrastructure ready.")
+    await start_scheduler()
     yield
+    await stop_scheduler()
     await close_qdrant_client()
     logger.info("Shutting down.")
 
