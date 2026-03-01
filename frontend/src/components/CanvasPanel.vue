@@ -7,7 +7,7 @@
       </div>
       <iframe
         class="canvas-frame"
-        sandbox="allow-scripts allow-same-origin allow-forms"
+        sandbox="allow-scripts allow-forms"
         :srcdoc="currentHtml"
         title="Agent Canvas"
       />
@@ -16,7 +16,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
 
 const props = defineProps<{
   conversationId: string
@@ -63,10 +63,6 @@ watch(
   },
   { immediate: true },
 )
-
-onMounted(() => {
-  if (props.conversationId) connectCanvas(props.conversationId)
-})
 
 onUnmounted(() => {
   eventSource?.close()

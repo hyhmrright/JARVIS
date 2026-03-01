@@ -93,7 +93,7 @@ class ChatRequest(BaseModel):
 
 
 @router.post("/stream")
-async def chat_stream(
+async def chat_stream(  # noqa: C901
     body: ChatRequest,
     user: User = Depends(get_current_user),
     llm: ResolvedLLMConfig = Depends(get_llm_config),
@@ -154,9 +154,13 @@ async def chat_stream(
             )
         except Exception:
             logger.warning("context_compression_failed", exc_info=True)
-        from app.tools.mcp_client import create_mcp_tools, parse_mcp_configs
+        mcp_tools: list = []
+        if llm.enabled_tools is None or "mcp" in llm.enabled_tools:
+            from app.tools.mcp_client import create_mcp_tools, parse_mcp_configs
 
-        mcp_tools = await create_mcp_tools(parse_mcp_configs(settings.mcp_servers_json))
+            mcp_tools = await create_mcp_tools(
+                parse_mcp_configs(settings.mcp_servers_json)
+            )
         graph = create_graph(
             provider=llm.provider,
             model=llm.model_name,

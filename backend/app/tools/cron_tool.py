@@ -40,6 +40,9 @@ def create_cron_tools(user_id: str) -> tuple[BaseTool, BaseTool, BaseTool]:
             db.add(job)
             await db.commit()
             await db.refresh(job)
+        from app.scheduler.runner import register_cron_job
+
+        register_cron_job(str(job.id), user_id, schedule, task)
         logger.info("cron_job_created", user_id=user_id, job_id=str(job.id))
         return f"Scheduled: '{task}' with schedule '{schedule}' (id: {job.id})"
 
@@ -82,6 +85,9 @@ def create_cron_tools(user_id: str) -> tuple[BaseTool, BaseTool, BaseTool]:
                 return f"Cron job {job_id!r} not found."
             job.is_active = False
             await db.commit()
+        from app.scheduler.runner import unregister_cron_job
+
+        unregister_cron_job(job_id)
         logger.info("cron_job_deleted", user_id=user_id, job_id=job_id)
         return f"Deleted cron job {job_id}."
 

@@ -9,7 +9,7 @@ import structlog
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user_query_token
 from app.db.models import User
 from app.tools.canvas_tool import get_canvas_bus
 
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/canvas", tags=["canvas"])
 @router.get("/stream/{conversation_id}")
 async def canvas_stream(
     conversation_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user_query_token),
 ) -> StreamingResponse:
     """SSE stream of canvas render events for a conversation.
 

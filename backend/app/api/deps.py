@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,12 +26,10 @@ class ResolvedLLMConfig:
     raw_keys: dict[str, str]
 
 
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: AsyncSession = Depends(get_db),
-) -> User:
+async def _resolve_user(token: str, db: AsyncSession) -> User:
+    """Decode a JWT token and return the active user, or raise 401."""
     try:
-        user_id = decode_access_token(credentials.credentials)
+        user_id = decode_access_token(token)
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
@@ -44,6 +42,22 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
         )
     return user
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    return await _resolve_user(credentials.credentials, db)
+
+
+async def get_current_user_query_token(
+    token: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Authenticate via ?token= query param (for SSE endpoints where headers
+    aren't supported)."""
+    return await _resolve_user(token, db)
 
 
 async def get_llm_config(

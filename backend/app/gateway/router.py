@@ -333,19 +333,23 @@ class GatewayRouter:
     ) -> str:
         """Create and invoke the LangGraph agent, returning the AI reply."""
         # Auto-inject RAG context when user has relevant documents
-        openai_key_for_rag = resolve_api_key("openai", raw_keys)
+        openai_key = resolve_api_key("openai", raw_keys)
         last_human = next(
             (m.content for m in reversed(lc_messages) if isinstance(m, HumanMessage)),
             "",
         )
         if last_human:
             lc_messages = await maybe_inject_rag_context(
-                lc_messages, str(last_human), user_id, openai_key_for_rag
+                lc_messages, str(last_human), user_id, openai_key
             )
 
-        from app.tools.mcp_client import create_mcp_tools, parse_mcp_configs
+        mcp_tools: list = []
+        if enabled_tools is None or "mcp" in enabled_tools:
+            from app.tools.mcp_client import create_mcp_tools, parse_mcp_configs
 
-        mcp_tools = await create_mcp_tools(parse_mcp_configs(settings.mcp_servers_json))
+            mcp_tools = await create_mcp_tools(
+                parse_mcp_configs(settings.mcp_servers_json)
+            )
         graph = create_graph(
             provider=provider,
             model=model_name,
@@ -353,7 +357,7 @@ class GatewayRouter:
             enabled_tools=enabled_tools,
             api_keys=api_keys,
             user_id=user_id,
-            openai_api_key=resolve_api_key("openai", raw_keys),
+            openai_api_key=openai_key,
             tavily_api_key=settings.tavily_api_key,
             mcp_tools=mcp_tools,
             conversation_id=conversation_id,

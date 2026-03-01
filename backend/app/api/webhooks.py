@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hmac
 import json
 import secrets
@@ -19,6 +20,9 @@ from app.db.models import User, Webhook
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/webhooks", tags=["webhooks"])
+
+# Strong references to background tasks so they aren't GC'd before completion.
+_background_tasks: set[asyncio.Task] = set()
 
 
 class WebhookCreate(BaseModel):
@@ -139,8 +143,11 @@ async def trigger_webhook(
         trigger_count=webhook.trigger_count,
     )
 
-    # Fire-and-forget: log the task (full agent execution would go here)
-    # TODO: push to task queue (Redis/Celery) for reliable async execution
+    from app.gateway.agent_runner import run_agent_for_user
+
+    bg = asyncio.create_task(run_agent_for_user(str(webhook.user_id), task))
+    _background_tasks.add(bg)
+    bg.add_done_callback(_background_tasks.discard)
     logger.info("webhook_task_queued", task_preview=task[:200])
 
     return {"status": "accepted", "task_preview": task[:200]}
