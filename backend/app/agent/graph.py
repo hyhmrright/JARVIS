@@ -98,11 +98,10 @@ def _resolve_tools(
     if user_id and (enabled_tools is None or "cron" in enabled_tools):
         from app.tools.cron_tool import create_cron_tools
 
-        cron_set, cron_list, cron_delete = create_cron_tools(user_id)
-        tools.extend([cron_set, cron_list, cron_delete])
+        tools.extend(create_cron_tools(user_id))
 
-    # Canvas tool — conversation_id needed for routing events
-    if "canvas" in (enabled_tools or []) and conversation_id:
+    # Canvas tool — opt-in only, requires conversation_id for event routing
+    if enabled_tools is not None and "canvas" in enabled_tools and conversation_id:
         from app.tools.canvas_tool import create_canvas_tool
 
         tools.append(create_canvas_tool(conversation_id))
