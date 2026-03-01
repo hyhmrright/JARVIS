@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     # Skills directory — load .md skill files to inject into system prompt
     skills_dir: str = str(Path.home() / ".jarvis" / "skills")
 
+    # MCP server configurations (JSON array of MCPServerConfig dicts)
+    mcp_servers_json: str = ""
+
     # Sandbox settings
     sandbox_enabled: bool = False
     sandbox_image: str = "jarvis-sandbox:latest"
