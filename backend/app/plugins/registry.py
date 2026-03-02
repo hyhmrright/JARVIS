@@ -62,12 +62,10 @@ class PluginRegistry:
         """Return metadata for all registered plugins."""
         result: list[dict] = []
         for entry in self._entries.values():
+            m = entry.plugin.manifest
             result.append(
                 {
-                    "id": entry.plugin.plugin_id,
-                    "name": entry.plugin.plugin_name,
-                    "version": entry.plugin.plugin_version,
-                    "description": entry.plugin.plugin_description,
+                    **m.model_dump(),
                     "tools": [t.name for t in entry.tools],
                     "channels": [
                         getattr(c, "channel_name", str(c)) for c in entry.channels

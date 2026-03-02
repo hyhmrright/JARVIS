@@ -8,15 +8,17 @@ import pytest
 
 from app.plugins.api import PluginAPI
 from app.plugins.registry import PluginRegistry
-from app.plugins.sdk import JarvisPlugin
+from app.plugins.sdk import JarvisPlugin, JarvisPluginManifest
 
 
 class _HelloPlugin(JarvisPlugin):
     """Test plugin for PluginRegistry tests."""
 
-    plugin_id = "hello"
-    plugin_name = "Hello Plugin"
-    plugin_description = "Test plugin"
+    manifest = JarvisPluginManifest(
+        plugin_id="hello",
+        name="Hello Plugin",
+        description="Test plugin",
+    )
 
     def __init__(self) -> None:
         self.loaded = False
@@ -36,7 +38,7 @@ def test_registry_register_and_list():
 
     plugins = reg.list_plugins()
     assert len(plugins) == 1
-    assert plugins[0]["id"] == "hello"
+    assert plugins[0]["plugin_id"] == "hello"
     assert plugins[0]["name"] == "Hello Plugin"
 
 
@@ -101,7 +103,7 @@ def test_registry_duplicate_id_skipped():
 
 @pytest.mark.asyncio
 async def test_instantiate_missing_plugin_id_is_evicted():
-    """Plugins without plugin_id are caught during directory loading."""
+    """Plugins without manifest are caught during directory loading."""
     from app.plugins.loader import load_all_plugins
 
     plugin_src = """\
@@ -110,7 +112,7 @@ from app.plugins.api import PluginAPI
 
 
 class NoIdPlugin(JarvisPlugin):
-    # missing plugin_id and plugin_name
+    # missing manifest
     async def on_load(self, api: PluginAPI) -> None:
         pass
 """
@@ -171,13 +173,15 @@ async def test_load_from_directory():
     from app.plugins.loader import load_all_plugins
 
     plugin_src = """\
-from app.plugins.sdk import JarvisPlugin
+from app.plugins.sdk import JarvisPlugin, JarvisPluginManifest
 from app.plugins.api import PluginAPI
 
 
 class MyPlugin(JarvisPlugin):
-    plugin_id = "dir_plugin"
-    plugin_name = "Directory Plugin"
+    manifest = JarvisPluginManifest(
+        plugin_id="dir_plugin",
+        name="Directory Plugin"
+    )
 
     async def on_load(self, api: PluginAPI) -> None:
         pass
@@ -186,7 +190,7 @@ class MyPlugin(JarvisPlugin):
         (Path(tmp) / "my_plugin.py").write_text(plugin_src)
         reg = PluginRegistry()
         await load_all_plugins(reg, plugin_dirs=[Path(tmp)])
-        ids = [p["id"] for p in reg.list_plugins()]
+        ids = [p["plugin_id"] for p in reg.list_plugins()]
         assert "dir_plugin" in ids
 
 
@@ -217,8 +221,7 @@ async def test_activate_plugin_failure_removes_plugin() -> None:
     from app.plugins.loader import activate_all_plugins
 
     class _BadPlugin(JarvisPlugin):
-        plugin_id = "bad"
-        plugin_name = "Bad Plugin"
+        manifest = JarvisPluginManifest(plugin_id="bad", name="Bad Plugin")
 
         async def on_load(self, api: PluginAPI) -> None:
             raise RuntimeError("intentional failure")

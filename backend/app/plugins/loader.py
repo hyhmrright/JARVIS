@@ -130,17 +130,20 @@ def _instantiate_and_register(plugin_class: type, registry: PluginRegistry) -> N
         logger.info(
             "plugin_discovered",
             plugin_id=plugin.plugin_id,
-            name=plugin.plugin_name,
+            name=plugin.manifest.name,
         )
     except Exception:
         logger.exception("plugin_instantiation_failed", cls=plugin_class.__name__)
 
 
 def _validate_plugin(plugin: JarvisPlugin, plugin_class: type) -> None:
-    """Validate that plugin has required non-empty string attributes."""
-    for attr in ("plugin_id", "plugin_name"):
-        value = getattr(plugin, attr, None)
-        if not isinstance(value, str) or not value.strip():
-            raise TypeError(
-                f"{plugin_class.__name__} must define non-empty string '{attr}'"
-            )
+    """Validate that plugin has a valid manifest."""
+    if not hasattr(plugin, "manifest") or plugin.manifest is None:
+        raise TypeError(f"{plugin_class.__name__} must define 'manifest'")
+
+    from app.plugins.sdk import JarvisPluginManifest
+
+    if not isinstance(plugin.manifest, JarvisPluginManifest):
+        raise TypeError(
+            f"{plugin_class.__name__}.manifest must be a JarvisPluginManifest instance"
+        )

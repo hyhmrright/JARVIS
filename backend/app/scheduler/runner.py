@@ -26,6 +26,7 @@ async def _execute_cron_job(job_id: str, user_id: str, task: str) -> None:
     from app.db.models import CronJob
     from app.db.session import AsyncSessionLocal
     from app.gateway.agent_runner import run_agent_for_user
+    from app.scheduler.triggers import evaluate_trigger
 
     logger.info("cron_job_firing", job_id=job_id, user_id=user_id)
 
@@ -34,6 +35,15 @@ async def _execute_cron_job(job_id: str, user_id: str, task: str) -> None:
         if not job or not job.is_active:
             logger.info("cron_job_skipped_inactive", job_id=job_id)
             return
+
+        # NEW: Evaluate proactive trigger condition (e.g. web watcher)
+        metadata = dict(job.trigger_metadata or {})
+        if not await evaluate_trigger(job.trigger_type, metadata):
+            logger.info("proactive_trigger_skipped_no_change", job_id=job_id)
+            return
+
+        # Update metadata (e.g. last_hash) and execution time
+        job.trigger_metadata = metadata
         job.last_run_at = datetime.now(UTC)
         await db.commit()
 

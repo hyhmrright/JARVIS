@@ -2,31 +2,70 @@
 
 from __future__ import annotations
 
+import enum
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from app.plugins.api import PluginAPI
 
 
+class PluginCategory(enum.StrEnum):
+    TOOL = "tool"
+    CHANNEL = "channel"
+    RAG = "rag"
+    AUTOMATION = "automation"
+    UI = "ui"
+    SYSTEM = "system"
+
+
+class JarvisPluginManifest(BaseModel):
+    """Declarative metadata for a JARVIS plugin (inspired by OpenClaw)."""
+
+    plugin_id: str = Field(..., description="Unique slug for the plugin")
+    name: str = Field(..., description="Human-readable name")
+    version: str = Field("0.1.0", description="Semver version string")
+    description: str = Field("", description="Brief purpose of the plugin")
+    category: PluginCategory = Field(PluginCategory.TOOL)
+    author: str | None = None
+    homepage: str | None = None
+    license: str | None = "MIT"
+    requires: list[str] = Field(
+        default_factory=list, description="IDs of dependency plugins"
+    )
+    config_schema: dict[str, Any] | None = Field(
+        None, description="JSON Schema for plugin-specific configuration"
+    )
+
+
 class JarvisPlugin(ABC):
     """Base class for all JARVIS plugins.
 
-    Subclasses must set class-level ``plugin_id`` and ``plugin_name``,
-    and implement ``on_load``.  A minimal plugin looks like::
+    Subclasses must set class-level ``manifest`` and implement ``on_load``.
+    A minimal plugin looks like::
 
         class MyPlugin(JarvisPlugin):
-            plugin_id = "my-plugin"
-            plugin_name = "My Plugin"
+            manifest = JarvisPluginManifest(
+                plugin_id="my-plugin",
+                name="My Plugin",
+                description="Example plugin"
+            )
 
             async def on_load(self, api: PluginAPI) -> None:
                 api.register_tool(my_langchain_tool)
     """
 
-    plugin_id: str  # unique identifier, set on subclass
-    plugin_name: str  # human-readable name, set on subclass
-    plugin_version: str = "0.1.0"
-    plugin_description: str = ""
+    manifest: JarvisPluginManifest
+
+    @property
+    def plugin_id(self) -> str:
+        return self.manifest.plugin_id
+
+    @property
+    def plugin_name(self) -> str:
+        return self.manifest.name
 
     @abstractmethod
     async def on_load(self, api: PluginAPI) -> None:

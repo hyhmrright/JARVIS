@@ -265,6 +265,10 @@ class CronJob(Base):
     )
     schedule: Mapped[str] = mapped_column(String(100), nullable=False)
     task: Mapped[str] = mapped_column(Text, nullable=False)
+    trigger_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="cron"
+    )
+    trigger_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     last_run_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
