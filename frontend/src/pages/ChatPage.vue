@@ -1,889 +1,606 @@
 <template>
   <div class="chat-layout">
-    <CanvasPanel v-if="chat.currentConvId" :conversation-id="chat.currentConvId" />
-    <aside class="sidebar">
+    <!-- Gradient Background -->
+    <div class="bg-glow"></div>
+
+    <aside :class="['sidebar', { 'sidebar--collapsed': sidebarCollapsed }]">
       <div class="sidebar-brand">
-        <span class="brand-icon">&#10022;</span>
-        <span class="brand-text">JARVIS</span>
-      </div>
-      <button class="new-chat-btn" @click="chat.newConversation()">
-        <span class="plus-icon">+</span>
-        {{ $t("chat.newConversation") }}
-      </button>
-      <ul class="conv-list">
-        <li
-          v-for="conv in chat.conversations"
-          :key="conv.id"
-          :class="['conv-item', { active: conv.id === chat.currentConvId }]"
-          @click="chat.selectConversation(conv.id)"
-        >
-          <span class="conv-title">{{ conv.title }}</span>
-          <button
-            class="conv-delete"
-            :title="$t('chat.deleteConfirm')"
-            @click.stop="confirmDelete(conv.id)"
-          >
-            &times;
-          </button>
-        </li>
-      </ul>
-      <div class="sidebar-footer">
-        <router-link to="/documents" class="footer-link">
-          <span class="footer-icon">&#9635;</span>
-          {{ $t("chat.documents") }}
-        </router-link>
-        <router-link to="/usage" class="footer-link">
-          <span class="footer-icon">&#9783;</span>
-          {{ $t("chat.usage") }}
-        </router-link>
-        <router-link to="/proactive" class="footer-link">
-          <span class="footer-icon">&#9202;</span>
-          {{ $t("proactive.title") }}
-        </router-link>
-        <router-link to="/settings" class="footer-link">
-          <span class="footer-icon">&#9881;</span>
-          {{ $t("chat.settings") }}
-        </router-link>
-        <button class="footer-link logout-btn" @click="auth.logout(); router.push('/login')">
-          <span class="footer-icon">&#10140;</span>
-          {{ $t("chat.logout") }}
+        <div class="brand-logo">J</div>
+        <span v-if="!sidebarCollapsed" class="brand-name">JARVIS</span>
+        <button class="btn-toggle-sidebar" @click="sidebarCollapsed = !sidebarCollapsed">
+          {{ sidebarCollapsed ? '→' : '←' }}
         </button>
       </div>
+
+      <button class="btn-new-chat" @click="chat.newConversation">
+        <span class="plus-icon">+</span>
+        <span v-if="!sidebarCollapsed">{{ $t("chat.newConversation") }}</span>
+      </button>
+
+      <nav class="conv-list custom-scrollbar">
+        <div
+          v-for="c in chat.conversations"
+          :key="c.id"
+          :class="['conv-item', { active: chat.currentConvId === c.id }]"
+          @click="chat.selectConversation(c.id)"
+        >
+          <span class="conv-icon">💬</span>
+          <span v-if="!sidebarCollapsed" class="conv-title">{{ c.title }}</span>
+          <button
+            v-if="!sidebarCollapsed"
+            class="btn-delete-conv"
+            @click.stop="chat.deleteConversation(c.id)"
+          >
+            ×
+          </button>
+        </div>
+      </nav>
+
+      <footer class="sidebar-footer">
+        <router-link to="/proactive" class="footer-link" :title="$t('proactive.title')">
+          <span class="footer-icon">⚡</span>
+          <span v-if="!sidebarCollapsed">{{ $t("proactive.title") }}</span>
+        </router-link>
+        <router-link to="/settings" class="footer-link" :title="$t('chat.settings')">
+          <span class="footer-icon">⚙️</span>
+          <span v-if="!sidebarCollapsed">{{ $t("chat.settings") }}</span>
+        </router-link>
+        <button class="footer-link logout-btn" @click="handleLogout" :title="$t('chat.logout')">
+          <span class="footer-icon">🚪</span>
+          <span v-if="!sidebarCollapsed">{{ $t("chat.logout") }}</span>
+        </button>
+      </footer>
     </aside>
 
     <main class="chat-main">
-      <div v-if="chat.messages.length === 0" class="empty-state">
-        <span class="empty-icon">&#10022;</span>
-        <h2>JARVIS</h2>
-        <p>{{ $t("chat.inputPlaceholder") }}</p>
-      </div>
+      <header class="chat-header">
+        <div class="header-info">
+          <h2>{{ currentConvTitle }}</h2>
+          <span class="status-indicator">Online</span>
+        </div>
+      </header>
 
-      <div v-else ref="messagesEl" class="messages">
+      <div ref="messagesEl" class="messages-container custom-scrollbar">
+        <div v-if="chat.messages.length === 0" class="welcome-screen">
+          <div class="welcome-content">
+            <h1>Hello, {{ auth.displayName || 'Friend' }}</h1>
+            <p>How can I assist you today?</p>
+            <div class="quick-actions">
+              <button @click="input = 'Show me a demo of Live Canvas'">🎨 Live Canvas Demo</button>
+              <button @click="input = 'What proactive tasks are running?'">⚡ Active Monitors</button>
+            </div>
+          </div>
+        </div>
+
         <div
-          v-for="(msg, i) in chat.messages"
-          :key="i"
-          :class="['message', msg.role]"
+          v-for="(msg, idx) in chat.messages"
+          :key="idx"
+          :class="['msg-row', msg.role]"
         >
           <div class="msg-avatar">
-            <span v-if="msg.role === 'ai'" class="avatar-ai">&#10022;</span>
-            <span v-else class="avatar-user">U</span>
+            <span v-if="msg.role === 'ai'">J</span>
+            <span v-else>{{ auth.displayName?.[0] || 'U' }}</span>
           </div>
-          <div class="msg-bubble">
-            <p>{{ msg.content }}</p>
-            <LiveCanvas v-if="msg.role === 'ai'" :content="msg.content" />
-            
-            <!-- HITL Approval Bubble -->
-            <div v-if="msg.pending_tool_call" class="approval-bubble">
-              <p><strong>Action Required:</strong> AI wants to run:</p>
-              <pre>{{ msg.pending_tool_call.name }}({{ JSON.stringify(msg.pending_tool_call.args) }})</pre>
-              <div class="approval-actions">
-                <button class="btn-approve" @click="chat.handleConsent(true)">Allow</button>
-                <button class="btn-deny" @click="chat.handleConsent(false)">Deny</button>
+          <div class="msg-content-wrapper">
+            <div class="msg-bubble">
+              <div class="markdown-body" v-html="renderMarkdown(msg.content)"></div>
+              
+              <!-- HITL Approval -->
+              <div v-if="msg.pending_tool_call" class="approval-card">
+                <div class="approval-header">
+                  <span>Security Check</span>
+                  <span class="shield-icon">🛡️</span>
+                </div>
+                <p>AI is requesting to execute:</p>
+                <code>{{ msg.pending_tool_call.name }}</code>
+                <div class="approval-actions">
+                  <button class="btn-approve" @click="chat.handleConsent(true)">Allow</button>
+                  <button class="btn-deny" @click="chat.handleConsent(false)">Deny</button>
+                </div>
               </div>
-            </div>
 
-            <div v-if="msg.toolCalls?.length" class="tool-calls">
-              <div v-for="(tc, ti) in msg.toolCalls" :key="ti" class="tool-call-card">
-                <span class="tool-icon">&#9881;</span>
-                <span class="tool-name">{{ tc.name }}</span>
-                <span v-if="tc.status === 'running'" class="tool-status running">{{ $t('chat.toolRunning') }}</span>
-                <span v-else class="tool-status done">&#10003;</span>
-                <details v-if="tc.result" class="tool-result">
-                  <summary>{{ $t('chat.toolResult') }}</summary>
-                  <pre>{{ tc.result }}</pre>
-                </details>
+              <!-- Tool Calls -->
+              <div v-if="msg.toolCalls?.length" class="tool-section">
+                <div v-for="tc in msg.toolCalls" :key="tc.name" class="tool-pill">
+                  <span :class="['status-dot', tc.status]"></span>
+                  <span class="tool-name">{{ tc.name }}</span>
+                </div>
               </div>
             </div>
-            <button
-              v-if="msg.role === 'ai' && !(chat.streaming && i === chat.messages.length - 1)"
-              class="tts-btn"
-              :class="{ playing: playingMessageId === String(i) }"
-              :title="playingMessageId === String(i) ? $t('chat.ttsStop') : $t('chat.ttsPlay')"
-              @click="playTTS(msg.content, String(i))"
-            >
-              <span v-if="playingMessageId === String(i)">⏹</span>
-              <span v-else>🔊</span>
-            </button>
-            <button
-              v-if="!(chat.streaming && i === chat.messages.length - 1)"
-              class="copy-btn"
-              :title="$t('chat.copy')"
-              @click="copyMessage(msg.content, i)"
-            >
-              <span v-if="copiedIndex === i">✓</span>
-              <span v-else>⧉</span>
-            </button>
+            <LiveCanvas v-if="msg.role === 'ai' && hasHtml(msg.content)" :content="msg.content" />
           </div>
         </div>
-        <div v-if="chat.streaming" class="streaming-indicator">
-          <span class="dot"></span>
-          <span class="dot"></span>
-          <span class="dot"></span>
+        <div v-if="chat.streaming" class="msg-row ai">
+          <div class="msg-avatar typing">...</div>
         </div>
       </div>
 
-      <div class="input-area">
+      <div class="input-container">
         <div class="input-wrapper">
-          <button
-            v-if="speechInput.isSupported"
-            class="mic-btn"
-            @click="voiceOverlay?.start()"
-            :title="'语音交互'"
-          >
-            <span>🎤</span>
-          </button>
-          <button v-else class="voice-btn" disabled :title="$t('chat.voiceComingSoon')">
-            <span>&#9834;</span>
+          <button class="btn-voice" @click="voiceOverlay?.start()">
+            🎤
           </button>
           <textarea
             v-model="input"
+            class="chat-input"
             :placeholder="$t('chat.inputPlaceholder')"
-            :disabled="chat.streaming"
-            rows="1"
-            @keydown.enter.exact.prevent="send"
-          />
+            @keydown.enter.prevent="handleSend"
+          ></textarea>
           <button
-            class="send-btn"
-            :disabled="chat.streaming || !input.trim()"
-            @click="send"
+            class="btn-send"
+            :disabled="!input.trim() || chat.streaming"
+            @click="handleSend"
           >
-            <span>&#10148;</span>
+            <span>↑</span>
           </button>
         </div>
       </div>
     </main>
+
     <VoiceOverlay ref="voiceOverlay" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from "vue";
+import { ref, onMounted, watch, nextTick, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useChatStore } from "@/stores/chat";
 import { useAuthStore } from "@/stores/auth";
-import { useSpeechInput } from "@/composables/useSpeechInput";
-import CanvasPanel from "@/components/CanvasPanel.vue";
-import LiveCanvas from "@/components/LiveCanvas.vue";
+import { marked } from "marked";
+import hljs from "highlight.js";
+import "highlight.js/styles/github-dark.css";
 
+import LiveCanvas from "@/components/LiveCanvas.vue";
 import VoiceOverlay from "@/components/VoiceOverlay.vue";
 
 const { t } = useI18n();
 const chat = useChatStore();
 const auth = useAuthStore();
 const router = useRouter();
+
 const input = ref("");
+const sidebarCollapsed = ref(false);
 const messagesEl = ref<HTMLElement>();
-const copiedIndex = ref<number | null>(null);
-const playingMessageId = ref<string | null>(null);
 const voiceOverlay = ref<InstanceType<typeof VoiceOverlay>>();
 
-const speechInput = useSpeechInput((text: string) => {
-  // Append recognized text to existing input
-  input.value = (input.value ? input.value + " " : "") + text;
+// Markdown setup
+marked.setOptions({
+  highlight: (code, lang) => {
+    if (lang && hljs.getLanguage(lang)) {
+      return hljs.highlight(code, { language: lang }).value;
+    }
+    return hljs.highlightAuto(code).value;
+  },
+  breaks: true,
 });
 
-async function playTTS(content: string, messageId: string): Promise<void> {
-  if (playingMessageId.value === messageId) {
-    playingMessageId.value = null;
-    return;
-  }
-  const token = localStorage.getItem("token");
-  try {
-    playingMessageId.value = messageId;
-    const resp = await fetch("/api/tts/synthesize", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ text: content.slice(0, 5000) }),
+const renderMarkdown = (text: string) => {
+  if (!text) return '<span class="cursor">|</span>';
+  return marked.parse(text);
+};
+
+const hasHtml = (text: string) => /<html>[\s\S]*?<\/html>/.test(text);
+
+const currentConvTitle = computed(() => {
+  const c = chat.conversations.find((conv) => conv.id === chat.currentConvId);
+  return c ? c.title : t("chat.newConversation");
+});
+
+const handleSend = async () => {
+  if (!input.value.trim() || chat.streaming) return;
+  const msg = input.value;
+  input.value = "";
+  await chat.sendMessage(msg);
+};
+
+const handleLogout = () => {
+  auth.logout();
+  router.push("/login");
+};
+
+const scrollToBottom = async () => {
+  await nextTick();
+  if (messagesEl.value) {
+    messagesEl.value.scrollTo({
+      top: messagesEl.value.scrollHeight,
+      behavior: "smooth",
     });
-    if (!resp.ok) throw new Error(`TTS failed: ${resp.status}`);
-    const blob = await resp.blob();
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.onended = () => {
-      URL.revokeObjectURL(url);
-      playingMessageId.value = null;
-    };
-    audio.onerror = () => {
-      URL.revokeObjectURL(url);
-      playingMessageId.value = null;
-    };
-    await audio.play();
-  } catch (e) {
-    console.error("TTS error:", e);
-    playingMessageId.value = null;
   }
-}
+};
 
-async function copyMessage(content: string, index: number): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(content);
-    copiedIndex.value = index;
-    setTimeout(() => {
-      copiedIndex.value = null;
-    }, 1500);
-  } catch {
-    // Clipboard API unavailable (non-secure context or permission denied)
-  }
-}
+watch(() => chat.messages.length, scrollToBottom);
+watch(() => chat.streaming, (isStreaming) => {
+  if (isStreaming) scrollToBottom();
+});
 
-onMounted(() => chat.loadConversations());
-
-let scrollThrottleId: ReturnType<typeof setTimeout> | null = null;
-
-watch(
-  () => [chat.messages.length, chat.messages[chat.messages.length - 1]?.content] as const,
-  () => {
-    if (scrollThrottleId) return;
-    scrollThrottleId = setTimeout(async () => {
-      scrollThrottleId = null;
-      await nextTick();
-      messagesEl.value?.scrollTo(0, messagesEl.value.scrollHeight);
-    }, 16);
-  },
-);
-
-async function send(): Promise<void> {
-  const text = input.value.trim();
-  if (!text || chat.streaming) return;
-  try {
-    input.value = "";
-    await chat.sendMessage(text);
-  } catch {
-    // Restore input on send failure so the user can retry
-    input.value = text;
-  }
-}
-
-async function confirmDelete(convId: string): Promise<void> {
-  if (confirm(t("chat.deleteConfirm"))) {
-    await chat.deleteConversation(convId);
-  }
-}
+onMounted(async () => {
+  await chat.loadConversations();
+});
 </script>
 
 <style scoped>
 .chat-layout {
   display: flex;
   height: 100vh;
+  background: var(--bg-primary);
+  position: relative;
   overflow: hidden;
+}
+
+.bg-glow {
+  position: absolute;
+  top: -10%;
+  left: -10%;
+  width: 40%;
+  height: 40%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 70%);
+  filter: blur(60px);
+  pointer-events: none;
 }
 
 /* ── Sidebar ── */
 .sidebar {
-  width: 260px;
-  min-width: 260px;
+  width: 280px;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  padding: var(--space-md);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100;
+  backdrop-filter: var(--glass-blur);
+}
+
+.sidebar--collapsed {
+  width: 80px;
 }
 
 .sidebar-brand {
+  padding: 1.5rem;
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-sm) var(--space-lg);
+  gap: 1rem;
 }
 
-.sidebar-brand .brand-icon {
-  font-size: 22px;
-  color: var(--accent);
-  filter: drop-shadow(0 0 8px var(--accent-a40));
+.brand-logo {
+  width: 32px;
+  height: 32px;
+  background: var(--accent);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.2rem;
 }
 
-.sidebar-brand .brand-text {
-  font-family: var(--font-heading);
-  font-size: 18px;
+.brand-name {
   font-weight: 700;
-  letter-spacing: 3px;
-  color: var(--text-primary);
+  letter-spacing: 1px;
 }
 
-.new-chat-btn {
+.btn-toggle-sidebar {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.btn-new-chat {
+  margin: 0 1rem 1rem;
+  padding: 0.75rem;
+  background: var(--border);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: 10px var(--space-md);
-  background: transparent;
-  border: 1px solid var(--border-glow);
-  border-radius: var(--radius-md);
-  color: var(--accent);
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: var(--space-md);
-  transition:
-    background 0.3s ease,
-    border-color 0.3s ease;
+  gap: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.new-chat-btn:hover {
-  background: var(--accent-a08);
+.btn-new-chat:hover {
+  background: var(--bg-tertiary);
   border-color: var(--accent);
-}
-
-.plus-icon {
-  font-size: 18px;
-  line-height: 1;
 }
 
 .conv-list {
   flex: 1;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  padding: 0 0.5rem;
 }
 
 .conv-item {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
+  gap: 0.75rem;
   cursor: pointer;
-  transition:
-    background 0.2s ease,
-    border-left 0.2s ease;
-  border-left: 3px solid transparent;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
   position: relative;
 }
 
-.conv-item:hover {
-  background: var(--bg-elevated);
-}
-
-.conv-item.active {
-  background: var(--accent-a06);
-  border-left-color: var(--accent);
-}
-
-.conv-title {
-  font-size: 14px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  min-width: 0;
-}
-
-.conv-delete {
-  display: none;
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  font-size: 16px;
-  padding: 0 4px;
-  cursor: pointer;
-  flex-shrink: 0;
-  line-height: 1;
-  border-radius: var(--radius-sm);
-  transition: color 0.2s ease, background 0.2s ease;
-}
-
-.conv-item:hover .conv-delete {
-  display: block;
-}
-
-.conv-delete:hover {
-  color: var(--danger);
-  background: var(--danger-a10);
-}
-
-.conv-item.active .conv-title {
+.conv-item:hover, .conv-item.active {
+  background: rgba(255,255,255,0.05);
   color: var(--text-primary);
 }
 
+.conv-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+
+.conv-title {
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .sidebar-footer {
+  padding: 1rem;
   border-top: 1px solid var(--border);
-  padding-top: var(--space-md);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0.5rem;
 }
 
 .footer-link {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
   color: var(--text-secondary);
-  font-size: 14px;
-  transition:
-    background 0.2s ease,
-    color 0.2s ease;
-  background: transparent;
-  width: 100%;
-  text-align: left;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
 }
 
 .footer-link:hover {
-  background: var(--bg-elevated);
+  background: rgba(255,255,255,0.05);
   color: var(--text-primary);
 }
 
-.footer-icon {
-  font-size: 16px;
-  width: 20px;
-  text-align: center;
-}
-
-.logout-btn {
-  cursor: pointer;
-}
-
-/* ── Main Chat Area ── */
+/* ── Main Chat ── */
 .chat-main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-width: 0;
   position: relative;
 }
 
-.empty-state {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-md);
-  opacity: 0.4;
+.chat-header {
+  padding: 1rem 2rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
 }
 
-.empty-icon {
-  font-size: 64px;
-  color: var(--accent);
-  filter: drop-shadow(0 0 24px var(--accent-a30));
-}
-
-.empty-state h2 {
-  font-family: var(--font-heading);
-  font-size: 24px;
-  letter-spacing: 6px;
-  color: var(--text-primary);
-}
-
-.empty-state p {
-  color: var(--text-muted);
-  font-size: 15px;
-}
-
-/* ── Messages ── */
-.messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--space-xl) var(--space-xl) 100px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
-}
-
-.message {
-  display: flex;
-  gap: var(--space-md);
-  max-width: 800px;
-  animation: fadeIn 0.3s ease;
-}
-
-.message.human {
-  align-self: flex-end;
-  flex-direction: row-reverse;
-}
-
-.message.ai {
-  align-self: flex-start;
-}
-
-.msg-avatar {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-}
-
-.avatar-ai {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, var(--accent), var(--accent-dim));
-  color: var(--bg-primary);
-  font-size: 16px;
-}
-
-.avatar-user {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--white-a08);
-  color: var(--text-secondary);
-  font-size: 13px;
+.header-info h2 {
+  font-size: 1.1rem;
   font-weight: 600;
 }
 
-.msg-bubble {
-  position: relative;
-  padding: 12px 16px 36px;
-  border-radius: var(--radius-lg);
-  line-height: 1.6;
-  font-size: 15px;
-}
-
-.message.human .msg-bubble {
-  background: linear-gradient(135deg, var(--accent-a15), var(--accent-a08));
-  border: 1px solid var(--accent-a12);
-  color: var(--text-primary);
-}
-
-.message.ai .msg-bubble {
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
-  color: var(--text-primary);
-}
-
-.msg-bubble p {
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.copy-btn {
-  display: none;
-  position: absolute;
-  bottom: 6px;
-  right: 8px;
-  width: 26px;
-  height: 26px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 13px;
+.status-indicator {
+  font-size: 0.7rem;
+  color: #4caf50;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
-  padding: 0;
+  gap: 4px;
 }
 
-.copy-btn:hover {
-  color: var(--accent);
-  background: var(--accent-a08);
-  border-color: var(--accent-a30);
-}
-
-.msg-bubble:hover .copy-btn {
-  display: flex;
-}
-
-.tts-btn {
-  display: none;
-  position: absolute;
-  bottom: 6px;
-  right: 40px;
-  width: 26px;
-  height: 26px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 13px;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
-  padding: 0;
-}
-
-.tts-btn:hover {
-  color: var(--accent);
-  background: var(--accent-a08);
-  border-color: var(--accent-a30);
-}
-
-.tts-btn.playing {
-  display: flex;
-  color: var(--accent);
-  border-color: var(--accent-a30);
-}
-
-.msg-bubble:hover .tts-btn {
-  display: flex;
-}
-
-/* ── Streaming Indicator ── */
-.streaming-indicator {
-  display: flex;
-  gap: 6px;
-  padding: 0 var(--space-xl);
-  padding-left: 52px;
-}
-
-.streaming-indicator .dot {
+.status-indicator::before {
+  content: '';
   width: 6px;
   height: 6px;
+  background: currentColor;
   border-radius: 50%;
-  background: var(--accent);
-  animation: pulse-glow 1.4s infinite;
 }
 
-.streaming-indicator .dot:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.streaming-indicator .dot:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-/* ── Input Area ── */
-.input-area {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: var(--space-md) var(--space-xl) var(--space-lg);
-  background: linear-gradient(to top, var(--bg-primary) 60%, transparent);
-}
-
-.input-wrapper {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-sm);
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-sm);
-  transition: border-color 0.3s ease;
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.input-wrapper:focus-within {
-  border-color: var(--accent-dim);
-  box-shadow: 0 0 0 3px var(--accent-a06);
-}
-
-.input-wrapper textarea {
+.messages-container {
   flex: 1;
-  background: transparent;
-  border: none;
-  padding: 8px;
-  min-height: 24px;
-  max-height: 120px;
-  resize: none;
-  font-size: 15px;
-  line-height: 1.5;
+  padding: 2rem;
+  overflow-y: auto;
 }
 
-.input-wrapper textarea:focus {
-  box-shadow: none;
-}
-
-.voice-btn,
-.send-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+.welcome-screen {
+  height: 80%;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  font-size: 18px;
+  text-align: center;
 }
 
-.voice-btn {
-  background: transparent;
-  color: var(--text-muted);
+.welcome-content h1 {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(to right, var(--text-primary), var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.quick-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  justify-content: center;
+}
+
+.quick-actions button {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.quick-actions button:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+/* ── Messages ── */
+.msg-row {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.msg-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  flex-shrink: 0;
   border: 1px solid var(--border);
 }
 
-.send-btn {
-  background: linear-gradient(135deg, var(--accent), var(--accent-dim));
-  color: var(--bg-primary);
+.ai .msg-avatar {
+  background: var(--accent);
+  color: white;
 }
 
-.send-btn:hover:not(:disabled) {
-  box-shadow: var(--shadow-glow);
-  transform: scale(1.05);
+.msg-content-wrapper {
+  flex: 1;
+  min-width: 0;
 }
 
-.send-btn:disabled {
-  background: var(--white-a06);
-  color: var(--text-muted);
+.msg-bubble {
+  font-size: 1rem;
+  color: var(--text-primary);
+  line-height: 1.6;
 }
 
-/* ── Reduced Motion ── */
-@media (prefers-reduced-motion: reduce) {
-  .message {
-    animation: none;
-  }
-
-  .streaming-indicator .dot {
-    animation: none;
-    opacity: 0.6;
-  }
-}
-
-.approval-bubble {
-  margin-top: 1rem;
+/* Markdown Styling */
+.markdown-body :deep(pre) {
+  background: #0d1117;
   padding: 1rem;
-  background: var(--white-a08);
-  border: 1px solid var(--accent);
   border-radius: 8px;
+  margin: 1rem 0;
+  overflow-x: auto;
+  border: 1px solid var(--border);
 }
 
-.approval-bubble pre {
-  font-size: 0.8rem;
-  background: rgba(0,0,0,0.2);
-  padding: 0.5rem;
-  margin: 0.5rem 0;
-  overflow-x: auto;
+.markdown-body :deep(code) {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.9em;
+}
+
+/* ── Approval Card ── */
+.approval-card {
+  margin-top: 1rem;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+}
+
+.approval-header {
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
 }
 
 .approval-actions {
   display: flex;
   gap: 1rem;
-  margin-top: 0.5rem;
+  margin-top: 1rem;
 }
 
-.btn-approve {
-  background: #4caf50;
-  color: white;
-  border: none;
-  padding: 0.4rem 1rem;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.btn-deny {
-  background: #f44336;
-  color: white;
-  border: none;
-  padding: 0.4rem 1rem;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-/* ── Tool Calls ── */
-.tool-calls {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 8px 0 4px;
-}
-
-.tool-call-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: 6px 10px;
-  background: var(--white-a04);
+.approval-actions button {
+  flex: 1;
+  padding: 0.5rem;
   border-radius: var(--radius-sm);
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.tool-icon {
-  font-size: 14px;
-  color: var(--accent);
-}
-
-.tool-name {
-  font-family: var(--font-mono, monospace);
-  font-weight: 500;
-}
-
-.tool-status.running {
-  color: var(--accent);
-  font-size: 12px;
-}
-
-.tool-status.done {
-  color: var(--success, #4caf50);
-  font-size: 14px;
-}
-
-.tool-result {
-  width: 100%;
-  margin-top: 4px;
-}
-
-.tool-result summary {
+  border: none;
   cursor: pointer;
-  font-size: 12px;
-  color: var(--text-muted);
+  font-weight: 600;
 }
 
-.tool-result pre {
-  margin-top: 4px;
-  padding: 8px;
-  background: var(--bg-primary);
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  white-space: pre-wrap;
-  word-break: break-word;
+.btn-approve { background: #4caf50; color: white; }
+.btn-deny { background: #f44336; color: white; }
+
+/* ── Input Area ── */
+.input-container {
+  padding: 1.5rem 2rem 2rem;
+}
+
+.input-wrapper {
+  max-width: 900px;
+  margin: 0 auto;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-lg);
+  padding: 0.5rem;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  box-shadow: var(--shadow-lg);
+}
+
+.chat-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  padding: 0.75rem;
+  resize: none;
   max-height: 200px;
-  overflow-y: auto;
+  outline: none;
+  font-size: 1rem;
+  font-family: inherit;
 }
 
-/* ── Responsive ── */
-@media (max-width: 768px) {
-  .sidebar {
-    width: 200px;
-    min-width: 200px;
-  }
-}
-
-/* ── Mic Button ── */
-.mic-btn {
+.btn-voice, .btn-send {
   width: 40px;
   height: 40px;
-  padding: 0.5rem;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   border: none;
   background: transparent;
+  color: var(--text-secondary);
   cursor: pointer;
-  font-size: 1.1rem;
-  opacity: 0.7;
-  transition: opacity 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  transition: all 0.2s;
 }
-.mic-btn:hover {
-  opacity: 1;
+
+.btn-send {
+  background: var(--accent);
+  color: white;
 }
-.mic-btn--active {
-  opacity: 1;
-  animation: pulse 1s infinite;
+
+.btn-send:disabled {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  cursor: not-allowed;
 }
-@keyframes pulse {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
-  }
+
+.btn-send:hover:not(:disabled) {
+  background: var(--accent-light);
+  transform: scale(1.05);
 }
+
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
 </style>

@@ -14,8 +14,11 @@
     "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {
+    "@types/marked": "^6.0.0",
     "@vueuse/core": "^11.0.0",
     "axios": "^1.7.0",
+    "highlight.js": "^11.11.1",
+    "marked": "^17.0.3",
     "pinia": "^2.2.0",
     "vue": "^3.5.0",
     "vue-i18n": "^10",

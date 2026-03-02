@@ -22,7 +22,7 @@
 <script setup lang="ts">
 import { useVoiceStream } from '@/composables/useVoiceStream';
 
-const { isActive, transcription, aiText, status, endSession } = useVoiceStream();
+const { isActive, transcription, aiText, status, startSession, endSession } = useVoiceStream();
 
 // Expose start method to parent
 defineExpose({
