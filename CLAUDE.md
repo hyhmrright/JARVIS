@@ -314,18 +314,9 @@ Were files modified in this session?
 
 | Tool | Type | Invocation | Model | Timing |
 |------|------|-----------|-------|--------|
-| code-simplifier | Task agent | `Task` tool, `subagent_type: "code-simplifier:code-simplifier"`, `model: "opus"` | **opus** | Before commit |
-| Pre-push code review | Skill | `Skill: superpowers:requesting-code-review` | **opus** (see note) | After commit, before push |
-| PR code review | Skill | `Skill: code-review:code-review --comment` | session default | After push (requires existing PR) |
-
-> **Model notes / 模型说明：**
->
-> - **code-simplifier**: Always pass `model: "opus"` explicitly when invoking via Task tool.
->   通过 Task 工具调用时，**必须**显式传入 `model: "opus"`。
-> - **superpowers:requesting-code-review**: This Skill's instructions tell Claude to dispatch `superpowers:code-reviewer` via Task tool. Claude makes that Task call directly, so **always pass `model: "opus"`** in that Task call to override the agent's `model: inherit` default.
->   该 Skill 的指令会让 Claude 通过 Task 工具派发 `superpowers:code-reviewer`，Claude 直接执行该 Task 调用，因此派发时**必须**传入 `model: "opus"` 以覆盖 agent 默认的 `model: inherit`。
-> - **code-review:code-review --comment**: Invoked via Skill tool (no model parameter available); runs with session model. No override possible via CLAUDE.md.
->   通过 Skill 工具调用，无 model 参数，继承 session 模型，无法通过 CLAUDE.md 控制。
+| code-simplifier | Task agent | `Task` tool, `subagent_type: "code-simplifier:code-simplifier"`, `model: "haiku"` | **haiku** | Before commit |
+| Pre-push code review | Task agent | `Task` tool, `subagent_type: "superpowers:code-reviewer"`, `model: "sonnet"` | **sonnet** | After commit, before push |
+| PR code review | Skill | `Skill: code-review:code-review --comment` | session default | After push (optional, user request) |
 
 ### Trigger Conditions / 触发条件（满足任一即触发）
 
@@ -349,8 +340,8 @@ Write code / Modify files
 ╔══════════════════ Quality Loop (repeat until no issues) ═════════════════╗
 ║ 质量循环（重复直到无问题）                                                ║
 ║                                                                          ║
-║  A. [REQUIRED] Task: code-simplifier (model: "opus")                     ║
-║     【必须】Task: code-simplifier（model: "opus"）                        ║
+║  A. [REQUIRED] Task: code-simplifier (model: "haiku")                    ║
+║     【必须】Task: code-simplifier（model: "haiku"）                       ║
 ║     (Task agent, directly modifies files / Task agent，会直接修改文件)   ║
 ║          ↓                                                               ║
 ║  B. git add + commit                                                     ║
@@ -359,12 +350,10 @@ Write code / Modify files
 ║     首次进入 → git commit                                                ║
 ║     修复后重入 → git commit --amend（未 push，保持历史干净）              ║
 ║          ↓                                                               ║
-║  C. [REQUIRED] Skill: superpowers:requesting-code-review                 ║
-║     【必须】Skill: superpowers:requesting-code-review                    ║
-║     (Provide BASE_SHA=HEAD~1, HEAD_SHA=HEAD;                             ║
-║      dispatch code-reviewer Task with model: "opus" — see Model notes   ║
-║      提供 BASE_SHA=HEAD~1, HEAD_SHA=HEAD；                               ║
-║      派发 code-reviewer Task 时传 model: "opus" — 见模型说明)            ║
+║  C. [REQUIRED] Task: superpowers:code-reviewer (model: "sonnet")         ║
+║     【必须】Task: superpowers:code-reviewer（model: "sonnet"）            ║
+║     (Provide BASE_SHA=HEAD~1, HEAD_SHA=HEAD                              ║
+║      提供 BASE_SHA=HEAD~1, HEAD_SHA=HEAD)                                ║
 ║          ↓                                                               ║
 ║     Issues found? / 发现问题？                                           ║
 ║       Yes → Fix code ──────────────────────────→ Back to step A         ║
@@ -373,9 +362,12 @@ Write code / Modify files
 ╚══════════════════════════════════════════════════════════════════════════╝
       ↓
 git push (execute immediately, do not delay / 立即执行，不得停留)
-      ↓ (if a GitHub PR exists / 若存在 GitHub PR)
-[REQUIRED] Skill: code-review:code-review --comment
-【必须】Skill: code-review:code-review --comment
+```
+
+**After pushing — only on explicit user request / 推送后，仅用户明确要求时：**
+
+```
+Skill: code-review:code-review --comment
 ```
 
 **Key Notes / 关键说明：**
@@ -421,7 +413,7 @@ The following reasons **must not** be used to skip the workflow:
 |------------|-------------------------------|
 | A. code-simplifier | Task agent has run, files organized / Task agent 已运行，文件已整理 |
 | B. git add + commit/amend | All changes (including simplifier modifications) committed / 所有改动（含 simplifier 修改）已提交 |
-| C. requesting-code-review | Review found no issues, or all issues fixed in next iteration / review 无问题，或所有问题已在下一圈修复 |
+| C. superpowers:code-reviewer | Review found no issues, or all issues fixed in next iteration / review 无问题，或所有问题已在下一圈修复 |
 
 The loop must be confirmed complete before the following tool calls:
 以下工具调用前必须确认循环已完成：
@@ -430,7 +422,7 @@ The loop must be confirmed complete before the following tool calls:
 - `Skill` calling `commit-commands:*`
 - `Skill` calling `pr-review-toolkit:*` (creating a PR / 创建 PR)
 
-**After pushing / 推送后**, if a PR exists, also execute:
+**After pushing / 推送后** (optional, only when user explicitly requests):
 - `Skill` calling `code-review:code-review --comment`
 
 **This rule applies to all projects, without exception.**
