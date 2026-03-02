@@ -80,7 +80,9 @@
     "customModel": "직접 입력...",
     "customModelPlaceholder": "모델 이름 입력 (예: glm-4.7-FlashX)",
     "toolPermissions": "도구 권한",
-    "toolPermissionsDescription": "AI 어시스턴트가 사용할 수 있는 도구를 활성화하거나 비활성화합니다."
+    "toolPermissionsDescription": "AI 어시스턴트가 사용할 수 있는 도구를 활성화하거나 비활성화합니다.",
+    "installedPlugins": "설치된 플러그인",
+    "pluginTools": "{count}개 도구"
   },
   "validation": {
     "emailRequired": "이메일 주소를 입력해 주세요",

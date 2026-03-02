@@ -80,7 +80,9 @@
     "customModel": "Benutzerdefiniert...",
     "customModelPlaceholder": "Modellname eingeben, z.B. glm-4.7-FlashX",
     "toolPermissions": "Werkzeugberechtigungen",
-    "toolPermissionsDescription": "Aktivieren oder deaktivieren Sie die Werkzeuge, die dem KI-Assistenten zur Verfügung stehen."
+    "toolPermissionsDescription": "Aktivieren oder deaktivieren Sie die Werkzeuge, die dem KI-Assistenten zur Verfügung stehen.",
+    "installedPlugins": "Installierte Plugins",
+    "pluginTools": "{count} Werkzeug(e)"
   },
   "validation": {
     "emailRequired": "Bitte geben Sie Ihre E-Mail-Adresse ein",

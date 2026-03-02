@@ -19,6 +19,7 @@ from app.core.config import settings
 from app.core.security import resolve_api_key
 from app.db.models import Conversation, Message, User
 from app.db.session import AsyncSessionLocal, get_db
+from app.plugins import plugin_registry
 from app.rag.retriever import maybe_inject_rag_context
 
 logger = structlog.get_logger(__name__)
@@ -54,6 +55,7 @@ def _sse_events_from_chunk(chunk: dict, full_content: str) -> tuple[list[str], s
                         }
                     )
                 )
+
         # Delta logic
         new_content = ai_msg.content
         delta = new_content[len(full_content) :]
@@ -73,7 +75,6 @@ def _sse_events_from_chunk(chunk: dict, full_content: str) -> tuple[list[str], s
                     }
                 )
             )
-
     return events, full_content
 
 
@@ -171,6 +172,7 @@ async def chat_stream(  # noqa: C901
             openai_api_key=openai_key,
             tavily_api_key=tavily_key,
             mcp_tools=mcp_tools,
+            plugin_tools=plugin_registry.get_all_tools() or None,
             conversation_id=str(conv_id),
         )
         full_content = ""

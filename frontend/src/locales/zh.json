@@ -80,7 +80,9 @@
     "customModel": "自定义...",
     "customModelPlaceholder": "输入模型名称，例如 glm-4.7-FlashX",
     "toolPermissions": "工具权限",
-    "toolPermissionsDescription": "启用或禁用 AI 助手可使用的工具。"
+    "toolPermissionsDescription": "启用或禁用 AI 助手可使用的工具。",
+    "installedPlugins": "已安装插件",
+    "pluginTools": "{count} 个工具"
   },
   "validation": {
     "emailRequired": "请输入邮箱地址",

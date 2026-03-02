@@ -80,7 +80,9 @@
     "customModel": "Personnalisé...",
     "customModelPlaceholder": "Entrez le nom du modèle, ex: glm-4.7-FlashX",
     "toolPermissions": "Permissions des outils",
-    "toolPermissionsDescription": "Activer ou désactiver les outils disponibles pour l'assistant IA."
+    "toolPermissionsDescription": "Activer ou désactiver les outils disponibles pour l'assistant IA.",
+    "installedPlugins": "Plugins installés",
+    "pluginTools": "{count} outil(s)"
   },
   "validation": {
     "emailRequired": "Veuillez saisir votre adresse e-mail",
