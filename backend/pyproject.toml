@@ -41,6 +41,7 @@ dependencies = [
     "edge-tts>=7.2.7",
     "slack-bolt>=1.27.0",
     "slack-sdk>=3.40.1",
+    "docker>=7.1.0",
 ]
 
 [dependency-groups]

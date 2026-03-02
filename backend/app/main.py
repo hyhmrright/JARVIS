@@ -21,6 +21,7 @@ from app.api.plugins import router as plugins_router
 from app.api.settings import router as settings_router
 from app.api.tts import router as tts_router
 from app.api.usage import router as usage_router
+from app.api.voice import router as voice_router
 from app.api.webhooks import router as webhooks_router
 from app.channels.slack import SlackChannel
 from app.channels.telegram import TelegramChannel
@@ -103,6 +104,7 @@ app.include_router(logs_router)
 app.include_router(plugins_router)
 app.include_router(gateway_router)
 app.include_router(tts_router)
+app.include_router(voice_router)
 app.include_router(usage_router)
 app.include_router(webhooks_router)
 
