@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     discord_bot_token: str = ""
     slack_bot_token: str = ""
     slack_app_token: str = ""
+    whatsapp_account_sid: str = ""
+    whatsapp_auth_token: str = ""
+    whatsapp_from_number: str = "whatsapp:+14155238886"  # Twilio sandbox default
 
     # Non-sensitive — safe defaults for local development
     qdrant_url: str = "http://localhost:6333"

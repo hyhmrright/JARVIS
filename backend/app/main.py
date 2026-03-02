@@ -25,6 +25,7 @@ from app.api.voice import router as voice_router
 from app.api.webhooks import router as webhooks_router
 from app.channels.slack import SlackChannel
 from app.channels.telegram import TelegramChannel
+from app.channels.whatsapp import WhatsAppChannel
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.logging import configure_logging
@@ -64,7 +65,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         channel_registry.register(
             SlackChannel(settings.slack_bot_token, settings.slack_app_token)
         )
-    # TODO: Add DiscordChannel once implemented
+    if settings.whatsapp_account_sid and settings.whatsapp_auth_token:
+        ws_adapter = WhatsAppChannel(
+            settings.whatsapp_account_sid,
+            settings.whatsapp_auth_token,
+            settings.whatsapp_from_number,
+        )
+        channel_registry.register(ws_adapter)
+        app.include_router(ws_adapter.router, prefix="/api/channels/whatsapp")
 
     await channel_registry.start_all()
 
