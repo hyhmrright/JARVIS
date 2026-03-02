@@ -9,6 +9,7 @@ import inspect
 import sys
 from pathlib import Path
 
+import httpx
 import structlog
 
 from app.plugins.api import PluginAPI
@@ -19,6 +20,27 @@ logger = structlog.get_logger(__name__)
 
 _ENTRY_POINT_GROUP = "jarvis_plugins"
 _DEFAULT_PLUGIN_DIR = Path.home() / ".jarvis" / "plugins"
+
+
+async def install_plugin_from_url(url: str, registry: PluginRegistry) -> str:
+    """Download a .py plugin file from a URL and load it immediately."""
+    _DEFAULT_PLUGIN_DIR.mkdir(parents=True, exist_ok=True)
+
+    filename = url.split("/")[-1]
+    if not filename.endswith(".py"):
+        filename += ".py"
+
+    dest_path = _DEFAULT_PLUGIN_DIR / filename
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url)
+        response.raise_for_status()
+        dest_path.write_text(response.text)
+
+    # Load into registry
+    _load_module_file(dest_path, registry)
+
+    return filename.replace(".py", "")
 
 
 async def load_all_plugins(

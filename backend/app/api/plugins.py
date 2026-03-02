@@ -1,15 +1,37 @@
-"""Plugin management API — list installed plugins."""
+"""Plugin management API — list and install plugins."""
 
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.api.deps import get_admin_user, get_current_user
 from app.db.models import User
 from app.plugins import plugin_registry
+from app.plugins.loader import activate_all_plugins, install_plugin_from_url
 
 router = APIRouter(prefix="/api/plugins", tags=["plugins"])
+
+
+class InstallRequest(BaseModel):
+    url: str
+
+
+@router.post("/install")
+async def install_plugin(
+    body: InstallRequest,
+    admin: User = Depends(get_admin_user),
+) -> dict[str, str]:
+    """Install a new plugin from a raw Python file URL (OpenClaw style)."""
+    try:
+        plugin_id = await install_plugin_from_url(body.url, plugin_registry)
+        # Re-activate to ensure on_load is called for the new plugin
+        await activate_all_plugins(plugin_registry)
+        return {"status": "ok", "plugin_id": plugin_id}
+    except Exception as e:
+        raise HTTPException(
+            status_code=400, detail=f"Installation failed: {str(e)}"
+        ) from e
 
 
 class PluginInfo(BaseModel):
