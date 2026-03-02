@@ -36,6 +36,10 @@
           <span class="footer-icon">&#9783;</span>
           {{ $t("chat.usage") }}
         </router-link>
+        <router-link to="/proactive" class="footer-link">
+          <span class="footer-icon">&#9202;</span>
+          {{ $t("proactive.title") }}
+        </router-link>
         <router-link to="/settings" class="footer-link">
           <span class="footer-icon">&#9881;</span>
           {{ $t("chat.settings") }}
@@ -66,6 +70,18 @@
           </div>
           <div class="msg-bubble">
             <p>{{ msg.content }}</p>
+            <LiveCanvas v-if="msg.role === 'ai'" :content="msg.content" />
+            
+            <!-- HITL Approval Bubble -->
+            <div v-if="msg.pending_tool_call" class="approval-bubble">
+              <p><strong>Action Required:</strong> AI wants to run:</p>
+              <pre>{{ msg.pending_tool_call.name }}({{ JSON.stringify(msg.pending_tool_call.args) }})</pre>
+              <div class="approval-actions">
+                <button class="btn-approve" @click="chat.handleConsent(true)">Allow</button>
+                <button class="btn-deny" @click="chat.handleConsent(false)">Deny</button>
+              </div>
+            </div>
+
             <div v-if="msg.toolCalls?.length" class="tool-calls">
               <div v-for="(tc, ti) in msg.toolCalls" :key="ti" class="tool-call-card">
                 <span class="tool-icon">&#9881;</span>
@@ -111,13 +127,10 @@
           <button
             v-if="speechInput.isSupported"
             class="mic-btn"
-            :class="{ 'mic-btn--active': speechInput.isListening.value }"
-            @click="speechInput.toggle()"
-            :title="speechInput.isListening.value ? '停止录音' : '语音输入'"
-            :aria-label="speechInput.isListening.value ? '停止录音' : '开始语音输入'"
+            @click="voiceOverlay?.start()"
+            :title="'语音交互'"
           >
-            <span v-if="speechInput.isListening.value">⏹</span>
-            <span v-else>🎤</span>
+            <span>🎤</span>
           </button>
           <button v-else class="voice-btn" disabled :title="$t('chat.voiceComingSoon')">
             <span>&#9834;</span>
@@ -139,6 +152,7 @@
         </div>
       </div>
     </main>
+    <VoiceOverlay ref="voiceOverlay" />
   </div>
 </template>
 
@@ -150,6 +164,9 @@ import { useChatStore } from "@/stores/chat";
 import { useAuthStore } from "@/stores/auth";
 import { useSpeechInput } from "@/composables/useSpeechInput";
 import CanvasPanel from "@/components/CanvasPanel.vue";
+import LiveCanvas from "@/components/LiveCanvas.vue";
+
+import VoiceOverlay from "@/components/VoiceOverlay.vue";
 
 const { t } = useI18n();
 const chat = useChatStore();
@@ -159,6 +176,7 @@ const input = ref("");
 const messagesEl = ref<HTMLElement>();
 const copiedIndex = ref<number | null>(null);
 const playingMessageId = ref<string | null>(null);
+const voiceOverlay = ref<InstanceType<typeof VoiceOverlay>>();
 
 const speechInput = useSpeechInput((text: string) => {
   // Append recognized text to existing input
@@ -723,6 +741,46 @@ async function confirmDelete(convId: string): Promise<void> {
     animation: none;
     opacity: 0.6;
   }
+}
+
+.approval-bubble {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--white-a08);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+}
+
+.approval-bubble pre {
+  font-size: 0.8rem;
+  background: rgba(0,0,0,0.2);
+  padding: 0.5rem;
+  margin: 0.5rem 0;
+  overflow-x: auto;
+}
+
+.approval-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.btn-approve {
+  background: #4caf50;
+  color: white;
+  border: none;
+  padding: 0.4rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-deny {
+  background: #f44336;
+  color: white;
+  border: none;
+  padding: 0.4rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
 /* ── Tool Calls ── */

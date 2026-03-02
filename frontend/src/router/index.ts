@@ -11,6 +11,7 @@ const router = createRouter({
     { path: "/settings", component: () => import("@/pages/SettingsPage.vue"), meta: { requiresAuth: true } },
     { path: "/usage", component: () => import("@/pages/UsagePage.vue"), meta: { requiresAuth: true } },
     { path: "/admin", component: () => import("@/pages/AdminPage.vue"), meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: "/proactive", component: () => import("@/pages/ProactivePage.vue"), meta: { requiresAuth: true } },
   ],
 });
 

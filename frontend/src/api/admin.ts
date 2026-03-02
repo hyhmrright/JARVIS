@@ -50,4 +50,9 @@ export default {
   async enablePlugin(pluginId: string, enable: boolean) {
     await client.post(`/plugins/${pluginId}/enable`, null, { params: { enable } });
   },
+
+  /** 安装插件 */
+  async installPlugin(url: string) {
+    await client.post("/plugins/install", { url });
+  },
 };

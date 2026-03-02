@@ -65,6 +65,11 @@
 
       <!-- Plugins Tab -->
       <section v-if="currentTab === 'plugins'" class="tab-panel">
+        <div class="tab-actions">
+          <button class="btn-primary" @click="showInstallModal = true">
+            + {{ $t('admin.plugins.install') }}
+          </button>
+        </div>
         <div class="plugin-grid">
           <div v-for="plugin in plugins" :key="plugin.id" class="plugin-card">
             <div class="plugin-info">
@@ -113,6 +118,26 @@
         </div>
       </section>
     </main>
+
+    <!-- Install Modal -->
+    <div v-if="showInstallModal" class="modal-overlay">
+      <div class="modal-content">
+        <h3>{{ $t('admin.plugins.installTitle') }}</h3>
+        <p>{{ $t('admin.plugins.installDesc') }}</p>
+        <input
+          v-model="installUrl"
+          type="text"
+          placeholder="https://github.com/.../plugin.py"
+          class="modal-input"
+        />
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="showInstallModal = false">{{ $t('common.cancel') }}</button>
+          <button class="btn-primary" :disabled="!installUrl" @click="handleInstall">
+            {{ $t('common.confirm') }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -134,6 +159,9 @@ const limit = 20;
 
 const plugins = ref<any[]>([]);
 const stats = ref<SystemStats | null>(null);
+
+const showInstallModal = ref(false);
+const installUrl = ref('');
 
 const fetchUsers = async () => {
   const data = await adminApi.getUsers(page.value, limit);
@@ -172,6 +200,17 @@ const togglePlugin = async (pluginId: string, enable: boolean) => {
     await adminApi.enablePlugin(pluginId, enable);
   } catch (err) {
     console.error('Failed to toggle plugin:', err);
+  }
+};
+
+const handleInstall = async () => {
+  try {
+    await adminApi.installPlugin(installUrl.value);
+    showInstallModal.value = false;
+    installUrl.value = '';
+    await fetchPlugins();
+  } catch (err) {
+    alert('Failed to install plugin');
   }
 };
 
@@ -282,6 +321,64 @@ onMounted(() => {
   font-size: 2rem;
   font-weight: bold;
   margin: 0.5rem 0;
+}
+
+.tab-actions {
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-primary {
+  background: #2c3e50;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 500px;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 0.75rem;
+  margin: 1rem 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.btn-secondary {
+  background: #eee;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
 /* Switch styling */
