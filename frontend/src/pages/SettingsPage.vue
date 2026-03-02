@@ -95,6 +95,22 @@
         </button>
       </form>
 
+      <div v-if="plugins.length > 0" class="plugin-section animate-slide-up-delay-4">
+        <h3 class="plugin-section-title">{{ $t("settings.installedPlugins") }}</h3>
+        <div class="plugin-list">
+          <div v-for="plugin in plugins" :key="plugin.id" class="plugin-item">
+            <div class="plugin-header">
+              <span class="plugin-name">{{ plugin.name }}</span>
+              <span class="plugin-version">v{{ plugin.version }}</span>
+            </div>
+            <p v-if="plugin.description" class="plugin-desc">{{ plugin.description }}</p>
+            <div v-if="plugin.tools?.length" class="plugin-tools-badge">
+              {{ $t("settings.pluginTools", { count: plugin.tools.length }) }}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <Transition name="toast">
         <div v-if="saved" class="toast-success">
           {{ $t("settings.saved") }}
@@ -136,6 +152,9 @@ const DEFAULT_MODEL: Record<string, string> = {
   zhipuai: "glm-4-flash",
 };
 
+type ToolRegistry = { name: string; label: string; description: string; default_enabled: boolean };
+type PluginInfo = { id: string; name: string; version: string; description: string; tools: string[] };
+
 const provider = ref("deepseek");
 const modelSelect = ref("deepseek-chat");
 const customModelName = ref("");
@@ -143,7 +162,8 @@ const apiKeys = ref<string[]>([""]);
 const keyCounts = ref<Record<string, number>>({});
 const personaOverride = ref("");
 const enabledTools = ref<string[]>([]);
-const toolRegistry = ref<{ name: string; label: string; description: string; default_enabled: boolean }[]>([]);
+const toolRegistry = ref<ToolRegistry[]>([]);
+const plugins = ref<PluginInfo[]>([]);
 const saved = ref(false);
 const saving = ref(false);
 const saveError = ref(false);
@@ -179,9 +199,8 @@ onMounted(async () => {
     const { data } = await client.get("/settings");
     provider.value = data.model_provider;
     personaOverride.value = data.persona_override ?? "";
-
     keyCounts.value = (data.key_counts ?? {}) as Record<string, number>;
-    toolRegistry.value = (data.tool_registry ?? []) as typeof toolRegistry.value;
+    toolRegistry.value = (data.tool_registry ?? []) as ToolRegistry[];
     enabledTools.value = (data.enabled_tools ?? []) as string[];
 
     const savedModel: string = data.model_name ?? "";
@@ -193,7 +212,13 @@ onMounted(async () => {
       customModelName.value = savedModel;
     }
   } catch {
-    // Use defaults on error
+    // defaults already applied above
+  }
+  try {
+    const { data } = await client.get("/plugins");
+    plugins.value = data as PluginInfo[];
+  } catch {
+    // non-critical: plugin list not available
   }
 });
 
@@ -336,6 +361,66 @@ async function save() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.plugin-section {
+  margin-top: var(--space-lg);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-lg);
+}
+
+.plugin-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-md) 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.plugin-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.plugin-item {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-secondary, rgba(255, 255, 255, 0.03));
+}
+
+.plugin-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: 4px;
+}
+
+.plugin-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.plugin-version {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--surface-tertiary, rgba(255, 255, 255, 0.06));
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+.plugin-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 0 6px 0;
+}
+
+.plugin-tools-badge {
+  font-size: 11px;
+  color: var(--accent);
+  opacity: 0.8;
 }
 
 .toast-success {

@@ -51,6 +51,7 @@ def _resolve_tools(
     api_keys: list[str] | None = None,
     depth: int = 0,
     mcp_tools: list[BaseTool] | None = None,
+    plugin_tools: list[BaseTool] | None = None,
     conversation_id: str | None = None,
 ) -> list[BaseTool]:
     """Build the tool list based on enabled flags and available keys."""
@@ -100,7 +101,7 @@ def _resolve_tools(
 
         tools.extend(create_cron_tools(user_id))
 
-    # Canvas tool — opt-in only, requires conversation_id for event routing
+    # Canvas tool -- opt-in only, requires conversation_id for event routing
     if enabled_tools is not None and "canvas" in enabled_tools and conversation_id:
         from app.tools.canvas_tool import create_canvas_tool
 
@@ -109,6 +110,10 @@ def _resolve_tools(
     # MCP tools (pre-loaded by caller, bypass the enabled_tools filter)
     if mcp_tools:
         tools.extend(mcp_tools)
+
+    # Plugin tools (loaded from plugin registry, bypass the enabled_tools filter)
+    if plugin_tools:
+        tools.extend(plugin_tools)
 
     return tools
 
@@ -125,6 +130,7 @@ def create_graph(
     tavily_api_key: str | None = None,
     depth: int = 0,
     mcp_tools: list[BaseTool] | None = None,
+    plugin_tools: list[BaseTool] | None = None,
     conversation_id: str | None = None,
 ) -> CompiledStateGraph:
     all_keys = api_keys if api_keys else [api_key]
@@ -140,6 +146,7 @@ def create_graph(
         api_keys=api_keys,
         depth=depth,
         mcp_tools=mcp_tools,
+        plugin_tools=plugin_tools,
         conversation_id=conversation_id,
     )
 

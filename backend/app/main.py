@@ -16,6 +16,7 @@ from app.api.conversations import router as conversations_router
 from app.api.documents import router as documents_router
 from app.api.gateway import router as gateway_router
 from app.api.logs import router as logs_router
+from app.api.plugins import router as plugins_router
 from app.api.settings import router as settings_router
 from app.api.tts import router as tts_router
 from app.api.usage import router as usage_router
@@ -26,6 +27,12 @@ from app.core.logging import configure_logging
 from app.core.logging_middleware import LoggingMiddleware
 from app.infra.minio import get_minio_client
 from app.infra.qdrant import close_qdrant_client, get_qdrant_client
+from app.plugins import plugin_registry
+from app.plugins.loader import (
+    activate_all_plugins,
+    deactivate_all_plugins,
+    load_all_plugins,
+)
 from app.scheduler.runner import start_scheduler, stop_scheduler
 
 configure_logging()
@@ -34,16 +41,19 @@ logger = structlog.get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """应用启动/关闭生命周期：验证基础设施连接。"""
+    """Startup/shutdown lifecycle: verify infrastructure and initialize plugins."""
     logger.info("Checking infrastructure connections...")
     qdrant = await get_qdrant_client()
     await qdrant.get_collections()
     minio = get_minio_client()
     await asyncio.to_thread(minio.bucket_exists, settings.minio_bucket)
     logger.info("Infrastructure ready.")
+    await load_all_plugins(plugin_registry)
+    await activate_all_plugins(plugin_registry)
     await start_scheduler()
     yield
     await stop_scheduler()
+    await deactivate_all_plugins(plugin_registry)
     await close_qdrant_client()
     logger.info("Shutting down.")
 
@@ -69,6 +79,7 @@ app.include_router(chat_router)
 app.include_router(documents_router)
 app.include_router(settings_router)
 app.include_router(logs_router)
+app.include_router(plugins_router)
 app.include_router(gateway_router)
 app.include_router(tts_router)
 app.include_router(usage_router)

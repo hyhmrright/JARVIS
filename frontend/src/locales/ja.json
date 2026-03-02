@@ -80,7 +80,9 @@
     "customModel": "カスタム...",
     "customModelPlaceholder": "モデル名を入力（例：glm-4.7-FlashX）",
     "toolPermissions": "ツール権限",
-    "toolPermissionsDescription": "AIアシスタントが使用できるツールを有効・無効にします。"
+    "toolPermissionsDescription": "AIアシスタントが使用できるツールを有効・無効にします。",
+    "installedPlugins": "インストール済みプラグイン",
+    "pluginTools": "{count} 個のツール"
   },
   "validation": {
     "emailRequired": "メールアドレスを入力してください",

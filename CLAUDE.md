@@ -337,6 +337,11 @@ Any one of the following triggers the workflow:
 Write code / Modify files
 写代码 / 修改文件
       ↓
+[REQUIRED] Run local static checks first (tools, not agents):
+【必须】先本地执行静态检查（工具层面，非 agent）：
+  cd backend && uv run ruff check --fix && uv run ruff format
+  cd backend && uv run mypy app
+      ↓
 ╔══════════════════ Quality Loop (repeat until no issues) ═════════════════╗
 ║ 质量循环（重复直到无问题）                                                ║
 ║                                                                          ║
@@ -401,6 +406,7 @@ The following reasons **must not** be used to skip the workflow:
 | "Changes are in stash, working tree is clean" / "改动在 stash 里，工作区是干净的" | Changes in stash also require the full workflow / stash 中的改动同样需要完整流程 |
 | "The user only said commit, not push" / "用户只说了 commit，没说要 push" | Push must follow commit immediately / commit 后必须立即 push，无需额外指令 |
 | "I'll push later" / "等会儿再 push" | Push is a required follow-up step, must not be delayed / push 是必要后续步骤，不得延迟 |
+| "code-simplifier said it looks fine" / "code-simplifier 说没问题了" | Agents do semantic review, not ruff/mypy execution; local tool checks are mandatory / agent 做语义审查不执行工具，本地 ruff/mypy 不可省略 |
 
 ---
 
