@@ -50,6 +50,8 @@ def _resolve_tools(
     api_key: str | None = None,
     api_keys: list[str] | None = None,
     depth: int = 0,
+    mcp_tools: list[BaseTool] | None = None,
+    conversation_id: str | None = None,
 ) -> list[BaseTool]:
     """Build the tool list based on enabled flags and available keys."""
     if enabled_tools is not None:
@@ -93,6 +95,21 @@ def _resolve_tools(
             )
         )
 
+    if user_id and (enabled_tools is None or "cron" in enabled_tools):
+        from app.tools.cron_tool import create_cron_tools
+
+        tools.extend(create_cron_tools(user_id))
+
+    # Canvas tool — opt-in only, requires conversation_id for event routing
+    if enabled_tools is not None and "canvas" in enabled_tools and conversation_id:
+        from app.tools.canvas_tool import create_canvas_tool
+
+        tools.append(create_canvas_tool(conversation_id))
+
+    # MCP tools (pre-loaded by caller, bypass the enabled_tools filter)
+    if mcp_tools:
+        tools.extend(mcp_tools)
+
     return tools
 
 
@@ -107,6 +124,8 @@ def create_graph(
     openai_api_key: str | None = None,
     tavily_api_key: str | None = None,
     depth: int = 0,
+    mcp_tools: list[BaseTool] | None = None,
+    conversation_id: str | None = None,
 ) -> CompiledStateGraph:
     all_keys = api_keys if api_keys else [api_key]
 
@@ -120,6 +139,8 @@ def create_graph(
         api_key=api_key,
         api_keys=api_keys,
         depth=depth,
+        mcp_tools=mcp_tools,
+        conversation_id=conversation_id,
     )
 
     llm = get_llm(provider, model, all_keys[0])

@@ -1,5 +1,8 @@
 """JARVIS persona — system prompt injected into every LLM request."""
 
+from app.agent.skills import format_skills_for_prompt, load_skills
+from app.core.config import settings
+
 JARVIS_PERSONA = """\
 你是 JARVIS（Just A Rather Very Intelligent System），一个高度智能的全能 AI 助手。
 
@@ -37,7 +40,10 @@ JARVIS_PERSONA = """\
 
 
 def build_system_prompt(user_override: str | None = None) -> str:
-    """Combine base JARVIS persona with optional user instructions."""
+    """Combine base JARVIS persona with optional user instructions and skills."""
+    base = JARVIS_PERSONA
     if user_override:
-        return JARVIS_PERSONA + "\n\n## 用户自定义指令\n" + user_override
-    return JARVIS_PERSONA
+        base = base + "\n\n## 用户自定义指令\n" + user_override
+    skills = load_skills(settings.skills_dir)
+    skills_block = format_skills_for_prompt(skills)
+    return base + skills_block

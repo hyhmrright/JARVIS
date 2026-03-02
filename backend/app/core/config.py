@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,6 +35,12 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60 * 24 * 30  # 30 days
     cors_origins: list[str] = ["http://localhost:3000"]
     log_level: str = "INFO"
+
+    # Skills directory — load .md skill files to inject into system prompt
+    skills_dir: str = str(Path.home() / ".jarvis" / "skills")
+
+    # MCP server configurations (JSON array of MCPServerConfig dicts)
+    mcp_servers_json: str = ""
 
     # Sandbox settings
     sandbox_enabled: bool = False

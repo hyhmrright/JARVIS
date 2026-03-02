@@ -38,9 +38,22 @@
     "inputPlaceholder": "Nachricht eingeben, Enter zum Senden...",
     "send": "Senden",
     "copy": "Nachricht kopieren",
+    "ttsPlay": "Audio abspielen",
+    "ttsStop": "Wiedergabe stoppen",
     "streamError": "Nachricht konnte nicht gesendet werden, bitte erneut versuchen",
     "toolResult": "Werkzeugergebnis",
-    "toolRunning": "Wird ausgeführt..."
+    "toolRunning": "Wird ausgeführt...",
+    "usage": "Nutzungsstatistik"
+  },
+  "usage": {
+    "title": "Nutzungsstatistik",
+    "tokensIn": "Eingabe-Token",
+    "tokensOut": "Ausgabe-Token",
+    "messages": "Nachrichten",
+    "days": " Tage",
+    "loading": "Wird geladen...",
+    "noData": "Keine Nutzungsdaten vorhanden",
+    "chartTitle": "Ausgabe-Token — letzte {days} Tage"
   },
   "documents": {
     "title": "Wissensdatenbank",

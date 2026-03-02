@@ -77,13 +77,23 @@ def _sse_events_from_chunk(chunk: dict, full_content: str) -> tuple[list[str], s
     return events, full_content
 
 
+def _extract_token_counts(ai_msg: object | None) -> tuple[int, int]:
+    """Return (tokens_in, tokens_out) from an AIMessage's usage_metadata."""
+    if ai_msg is None:
+        return 0, 0
+    meta = getattr(ai_msg, "usage_metadata", None)
+    if not meta:
+        return 0, 0
+    return meta.get("input_tokens", 0) or 0, meta.get("output_tokens", 0) or 0
+
+
 class ChatRequest(BaseModel):
     conversation_id: uuid.UUID
     content: str = Field(max_length=50000)
 
 
 @router.post("/stream")
-async def chat_stream(
+async def chat_stream(  # noqa: C901
     body: ChatRequest,
     user: User = Depends(get_current_user),
     llm: ResolvedLLMConfig = Depends(get_llm_config),
@@ -144,6 +154,13 @@ async def chat_stream(
             )
         except Exception:
             logger.warning("context_compression_failed", exc_info=True)
+        mcp_tools: list = []
+        if llm.enabled_tools is None or "mcp" in llm.enabled_tools:
+            from app.tools.mcp_client import create_mcp_tools, parse_mcp_configs
+
+            mcp_tools = await create_mcp_tools(
+                parse_mcp_configs(settings.mcp_servers_json)
+            )
         graph = create_graph(
             provider=llm.provider,
             model=llm.model_name,
@@ -153,10 +170,15 @@ async def chat_stream(
             user_id=str(user.id),
             openai_api_key=openai_key,
             tavily_api_key=tavily_key,
+            mcp_tools=mcp_tools,
+            conversation_id=str(conv_id),
         )
         full_content = ""
+        last_ai_msg = None
         try:
             async for chunk in graph.astream(AgentState(messages=lc_messages)):
+                if "llm" in chunk:
+                    last_ai_msg = chunk["llm"]["messages"][-1]
                 events, full_content = _sse_events_from_chunk(chunk, full_content)
                 for event in events:
                     yield event
@@ -166,6 +188,7 @@ async def chat_stream(
         finally:
             if full_content:
                 try:
+                    tokens_in, tokens_out = _extract_token_counts(last_ai_msg)
                     async with AsyncSessionLocal() as session:
                         async with session.begin():
                             session.add(
@@ -175,6 +198,8 @@ async def chat_stream(
                                     content=full_content,
                                     model_provider=llm.provider,
                                     model_name=llm.model_name,
+                                    tokens_input=tokens_in,
+                                    tokens_output=tokens_out,
                                 )
                             )
                     logger.info(

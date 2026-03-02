@@ -1,5 +1,6 @@
 <template>
   <div class="chat-layout">
+    <CanvasPanel v-if="chat.currentConvId" :conversation-id="chat.currentConvId" />
     <aside class="sidebar">
       <div class="sidebar-brand">
         <span class="brand-icon">&#10022;</span>
@@ -30,6 +31,10 @@
         <router-link to="/documents" class="footer-link">
           <span class="footer-icon">&#9635;</span>
           {{ $t("chat.documents") }}
+        </router-link>
+        <router-link to="/usage" class="footer-link">
+          <span class="footer-icon">&#9783;</span>
+          {{ $t("chat.usage") }}
         </router-link>
         <router-link to="/settings" class="footer-link">
           <span class="footer-icon">&#9881;</span>
@@ -74,6 +79,16 @@
               </div>
             </div>
             <button
+              v-if="msg.role === 'ai' && !(chat.streaming && i === chat.messages.length - 1)"
+              class="tts-btn"
+              :class="{ playing: playingMessageId === String(i) }"
+              :title="playingMessageId === String(i) ? $t('chat.ttsStop') : $t('chat.ttsPlay')"
+              @click="playTTS(msg.content, String(i))"
+            >
+              <span v-if="playingMessageId === String(i)">⏹</span>
+              <span v-else>🔊</span>
+            </button>
+            <button
               v-if="!(chat.streaming && i === chat.messages.length - 1)"
               class="copy-btn"
               :title="$t('chat.copy')"
@@ -93,7 +108,18 @@
 
       <div class="input-area">
         <div class="input-wrapper">
-          <button class="voice-btn" disabled :title="$t('chat.voiceComingSoon')">
+          <button
+            v-if="speechInput.isSupported"
+            class="mic-btn"
+            :class="{ 'mic-btn--active': speechInput.isListening.value }"
+            @click="speechInput.toggle()"
+            :title="speechInput.isListening.value ? '停止录音' : '语音输入'"
+            :aria-label="speechInput.isListening.value ? '停止录音' : '开始语音输入'"
+          >
+            <span v-if="speechInput.isListening.value">⏹</span>
+            <span v-else>🎤</span>
+          </button>
+          <button v-else class="voice-btn" disabled :title="$t('chat.voiceComingSoon')">
             <span>&#9834;</span>
           </button>
           <textarea
@@ -122,6 +148,8 @@ import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useChatStore } from "@/stores/chat";
 import { useAuthStore } from "@/stores/auth";
+import { useSpeechInput } from "@/composables/useSpeechInput";
+import CanvasPanel from "@/components/CanvasPanel.vue";
 
 const { t } = useI18n();
 const chat = useChatStore();
@@ -130,6 +158,47 @@ const router = useRouter();
 const input = ref("");
 const messagesEl = ref<HTMLElement>();
 const copiedIndex = ref<number | null>(null);
+const playingMessageId = ref<string | null>(null);
+
+const speechInput = useSpeechInput((text: string) => {
+  // Append recognized text to existing input
+  input.value = (input.value ? input.value + " " : "") + text;
+});
+
+async function playTTS(content: string, messageId: string): Promise<void> {
+  if (playingMessageId.value === messageId) {
+    playingMessageId.value = null;
+    return;
+  }
+  const token = localStorage.getItem("token");
+  try {
+    playingMessageId.value = messageId;
+    const resp = await fetch("/api/tts/synthesize", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ text: content.slice(0, 5000) }),
+    });
+    if (!resp.ok) throw new Error(`TTS failed: ${resp.status}`);
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.onended = () => {
+      URL.revokeObjectURL(url);
+      playingMessageId.value = null;
+    };
+    audio.onerror = () => {
+      URL.revokeObjectURL(url);
+      playingMessageId.value = null;
+    };
+    await audio.play();
+  } catch (e) {
+    console.error("TTS error:", e);
+    playingMessageId.value = null;
+  }
+}
 
 async function copyMessage(content: string, index: number): Promise<void> {
   try {
@@ -506,6 +575,41 @@ async function confirmDelete(convId: string): Promise<void> {
   display: flex;
 }
 
+.tts-btn {
+  display: none;
+  position: absolute;
+  bottom: 6px;
+  right: 40px;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 13px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  padding: 0;
+}
+
+.tts-btn:hover {
+  color: var(--accent);
+  background: var(--accent-a08);
+  border-color: var(--accent-a30);
+}
+
+.tts-btn.playing {
+  display: flex;
+  color: var(--accent);
+  border-color: var(--accent-a30);
+}
+
+.msg-bubble:hover .tts-btn {
+  display: flex;
+}
+
 /* ── Streaming Indicator ── */
 .streaming-indicator {
   display: flex;
@@ -688,6 +792,40 @@ async function confirmDelete(convId: string): Promise<void> {
   .sidebar {
     width: 200px;
     min-width: 200px;
+  }
+}
+
+/* ── Mic Button ── */
+.mic-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0.5rem;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.1rem;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.mic-btn:hover {
+  opacity: 1;
+}
+.mic-btn--active {
+  opacity: 1;
+  animation: pulse 1s infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
   }
 }
 </style>

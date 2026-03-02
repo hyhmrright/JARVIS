@@ -38,9 +38,22 @@
     "inputPlaceholder": "메시지를 입력하고 Enter로 전송...",
     "send": "전송",
     "copy": "메시지 복사",
+    "ttsPlay": "음성 재생",
+    "ttsStop": "재생 중지",
     "streamError": "메시지 전송에 실패했습니다. 다시 시도해 주세요",
     "toolResult": "도구 결과",
-    "toolRunning": "실행 중..."
+    "toolRunning": "실행 중...",
+    "usage": "사용량 통계"
+  },
+  "usage": {
+    "title": "사용량 통계",
+    "tokensIn": "입력 토큰",
+    "tokensOut": "출력 토큰",
+    "messages": "메시지 수",
+    "days": "일",
+    "loading": "로딩 중...",
+    "noData": "사용 데이터가 없습니다",
+    "chartTitle": "최근 {days}일 출력 토큰 사용량"
   },
   "documents": {
     "title": "지식 베이스",
