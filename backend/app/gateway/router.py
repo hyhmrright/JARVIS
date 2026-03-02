@@ -160,71 +160,84 @@ class GatewayRouter:
 
             self._db_session_factory = AsyncSessionLocal  # type: ignore[assignment]
 
-        async with self._db_session_factory() as db:  # type: ignore[misc]
-            (
-                provider,
-                model_name,
-                raw_keys,
-                persona_override,
-                enabled_tools,
-            ) = await self._load_user_settings(db, user_id)
+        try:
+            async with self._db_session_factory() as db:  # type: ignore[misc]
+                (
+                    provider,
+                    model_name,
+                    raw_keys,
+                    persona_override,
+                    enabled_tools,
+                ) = await self._load_user_settings(db, user_id)
 
-            api_keys = resolve_api_keys(provider, raw_keys)
-            if not api_keys:
-                return (
-                    "No API key configured for your account. "
-                    "Please set one in Settings."
+                api_keys = resolve_api_keys(provider, raw_keys)
+                if not api_keys:
+                    return (
+                        "No API key configured for your account. "
+                        "Please set one in Settings."
+                    )
+
+                conv = await self._resolve_conversation(db, user_id, message, session)
+
+                lc_messages = await self._build_message_history(
+                    db, conv, persona_override
                 )
 
-            conv = await self._resolve_conversation(db, user_id, message, session)
+                # Compress long histories before invoking the agent
+                try:
+                    lc_messages = await compact_messages(
+                        lc_messages,
+                        provider=provider,
+                        model=model_name,
+                        api_key=api_keys[0],
+                    )
+                except Exception:
+                    logger.warning(
+                        "gateway_compression_failed",
+                        exc_info=True,
+                    )
 
-            lc_messages = await self._build_message_history(db, conv, persona_override)
-
-            # Compress long histories before invoking the agent
-            try:
-                lc_messages = await compact_messages(
-                    lc_messages,
+                ai_content = await self._invoke_agent(
                     provider=provider,
-                    model=model_name,
-                    api_key=api_keys[0],
-                )
-            except Exception:
-                logger.warning(
-                    "gateway_compression_failed",
-                    exc_info=True,
-                )
-
-            ai_content = await self._invoke_agent(
-                provider=provider,
-                model_name=model_name,
-                api_keys=api_keys,
-                raw_keys=raw_keys,
-                enabled_tools=enabled_tools,
-                user_id=user_id,
-                lc_messages=lc_messages,
-                channel=message.channel,
-                conversation_id=str(conv.id),
-            )
-
-            # Persist AI response
-            db.add(
-                Message(
-                    conversation_id=conv.id,
-                    role="ai",
-                    content=ai_content,
-                    model_provider=provider,
                     model_name=model_name,
+                    api_keys=api_keys,
+                    raw_keys=raw_keys,
+                    enabled_tools=enabled_tools,
+                    user_id=user_id,
+                    lc_messages=lc_messages,
+                    channel=message.channel,
+                    conversation_id=str(conv.id),
                 )
-            )
-            await db.commit()
 
-            logger.info(
-                "gateway_agent_completed",
+                # Persist AI response
+                db.add(
+                    Message(
+                        conversation_id=conv.id,
+                        role="ai",
+                        content=ai_content,
+                        model_provider=provider,
+                        model_name=model_name,
+                    )
+                )
+                await db.commit()
+
+                logger.info(
+                    "gateway_agent_completed",
+                    user_id=user_id,
+                    channel=message.channel,
+                    reply_chars=len(ai_content),
+                )
+                return ai_content
+        except Exception:
+            logger.exception(
+                "gateway_run_agent_error",
                 user_id=user_id,
                 channel=message.channel,
-                reply_chars=len(ai_content),
             )
-            return ai_content
+            return (
+                "Sorry, an error occurred while processing "
+                "your request. Please try again."
+            )
 
     # -- private helpers (extracted from _run_agent) -------------------------
 

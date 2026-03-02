@@ -162,6 +162,11 @@ async def chat_stream(  # noqa: C901
             mcp_tools = await create_mcp_tools(
                 parse_mcp_configs(settings.mcp_servers_json)
             )
+
+        plugin_tools: list | None = None
+        if llm.enabled_tools is None or "plugin" in llm.enabled_tools:
+            plugin_tools = plugin_registry.get_all_tools() or None
+
         graph = create_graph(
             provider=llm.provider,
             model=llm.model_name,
@@ -172,7 +177,7 @@ async def chat_stream(  # noqa: C901
             openai_api_key=openai_key,
             tavily_api_key=tavily_key,
             mcp_tools=mcp_tools,
-            plugin_tools=plugin_registry.get_all_tools() or None,
+            plugin_tools=plugin_tools,
             conversation_id=str(conv_id),
         )
         full_content = ""

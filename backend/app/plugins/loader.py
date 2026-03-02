@@ -114,6 +114,7 @@ def _load_module_file(
         spec.loader.exec_module(module)
     except Exception:
         logger.exception("plugin_module_load_failed", path=str(path))
+        sys.modules.pop(namespaced, None)  # 清理残留项
         return
     for _, obj in inspect.getmembers(module, inspect.isclass):
         if issubclass(obj, JarvisPlugin) and obj is not JarvisPlugin:

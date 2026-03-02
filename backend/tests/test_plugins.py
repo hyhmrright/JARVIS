@@ -227,3 +227,16 @@ async def test_activate_plugin_failure_removes_plugin() -> None:
     reg.register_plugin(_BadPlugin())
     await activate_all_plugins(reg)
     assert reg.is_empty
+
+
+def test_failed_module_load_cleans_sys_modules(tmp_path: Path) -> None:
+    """Failed exec_module should not leave ghost entry in sys.modules."""
+    import sys
+
+    from app.plugins.loader import _load_module_file
+
+    bad_plugin = tmp_path / "bad_plugin.py"
+    bad_plugin.write_text("raise RuntimeError('intentional')")
+    reg = PluginRegistry()
+    _load_module_file(bad_plugin, reg)
+    assert "jarvis_user_plugins.bad_plugin" not in sys.modules
