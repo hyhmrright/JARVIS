@@ -5,7 +5,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
 
-from app.agent.llm import get_llm
+from app.agent.llm import get_llm, get_llm_with_fallback
 from app.agent.state import AgentState
 from app.tools.browser_tool import browser_navigate
 from app.tools.code_exec_tool import execute_code
@@ -130,6 +130,7 @@ def create_graph(
     mcp_tools: list[BaseTool] | None = None,
     plugin_tools: list[BaseTool] | None = None,
     conversation_id: str | None = None,
+    fallback_providers: list[dict] | None = None,
 ) -> CompiledStateGraph:
     all_keys = api_keys if api_keys else [api_key]
 
@@ -148,7 +149,7 @@ def create_graph(
         conversation_id=conversation_id,
     )
 
-    llm = get_llm(provider, model, all_keys[0])
+    llm = get_llm_with_fallback(provider, model, all_keys[0], fallback_providers)
     llm_with_tools = llm.bind_tools(tools)
     tool_node = ToolNode(tools)
 
