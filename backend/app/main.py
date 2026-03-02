@@ -23,6 +23,7 @@ from app.api.tts import router as tts_router
 from app.api.usage import router as usage_router
 from app.api.voice import router as voice_router
 from app.api.webhooks import router as webhooks_router
+from app.channels.discord import DiscordChannel
 from app.channels.slack import SlackChannel
 from app.channels.telegram import TelegramChannel
 from app.channels.whatsapp import WhatsAppChannel
@@ -61,6 +62,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Initialize and start messaging channels
     if settings.telegram_bot_token:
         channel_registry.register(TelegramChannel(settings.telegram_bot_token))
+    if settings.discord_bot_token:
+        channel_registry.register(DiscordChannel(settings.discord_bot_token))
     if settings.slack_bot_token and settings.slack_app_token:
         channel_registry.register(
             SlackChannel(settings.slack_bot_token, settings.slack_app_token)
