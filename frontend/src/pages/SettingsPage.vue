@@ -1,155 +1,135 @@
 <template>
   <div class="page-container">
-    <div class="page-card animate-slide-up">
-      <div class="page-header">
-        <h2>{{ $t("settings.title") }}</h2>
-        <router-link to="/" class="back-link">{{ $t("common.backToChat") }}</router-link>
-      </div>
-      <div class="shimmer-line animate-shimmer"></div>
+    <PageHeader :title="$t('settings.title')" />
 
-      <form class="settings-form" @submit.prevent="save">
-        <div class="form-group animate-slide-up-delay-1">
-          <label for="provider">{{ $t("settings.provider") }}</label>
-          <select id="provider" v-model="provider" @change="onProviderChange">
-            <option value="deepseek">DeepSeek</option>
-            <option value="openai">OpenAI</option>
-            <option value="anthropic">Anthropic</option>
-            <option value="zhipuai">ZhipuAI (GLM)</option>
-          </select>
-        </div>
+    <div class="page-content custom-scrollbar">
+      <form class="settings-grid" @submit.prevent="save">
+        <!-- AI Model Config -->
+        <section class="glass-card section-card animate-fade-in">
+          <h3 class="section-title">AI Model & Provider</h3>
+          <div class="form-group">
+            <label>{{ $t("settings.provider") }}</label>
+            <select v-model="provider" class="modern-input" @change="onProviderChange">
+              <option value="deepseek">DeepSeek</option>
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="zhipuai">ZhipuAI (GLM)</option>
+            </select>
+          </div>
 
-        <div class="form-group animate-slide-up-delay-2">
-          <label for="modelSelect">{{ $t("settings.modelName") }}</label>
-          <select id="modelSelect" v-model="modelSelect">
-            <option v-for="m in currentProviderModels" :key="m" :value="m">{{ m }}</option>
-            <option value="__custom__">{{ $t("settings.customModel") }}</option>
-          </select>
-          <input
-            v-if="modelSelect === '__custom__'"
-            id="modelName"
-            v-model="customModelName"
-            class="custom-model-input"
-            :placeholder="$t('settings.customModelPlaceholder')"
-            autocomplete="off"
-          />
-        </div>
+          <div class="form-group">
+            <label>{{ $t("settings.modelName") }}</label>
+            <select v-model="modelSelect" class="modern-input">
+              <option v-for="m in currentProviderModels" :key="m" :value="m">{{ m }}</option>
+              <option value="__custom__">{{ $t("settings.customModel") }}</option>
+            </select>
+            <input
+              v-if="modelSelect === '__custom__'"
+              v-model="customModelName"
+              class="modern-input custom-input"
+              :placeholder="$t('settings.customModelPlaceholder')"
+            />
+          </div>
+        </section>
 
-        <div class="form-group animate-slide-up-delay-2">
-          <label>{{ $t("settings.apiKeys") }}</label>
+        <!-- API Keys -->
+        <section class="glass-card section-card animate-fade-in">
+          <h3 class="section-title">API Keys</h3>
+          <p class="field-desc">Securely manage your keys for {{ provider.toUpperCase() }}</p>
+          
           <div v-for="(_, index) in apiKeys" :key="index" class="api-key-row">
             <input
               v-model="apiKeys[index]"
               type="password"
+              class="modern-input"
               :placeholder="$t('settings.apiKeyPlaceholder')"
             />
             <button
               v-if="apiKeys.length > 1"
               type="button"
-              class="btn-remove-key"
+              class="btn-icon-danger"
               @click="apiKeys.splice(index, 1)"
             >
-              &times;
+              ×
             </button>
           </div>
-          <button type="button" class="btn-add-key" @click="apiKeys.push('')">
-            + {{ $t("settings.addApiKey") }}
+          
+          <button type="button" class="btn-ghost-full" @click="apiKeys.push('')">
+            + Add Another Key
           </button>
-          <div v-if="existingKeyCount > 0" class="key-info">
-            {{ $t("settings.existingKeys", { count: existingKeyCount }) }}
+          
+          <div v-if="existingKeyCount > 0" class="key-status">
+            {{ $t("settings.existingKeys", { count: existingKeyCount }) }} active
           </div>
-        </div>
+        </section>
 
-        <div class="form-group animate-slide-up-delay-3">
-          <label for="personaOverride">{{ $t("settings.personaOverride") }}</label>
-          <textarea
-            id="personaOverride"
-            v-model="personaOverride"
-            :placeholder="$t('settings.personaPlaceholder')"
-            rows="4"
-            maxlength="2000"
-          />
-        </div>
+        <!-- Persona -->
+        <section class="glass-card section-card full-width animate-fade-in">
+          <h3 class="section-title">System Persona</h3>
+          <div class="form-group">
+            <label>{{ $t("settings.personaOverride") }}</label>
+            <textarea
+              v-model="personaOverride"
+              class="modern-input persona-area"
+              :placeholder="$t('settings.personaPlaceholder')"
+              rows="4"
+            ></textarea>
+          </div>
+        </section>
 
-        <div class="form-group animate-slide-up-delay-4">
-          <label>{{ $t("settings.toolPermissions") }}</label>
-          <p class="field-description">{{ $t("settings.toolPermissionsDescription") }}</p>
-          <div class="tool-list">
+        <!-- Tools -->
+        <section class="glass-card section-card full-width animate-fade-in">
+          <h3 class="section-title">{{ $t("settings.toolPermissions") }}</h3>
+          <p class="field-desc">{{ $t("settings.toolPermissionsDescription") }}</p>
+          <div class="tool-grid">
             <label
               v-for="tool in toolRegistry"
               :key="tool.name"
-              class="tool-item"
+              :class="['tool-pill', { active: enabledTools.includes(tool.name) }]"
             >
               <input
                 type="checkbox"
+                class="hidden-check"
                 :checked="enabledTools.includes(tool.name)"
                 @change="toggleTool(tool.name)"
               />
-              <span class="tool-label">{{ tool.label }}</span>
-              <span class="tool-desc">{{ tool.description }}</span>
+              <span class="tool-name">{{ tool.label }}</span>
             </label>
           </div>
-        </div>
+        </section>
 
-        <button type="submit" class="btn-primary animate-slide-up-delay-4" :disabled="saving">
-          {{ saving ? $t("settings.saving") : $t("settings.save") }}
-        </button>
+        <div class="form-actions">
+          <button type="submit" class="btn-accent btn-large" :disabled="saving">
+            {{ saving ? $t("settings.saving") : $t("settings.save") }}
+          </button>
+        </div>
       </form>
-
-      <div v-if="plugins.length > 0" class="plugin-section animate-slide-up-delay-4">
-        <h3 class="plugin-section-title">{{ $t("settings.installedPlugins") }}</h3>
-        <div class="plugin-list">
-          <div v-for="plugin in plugins" :key="plugin.id" class="plugin-item">
-            <div class="plugin-header">
-              <span class="plugin-name">{{ plugin.name }}</span>
-              <span class="plugin-version">v{{ plugin.version }}</span>
-            </div>
-            <p v-if="plugin.description" class="plugin-desc">{{ plugin.description }}</p>
-            <div v-if="plugin.tools?.length" class="plugin-tools-badge">
-              {{ $t("settings.pluginTools", { count: plugin.tools.length }) }}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <Transition name="toast">
-        <div v-if="saved" class="toast-success">
-          {{ $t("settings.saved") }}
-        </div>
-      </Transition>
-      <Transition name="toast">
-        <div v-if="saveError" class="toast-error">
-          {{ $t("settings.saveError") }}
-        </div>
-      </Transition>
     </div>
+
+    <!-- Toasts -->
+    <Transition name="toast">
+      <div v-if="saved" class="toast-popup success">{{ $t("settings.saved") }}</div>
+    </Transition>
+    <Transition name="toast">
+      <div v-if="saveError" class="toast-popup error">{{ $t("settings.saveError") }}</div>
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import client from "@/api/client";
+import PageHeader from "@/components/PageHeader.vue";
 
 const PROVIDER_MODELS: Record<string, string[]> = {
   deepseek: ["deepseek-chat", "deepseek-reasoner"],
   openai: ["gpt-4o-mini", "gpt-4o", "o1-mini", "o3-mini"],
   anthropic: ["claude-3-5-haiku-20241022", "claude-3-5-sonnet-20241022"],
-  zhipuai: [
-    "glm-4-flash",
-    "glm-4",
-    "glm-4-plus",
-    "glm-4.5",
-    "glm-4.7",
-    "glm-4.7-FlashX",
-    "glm-5",
-    "glm-z1-flash",
-  ],
+  zhipuai: ["glm-4-flash", "glm-4", "glm-4-plus", "glm-4.5", "glm-4.7", "glm-4.7-FlashX", "glm-5", "glm-z1-flash"],
 };
 
 const DEFAULT_MODEL: Record<string, string> = {
-  deepseek: "deepseek-chat",
-  openai: "gpt-4o-mini",
-  anthropic: "claude-3-5-haiku-20241022",
-  zhipuai: "glm-4-flash",
+  deepseek: "deepseek-chat", openai: "gpt-4o-mini", anthropic: "claude-3-5-haiku-20241022", zhipuai: "glm-4-flash",
 };
 
 type ToolRegistry = { name: string; label: string; description: string; default_enabled: boolean };
@@ -163,35 +143,24 @@ const keyCounts = ref<Record<string, number>>({});
 const personaOverride = ref("");
 const enabledTools = ref<string[]>([]);
 const toolRegistry = ref<ToolRegistry[]>([]);
-const plugins = ref<PluginInfo[]>([]);
 const saved = ref(false);
 const saving = ref(false);
 const saveError = ref(false);
 
-const currentProviderModels = computed(
-  () => PROVIDER_MODELS[provider.value] ?? [],
-);
-
-const effectiveModelName = computed(() =>
-  modelSelect.value === "__custom__" ? customModelName.value : modelSelect.value,
-);
-
+const currentProviderModels = computed(() => PROVIDER_MODELS[provider.value] ?? []);
+const effectiveModelName = computed(() => modelSelect.value === "__custom__" ? customModelName.value : modelSelect.value);
 const existingKeyCount = computed(() => keyCounts.value[provider.value] ?? 0);
 
 function onProviderChange() {
-  const defaultModel = DEFAULT_MODEL[provider.value] ?? PROVIDER_MODELS[provider.value]?.[0] ?? "";
-  modelSelect.value = defaultModel;
+  modelSelect.value = DEFAULT_MODEL[provider.value] ?? PROVIDER_MODELS[provider.value]?.[0] ?? "";
   customModelName.value = "";
   apiKeys.value = [""];
 }
 
 function toggleTool(name: string) {
   const idx = enabledTools.value.indexOf(name);
-  if (idx >= 0) {
-    enabledTools.value.splice(idx, 1);
-  } else {
-    enabledTools.value.push(name);
-  }
+  if (idx >= 0) enabledTools.value.splice(idx, 1);
+  else enabledTools.value.push(name);
 }
 
 onMounted(async () => {
@@ -199,264 +168,92 @@ onMounted(async () => {
     const { data } = await client.get("/settings");
     provider.value = data.model_provider;
     personaOverride.value = data.persona_override ?? "";
-    keyCounts.value = (data.key_counts ?? {}) as Record<string, number>;
-    toolRegistry.value = (data.tool_registry ?? []) as ToolRegistry[];
-    enabledTools.value = (data.enabled_tools ?? []) as string[];
-
-    const savedModel: string = data.model_name ?? "";
-    const models = PROVIDER_MODELS[provider.value] ?? [];
-    if (models.includes(savedModel)) {
-      modelSelect.value = savedModel;
-    } else {
-      modelSelect.value = "__custom__";
-      customModelName.value = savedModel;
-    }
-  } catch {
-    // defaults already applied above
-  }
-  try {
-    const { data } = await client.get("/plugins");
-    plugins.value = data as PluginInfo[];
-  } catch {
-    // non-critical: plugin list not available
-  }
+    keyCounts.value = data.key_counts ?? {};
+    toolRegistry.value = data.tool_registry ?? [];
+    enabledTools.value = data.enabled_tools ?? [];
+    const savedModel = data.model_name ?? "";
+    if (PROVIDER_MODELS[provider.value]?.includes(savedModel)) modelSelect.value = savedModel;
+    else { modelSelect.value = "__custom__"; customModelName.value = savedModel; }
+  } catch {}
 });
 
 async function save() {
   saving.value = true;
-  saveError.value = false;
   try {
-    const payload: Record<string, unknown> = {
-      model_provider: provider.value,
-      model_name: effectiveModelName.value,
-      persona_override: personaOverride.value || null,
-      enabled_tools: enabledTools.value,
-    };
-    const nonEmptyKeys = apiKeys.value.filter((k: string) => k.trim());
-    if (nonEmptyKeys.length > 0) {
-      payload.api_keys = { [provider.value]: nonEmptyKeys };
-    }
+    const payload: any = { model_provider: provider.value, model_name: effectiveModelName.value, persona_override: personaOverride.value || null, enabled_tools: enabledTools.value };
+    const nonEmptyKeys = apiKeys.value.filter(k => k.trim());
+    if (nonEmptyKeys.length > 0) payload.api_keys = { [provider.value]: nonEmptyKeys };
     await client.put("/settings", payload);
-    // Refresh key counts from server after save
     const { data: refreshed } = await client.get("/settings");
-    keyCounts.value = (refreshed.key_counts ?? {}) as Record<string, number>;
+    keyCounts.value = refreshed.key_counts ?? {};
     apiKeys.value = [""];
     saved.value = true;
-    setTimeout(() => (saved.value = false), 2000);
+    setTimeout(() => saved.value = false, 2000);
   } catch {
     saveError.value = true;
-    setTimeout(() => (saveError.value = false), 3000);
-  } finally {
-    saving.value = false;
-  }
+    setTimeout(() => saveError.value = false, 3000);
+  } finally { saving.value = false; }
 }
 </script>
 
 <style scoped>
-.page-card {
-  max-width: 480px;
+.page-container { height: 100vh; display: flex; flex-direction: column; background: var(--bg-primary); }
+.page-content { flex: 1; padding: 2rem; overflow-y: auto; max-width: 1000px; width: 100%; margin: 0 auto; }
+
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+.section-card { padding: 1.5rem; }
+.full-width { grid-column: span 2; }
+
+.section-title { font-size: 0.8rem; font-weight: 800; text-transform: uppercase; color: var(--accent-light); letter-spacing: 1px; margin-bottom: 1.5rem; }
+
+.form-group { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
+.form-group label { font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); }
+
+.modern-input {
+  background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text-primary); padding: 0.75rem; font-size: 0.95rem; outline: none; transition: border-color 0.2s;
+}
+.modern-input:focus { border-color: var(--accent); }
+.custom-input { margin-top: 0.5rem; }
+.persona-area { height: 120px; resize: none; }
+
+.api-key-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+.btn-icon-danger {
+  background: rgba(244, 67, 54, 0.1); color: #f44336; border: none; width: 40px; border-radius: var(--radius-sm); cursor: pointer;
 }
 
-.settings-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
+.btn-ghost-full {
+  background: transparent; border: 1px dashed var(--border); color: var(--text-muted);
+  width: 100%; padding: 0.6rem; border-radius: var(--radius-sm); cursor: pointer; font-size: 0.85rem;
 }
+.btn-ghost-full:hover { border-color: var(--accent); color: var(--accent); }
 
-.custom-model-input {
-  margin-top: var(--space-sm);
-}
+.key-status { font-size: 0.75rem; color: #4caf50; margin-top: 0.5rem; }
 
-.api-key-row {
-  display: flex;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-xs);
+/* ── Tool Grid ── */
+.tool-grid { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.tool-pill {
+  padding: 0.5rem 1rem; border-radius: var(--radius-full); border: 1px solid var(--border);
+  color: var(--text-secondary); cursor: pointer; transition: all 0.2s; font-size: 0.85rem;
 }
+.tool-pill.active { background: var(--accent); border-color: var(--accent); color: white; }
+.hidden-check { display: none; }
 
-.api-key-row input {
-  flex: 1;
-}
+.form-actions { grid-column: span 2; display: flex; justify-content: flex-end; padding-top: 1rem; }
+.btn-accent.btn-large { padding: 0.8rem 2.5rem; font-size: 1rem; }
 
-.btn-remove-key {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
-  background: var(--danger-a10, rgba(255, 59, 48, 0.1));
-  border: 1px solid var(--danger, #ff3b30);
-  color: var(--danger, #ff3b30);
-  font-size: 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+/* ── Toast ── */
+.toast-popup {
+  position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+  padding: 0.75rem 2rem; border-radius: var(--radius-full); font-weight: 600; z-index: 2000;
+  box-shadow: var(--shadow-lg);
 }
+.toast-popup.success { background: #4caf50; color: white; }
+.toast-popup.error { background: #f44336; color: white; }
 
-.btn-add-key {
-  background: transparent;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-sm);
-  padding: 6px 12px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  cursor: pointer;
-  width: 100%;
-  text-align: center;
-}
+.animate-fade-in { animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-.btn-add-key:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.key-info {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: var(--space-xs);
-}
-
-.field-description {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin: 0 0 var(--space-sm) 0;
-}
-
-.tool-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.tool-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: border-color 0.2s;
-}
-
-.tool-item:hover {
-  border-color: var(--accent);
-}
-
-.tool-item input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  accent-color: var(--accent);
-}
-
-.tool-label {
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.tool-desc {
-  font-size: 12px;
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.plugin-section {
-  margin-top: var(--space-lg);
-  border-top: 1px solid var(--border);
-  padding-top: var(--space-lg);
-}
-
-.plugin-section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin: 0 0 var(--space-md) 0;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.plugin-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.plugin-item {
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-secondary, rgba(255, 255, 255, 0.03));
-}
-
-.plugin-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-bottom: 4px;
-}
-
-.plugin-name {
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.plugin-version {
-  font-size: 11px;
-  color: var(--text-muted);
-  background: var(--surface-tertiary, rgba(255, 255, 255, 0.06));
-  padding: 1px 6px;
-  border-radius: 10px;
-}
-
-.plugin-desc {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin: 0 0 6px 0;
-}
-
-.plugin-tools-badge {
-  font-size: 11px;
-  color: var(--accent);
-  opacity: 0.8;
-}
-
-.toast-success {
-  margin-top: var(--space-lg);
-  padding: var(--space-md);
-  background: var(--accent-a10);
-  border: 1px solid var(--border-glow);
-  border-radius: var(--radius-md);
-  color: var(--accent);
-  text-align: center;
-  font-size: 14px;
-}
-
-.toast-error {
-  margin-top: var(--space-lg);
-  padding: var(--space-md);
-  background: var(--danger-a10, rgba(255, 59, 48, 0.1));
-  border: 1px solid var(--danger, #ff3b30);
-  border-radius: var(--radius-md);
-  color: var(--danger, #ff3b30);
-  text-align: center;
-  font-size: 14px;
-}
-
-.toast-enter-active {
-  animation: slideUp 0.3s ease;
-}
-
-.toast-leave-active {
-  animation: fadeIn 0.3s ease reverse;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .toast-enter-active,
-  .toast-leave-active {
-    animation: none;
-  }
-}
+.toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 20px); }
 </style>
