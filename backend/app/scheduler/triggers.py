@@ -1,5 +1,7 @@
 import abc
+import asyncio
 import hashlib
+import imaplib
 from typing import Any
 
 import httpx
@@ -41,8 +43,47 @@ class WebWatcherProcessor(TriggerProcessor):
         return False
 
 
+class IMAPEmailProcessor(TriggerProcessor):
+    """Fires when new unread emails arrive."""
+
+    async def should_fire(self, metadata: dict[str, Any]) -> bool:
+        host = metadata.get("imap_host")
+        user = metadata.get("imap_user")
+        password = metadata.get("imap_password")
+        if not all([host, user, password]):
+            return False
+
+        last_uid = metadata.get("last_uid", 0)
+        try:
+
+            def check_emails():
+                with imaplib.IMAP4_SSL(host) as mail:
+                    mail.login(user, password)
+                    mail.select("inbox")
+                    status, messages = mail.search(None, "UNSEEN")
+                    if status != "OK":
+                        return None
+                    msg_ids = messages[0].split()
+                    if not msg_ids:
+                        return None
+                    latest_uid = int(msg_ids[-1])
+                    if latest_uid > last_uid:
+                        return latest_uid
+                return None
+
+            new_latest_uid = await asyncio.to_thread(check_emails)
+            if new_latest_uid:
+                metadata["last_uid"] = new_latest_uid
+                return True
+        except Exception:
+            logger.exception("email_trigger_check_failed", user=user)
+
+        return False
+
+
 _PROCESSORS: dict[str, TriggerProcessor] = {
     "web_watcher": WebWatcherProcessor(),
+    "email": IMAPEmailProcessor(),
 }
 
 

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 from collections.abc import AsyncGenerator
@@ -21,6 +22,7 @@ from app.db.models import Conversation, Message, User
 from app.db.session import AsyncSessionLocal, get_db
 from app.plugins import plugin_registry
 from app.rag.retriever import maybe_inject_rag_context
+from app.services.memory_sync import sync_conversation_to_markdown
 
 logger = structlog.get_logger(__name__)
 
@@ -214,6 +216,8 @@ async def chat_stream(  # noqa: C901
                         conv_id=str(conv_id),
                         response_chars=len(full_content),
                     )
+                    # Sync to local Markdown
+                    asyncio.create_task(sync_conversation_to_markdown(conv_id))
                 except Exception:
                     logger.exception(
                         "failed_to_save_partial_response",

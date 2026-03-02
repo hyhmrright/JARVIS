@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # Skills directory — load .md skill files to inject into system prompt
     skills_dir: str = str(Path.home() / ".jarvis" / "skills")
 
+    # Local memory sync — export conversations to Markdown files
+    memory_sync_dir: str = str(Path.home() / ".jarvis" / "memory")
+
     # MCP server configurations (JSON array of MCPServerConfig dicts)
     mcp_servers_json: str = ""
 
