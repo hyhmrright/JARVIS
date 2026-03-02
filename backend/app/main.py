@@ -26,6 +26,7 @@ from app.api.webhooks import router as webhooks_router
 from app.channels.discord import DiscordChannel
 from app.channels.slack import SlackChannel
 from app.channels.telegram import TelegramChannel
+from app.channels.webhook import WebhookChannel
 from app.channels.whatsapp import WhatsAppChannel
 from app.core.config import settings
 from app.core.limiter import limiter
@@ -76,6 +77,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
         channel_registry.register(ws_adapter)
         app.include_router(ws_adapter.router, prefix="/api/channels/whatsapp")
+
+    # Always register generic webhook for extensibility
+    wh_adapter = WebhookChannel()
+    channel_registry.register(wh_adapter)
+    app.include_router(wh_adapter.router, prefix="/api/channels/webhook")
 
     await channel_registry.start_all()
 
