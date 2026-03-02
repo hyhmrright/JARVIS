@@ -6,7 +6,7 @@ from langgraph.prebuilt import ToolNode
 
 from app.agent.llm import get_llm_with_fallback
 from app.agent.state import AgentState
-from app.tools.browser_tool import browser_navigate
+from app.tools.browser_tool import browser_click, browser_navigate, browser_screenshot
 from app.tools.code_exec_tool import execute_code
 from app.tools.datetime_tool import get_datetime
 from app.tools.file_tool import create_file_tools
@@ -18,6 +18,8 @@ from app.tools.web_fetch_tool import web_fetch
 
 _TOOL_MAP = {
     "browser": browser_navigate,
+    "browser_screenshot": browser_screenshot,
+    "browser_click": browser_click,
     "code_exec": execute_code,
     "datetime": get_datetime,
     "shell": shell_exec,

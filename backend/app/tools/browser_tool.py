@@ -1,54 +1,71 @@
-"""Browser automation tool using Playwright for JavaScript-heavy pages."""
+import base64
 
 import structlog
 from langchain_core.tools import tool
-
-from app.tools.web_fetch_tool import is_safe_url
+from playwright.async_api import async_playwright
 
 logger = structlog.get_logger(__name__)
 
-_MAX_TEXT = 8000
+
+@tool
+async def browser_navigate(url: str) -> str:
+    """Navigate to a URL and return the text content.
+
+    Use this for information retrieval from the web.
+    """
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            page = await browser.new_page()
+            await page.goto(url, wait_until="networkidle", timeout=30000)
+            text = await page.inner_text("body")
+            await browser.close()
+            return text[:10000]  # Limit response size
+    except Exception as e:
+        logger.exception("browser_navigate_failed", url=url)
+        return f"Error navigating to {url}: {str(e)}"
 
 
 @tool
-async def browser_navigate(url: str, action: str = "extract") -> str:
-    """Navigate to a URL using a headless browser and extract content.
+async def browser_screenshot(url: str) -> str:
+    """Take a screenshot of a webpage and return as Base64.
 
-    Use this for JavaScript-heavy pages that web_fetch cannot handle.
-    The page is fully rendered before extraction.
-
-    Args:
-        url: The URL to navigate to.
-        action: "extract" to get page text, "screenshot" to confirm it loaded.
+    Use this when you need to see the visual layout of a page (e.g. for CSS debugging
+    or capturing charts).
     """
-    if not is_safe_url(url):
-        return f"Blocked: URL '{url}' targets a private or internal address."
-
     try:
-        from playwright.async_api import async_playwright
-    except ImportError:
-        return "Browser tool unavailable: playwright not installed."
-
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
-            await page.goto(url, wait_until="networkidle", timeout=15000)
+            await page.set_viewport_size({"width": 1280, "height": 800})
+            await page.goto(url, wait_until="networkidle", timeout=30000)
 
-            if not is_safe_url(page.url):
-                return f"Blocked: redirected to private address '{page.url}'."
-
-            if action == "extract":
-                text = await page.inner_text("body")
-                if len(text) > _MAX_TEXT:
-                    text = text[:_MAX_TEXT] + "\n... (truncated)"
-                return text or "(empty page)"
-            if action == "screenshot":
-                title = await page.title()
-                return f"Page loaded successfully. Title: {title}"
-            return f"Unknown action: {action}. Use 'extract' or 'screenshot'."
-        except Exception as exc:
-            logger.warning("browser_navigate_error", url=url, error=str(exc)[:200])
-            return f"Browser navigation failed: {exc}"
-        finally:
+            # Full page screenshot
+            screenshot_bytes = await page.screenshot(full_page=True)
             await browser.close()
+
+            base64_str = base64.b64encode(screenshot_bytes).decode("utf-8")
+            return f"data:image/png;base64,{base64_str}"
+    except Exception as e:
+        logger.exception("browser_screenshot_failed", url=url)
+        return f"Error taking screenshot of {url}: {str(e)}"
+
+
+@tool
+async def browser_click(url: str, selector: str) -> str:
+    """Click an element on a webpage and return the updated text content.
+
+    Use this to interact with buttons, menus, or forms.
+    """
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            page = await browser.new_page()
+            await page.goto(url, wait_until="networkidle")
+            await page.click(selector)
+            await page.wait_for_timeout(1000)  # Wait for potential transition
+            text = await page.inner_text("body")
+            await browser.close()
+            return f"Clicked {selector}. New content snippet: {text[:5000]}"
+    except Exception as e:
+        return f"Error clicking {selector}: {str(e)}"
