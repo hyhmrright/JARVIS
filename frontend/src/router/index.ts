@@ -10,12 +10,14 @@ const router = createRouter({
     { path: "/documents", component: () => import("@/pages/DocumentsPage.vue"), meta: { requiresAuth: true } },
     { path: "/settings", component: () => import("@/pages/SettingsPage.vue"), meta: { requiresAuth: true } },
     { path: "/usage", component: () => import("@/pages/UsagePage.vue"), meta: { requiresAuth: true } },
+    { path: "/admin", component: () => import("@/pages/AdminPage.vue"), meta: { requiresAuth: true, requiresAdmin: true } },
   ],
 });
 
 router.beforeEach((to) => {
   const auth = useAuthStore();
   if (to.meta.requiresAuth && !auth.isLoggedIn) return "/login";
+  if (to.meta.requiresAdmin && !auth.isAdmin) return "/";
 });
 
 export default router;

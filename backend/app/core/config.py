@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     # Channel bot tokens — optional, leave empty to disable the channel
     telegram_bot_token: str = ""
     discord_bot_token: str = ""
+    slack_bot_token: str = ""
+    slack_app_token: str = ""
 
     # Non-sensitive — safe defaults for local development
     qdrant_url: str = "http://localhost:6333"

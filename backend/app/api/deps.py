@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import DEFAULT_ENABLED_TOOLS
 from app.core.security import decode_access_token, resolve_api_keys
-from app.db.models import User, UserSettings
+from app.db.models import User, UserRole, UserSettings
 from app.db.session import get_db
 
 security = HTTPBearer()
@@ -58,6 +58,16 @@ async def get_current_user_query_token(
     """Authenticate via ?token= query param (for SSE endpoints where headers
     aren't supported)."""
     return await _resolve_user(token, db)
+
+
+async def get_admin_user(user: User = Depends(get_current_user)) -> User:
+    """Ensure the current user has administrative privileges."""
+    if user.role not in (UserRole.ADMIN.value, UserRole.SUPERADMIN.value):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return user
 
 
 async def get_llm_config(

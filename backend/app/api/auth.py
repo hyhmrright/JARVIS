@@ -55,6 +55,8 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    role: str
+    display_name: str | None = None
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
@@ -76,7 +78,11 @@ async def register(
     db.add(UserSettings(user_id=user.id))
     await db.commit()
     logger.info("user_registered", user_id=str(user.id), email=body.email)
-    return TokenResponse(access_token=create_access_token(str(user.id)))
+    return TokenResponse(
+        access_token=create_access_token(str(user.id)),
+        role=user.role,
+        display_name=user.display_name,
+    )
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -93,4 +99,8 @@ async def login(
         logger.warning("login_failed", email=body.email)
         raise HTTPException(status_code=401, detail="Invalid credentials")
     logger.info("login_success", user_id=str(user.id), email=user.email)
-    return TokenResponse(access_token=create_access_token(str(user.id)))
+    return TokenResponse(
+        access_token=create_access_token(str(user.id)),
+        role=user.role,
+        display_name=user.display_name,
+    )

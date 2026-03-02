@@ -39,6 +39,8 @@ dependencies = [
     "mcp>=1.0.0",
     "apscheduler>=3.10",
     "edge-tts>=7.2.7",
+    "slack-bolt>=1.27.0",
+    "slack-sdk>=3.40.1",
 ]
 
 [dependency-groups]
