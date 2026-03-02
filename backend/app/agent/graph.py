@@ -10,6 +10,7 @@ from app.tools.browser_tool import browser_navigate
 from app.tools.code_exec_tool import execute_code
 from app.tools.datetime_tool import get_datetime
 from app.tools.file_tool import create_file_tools
+from app.tools.memory_tool import read_memory_file, search_local_memory
 from app.tools.rag_tool import create_rag_search_tool
 from app.tools.search_tool import create_web_search_tool
 from app.tools.shell_tool import shell_exec
@@ -21,6 +22,8 @@ _TOOL_MAP = {
     "datetime": get_datetime,
     "shell": shell_exec,
     "web_fetch": web_fetch,
+    "search_local_memory": search_local_memory,
+    "read_memory_file": read_memory_file,
 }
 
 _DEFAULT_TOOLS = list(_TOOL_MAP.values())
