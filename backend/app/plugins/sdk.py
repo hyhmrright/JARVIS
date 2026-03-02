@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import enum
-import inspect
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
@@ -90,20 +89,25 @@ class SimpleSkillPlugin(JarvisPlugin):
         from langchain_core.tools import StructuredTool
 
         # Automatically discover and register methods as tools
-        for name, method in inspect.getmembers(self, predicate=inspect.ismethod):
+        for name in dir(self):
             if name.startswith("_") or name in (
                 "on_load",
                 "on_unload",
                 "plugin_id",
                 "plugin_name",
+                "manifest",
             ):
                 continue
 
+            member = getattr(self, name)
+            if not callable(member):
+                continue
+
             # Use method docstring as tool description
-            doc = method.__doc__ or f"Execute {name} task."
+            doc = member.__doc__ or f"Execute {name} task."
 
             tool = StructuredTool.from_function(
-                func=method,
+                func=member,
                 name=f"{self.plugin_id}_{name}",
                 description=doc,
             )

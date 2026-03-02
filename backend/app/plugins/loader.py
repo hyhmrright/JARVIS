@@ -6,15 +6,15 @@ import importlib
 import importlib.metadata
 import importlib.util
 import inspect
-import io
-import shutil
 import sys
+import shutil
 import zipfile
+import io
 from pathlib import Path
 
 import httpx
-import structlog
 import yaml
+import structlog
 
 from app.plugins.api import PluginAPI
 from app.plugins.registry import PluginRegistry
@@ -107,7 +107,7 @@ def _load_plugin_package(path: Path, registry: PluginRegistry) -> None:
         manifest_path = path / "manifest.yml"
 
     try:
-        with open(manifest_path) as f:
+        with open(manifest_path, "r") as f:
             data = yaml.safe_load(f)
             manifest = JarvisPluginManifest(**data)
 
@@ -139,7 +139,7 @@ def _load_module_file(
         spec.loader.exec_module(module)
     except Exception:
         logger.exception("plugin_module_load_failed", path=str(path))
-        sys.modules.pop(namespaced, None)
+        sys.modules.pop(namespaced, None)  # 清理残留项
         return
 
     for _, obj in inspect.getmembers(module, inspect.isclass):
@@ -152,6 +152,7 @@ def _instantiate_and_register(
     registry: PluginRegistry,
     manifest_override: JarvisPluginManifest | None = None,
 ) -> None:
+    """Instantiate a plugin class and register it if valid."""
     try:
         plugin = plugin_class()
         if manifest_override:
@@ -169,11 +170,13 @@ def _instantiate_and_register(
 
 
 def _validate_plugin(plugin: JarvisPlugin, plugin_class: type) -> None:
+    """Validate that plugin has a valid manifest."""
     if not hasattr(plugin, "manifest") or plugin.manifest is None:
         raise TypeError(f"{plugin_class.__name__} must define 'manifest'")
 
 
 async def activate_all_plugins(registry: PluginRegistry) -> None:
+    """Call ``on_load`` for every discovered plugin."""
     for plugin_id, entry in registry.iter_entries():
         api = PluginAPI(plugin_id=plugin_id, registry=registry)
         try:
@@ -185,6 +188,7 @@ async def activate_all_plugins(registry: PluginRegistry) -> None:
 
 
 async def deactivate_all_plugins(registry: PluginRegistry) -> None:
+    """Call ``on_unload`` for every active plugin (best-effort)."""
     for plugin_id, entry in registry.iter_entries():
         try:
             await entry.plugin.on_unload()
@@ -193,10 +197,14 @@ async def deactivate_all_plugins(registry: PluginRegistry) -> None:
 
 
 def _load_from_entry_points(registry: PluginRegistry) -> None:
+    """Load plugins registered via Python package entry points."""
     try:
         eps = importlib.metadata.entry_points(group=_ENTRY_POINT_GROUP)
         for ep in eps:
-            plugin_class = ep.load()
-            _instantiate_and_register(plugin_class, registry)
+            try:
+                plugin_class = ep.load()
+                _instantiate_and_register(plugin_class, registry)
+            except Exception:
+                logger.exception("plugin_entry_point_load_failed", entry_point=ep.name)
     except Exception:
-        pass
+        return
