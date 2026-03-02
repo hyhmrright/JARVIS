@@ -2,7 +2,7 @@
 
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -197,6 +197,17 @@ async def test_load_from_directory_missing_dir():
 
     reg = PluginRegistry()
     await load_all_plugins(reg, plugin_dirs=[Path("/nonexistent/path")])
+    assert reg.is_empty
+
+
+def test_load_from_directory_oserror(tmp_path: Path) -> None:
+    """OSError on iterdir() is caught and logged; no exception propagates."""
+    from app.plugins.loader import _load_from_directory
+
+    reg = PluginRegistry()
+    with patch.object(type(tmp_path), "iterdir", side_effect=OSError("no access")):
+        _load_from_directory(reg, tmp_path)  # must not raise
+
     assert reg.is_empty
 
 

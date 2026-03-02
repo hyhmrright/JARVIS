@@ -25,6 +25,7 @@ def test_tool_registry_contains_expected_tools() -> None:
         "mcp",
         "cron",
         "canvas",
+        "plugin",
     }
     assert TOOL_NAMES == expected
 

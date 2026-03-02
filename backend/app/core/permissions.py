@@ -87,6 +87,12 @@ TOOL_REGISTRY: list[ToolDef] = [
         "Render HTML visualizations in the frontend canvas panel",
         default_enabled=True,
     ),
+    ToolDef(
+        "plugin",
+        "Plugin Tools",
+        "Tools provided by installed JARVIS plugins",
+        default_enabled=False,
+    ),
 ]
 
 TOOL_NAMES: set[str] = {t.name for t in TOOL_REGISTRY}

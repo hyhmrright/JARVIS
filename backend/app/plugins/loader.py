@@ -86,7 +86,12 @@ def _load_from_directory(registry: PluginRegistry, directory: Path) -> None:
     """Load plugins from ``.py`` files or packages in a directory."""
     if not directory.exists():
         return
-    for path in sorted(directory.iterdir()):
+    try:
+        entries = sorted(directory.iterdir())
+    except OSError:
+        logger.exception("plugin_dir_scan_failed", directory=str(directory))
+        return
+    for path in entries:
         if path.suffix == ".py" and not path.name.startswith("_"):
             _load_module_file(path, registry)
         elif path.is_dir() and (path / "__init__.py").exists():
