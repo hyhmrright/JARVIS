@@ -107,12 +107,10 @@ def _resolve_tools(
 
         tools.append(create_canvas_tool(conversation_id))
 
-    # MCP tools (pre-loaded by caller, bypass the enabled_tools filter)
-    if mcp_tools:
+    if mcp_tools and (enabled_tools is None or "mcp" in enabled_tools):
         tools.extend(mcp_tools)
 
-    # Plugin tools (loaded from plugin registry, bypass the enabled_tools filter)
-    if plugin_tools:
+    if plugin_tools and (enabled_tools is None or "plugin" in enabled_tools):
         tools.extend(plugin_tools)
 
     return tools
