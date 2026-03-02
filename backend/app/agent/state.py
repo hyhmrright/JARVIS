@@ -9,3 +9,5 @@ from langgraph.graph import add_messages
 class AgentState:
     messages: Annotated[list[BaseMessage], add_messages] = field(default_factory=list)
     depth: int = 0
+    pending_tool_call: dict | None = None
+    approved: bool | None = None

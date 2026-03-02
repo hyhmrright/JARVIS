@@ -43,7 +43,18 @@ def _sse_events_from_chunk(chunk: dict, full_content: str) -> tuple[list[str], s
     """
     events: list[str] = []
 
-    if "llm" in chunk:
+    if "approval" in chunk:
+        pending = chunk["approval"]["pending_tool_call"]
+        events.append(
+            _format_sse(
+                {
+                    "type": "approval_required",
+                    "tool": pending["name"],
+                    "args": pending.get("args", {}),
+                }
+            )
+        )
+    elif "llm" in chunk:
         ai_msg = chunk["llm"]["messages"][-1]
         # Emit tool_start events when the LLM decides to call tools
         if hasattr(ai_msg, "tool_calls") and ai_msg.tool_calls:
@@ -102,6 +113,12 @@ async def chat_stream(  # noqa: C901
     llm: ResolvedLLMConfig = Depends(get_llm_config),
     db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
+    # Check if this is a consent signal (HITL)
+    is_consent = body.content.startswith("[CONSENT:")
+    approved: bool | None = None
+    if is_consent:
+        approved = "ALLOW" in body.content
+
     conv = await db.scalar(
         select(Conversation).where(
             Conversation.id == body.conversation_id,
@@ -111,8 +128,10 @@ async def chat_stream(  # noqa: C901
     if not conv:
         raise HTTPException(status_code=404)
 
-    db.add(Message(conversation_id=conv.id, role="human", content=body.content))
-    await db.commit()
+    # Don't save metadata messages to database
+    if not is_consent:
+        db.add(Message(conversation_id=conv.id, role="human", content=body.content))
+        await db.commit()
 
     history_rows = await db.scalars(
         select(Message)
@@ -184,8 +203,9 @@ async def chat_stream(  # noqa: C901
         )
         full_content = ""
         last_ai_msg = None
+        state = AgentState(messages=lc_messages, approved=approved)
         try:
-            async for chunk in graph.astream(AgentState(messages=lc_messages)):
+            async for chunk in graph.astream(state):
                 if "llm" in chunk:
                     last_ai_msg = chunk["llm"]["messages"][-1]
                 events, full_content = _sse_events_from_chunk(chunk, full_content)
