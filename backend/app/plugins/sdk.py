@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import enum
+import inspect
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
@@ -77,3 +78,33 @@ class JarvisPlugin(ABC):
 
     async def on_unload(self) -> None:  # noqa: B027
         """Called once when the plugin is deactivated (app shutdown)."""
+
+
+class SimpleSkillPlugin(JarvisPlugin):
+    """A plugin that automatically registers its methods as tools (OpenClaw style).
+
+    Subclasses should define manifest and methods with docstrings.
+    """
+
+    async def on_load(self, api: PluginAPI) -> None:
+        from langchain_core.tools import StructuredTool
+
+        # Automatically discover and register methods as tools
+        for name, method in inspect.getmembers(self, predicate=inspect.ismethod):
+            if name.startswith("_") or name in (
+                "on_load",
+                "on_unload",
+                "plugin_id",
+                "plugin_name",
+            ):
+                continue
+
+            # Use method docstring as tool description
+            doc = method.__doc__ or f"Execute {name} task."
+
+            tool = StructuredTool.from_function(
+                func=method,
+                name=f"{self.plugin_id}_{name}",
+                description=doc,
+            )
+            api.register_tool(tool)

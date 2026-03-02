@@ -1,4 +1,4 @@
-"""Plugin loader — discovers and activates plugins."""
+"""Plugin & Skill loader — supports OpenClaw-style manifest.yaml skills."""
 
 from __future__ import annotations
 
@@ -6,15 +6,19 @@ import importlib
 import importlib.metadata
 import importlib.util
 import inspect
+import io
+import shutil
 import sys
+import zipfile
 from pathlib import Path
 
 import httpx
 import structlog
+import yaml
 
 from app.plugins.api import PluginAPI
 from app.plugins.registry import PluginRegistry
-from app.plugins.sdk import JarvisPlugin
+from app.plugins.sdk import JarvisPlugin, JarvisPluginManifest
 
 logger = structlog.get_logger(__name__)
 
@@ -23,40 +27,55 @@ _DEFAULT_PLUGIN_DIR = Path.home() / ".jarvis" / "plugins"
 
 
 async def install_plugin_from_url(url: str, registry: PluginRegistry) -> str:
-    """Download a .py plugin file from a URL and load it immediately."""
+    """Download a plugin/skill from a URL (supports .py or .zip for packages)."""
     _DEFAULT_PLUGIN_DIR.mkdir(parents=True, exist_ok=True)
 
-    filename = url.split("/")[-1]
-    if not filename.endswith(".py"):
-        filename += ".py"
-
-    dest_path = _DEFAULT_PLUGIN_DIR / filename
-
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(follow_redirects=True) as client:
         response = await client.get(url)
         response.raise_for_status()
-        dest_path.write_text(response.text)
 
-    # Load into registry
-    _load_module_file(dest_path, registry)
+        # Handle single .py file
+        if url.endswith(".py"):
+            filename = url.split("/")[-1]
+            dest_path = _DEFAULT_PLUGIN_DIR / filename
+            dest_path.write_text(response.text)
+            _load_module_file(dest_path, registry)
+            return filename.replace(".py", "")
 
-    return filename.replace(".py", "")
+        # Handle .zip (OpenClaw skill package)
+        if url.endswith(".zip") or "archive" in url:
+            with zipfile.ZipFile(io.BytesIO(response.content)) as z:
+                # Extract to a unique directory under plugins
+                pkg_name = (
+                    url.split("/")[-1]
+                    .replace(".zip", "")
+                    .replace(".main", "")
+                    .replace(".master", "")
+                )
+                extract_path = _DEFAULT_PLUGIN_DIR / pkg_name
+                z.extractall(extract_path)
+
+                # Check if nested (common in GitHub zips)
+                nested_dirs = list(extract_path.glob("*/manifest.yaml"))
+                if nested_dirs:
+                    # Move content up
+                    real_pkg_path = nested_dirs[0].parent
+                    temp_path = _DEFAULT_PLUGIN_DIR / f"{pkg_name}_tmp"
+                    shutil.copytree(real_pkg_path, temp_path)
+                    shutil.rmtree(extract_path)
+                    shutil.move(temp_path, extract_path)
+
+                _load_plugin_package(extract_path, registry)
+                return pkg_name
+
+    return "unknown"
 
 
 async def load_all_plugins(
     registry: PluginRegistry,
     plugin_dirs: list[Path] | None = None,
 ) -> None:
-    """Discover plugins from entry points and directories.
-
-    Plugins are added to the registry but ``on_load`` is not yet called.
-    Call :func:`activate_all_plugins` afterwards.
-
-    Args:
-        registry: The plugin registry to populate.
-        plugin_dirs: Extra directories to scan. The default ~/.jarvis/plugins/
-            directory is always scanned in addition to any provided dirs.
-    """
+    """Discover plugins from entry points and directories."""
     _load_from_entry_points(registry)
     dirs = list(plugin_dirs or [])
     if _DEFAULT_PLUGIN_DIR not in dirs:
@@ -65,65 +84,49 @@ async def load_all_plugins(
         _load_from_directory(registry, d)
 
 
-async def activate_all_plugins(registry: PluginRegistry) -> None:
-    """Call ``on_load`` for every discovered plugin.
-
-    Plugins that raise during ``on_load`` are evicted from the registry.
-    """
-    for plugin_id, entry in registry.iter_entries():
-        api = PluginAPI(plugin_id=plugin_id, registry=registry)
-        try:
-            await entry.plugin.on_load(api)
-            logger.info("plugin_loaded", plugin_id=plugin_id)
-        except Exception:
-            logger.exception("plugin_load_failed", plugin_id=plugin_id)
-            registry.unregister_plugin(plugin_id)
-
-
-async def deactivate_all_plugins(registry: PluginRegistry) -> None:
-    """Call ``on_unload`` for every active plugin (best-effort)."""
-    for plugin_id, entry in registry.iter_entries():
-        try:
-            await entry.plugin.on_unload()
-            logger.info("plugin_unloaded", plugin_id=plugin_id)
-        except Exception:
-            logger.exception("plugin_unload_failed", plugin_id=plugin_id)
-
-
-def _load_from_entry_points(registry: PluginRegistry) -> None:
-    """Load plugins registered via Python package entry points."""
-    try:
-        eps = importlib.metadata.entry_points(group=_ENTRY_POINT_GROUP)
-    except Exception:
-        return
-    for ep in eps:
-        try:
-            plugin_class = ep.load()
-            _instantiate_and_register(plugin_class, registry)
-        except Exception:
-            logger.exception("plugin_entry_point_load_failed", entry_point=ep.name)
-
-
 def _load_from_directory(registry: PluginRegistry, directory: Path) -> None:
-    """Load plugins from ``.py`` files or packages in a directory."""
+    """Scan directory for .py files or OpenClaw-style packages."""
     if not directory.exists():
         return
-    try:
-        entries = sorted(directory.iterdir())
-    except OSError:
-        logger.exception("plugin_dir_scan_failed", directory=str(directory))
-        return
-    for path in entries:
-        if path.suffix == ".py" and not path.name.startswith("_"):
+    for path in sorted(directory.iterdir()):
+        if path.name.startswith("_"):
+            continue
+        if path.suffix == ".py":
             _load_module_file(path, registry)
-        elif path.is_dir() and (path / "__init__.py").exists():
-            _load_module_file(path / "__init__.py", registry, module_name=path.name)
+        elif path.is_dir():
+            if (path / "manifest.yaml").exists() or (path / "manifest.yml").exists():
+                _load_plugin_package(path, registry)
+            elif (path / "__init__.py").exists():
+                _load_module_file(path / "__init__.py", registry, module_name=path.name)
+
+
+def _load_plugin_package(path: Path, registry: PluginRegistry) -> None:
+    """Load a plugin from a directory containing manifest.yaml (OpenClaw style)."""
+    manifest_path = path / "manifest.yaml"
+    if not manifest_path.exists():
+        manifest_path = path / "manifest.yml"
+
+    try:
+        with open(manifest_path) as f:
+            data = yaml.safe_load(f)
+            manifest = JarvisPluginManifest(**data)
+
+        # Entry point is usually main.py in the package
+        entry_file = path / data.get("entry_point", "main.py")
+        if not entry_file.exists():
+            logger.error("plugin_package_missing_entry", path=str(path))
+            return
+
+        _load_module_file(entry_file, registry, manifest_override=manifest)
+    except Exception:
+        logger.exception("plugin_package_load_failed", path=str(path))
 
 
 def _load_module_file(
     path: Path,
     registry: PluginRegistry,
     module_name: str | None = None,
+    manifest_override: JarvisPluginManifest | None = None,
 ) -> None:
     name = module_name or path.stem
     namespaced = f"jarvis_user_plugins.{name}"
@@ -136,17 +139,24 @@ def _load_module_file(
         spec.loader.exec_module(module)
     except Exception:
         logger.exception("plugin_module_load_failed", path=str(path))
-        sys.modules.pop(namespaced, None)  # 清理残留项
+        sys.modules.pop(namespaced, None)
         return
+
     for _, obj in inspect.getmembers(module, inspect.isclass):
         if issubclass(obj, JarvisPlugin) and obj is not JarvisPlugin:
-            _instantiate_and_register(obj, registry)
+            _instantiate_and_register(obj, registry, manifest_override)
 
 
-def _instantiate_and_register(plugin_class: type, registry: PluginRegistry) -> None:
-    """Instantiate a plugin class and register it if valid."""
+def _instantiate_and_register(
+    plugin_class: type,
+    registry: PluginRegistry,
+    manifest_override: JarvisPluginManifest | None = None,
+) -> None:
     try:
         plugin = plugin_class()
+        if manifest_override:
+            plugin.manifest = manifest_override
+
         _validate_plugin(plugin, plugin_class)
         registry.register_plugin(plugin)
         logger.info(
@@ -159,13 +169,34 @@ def _instantiate_and_register(plugin_class: type, registry: PluginRegistry) -> N
 
 
 def _validate_plugin(plugin: JarvisPlugin, plugin_class: type) -> None:
-    """Validate that plugin has a valid manifest."""
     if not hasattr(plugin, "manifest") or plugin.manifest is None:
         raise TypeError(f"{plugin_class.__name__} must define 'manifest'")
 
-    from app.plugins.sdk import JarvisPluginManifest
 
-    if not isinstance(plugin.manifest, JarvisPluginManifest):
-        raise TypeError(
-            f"{plugin_class.__name__}.manifest must be a JarvisPluginManifest instance"
-        )
+async def activate_all_plugins(registry: PluginRegistry) -> None:
+    for plugin_id, entry in registry.iter_entries():
+        api = PluginAPI(plugin_id=plugin_id, registry=registry)
+        try:
+            await entry.plugin.on_load(api)
+            logger.info("plugin_activated", plugin_id=plugin_id)
+        except Exception:
+            logger.exception("plugin_activation_failed", plugin_id=plugin_id)
+            registry.unregister_plugin(plugin_id)
+
+
+async def deactivate_all_plugins(registry: PluginRegistry) -> None:
+    for plugin_id, entry in registry.iter_entries():
+        try:
+            await entry.plugin.on_unload()
+        except Exception:
+            logger.exception("plugin_unload_failed", plugin_id=plugin_id)
+
+
+def _load_from_entry_points(registry: PluginRegistry) -> None:
+    try:
+        eps = importlib.metadata.entry_points(group=_ENTRY_POINT_GROUP)
+        for ep in eps:
+            plugin_class = ep.load()
+            _instantiate_and_register(plugin_class, registry)
+    except Exception:
+        pass
