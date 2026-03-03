@@ -1,14 +1,19 @@
 <template>
-  <div class="app-container">
-    <div class="lang-switcher">
-      <select :value="locale" @change="onLocaleChange">
+  <div class="min-h-screen w-full bg-background text-foreground font-sans antialiased">
+    <div class="fixed top-4 right-6 z-[100]">
+      <select 
+        :value="locale" 
+        @change="onLocaleChange"
+        class="appearance-none bg-secondary/50 backdrop-blur-md border border-border px-4 py-1.5 rounded-full text-xs text-muted-foreground hover:text-foreground transition-all cursor-pointer outline-none focus:ring-2 focus:ring-ring"
+      >
         <option v-for="code in SUPPORTED_LOCALES" :key="code" :value="code">
           {{ LOCALE_LABELS[code] }}
         </option>
       </select>
     </div>
+    
     <router-view v-slot="{ Component }">
-      <transition name="fade" mode="out-in">
+      <transition name="page" mode="out-in">
         <component :is="Component" />
       </transition>
     </router-view>
@@ -27,104 +32,60 @@ function onLocaleChange(e: Event) {
 </script>
 
 <style>
-:root {
-  /* Premium Dark Theme Variables */
-  --bg-primary: #0a0a0c;
-  --bg-secondary: #16161a;
-  --bg-tertiary: #1e1e24;
+@import "tailwindcss";
+
+@theme {
+  --color-background: #09090b;
+  --color-foreground: #fafafa;
+  --color-muted: #27272a;
+  --color-muted-foreground: #a1a1aa;
+  --color-popover: #09090b;
+  --color-popover-foreground: #fafafa;
+  --color-card: #09090b;
+  --color-card-foreground: #fafafa;
+  --color-border: #27272a;
+  --color-input: #27272a;
+  --color-primary: #fafafa;
+  --color-primary-foreground: #18181b;
+  --color-secondary: #27272a;
+  --color-secondary-foreground: #fafafa;
+  --color-accent: #27272a;
+  --color-accent-foreground: #fafafa;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #fafafa;
+  --color-ring: #d4d4d8;
   
-  --accent: #6366f1;
-  --accent-dim: #4f46e5;
-  --accent-light: #818cf8;
-  
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  
-  --border: rgba(255, 255, 255, 0.08);
-  --border-bright: rgba(255, 255, 255, 0.15);
-  
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 20px;
-  --radius-full: 9999px;
-  
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
-  
-  --glass-bg: rgba(22, 22, 26, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-blur: blur(12px);
+  --radius-lg: 0.5rem;
+  --radius-md: calc(0.5rem - 2px);
+  --radius-sm: calc(0.5rem - 4px);
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
 }
 
-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  overflow: hidden;
+/* Custom transitions */
+.page-enter-active, .page-leave-active {
+  transition: all 0.2s ease-in-out;
 }
-
-.app-container {
-  height: 100vh;
-  width: 100vw;
-}
-
-/* Global Transitions */
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-.fade-enter-from, .fade-leave-to {
+.page-enter-from {
   opacity: 0;
+  transform: translateY(4px);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 
-.lang-switcher {
-  position: fixed;
-  top: 1rem;
-  right: 1.5rem;
-  z-index: 9999;
-}
-
-.lang-switcher select {
-  padding: 0.4rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-full);
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  outline: none;
-}
-
-.lang-switcher select:hover {
-  border-color: var(--accent);
-  color: var(--text-primary);
-  transform: translateY(-1px);
-}
-
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: var(--radius-full);
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
-}
+/* Custom Scrollbar for modern look */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-muted-foreground); }
 </style>
