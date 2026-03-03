@@ -1,186 +1,186 @@
 <template>
-  <div class="flex h-screen w-full bg-background overflow-hidden text-[14px]">
-    <!-- Minimal Sidebar -->
+  <div class="flex h-screen w-full bg-zinc-950 font-sans">
+    
+    <!-- Ultra-thin Sidebar -->
     <aside 
       :class="[
-        'flex flex-col bg-background border-r border-border transition-all duration-300 ease-in-out',
-        sidebarCollapsed ? 'w-0 border-none' : 'w-[260px]'
+        'flex flex-col bg-zinc-950 border-r border-zinc-800 transition-all duration-300 ease-in-out',
+        sidebarCollapsed ? 'w-0 border-none opacity-0' : 'w-[260px]'
       ]"
     >
       <div class="h-14 flex items-center px-4 justify-between">
-        <div class="flex items-center gap-2 font-bold tracking-tight select-none">
-          <div class="w-6 h-6 bg-foreground text-background rounded flex items-center justify-center text-xs">J</div>
-          <span>JARVIS</span>
+        <div class="flex items-center gap-2 font-semibold tracking-tighter">
+          <div class="w-5 h-5 bg-white text-black rounded-sm flex items-center justify-center text-[10px] font-bold">J</div>
+          <span class="text-sm">JARVIS</span>
         </div>
-        <button @click="chat.newConversation" class="p-2 hover:bg-muted rounded-md transition-colors" title="New Chat">
-          <SquarePen class="w-4 h-4 text-muted-foreground" />
+        <button @click="chat.newConversation" class="p-1.5 hover:bg-zinc-800 rounded transition-colors" title="New Chat">
+          <SquarePen class="w-4 h-4 text-zinc-400" />
         </button>
       </div>
 
-      <nav class="flex-1 overflow-y-auto px-3 space-y-0.5 custom-scrollbar py-2">
+      <nav class="flex-1 overflow-y-auto px-2 py-4 space-y-0.5 custom-scrollbar">
         <div
           v-for="c in chat.conversations"
           :key="c.id"
           @click="chat.selectConversation(c.id)"
           :class="[
-            'group flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors relative',
-            chat.currentConvId === c.id ? 'bg-muted' : 'hover:bg-muted/50'
+            'group flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors relative',
+            chat.currentConvId === c.id ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
           ]"
         >
-          <span class="text-sm truncate flex-1">{{ c.title }}</span>
+          <MessageSquare class="w-3.5 h-3.5 flex-shrink-0" />
+          <span class="text-xs truncate flex-1">{{ c.title }}</span>
           <button
             @click.stop="chat.deleteConversation(c.id)"
-            class="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive transition-opacity"
+            class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400"
           >
-            <Trash2 class="w-3.5 h-3.5" />
+            <Trash2 class="w-3 h-3" />
           </button>
         </div>
       </nav>
 
-      <div class="p-3 border-t border-border space-y-1">
-        <router-link to="/proactive" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
-          <Zap class="w-4 h-4" />
-          <span>Automations</span>
-        </router-link>
-        <router-link to="/settings" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
-          <Settings class="w-4 h-4" />
-          <span>Settings</span>
-        </router-link>
-        <div class="pt-2 mt-2 border-t border-border flex items-center gap-3 px-3 py-2">
-          <div class="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold border border-border">
+      <div class="p-4 border-t border-zinc-800 space-y-4">
+        <div class="space-y-1">
+          <router-link to="/proactive" class="flex items-center gap-3 px-2 py-1.5 rounded text-xs text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all">
+            <Zap class="w-3.5 h-3.5" />
+            <span>Automations</span>
+          </router-link>
+          <router-link to="/settings" class="flex items-center gap-3 px-2 py-1.5 rounded text-xs text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all">
+            <Settings class="w-3.5 h-3.5" />
+            <span>Settings</span>
+          </router-link>
+        </div>
+        
+        <div class="flex items-center gap-3 px-2 py-2 bg-zinc-900/50 rounded-lg border border-zinc-800">
+          <div class="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-300">
             {{ auth.displayName?.[0] || 'U' }}
           </div>
-          <div class="flex-1 min-w-0">
-            <p class="text-xs font-medium truncate">{{ auth.displayName || 'User' }}</p>
-          </div>
-          <button @click="handleLogout" class="p-1.5 hover:text-destructive transition-colors">
-            <LogOut class="w-3.5 h-3.5" />
+          <span class="text-[11px] font-medium truncate flex-1">{{ auth.displayName || 'User' }}</span>
+          <button @click="handleLogout" class="text-zinc-500 hover:text-red-400 transition-colors">
+            <LogOut class="w-3 h-3" />
           </button>
         </div>
       </div>
     </aside>
 
-    <!-- Main Content Well -->
-    <main class="flex-1 flex flex-col min-w-0 relative bg-background">
-      <!-- Top Sticky Header -->
-      <header class="h-14 flex items-center px-4 justify-between z-40 bg-background/80 backdrop-blur-md">
-        <div class="flex items-center gap-2">
+    <!-- Content Well -->
+    <main class="flex-1 flex flex-col min-w-0 bg-zinc-900 relative">
+      <header class="h-14 flex items-center px-6 justify-between border-b border-zinc-800/50 bg-zinc-900/80 backdrop-blur-sm z-40">
+        <div class="flex items-center gap-4">
           <button 
             v-if="sidebarCollapsed"
             @click="sidebarCollapsed = false"
-            class="p-2 hover:bg-muted rounded-md transition-colors mr-2"
+            class="p-1.5 hover:bg-zinc-800 rounded transition-colors"
           >
-            <PanelLeft class="w-4 h-4 text-muted-foreground" />
+            <PanelLeft class="w-4 h-4 text-zinc-400" />
           </button>
-          <h2 class="text-sm font-medium truncate opacity-60">{{ currentConvTitle }}</h2>
+          <h2 class="text-xs font-semibold text-zinc-100 tracking-tight">{{ currentConvTitle }}</h2>
         </div>
-        <div class="flex items-center gap-2">
-          <button class="p-2 hover:bg-muted rounded-md transition-colors text-muted-foreground">
+        <div class="flex items-center gap-3">
+          <button class="text-zinc-500 hover:text-zinc-300 transition-colors">
             <Share2 class="w-4 h-4" />
           </button>
         </div>
       </header>
 
-      <!-- Messages Scroll Area -->
-      <div ref="messagesEl" class="flex-1 overflow-y-auto custom-scrollbar scroll-smooth">
-        <div class="max-w-3xl mx-auto px-6 py-10 space-y-12">
+      <!-- Messages Stream -->
+      <div ref="messagesEl" class="flex-1 overflow-y-auto custom-scrollbar">
+        <div class="max-w-3xl mx-auto px-6 py-12 space-y-16">
           
-          <!-- Empty State -->
-          <div v-if="chat.messages.length === 0" class="pt-20 flex flex-col items-center">
-            <div class="w-12 h-12 bg-foreground text-background rounded-xl flex items-center justify-center font-black text-xl mb-8">J</div>
-            <h1 class="text-2xl font-semibold mb-12">What can I help you with?</h1>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-2xl">
+          <!-- New Session Welcome -->
+          <div v-if="chat.messages.length === 0" class="pt-20 text-center animate-in fade-in slide-in-from-bottom-4 duration-1000">
+            <div class="w-10 h-10 bg-white text-black rounded-lg flex items-center justify-center font-bold mx-auto mb-6">J</div>
+            <h1 class="text-2xl font-bold text-zinc-50 mb-12 tracking-tight">Intelligence at your service.</h1>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 w-full max-w-lg mx-auto">
               <button 
                 v-for="s in suggestions" :key="s.text"
                 @click="input = s.prompt"
-                class="p-4 rounded-xl border border-border bg-card hover:bg-muted/50 transition-all text-left text-sm"
+                class="p-4 rounded-xl border border-zinc-800 bg-zinc-950/50 hover:bg-zinc-800 hover:border-zinc-700 transition-all text-left group"
               >
-                <div class="font-medium mb-1">{{ s.text }}</div>
-                <div class="text-muted-foreground text-xs">{{ s.sub }}</div>
+                <div class="text-[13px] font-semibold text-zinc-200 group-hover:text-white">{{ s.text }}</div>
+                <div class="text-[11px] text-zinc-500 mt-1">{{ s.sub }}</div>
               </button>
             </div>
           </div>
 
-          <!-- Message Pairs -->
+          <!-- Message Blocks -->
           <div
             v-for="(msg, idx) in chat.messages"
             :key="idx"
-            :class="['flex flex-col gap-4 animate-in fade-in duration-500']"
+            class="flex flex-col gap-4 animate-in fade-in duration-700"
           >
-            <!-- Label & Avatar -->
-            <div class="flex items-center gap-3 opacity-40 select-none">
-              <div :class="['w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold', 
-                msg.role === 'ai' ? 'bg-foreground text-background' : 'bg-muted text-foreground border border-border']">
-                {{ msg.role === 'ai' ? 'J' : (auth.displayName?.[0] || 'U') }}
+            <!-- Sender Label -->
+            <div class="flex items-center gap-3 select-none">
+              <div :class="['w-5 h-5 rounded-sm flex items-center justify-center text-[9px] font-bold tracking-tighter', 
+                msg.role === 'ai' ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-400']">
+                {{ msg.role === 'ai' ? 'JARVIS' : (auth.displayName?.[0] || 'U') }}
               </div>
-              <span class="text-[10px] font-black uppercase tracking-widest">{{ msg.role === 'ai' ? 'Jarvis' : 'You' }}</span>
+              <span class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">{{ msg.role === 'ai' ? 'Autonomous Agent' : 'User' }}</span>
             </div>
 
-            <!-- Content -->
-            <div :class="['pl-8 group relative']">
-              <div class="markdown-body leading-relaxed text-[15px]" v-html="renderMarkdown(msg.content)"></div>
+            <!-- Content Column -->
+            <div class="pl-8 group relative min-h-[20px]">
+              <div class="markdown-body text-zinc-200 leading-[1.7] text-[14px]" v-html="renderMarkdown(msg.content)"></div>
               
-              <!-- HITL Approval -->
-              <div v-if="msg.pending_tool_call" class="mt-6 p-5 bg-muted/30 border border-border rounded-xl space-y-4 max-w-md animate-in zoom-in-95">
-                <div class="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+              <!-- HITL Security Box -->
+              <div v-if="msg.pending_tool_call" class="mt-8 p-6 bg-zinc-950 border border-white/10 rounded-lg space-y-5 max-w-md shadow-2xl">
+                <div class="flex items-center gap-2 text-[9px] font-black text-white tracking-[0.2em]">
                   <ShieldAlert class="w-3.5 h-3.5" />
-                  Authorization Required
+                  CONFIRM EXECUTION
                 </div>
-                <div class="text-sm font-medium">AI wants to call <code class="text-primary">{{ msg.pending_tool_call.name }}</code></div>
-                <div class="flex gap-2 pt-2">
-                  <button @click="chat.handleConsent(true)" class="flex-1 py-2 bg-foreground text-background rounded-lg text-xs font-bold hover:opacity-90 transition-all">Allow</button>
-                  <button @click="chat.handleConsent(false)" class="flex-1 py-2 bg-muted text-foreground border border-border rounded-lg text-xs font-bold hover:bg-background transition-all">Deny</button>
+                <div class="text-[13px] text-zinc-300">Target action: <code class="bg-zinc-800 text-white px-1.5 py-0.5 rounded font-mono">{{ msg.pending_tool_call.name }}</code></div>
+                <div class="flex gap-2">
+                  <button @click="chat.handleConsent(true)" class="flex-1 py-2.5 bg-white text-black rounded text-[11px] font-bold hover:bg-zinc-200 transition-all">APPROVE</button>
+                  <button @click="chat.handleConsent(false)" class="flex-1 py-2.5 bg-zinc-900 text-zinc-400 border border-zinc-800 rounded text-[11px] font-bold hover:bg-zinc-800 transition-all">REJECT</button>
                 </div>
               </div>
 
-              <!-- Tool Trace -->
-              <div v-if="msg.toolCalls?.length" class="mt-4 flex flex-wrap gap-2 pt-2 border-t border-border/50">
-                <div v-for="tc in msg.toolCalls" :key="tc.name" class="flex items-center gap-2 px-2 py-1 rounded bg-muted/50 text-[10px] text-muted-foreground">
-                  <div :class="['w-1.5 h-1.5 rounded-full', tc.status === 'running' ? 'bg-yellow-500 animate-pulse' : 'bg-emerald-500']"></div>
+              <!-- Compact Tool Trace -->
+              <div v-if="msg.toolCalls?.length" class="mt-6 flex flex-wrap gap-2 pt-4 border-t border-zinc-800/50">
+                <div v-for="tc in msg.toolCalls" :key="tc.name" class="flex items-center gap-2 px-2.5 py-1 rounded bg-zinc-950 border border-zinc-800 text-[10px] text-zinc-400 font-medium">
+                  <div :class="['w-1 h-1 rounded-full', tc.status === 'running' ? 'bg-white animate-pulse' : 'bg-zinc-600']"></div>
                   {{ tc.name }}
                 </div>
               </div>
 
-              <!-- Actions -->
+              <!-- Message Actions -->
               <div v-if="msg.role === 'ai' && msg.content" class="absolute -bottom-8 left-8 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button @click="copyText(msg.content)" class="p-1.5 hover:bg-muted rounded transition-colors text-muted-foreground" title="Copy">
-                  <Copy class="w-3.5 h-3.5" />
+                <button @click="copyText(msg.content)" class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Copy">
+                  <Copy class="w-3 h-3" />
                 </button>
-                <button @click="regenerate(idx)" class="p-1.5 hover:bg-muted rounded transition-colors text-muted-foreground" title="Regenerate">
-                  <RotateCcw class="w-3.5 h-3.5" />
+                <button @click="regenerate(idx)" class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Regenerate">
+                  <RotateCcw class="w-3 h-3" />
                 </button>
               </div>
             </div>
             
-            <div v-if="msg.role === 'ai' && hasHtml(msg.content)" class="pl-8 mt-4">
+            <!-- Canvas Inset -->
+            <div v-if="msg.role === 'ai' && hasHtml(msg.content)" class="pl-8 mt-6">
               <LiveCanvas :content="msg.content" />
             </div>
           </div>
 
-          <!-- Streaming -->
-          <div v-if="chat.streaming" class="flex flex-col gap-4 animate-in fade-in duration-300 pl-8">
-            <div class="flex gap-1.5 items-center py-4">
-              <div class="w-1.5 h-1.5 bg-foreground/40 rounded-full animate-bounce"></div>
-              <div class="w-1.5 h-1.5 bg-foreground/40 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-              <div class="w-1.5 h-1.5 bg-foreground/40 rounded-full animate-bounce [animation-delay:0.4s]"></div>
-            </div>
+          <!-- Typing Pulse -->
+          <div v-if="chat.streaming" class="flex items-center gap-2 pl-8 py-4">
+            <div class="w-1 h-1 bg-white/40 rounded-full animate-pulse"></div>
+            <div class="w-1 h-1 bg-white/40 rounded-full animate-pulse [animation-delay:0.2s]"></div>
+            <div class="w-1 h-1 bg-white/40 rounded-full animate-pulse [animation-delay:0.4s]"></div>
           </div>
         </div>
       </div>
 
-      <!-- Input Section -->
-      <div class="w-full">
-        <div class="max-w-3xl mx-auto px-6 pb-8 pt-4">
-          <div class="relative bg-muted/50 border border-border rounded-2xl focus-within:border-border transition-all">
+      <!-- Footer Dock -->
+      <div class="w-full bg-zinc-900 pt-2">
+        <div class="max-w-3xl mx-auto px-6 pb-10">
+          <div class="relative bg-zinc-950 border border-zinc-800 rounded-xl transition-all focus-within:border-zinc-700">
             <div class="flex items-end p-2 gap-1">
-              <button @click="voiceOverlay?.start()" class="p-3 text-muted-foreground hover:text-foreground transition-colors">
-                <Mic class="w-5 h-5" />
+              <button @click="voiceOverlay?.start()" class="p-2.5 text-zinc-500 hover:text-white transition-colors">
+                <Mic class="w-4 h-4" />
               </button>
               
               <textarea
                 v-model="input"
-                class="flex-1 bg-transparent border-none focus:ring-0 px-2 py-3 text-[15px] resize-none max-h-[250px] min-h-[44px] custom-scrollbar placeholder:text-muted-foreground/50"
+                class="flex-1 bg-transparent border-none focus:ring-0 px-2 py-3 text-[14px] text-zinc-100 resize-none max-h-[300px] min-h-[44px] custom-scrollbar placeholder:text-zinc-600"
                 :placeholder="$t('chat.inputPlaceholder')"
                 @keydown.enter.prevent="handleSend"
                 rows="1"
@@ -189,15 +189,17 @@
               <button
                 @click="handleSend"
                 :disabled="!input.trim() || chat.streaming"
-                class="p-3 bg-foreground text-background rounded-xl disabled:opacity-20 transition-all active:scale-90"
+                class="p-2.5 bg-white text-black rounded-lg disabled:opacity-10 transition-all active:scale-95"
               >
-                <ArrowUp class="w-5 h-5 stroke-[3px]" />
+                <ArrowUp class="w-4 h-4 stroke-[3px]" />
               </button>
             </div>
           </div>
-          <p class="mt-3 text-[10px] text-center text-muted-foreground font-medium uppercase tracking-[0.1em] opacity-40">
-            Powered by JARVIS Intelligent Core
-          </p>
+          <div class="mt-4 flex justify-center items-center gap-4 text-[9px] font-bold text-zinc-600 uppercase tracking-widest">
+            <span>Enterprise Guard Active</span>
+            <div class="w-1 h-1 bg-zinc-800 rounded-full"></div>
+            <span>End-to-End Encrypted</span>
+          </div>
         </div>
       </div>
     </main>
@@ -219,7 +221,7 @@ import "highlight.js/styles/github-dark.css";
 import { 
   Trash2, Zap, Settings, LogOut, 
   PanelLeft, SquarePen, Copy, RotateCcw,
-  Mic, ArrowUp, ShieldAlert, Share2
+  Mic, ArrowUp, ShieldAlert, Share2, MessageSquare
 } from "lucide-vue-next";
 
 import LiveCanvas from "@/components/LiveCanvas.vue";
@@ -236,9 +238,9 @@ const messagesEl = ref<HTMLElement>();
 const voiceOverlay = ref<InstanceType<typeof VoiceOverlay>>();
 
 const suggestions = [
-  { text: 'Analyze Workspace', sub: 'Run a security and structure check', prompt: 'Run a proactive security check' },
-  { text: 'Canvas Interactive UI', sub: 'Generate a live reactive interface', prompt: 'Show me a demo of Live Canvas' },
-  { text: 'Search local memory', sub: 'Retrieve info from past sessions', prompt: 'Search my local memory for architecture notes' }
+  { text: 'Run Security Scan', sub: 'Audit current workspace structure', prompt: 'Run a proactive security check' },
+  { text: 'Dynamic Canvas', sub: 'Generate interactive UI components', prompt: 'Show me a demo of Live Canvas' },
+  { text: 'Deep Memory Search', sub: 'Search offline conversation logs', prompt: 'Search local memory for project roadmap' }
 ];
 
 marked.setOptions({
@@ -249,9 +251,9 @@ marked.setOptions({
   breaks: true,
 });
 
-const renderMarkdown = (text: string) => text ? marked.parse(text) : '<span class="animate-pulse text-foreground/40 italic">Thinking...</span>';
+const renderMarkdown = (text: string) => text ? marked.parse(text) : '<span class="cursor-block"></span>';
 const hasHtml = (text: string) => /<html>[\s\S]*?<\/html>/.test(text);
-const currentConvTitle = computed(() => chat.conversations.find((conv) => conv.id === chat.currentConvId)?.title || "Intelligence Engine");
+const currentConvTitle = computed(() => chat.conversations.find((conv) => conv.id === chat.currentConvId)?.title || "Intelligence Terminal");
 
 const handleSend = async () => {
   if (!input.value.trim() || chat.streaming) return;
@@ -279,8 +281,14 @@ onMounted(async () => { await chat.loadConversations(); });
 </script>
 
 <style scoped>
-.markdown-body :deep(pre) { background: #0d1117; padding: 1.25rem; border-radius: 8px; margin: 1.25rem 0; border: 1px solid var(--border); overflow-x: auto; }
-.markdown-body :deep(code) { font-family: 'JetBrains Mono', monospace; font-size: 0.9em; }
-.markdown-body :deep(p) { margin-bottom: 1.25rem; }
+.markdown-body :deep(pre) { background: #000; padding: 1.25rem; border-radius: 6px; margin: 1.5rem 0; border: 1px solid #27272a; overflow-x: auto; }
+.markdown-body :deep(code) { font-family: 'JetBrains Mono', monospace; font-size: 0.85em; }
+.markdown-body :deep(p) { margin-bottom: 1.5rem; }
 .markdown-body :deep(p:last-child) { margin-bottom: 0; }
+
+.cursor-block { display: inline-block; width: 6px; height: 14px; background: #fff; margin-left: 4px; animation: blink 1s step-end infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+.custom-scrollbar::-webkit-scrollbar { width: 3px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
 </style>
