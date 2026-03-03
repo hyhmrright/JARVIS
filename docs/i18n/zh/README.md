@@ -17,6 +17,14 @@
 - **多语言** — 支持 6 种语言：中文 / English / 日本語 / 한국어 / Français / Deutsch
 - **生产级基础设施** — 4 层网络隔离、Traefik 边缘路由、Prometheus + Grafana 可观测性
 
+## 系统限制（沙箱隔离）
+
+为了保证系统的安全性，JARVIS 严格运行在一个隔离的 Docker 容器环境中。
+
+- **无宿主机访问权限**：JARVIS 无法直接在您的本地物理宿主机系统（如 macOS、Windows、Linux）上执行命令。
+- **无法原生安装软件**：它无法为您在本地物理电脑上安装原生软件（例如运行 `brew install`、`apt-get` 或 `npm install -g`）。
+- **隔离执行**：AI 执行的任何终端命令（如 Python 脚本或 shell 工具）都严格限制在后端 Docker 容器或专属沙箱容器内部，与您的主操作系统完全隔离。
+
 ## 技术栈
 
 | 层级 | 技术 |

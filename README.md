@@ -17,6 +17,14 @@
 - **Multilingual** — 6 languages: Chinese / English / Japanese / Korean / French / German
 - **Production-grade Infrastructure** — 4-layer network isolation, Traefik edge router, Prometheus + Grafana observability
 
+## System Limitations (Sandbox)
+
+JARVIS runs strictly inside an isolated Docker container environment to ensure system safety and security. 
+
+- **No Host OS Access**: JARVIS cannot execute commands on your local host system (e.g., macOS, Windows, Linux).
+- **No Native Package Managers**: It cannot install native software on your computer (like running `brew install`, `apt-get`, or `npm install -g` on your physical machine). 
+- **Isolated Execution**: Any terminal commands executed by the AI (such as Python scripts or shell utilities) run solely inside the backend Docker container or a dedicated Sandbox container, completely isolated from your main operating system.
+
 ## Tech Stack
 
 | Layer | Technology |
