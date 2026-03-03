@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 /* ============================================
    JARVIS Design System — Dark Luxury
    ============================================ */
@@ -71,6 +73,7 @@
   --glass-blur: 20px;
 }
 
+@layer base {
 /* ── Reset ── */
 *,
 *::before,
@@ -229,6 +232,9 @@ button {
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+
 }
 
 /* ── Utility Classes ── */

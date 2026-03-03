@@ -28,28 +28,6 @@ import { useChatStore } from '@/stores/chat';
 </script>
 
 <style>
-@import "tailwindcss";
-
-@theme {
-  --color-background: #09090b;
-  --color-foreground: #fafafa;
-  --color-border: #27272a;
-  --color-muted: #18181b;
-  --color-muted-foreground: #71717a;
-  --color-accent: #27272a;
-  --color-primary: #fafafa;
-  --color-secondary: #18181b;
-  --color-destructive: #ef4444;
-  --radius-lg: 0.5rem;
-}
-
-@layer base {
-  body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
-  }
-}
-
 .fade-enter-active, .fade-leave-active { transition: opacity 0.15s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
