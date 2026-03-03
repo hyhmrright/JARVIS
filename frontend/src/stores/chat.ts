@@ -93,7 +93,17 @@ export const useChatStore = defineStore("chat", {
           body: JSON.stringify({ conversation_id: this.currentConvId, content }),
         });
 
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        if (!resp.ok) {
+          let detail = `HTTP ${resp.status}`;
+          const errorText = await resp.text().catch(() => "");
+          try {
+            const parsed = JSON.parse(errorText);
+            if (parsed.detail) detail = typeof parsed.detail === 'string' ? parsed.detail : JSON.stringify(parsed.detail);
+          } catch {
+            if (errorText) detail = errorText;
+          }
+          throw new Error(detail);
+        }
         if (!resp.body) throw new Error("No response body");
 
         const reader = resp.body.getReader();
@@ -144,12 +154,12 @@ export const useChatStore = defineStore("chat", {
             }
           }
         }
-      } catch (err) {
+      } catch (err: any) {
         const aiMsg = this.messages[this.messages.length - 1];
-        if (aiMsg?.role === "ai" && !aiMsg.content && !aiMsg.pending_tool_call) {
-          this.messages.pop();
+        if (aiMsg?.role === "ai") {
+          aiMsg.content = `> **System Warning**: Failed to communicate with the model.\n> \`${err.message}\`\n\nPlease check your configuration in **Settings** (e.g., ensure API keys are correctly filled) and try again.`;
         }
-        throw err;
+        console.error("[chat] streaming error:", err);
       } finally {
         this.streaming = false;
       }
