@@ -1,105 +1,135 @@
 <template>
-  <div class="page-container">
+  <div class="h-screen flex flex-col bg-zinc-950 font-sans text-zinc-200">
     <PageHeader :title="$t('settings.title')" />
 
-    <div class="page-content custom-scrollbar">
-      <form class="settings-grid" @submit.prevent="save">
-        <!-- AI Model Config -->
-        <section class="glass-card section-card animate-fade-in">
-          <h3 class="section-title">AI Model & Provider</h3>
-          <div class="form-group">
-            <label>{{ $t("settings.provider") }}</label>
-            <select v-model="provider" class="modern-input" @change="onProviderChange">
-              <option value="deepseek">DeepSeek</option>
-              <option value="openai">OpenAI</option>
-              <option value="anthropic">Anthropic</option>
-              <option value="zhipuai">ZhipuAI (GLM)</option>
-            </select>
-          </div>
+    <div class="flex-1 overflow-y-auto custom-scrollbar p-8">
+      <form class="max-w-4xl mx-auto space-y-8 pb-20" @submit.prevent="save">
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <!-- AI Model Config -->
+          <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm">
+            <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-6">AI Model & Provider</h3>
+            
+            <div class="space-y-4">
+              <div class="flex flex-col gap-2">
+                <label class="text-xs font-semibold text-zinc-400">{{ $t("settings.provider") }}</label>
+                <select v-model="provider" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" @change="onProviderChange">
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="anthropic">Anthropic</option>
+                  <option value="zhipuai">ZhipuAI (GLM)</option>
+                </select>
+              </div>
 
-          <div class="form-group">
-            <label>{{ $t("settings.modelName") }}</label>
-            <select v-model="modelSelect" class="modern-input">
-              <option v-for="m in currentProviderModels" :key="m" :value="m">{{ m }}</option>
-              <option value="__custom__">{{ $t("settings.customModel") }}</option>
-            </select>
-            <input
-              v-if="modelSelect === '__custom__'"
-              v-model="customModelName"
-              class="modern-input custom-input"
-              :placeholder="$t('settings.customModelPlaceholder')"
-            />
-          </div>
-        </section>
+              <div class="flex flex-col gap-2">
+                <label class="text-xs font-semibold text-zinc-400">{{ $t("settings.modelName") }}</label>
+                <select v-model="modelSelect" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors">
+                  <option v-for="m in currentProviderModels" :key="m" :value="m">{{ m }}</option>
+                  <option value="__custom__">{{ $t("settings.customModel") }}</option>
+                </select>
+                <input
+                  v-if="modelSelect === '__custom__'"
+                  v-model="customModelName"
+                  class="mt-2 bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors"
+                  :placeholder="$t('settings.customModelPlaceholder')"
+                />
+              </div>
+            </div>
+          </section>
 
-        <!-- API Keys -->
-        <section class="glass-card section-card animate-fade-in">
-          <h3 class="section-title">API Keys</h3>
-          <p class="field-desc">Securely manage your keys for {{ provider.toUpperCase() }}</p>
-          
-          <div v-for="(_, index) in apiKeys" :key="index" class="api-key-row">
-            <input
-              v-model="apiKeys[index]"
-              type="password"
-              class="modern-input"
-              :placeholder="$t('settings.apiKeyPlaceholder')"
-            />
-            <button
-              v-if="apiKeys.length > 1"
-              type="button"
-              class="btn-icon-danger"
-              @click="apiKeys.splice(index, 1)"
-            >
-              ×
-            </button>
-          </div>
-          
-          <button type="button" class="btn-ghost-full" @click="apiKeys.push('')">
-            + Add Another Key
-          </button>
-          
-          <div v-if="existingKeyCount > 0" class="key-status">
-            {{ $t("settings.existingKeys", { count: existingKeyCount }) }} active
-          </div>
-        </section>
+          <!-- API Keys -->
+          <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm">
+            <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-2">API Keys</h3>
+            <p class="text-xs text-zinc-500 mb-6">Securely manage your keys for {{ provider.toUpperCase() }}</p>
+            
+            <div class="space-y-3">
+              <div v-for="(_, index) in apiKeys" :key="index" class="flex gap-2">
+                <input
+                  v-model="apiKeys[index]"
+                  type="password"
+                  class="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors"
+                  :placeholder="$t('settings.apiKeyPlaceholder')"
+                />
+                <button
+                  v-if="apiKeys.length > 1"
+                  type="button"
+                  class="w-10 flex items-center justify-center bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors"
+                  @click="apiKeys.splice(index, 1)"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <button type="button" class="w-full py-2.5 border border-dashed border-zinc-700 text-zinc-500 text-xs font-medium rounded-lg hover:border-zinc-500 hover:text-zinc-300 transition-colors" @click="apiKeys.push('')">
+                + Add Another Key
+              </button>
+              
+              <div v-if="existingKeyCount > 0" class="text-[11px] text-emerald-400 mt-2 font-medium">
+                {{ $t("settings.existingKeys", { count: existingKeyCount }) }} active
+              </div>
+            </div>
+          </section>
+        </div>
 
-        <!-- Persona -->
-        <section class="glass-card section-card full-width animate-fade-in">
-          <h3 class="section-title">System Persona</h3>
-          <div class="form-group">
-            <label>{{ $t("settings.personaOverride") }}</label>
-            <textarea
-              v-model="personaOverride"
-              class="modern-input persona-area"
-              :placeholder="$t('settings.personaPlaceholder')"
-              rows="4"
-            ></textarea>
+        <!-- Global Preferences -->
+        <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm">
+          <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-6">Global Preferences</h3>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-semibold text-zinc-400">Language / 语言</label>
+              <select 
+                v-model="locale" 
+                @change="onLocaleChange"
+                class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors"
+              >
+                <option v-for="code in SUPPORTED_LOCALES" :key="code" :value="code">{{ code }}</option>
+              </select>
+            </div>
+            
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-semibold text-zinc-400">{{ $t("settings.personaOverride") }}</label>
+              <textarea
+                v-model="personaOverride"
+                class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-sm outline-none focus:border-zinc-600 transition-colors resize-none h-24"
+                :placeholder="$t('settings.personaPlaceholder')"
+              ></textarea>
+            </div>
           </div>
         </section>
 
         <!-- Tools -->
-        <section class="glass-card section-card full-width animate-fade-in">
-          <h3 class="section-title">{{ $t("settings.toolPermissions") }}</h3>
-          <p class="field-desc">{{ $t("settings.toolPermissionsDescription") }}</p>
-          <div class="tool-grid">
+        <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm">
+          <div class="mb-6">
+            <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-2">{{ $t("settings.toolPermissions") }}</h3>
+            <p class="text-xs text-zinc-500">{{ $t("settings.toolPermissionsDescription") }}</p>
+          </div>
+          
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
             <label
               v-for="tool in toolRegistry"
               :key="tool.name"
-              :class="['tool-pill', { active: enabledTools.includes(tool.name) }]"
+              :class="[
+                'flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all select-none',
+                enabledTools.includes(tool.name) 
+                  ? 'bg-zinc-800 border-zinc-700 text-white' 
+                  : 'bg-zinc-950/50 border-zinc-800/50 text-zinc-500 hover:border-zinc-700/50 hover:bg-zinc-900'
+              ]"
             >
               <input
                 type="checkbox"
-                class="hidden-check"
+                class="hidden"
                 :checked="enabledTools.includes(tool.name)"
                 @change="toggleTool(tool.name)"
               />
-              <span class="tool-name">{{ tool.label }}</span>
+              <div :class="['w-3 h-3 rounded-full border flex-shrink-0 transition-colors', enabledTools.includes(tool.name) ? 'bg-white border-white' : 'border-zinc-600 bg-transparent']"></div>
+              <span class="text-xs font-medium">{{ tool.label }}</span>
             </label>
           </div>
         </section>
 
-        <div class="form-actions">
-          <button type="submit" class="btn-accent btn-large" :disabled="saving">
+        <div class="flex justify-end pt-4">
+          <button type="submit" class="px-8 py-3 bg-white text-black text-sm font-bold rounded-lg hover:bg-zinc-200 transition-colors disabled:opacity-50" :disabled="saving">
             {{ saving ? $t("settings.saving") : $t("settings.save") }}
           </button>
         </div>
@@ -107,19 +137,33 @@
     </div>
 
     <!-- Toasts -->
-    <Transition name="toast">
-      <div v-if="saved" class="toast-popup success">{{ $t("settings.saved") }}</div>
+    <Transition name="fade">
+      <div v-if="saved" class="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-full text-sm font-medium backdrop-blur-md z-50">
+        {{ $t("settings.saved") }}
+      </div>
     </Transition>
-    <Transition name="toast">
-      <div v-if="saveError" class="toast-popup error">{{ $t("settings.saveError") }}</div>
+    <Transition name="fade">
+      <div v-if="saveError" class="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 bg-red-500/20 text-red-400 border border-red-500/20 rounded-full text-sm font-medium backdrop-blur-md z-50">
+        {{ $t("settings.saveError") }}
+      </div>
     </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import client from "@/api/client";
 import PageHeader from "@/components/PageHeader.vue";
+import { SUPPORTED_LOCALES } from "@/i18n";
+
+const { t, locale } = useI18n();
+
+const onLocaleChange = (e: Event) => {
+  const newLocale = (e.target as HTMLSelectElement).value;
+  locale.value = newLocale;
+  localStorage.setItem('jarvis_locale', newLocale);
+};
 
 const PROVIDER_MODELS: Record<string, string[]> = {
   deepseek: ["deepseek-chat", "deepseek-reasoner"],
@@ -195,65 +239,3 @@ async function save() {
   } finally { saving.value = false; }
 }
 </script>
-
-<style scoped>
-.page-container { height: 100vh; display: flex; flex-direction: column; background: var(--bg-primary); }
-.page-content { flex: 1; padding: 2rem; overflow-y: auto; max-width: 1000px; width: 100%; margin: 0 auto; }
-
-.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
-.section-card { padding: 1.5rem; }
-.full-width { grid-column: span 2; }
-
-.section-title { font-size: 0.8rem; font-weight: 800; text-transform: uppercase; color: var(--accent-light); letter-spacing: 1px; margin-bottom: 1.5rem; }
-
-.form-group { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
-.form-group label { font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); }
-
-.modern-input {
-  background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: var(--radius-sm);
-  color: var(--text-primary); padding: 0.75rem; font-size: 0.95rem; outline: none; transition: border-color 0.2s;
-}
-.modern-input:focus { border-color: var(--accent); }
-.custom-input { margin-top: 0.5rem; }
-.persona-area { height: 120px; resize: none; }
-
-.api-key-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
-.btn-icon-danger {
-  background: rgba(244, 67, 54, 0.1); color: #f44336; border: none; width: 40px; border-radius: var(--radius-sm); cursor: pointer;
-}
-
-.btn-ghost-full {
-  background: transparent; border: 1px dashed var(--border); color: var(--text-muted);
-  width: 100%; padding: 0.6rem; border-radius: var(--radius-sm); cursor: pointer; font-size: 0.85rem;
-}
-.btn-ghost-full:hover { border-color: var(--accent); color: var(--accent); }
-
-.key-status { font-size: 0.75rem; color: #4caf50; margin-top: 0.5rem; }
-
-/* ── Tool Grid ── */
-.tool-grid { display: flex; flex-wrap: wrap; gap: 0.75rem; }
-.tool-pill {
-  padding: 0.5rem 1rem; border-radius: var(--radius-full); border: 1px solid var(--border);
-  color: var(--text-secondary); cursor: pointer; transition: all 0.2s; font-size: 0.85rem;
-}
-.tool-pill.active { background: var(--accent); border-color: var(--accent); color: white; }
-.hidden-check { display: none; }
-
-.form-actions { grid-column: span 2; display: flex; justify-content: flex-end; padding-top: 1rem; }
-.btn-accent.btn-large { padding: 0.8rem 2.5rem; font-size: 1rem; }
-
-/* ── Toast ── */
-.toast-popup {
-  position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
-  padding: 0.75rem 2rem; border-radius: var(--radius-full); font-weight: 600; z-index: 2000;
-  box-shadow: var(--shadow-lg);
-}
-.toast-popup.success { background: #4caf50; color: white; }
-.toast-popup.error { background: #f44336; color: white; }
-
-.animate-fade-in { animation: fadeIn 0.3s ease; }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-.toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 20px); }
-</style>

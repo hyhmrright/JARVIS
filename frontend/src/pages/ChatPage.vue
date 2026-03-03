@@ -51,14 +51,22 @@
           </router-link>
         </div>
         
-        <div class="flex items-center gap-3 px-2 py-2 bg-zinc-900/50 rounded-lg border border-zinc-800">
-          <div class="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-300">
-            {{ auth.displayName?.[0] || 'U' }}
+        <div class="pt-2 border-t border-zinc-800">
+          <div class="group flex items-center justify-between w-full px-2 py-2 bg-transparent hover:bg-zinc-900 rounded-lg transition-colors cursor-default">
+            <div class="flex items-center gap-3 overflow-hidden">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-zinc-800 to-zinc-700 flex items-center justify-center text-xs font-bold text-white shadow-sm border border-zinc-700/50 flex-shrink-0">
+                {{ auth.displayName?.[0] || 'U' }}
+              </div>
+              <div class="flex flex-col overflow-hidden">
+                <span class="text-xs font-medium text-zinc-200 truncate">{{ auth.displayName || 'User' }}</span>
+                <span class="text-[10px] text-zinc-500 truncate">Free Plan</span>
+              </div>
+            </div>
+            
+            <button @click="handleLogout" class="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 px-2 py-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 rounded transition-all text-[10px] font-bold uppercase tracking-wider" title="Sign out">
+              <LogOut class="w-3 h-3" />
+            </button>
           </div>
-          <span class="text-[11px] font-medium truncate flex-1">{{ auth.displayName || 'User' }}</span>
-          <button @click="handleLogout" class="text-zinc-500 hover:text-red-400 transition-colors">
-            <LogOut class="w-3 h-3" />
-          </button>
         </div>
       </div>
     </aside>

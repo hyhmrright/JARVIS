@@ -1,14 +1,13 @@
 <template>
-  <header class="page-nav-header">
-    <div class="header-left">
-      <router-link to="/" class="btn-back">
-        <span class="back-icon">←</span>
-        {{ $t('common.backToChat') }}
+  <header class="flex items-center justify-between px-8 py-5 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800 sticky top-0 z-50">
+    <div class="flex items-center gap-6">
+      <router-link to="/" class="flex items-center gap-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors group">
+        {{ $t('common.backToChat') || 'Back' }}
       </router-link>
-      <div class="divider"></div>
-      <h1 class="page-title">{{ title }}</h1>
+      <div class="w-px h-5 bg-zinc-800"></div>
+      <h1 class="text-xl font-bold text-zinc-100 tracking-tight">{{ title }}</h1>
     </div>
-    <div class="header-right">
+    <div class="flex items-center gap-3">
       <slot name="actions"></slot>
     </div>
   </header>
@@ -19,55 +18,3 @@ defineProps<{
   title: string;
 }>();
 </script>
-
-<style scoped>
-.page-nav-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 2rem;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-}
-
-.btn-back {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--text-secondary);
-  text-decoration: none;
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: color 0.2s;
-}
-
-.btn-back:hover {
-  color: var(--accent);
-}
-
-.divider {
-  width: 1px;
-  height: 20px;
-  background: var(--border);
-}
-
-.page-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.back-icon {
-  font-size: 1.2rem;
-}
-</style>
