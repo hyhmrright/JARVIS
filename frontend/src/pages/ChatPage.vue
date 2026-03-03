@@ -190,7 +190,7 @@
                 v-model="input"
                 class="flex-1 bg-transparent border-none focus:ring-0 px-2 py-3 text-[14px] text-zinc-100 resize-none max-h-[300px] min-h-[44px] custom-scrollbar placeholder:text-zinc-600"
                 :placeholder="$t('chat.inputPlaceholder')"
-                @keydown.enter.prevent="handleSend"
+                @keydown.enter="handleEnter"
                 rows="1"
               ></textarea>
               
@@ -268,6 +268,18 @@ const handleSend = async () => {
   const msg = input.value;
   input.value = "";
   await chat.sendMessage(msg);
+};
+
+const handleEnter = (e: KeyboardEvent) => {
+  // If IME is composing (e.g. typing Chinese), do nothing
+  if (e.isComposing) return;
+  
+  // If Shift is pressed, let it act as a newline
+  if (e.shiftKey) return;
+  
+  // Otherwise, prevent default newline and send
+  e.preventDefault();
+  handleSend();
 };
 
 const copyText = (text: string) => { navigator.clipboard.writeText(text); };
