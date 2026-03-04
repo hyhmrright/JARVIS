@@ -21,7 +21,7 @@ export function useSpeechInput(onResult: (text: string) => void) {
     typeof window !== "undefined" &&
     ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   let recognition: any = null;
 
   const start = () => {

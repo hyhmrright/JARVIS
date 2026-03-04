@@ -4,8 +4,16 @@ WORKDIR /app
 
 COPY --from=ghcr.io/astral-sh/uv:0.6.14 /uv /usr/local/bin/uv
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    python3-dev \
+    libpq-dev \
+    curl \
+ && rm -rf /var/lib/apt/lists/*
+
+# Install dependencies into the system environment to avoid .venv conflicts in Docker
 COPY pyproject.toml uv.lock* ./
-RUN uv sync --frozen
+RUN uv pip install --system -r pyproject.toml psycopg2-binary
 
 COPY . .
 

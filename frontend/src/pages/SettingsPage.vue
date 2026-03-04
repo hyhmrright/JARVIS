@@ -1,155 +1,179 @@
 <template>
-  <div class="page-container">
-    <div class="page-card animate-slide-up">
-      <div class="page-header">
-        <h2>{{ $t("settings.title") }}</h2>
-        <router-link to="/" class="back-link">{{ $t("common.backToChat") }}</router-link>
-      </div>
-      <div class="shimmer-line animate-shimmer"></div>
+  <div class="h-screen flex flex-col bg-zinc-950 font-sans text-zinc-200">
+    <PageHeader :title="$t('settings.title')" />
 
-      <form class="settings-form" @submit.prevent="save">
-        <div class="form-group animate-slide-up-delay-1">
-          <label for="provider">{{ $t("settings.provider") }}</label>
-          <select id="provider" v-model="provider" @change="onProviderChange">
-            <option value="deepseek">DeepSeek</option>
-            <option value="openai">OpenAI</option>
-            <option value="anthropic">Anthropic</option>
-            <option value="zhipuai">ZhipuAI (GLM)</option>
-          </select>
+    <div class="flex-1 overflow-y-auto custom-scrollbar p-8">
+      <form class="max-w-4xl mx-auto space-y-8 pb-20" @submit.prevent="save">
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <!-- AI Model Config -->
+          <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm">
+            <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-6">AI Model & Provider</h3>
+            
+            <div class="space-y-4">
+              <div class="flex flex-col gap-2">
+                <label class="text-xs font-semibold text-zinc-400">{{ $t("settings.provider") }}</label>
+                <select v-model="provider" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" @change="onProviderChange">
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="anthropic">Anthropic</option>
+                  <option value="zhipuai">ZhipuAI (GLM)</option>
+                </select>
+              </div>
+
+              <div class="flex flex-col gap-2">
+                <label class="text-xs font-semibold text-zinc-400">{{ $t("settings.modelName") }}</label>
+                <select v-model="modelSelect" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors">
+                  <option v-for="m in currentProviderModels" :key="m" :value="m">{{ m }}</option>
+                  <option value="__custom__">{{ $t("settings.customModel") }}</option>
+                </select>
+                <input
+                  v-if="modelSelect === '__custom__'"
+                  v-model="customModelName"
+                  class="mt-2 bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors"
+                  :placeholder="$t('settings.customModelPlaceholder')"
+                />
+              </div>
+            </div>
+          </section>
+
+          <!-- API Keys -->
+          <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm">
+            <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-2">API Keys</h3>
+            <p class="text-xs text-zinc-500 mb-6">Securely manage your keys for {{ provider.toUpperCase() }}</p>
+            
+            <div class="space-y-3">
+              <div v-for="(_, index) in apiKeys" :key="index" class="flex gap-2">
+                <input
+                  v-model="apiKeys[index]"
+                  type="password"
+                  class="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors"
+                  :placeholder="$t('settings.apiKeyPlaceholder')"
+                />
+                <button
+                  v-if="apiKeys.length > 1"
+                  type="button"
+                  class="w-10 flex items-center justify-center bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors"
+                  @click="apiKeys.splice(index, 1)"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <button type="button" class="w-full py-2.5 border border-dashed border-zinc-700 text-zinc-500 text-xs font-medium rounded-lg hover:border-zinc-500 hover:text-zinc-300 transition-colors" @click="apiKeys.push('')">
+                + Add Another Key
+              </button>
+              
+              <div v-if="existingKeyCount > 0" class="text-[11px] text-emerald-400 mt-2 font-medium">
+                {{ $t("settings.existingKeys", { count: existingKeyCount }) }} active
+              </div>
+            </div>
+          </section>
         </div>
 
-        <div class="form-group animate-slide-up-delay-2">
-          <label for="modelSelect">{{ $t("settings.modelName") }}</label>
-          <select id="modelSelect" v-model="modelSelect">
-            <option v-for="m in currentProviderModels" :key="m" :value="m">{{ m }}</option>
-            <option value="__custom__">{{ $t("settings.customModel") }}</option>
-          </select>
-          <input
-            v-if="modelSelect === '__custom__'"
-            id="modelName"
-            v-model="customModelName"
-            class="custom-model-input"
-            :placeholder="$t('settings.customModelPlaceholder')"
-            autocomplete="off"
-          />
-        </div>
-
-        <div class="form-group animate-slide-up-delay-2">
-          <label>{{ $t("settings.apiKeys") }}</label>
-          <div v-for="(_, index) in apiKeys" :key="index" class="api-key-row">
-            <input
-              v-model="apiKeys[index]"
-              type="password"
-              :placeholder="$t('settings.apiKeyPlaceholder')"
-            />
-            <button
-              v-if="apiKeys.length > 1"
-              type="button"
-              class="btn-remove-key"
-              @click="apiKeys.splice(index, 1)"
-            >
-              &times;
-            </button>
+        <!-- Global Preferences -->
+        <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm">
+          <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-6">Global Preferences</h3>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-semibold text-zinc-400">Language / 语言</label>
+              <select 
+                v-model="locale" 
+                class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors"
+                @change="onLocaleChange"
+              >
+                <option v-for="code in SUPPORTED_LOCALES" :key="code" :value="code">{{ code }}</option>
+              </select>
+            </div>
+            
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-semibold text-zinc-400">{{ $t("settings.personaOverride") }}</label>
+              <textarea
+                v-model="personaOverride"
+                class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-sm outline-none focus:border-zinc-600 transition-colors resize-none h-24"
+                :placeholder="$t('settings.personaPlaceholder')"
+              ></textarea>
+            </div>
           </div>
-          <button type="button" class="btn-add-key" @click="apiKeys.push('')">
-            + {{ $t("settings.addApiKey") }}
-          </button>
-          <div v-if="existingKeyCount > 0" class="key-info">
-            {{ $t("settings.existingKeys", { count: existingKeyCount }) }}
+        </section>
+
+        <!-- Tools -->
+        <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm">
+          <div class="mb-6">
+            <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-2">{{ $t("settings.toolPermissions") }}</h3>
+            <p class="text-xs text-zinc-500">{{ $t("settings.toolPermissionsDescription") }}</p>
           </div>
-        </div>
-
-        <div class="form-group animate-slide-up-delay-3">
-          <label for="personaOverride">{{ $t("settings.personaOverride") }}</label>
-          <textarea
-            id="personaOverride"
-            v-model="personaOverride"
-            :placeholder="$t('settings.personaPlaceholder')"
-            rows="4"
-            maxlength="2000"
-          />
-        </div>
-
-        <div class="form-group animate-slide-up-delay-4">
-          <label>{{ $t("settings.toolPermissions") }}</label>
-          <p class="field-description">{{ $t("settings.toolPermissionsDescription") }}</p>
-          <div class="tool-list">
+          
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
             <label
               v-for="tool in toolRegistry"
               :key="tool.name"
-              class="tool-item"
+              :class="[
+                'flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all select-none',
+                enabledTools.includes(tool.name) 
+                  ? 'bg-zinc-800 border-zinc-700 text-white' 
+                  : 'bg-zinc-950/50 border-zinc-800/50 text-zinc-500 hover:border-zinc-700/50 hover:bg-zinc-900'
+              ]"
             >
               <input
                 type="checkbox"
+                class="hidden"
                 :checked="enabledTools.includes(tool.name)"
                 @change="toggleTool(tool.name)"
               />
-              <span class="tool-label">{{ tool.label }}</span>
-              <span class="tool-desc">{{ tool.description }}</span>
+              <div :class="['w-3 h-3 rounded-full border flex-shrink-0 transition-colors', enabledTools.includes(tool.name) ? 'bg-white border-white' : 'border-zinc-600 bg-transparent']"></div>
+              <span class="text-xs font-medium">{{ tool.label }}</span>
             </label>
           </div>
-        </div>
+        </section>
 
-        <button type="submit" class="btn-primary animate-slide-up-delay-4" :disabled="saving">
-          {{ saving ? $t("settings.saving") : $t("settings.save") }}
-        </button>
+        <div class="flex justify-end pt-4">
+          <button type="submit" class="px-8 py-3 bg-white text-black text-sm font-bold rounded-lg hover:bg-zinc-200 transition-colors disabled:opacity-50" :disabled="saving">
+            {{ saving ? $t("settings.saving") : $t("settings.save") }}
+          </button>
+        </div>
       </form>
-
-      <div v-if="plugins.length > 0" class="plugin-section animate-slide-up-delay-4">
-        <h3 class="plugin-section-title">{{ $t("settings.installedPlugins") }}</h3>
-        <div class="plugin-list">
-          <div v-for="plugin in plugins" :key="plugin.id" class="plugin-item">
-            <div class="plugin-header">
-              <span class="plugin-name">{{ plugin.name }}</span>
-              <span class="plugin-version">v{{ plugin.version }}</span>
-            </div>
-            <p v-if="plugin.description" class="plugin-desc">{{ plugin.description }}</p>
-            <div v-if="plugin.tools?.length" class="plugin-tools-badge">
-              {{ $t("settings.pluginTools", { count: plugin.tools.length }) }}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <Transition name="toast">
-        <div v-if="saved" class="toast-success">
-          {{ $t("settings.saved") }}
-        </div>
-      </Transition>
-      <Transition name="toast">
-        <div v-if="saveError" class="toast-error">
-          {{ $t("settings.saveError") }}
-        </div>
-      </Transition>
     </div>
+
+    <!-- Toasts -->
+    <Transition name="fade">
+      <div v-if="saved" class="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-full text-sm font-medium backdrop-blur-md z-50">
+        {{ $t("settings.saved") }}
+      </div>
+    </Transition>
+    <Transition name="fade">
+      <div v-if="saveError" class="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 bg-red-500/20 text-red-400 border border-red-500/20 rounded-full text-sm font-medium backdrop-blur-md z-50">
+        {{ $t("settings.saveError") }}
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import client from "@/api/client";
+import PageHeader from "@/components/PageHeader.vue";
+import { SUPPORTED_LOCALES } from "@/i18n";
+
+const { t, locale } = useI18n();
+
+const onLocaleChange = (e: Event) => {
+  const newLocale = (e.target as HTMLSelectElement).value;
+  locale.value = newLocale;
+  localStorage.setItem('jarvis_locale', newLocale);
+};
 
 const PROVIDER_MODELS: Record<string, string[]> = {
   deepseek: ["deepseek-chat", "deepseek-reasoner"],
   openai: ["gpt-4o-mini", "gpt-4o", "o1-mini", "o3-mini"],
   anthropic: ["claude-3-5-haiku-20241022", "claude-3-5-sonnet-20241022"],
-  zhipuai: [
-    "glm-4-flash",
-    "glm-4",
-    "glm-4-plus",
-    "glm-4.5",
-    "glm-4.7",
-    "glm-4.7-FlashX",
-    "glm-5",
-    "glm-z1-flash",
-  ],
+  zhipuai: ["glm-4-flash", "glm-4", "glm-4-plus", "glm-4.5", "glm-4.7", "glm-4.7-FlashX", "glm-5", "glm-z1-flash"],
 };
 
 const DEFAULT_MODEL: Record<string, string> = {
-  deepseek: "deepseek-chat",
-  openai: "gpt-4o-mini",
-  anthropic: "claude-3-5-haiku-20241022",
-  zhipuai: "glm-4-flash",
+  deepseek: "deepseek-chat", openai: "gpt-4o-mini", anthropic: "claude-3-5-haiku-20241022", zhipuai: "glm-4-flash",
 };
 
 type ToolRegistry = { name: string; label: string; description: string; default_enabled: boolean };
@@ -163,35 +187,24 @@ const keyCounts = ref<Record<string, number>>({});
 const personaOverride = ref("");
 const enabledTools = ref<string[]>([]);
 const toolRegistry = ref<ToolRegistry[]>([]);
-const plugins = ref<PluginInfo[]>([]);
 const saved = ref(false);
 const saving = ref(false);
 const saveError = ref(false);
 
-const currentProviderModels = computed(
-  () => PROVIDER_MODELS[provider.value] ?? [],
-);
-
-const effectiveModelName = computed(() =>
-  modelSelect.value === "__custom__" ? customModelName.value : modelSelect.value,
-);
-
+const currentProviderModels = computed(() => PROVIDER_MODELS[provider.value] ?? []);
+const effectiveModelName = computed(() => modelSelect.value === "__custom__" ? customModelName.value : modelSelect.value);
 const existingKeyCount = computed(() => keyCounts.value[provider.value] ?? 0);
 
 function onProviderChange() {
-  const defaultModel = DEFAULT_MODEL[provider.value] ?? PROVIDER_MODELS[provider.value]?.[0] ?? "";
-  modelSelect.value = defaultModel;
+  modelSelect.value = DEFAULT_MODEL[provider.value] ?? PROVIDER_MODELS[provider.value]?.[0] ?? "";
   customModelName.value = "";
   apiKeys.value = [""];
 }
 
 function toggleTool(name: string) {
   const idx = enabledTools.value.indexOf(name);
-  if (idx >= 0) {
-    enabledTools.value.splice(idx, 1);
-  } else {
-    enabledTools.value.push(name);
-  }
+  if (idx >= 0) enabledTools.value.splice(idx, 1);
+  else enabledTools.value.push(name);
 }
 
 onMounted(async () => {
@@ -199,264 +212,30 @@ onMounted(async () => {
     const { data } = await client.get("/settings");
     provider.value = data.model_provider;
     personaOverride.value = data.persona_override ?? "";
-    keyCounts.value = (data.key_counts ?? {}) as Record<string, number>;
-    toolRegistry.value = (data.tool_registry ?? []) as ToolRegistry[];
-    enabledTools.value = (data.enabled_tools ?? []) as string[];
-
-    const savedModel: string = data.model_name ?? "";
-    const models = PROVIDER_MODELS[provider.value] ?? [];
-    if (models.includes(savedModel)) {
-      modelSelect.value = savedModel;
-    } else {
-      modelSelect.value = "__custom__";
-      customModelName.value = savedModel;
-    }
-  } catch {
-    // defaults already applied above
-  }
-  try {
-    const { data } = await client.get("/plugins");
-    plugins.value = data as PluginInfo[];
-  } catch {
-    // non-critical: plugin list not available
-  }
+    keyCounts.value = data.key_counts ?? {};
+    toolRegistry.value = data.tool_registry ?? [];
+    enabledTools.value = data.enabled_tools ?? [];
+    const savedModel = data.model_name ?? "";
+    if (PROVIDER_MODELS[provider.value]?.includes(savedModel)) modelSelect.value = savedModel;
+    else { modelSelect.value = "__custom__"; customModelName.value = savedModel; }
+  } catch {}
 });
 
 async function save() {
   saving.value = true;
-  saveError.value = false;
   try {
-    const payload: Record<string, unknown> = {
-      model_provider: provider.value,
-      model_name: effectiveModelName.value,
-      persona_override: personaOverride.value || null,
-      enabled_tools: enabledTools.value,
-    };
-    const nonEmptyKeys = apiKeys.value.filter((k: string) => k.trim());
-    if (nonEmptyKeys.length > 0) {
-      payload.api_keys = { [provider.value]: nonEmptyKeys };
-    }
+    const payload: any = { model_provider: provider.value, model_name: effectiveModelName.value, persona_override: personaOverride.value || null, enabled_tools: enabledTools.value };
+    const nonEmptyKeys = apiKeys.value.filter(k => k.trim());
+    if (nonEmptyKeys.length > 0) payload.api_keys = { [provider.value]: nonEmptyKeys };
     await client.put("/settings", payload);
-    // Refresh key counts from server after save
     const { data: refreshed } = await client.get("/settings");
-    keyCounts.value = (refreshed.key_counts ?? {}) as Record<string, number>;
+    keyCounts.value = refreshed.key_counts ?? {};
     apiKeys.value = [""];
     saved.value = true;
-    setTimeout(() => (saved.value = false), 2000);
+    setTimeout(() => saved.value = false, 2000);
   } catch {
     saveError.value = true;
-    setTimeout(() => (saveError.value = false), 3000);
-  } finally {
-    saving.value = false;
-  }
+    setTimeout(() => saveError.value = false, 3000);
+  } finally { saving.value = false; }
 }
 </script>
-
-<style scoped>
-.page-card {
-  max-width: 480px;
-}
-
-.settings-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-.custom-model-input {
-  margin-top: var(--space-sm);
-}
-
-.api-key-row {
-  display: flex;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-xs);
-}
-
-.api-key-row input {
-  flex: 1;
-}
-
-.btn-remove-key {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
-  background: var(--danger-a10, rgba(255, 59, 48, 0.1));
-  border: 1px solid var(--danger, #ff3b30);
-  color: var(--danger, #ff3b30);
-  font-size: 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.btn-add-key {
-  background: transparent;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-sm);
-  padding: 6px 12px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  cursor: pointer;
-  width: 100%;
-  text-align: center;
-}
-
-.btn-add-key:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.key-info {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: var(--space-xs);
-}
-
-.field-description {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin: 0 0 var(--space-sm) 0;
-}
-
-.tool-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.tool-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: border-color 0.2s;
-}
-
-.tool-item:hover {
-  border-color: var(--accent);
-}
-
-.tool-item input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  accent-color: var(--accent);
-}
-
-.tool-label {
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.tool-desc {
-  font-size: 12px;
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.plugin-section {
-  margin-top: var(--space-lg);
-  border-top: 1px solid var(--border);
-  padding-top: var(--space-lg);
-}
-
-.plugin-section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin: 0 0 var(--space-md) 0;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.plugin-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.plugin-item {
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-secondary, rgba(255, 255, 255, 0.03));
-}
-
-.plugin-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-bottom: 4px;
-}
-
-.plugin-name {
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.plugin-version {
-  font-size: 11px;
-  color: var(--text-muted);
-  background: var(--surface-tertiary, rgba(255, 255, 255, 0.06));
-  padding: 1px 6px;
-  border-radius: 10px;
-}
-
-.plugin-desc {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin: 0 0 6px 0;
-}
-
-.plugin-tools-badge {
-  font-size: 11px;
-  color: var(--accent);
-  opacity: 0.8;
-}
-
-.toast-success {
-  margin-top: var(--space-lg);
-  padding: var(--space-md);
-  background: var(--accent-a10);
-  border: 1px solid var(--border-glow);
-  border-radius: var(--radius-md);
-  color: var(--accent);
-  text-align: center;
-  font-size: 14px;
-}
-
-.toast-error {
-  margin-top: var(--space-lg);
-  padding: var(--space-md);
-  background: var(--danger-a10, rgba(255, 59, 48, 0.1));
-  border: 1px solid var(--danger, #ff3b30);
-  border-radius: var(--radius-md);
-  color: var(--danger, #ff3b30);
-  text-align: center;
-  font-size: 14px;
-}
-
-.toast-enter-active {
-  animation: slideUp 0.3s ease;
-}
-
-.toast-leave-active {
-  animation: fadeIn 0.3s ease reverse;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .toast-enter-active,
-  .toast-leave-active {
-    animation: none;
-  }
-}
-</style>

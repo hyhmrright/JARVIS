@@ -1,66 +1,53 @@
 <template>
   <div class="auth-page">
-    <div class="auth-card animate-slide-up">
-      <div class="auth-brand">
-        <span class="brand-icon">&#10022;</span>
+    <div class="bg-glow-auth"></div>
+    <div class="auth-card animate-zoom-in">
+      <div class="auth-header">
+        <div class="brand-logo">J</div>
         <h1>JARVIS</h1>
         <p class="brand-tagline">{{ $t("login.title") }}</p>
       </div>
-      <div class="shimmer-line animate-shimmer"></div>
+
       <form class="auth-form" @submit.prevent="handleLogin">
-        <div class="form-group animate-slide-up-delay-1">
-          <label for="email">{{ $t("login.email") }}</label>
+        <div class="form-group">
           <input
             id="email"
             v-model="email"
             type="email"
+            class="modern-input"
             :placeholder="$t('login.email')"
-            :class="{ 'input-error': emailError }"
-            @blur="emailTouched = true"
+            required
           />
-          <p class="field-error" :class="{ visible: emailError }">{{ emailError }}</p>
         </div>
-        <div class="form-group animate-slide-up-delay-2">
-          <label for="password">{{ $t("login.password") }}</label>
-          <div class="password-wrapper">
-            <input
-              id="password"
-              v-model="password"
-              :type="showPassword ? 'text' : 'password'"
-              :placeholder="$t('login.password')"
-              :class="{ 'input-error': passwordError }"
-              @blur="passwordTouched = true"
-            />
-            <button type="button" class="password-toggle" @click="showPassword = !showPassword">
-              <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-            </button>
-          </div>
-          <p class="field-error" :class="{ visible: passwordError }">{{ passwordError }}</p>
+        <div class="form-group">
+          <input
+            id="password"
+            v-model="password"
+            type="password"
+            class="modern-input"
+            :placeholder="$t('login.password')"
+            required
+          />
         </div>
-        <button type="submit" class="btn-primary animate-slide-up-delay-3" :disabled="loading || !isFormValid">
+        
+        <button type="submit" class="btn-submit" :disabled="loading">
           <span v-if="loading" class="spinner"></span>
           {{ loading ? $t("login.loading") : $t("login.submit") }}
         </button>
-        <p v-if="error" class="error-msg">{{ error }}</p>
+        
+        <p v-if="error" class="error-msg animate-shake">{{ error }}</p>
       </form>
-      <p class="auth-footer">
+
+      <div class="auth-footer">
         {{ $t("login.noAccount") }}
-        <router-link to="/register">{{ $t("login.register") }}</router-link>
-      </p>
+        <router-link to="/register" class="link-primary">{{ $t("login.register") }}</router-link>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-/**
- * 登录页面
- *
- * 错误处理：根据 HTTP 状态码显示对应的翻译提示
- *   401 → 邮箱或密码错误
- *   429 → 速率限制超出（slowapi 自动返回）
- */
-import { ref, computed } from "vue";
+import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useI18n } from "vue-i18n";
@@ -72,57 +59,19 @@ const router = useRouter();
 
 const email = ref("");
 const password = ref("");
-const showPassword = ref(false);
-const emailTouched = ref(false);
-const passwordTouched = ref(false);
-
 const error = ref("");
 const loading = ref(false);
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-const emailError = computed(() => {
-  if (!emailTouched.value) return "";
-  if (!email.value) return t("validation.emailRequired");
-  if (!EMAIL_RE.test(email.value)) return t("validation.emailInvalid");
-  return "";
-});
-
-const passwordError = computed(() => {
-  if (!passwordTouched.value) return "";
-  if (!password.value) return t("validation.passwordRequired");
-  if (password.value.length < 8) return t("validation.passwordMinLength");
-  return "";
-});
-
-const isFormValid = computed(
-  () =>
-    email.value.length > 0 &&
-    !emailError.value &&
-    password.value.length > 0 &&
-    !passwordError.value,
-);
-
 async function handleLogin() {
-  emailTouched.value = true;
-  passwordTouched.value = true;
-  if (!isFormValid.value) return;
-
+  if (!email.value || !password.value) return;
   loading.value = true;
   error.value = "";
   try {
     await auth.login(email.value, password.value);
     router.push("/");
   } catch (e) {
-    if (e instanceof AxiosError && e.response) {
-      const status = e.response.status;
-      if (status === 401) {
-        error.value = t("login.invalidCredentials");
-      } else if (status === 429) {
-        error.value = t("common.rateLimitError");
-      } else {
-        error.value = t("login.genericError");
-      }
+    if (e instanceof AxiosError && e.response?.status === 401) {
+      error.value = t("login.invalidCredentials");
     } else {
       error.value = t("common.networkError");
     }
@@ -132,4 +81,159 @@ async function handleLogin() {
 }
 </script>
 
-<!-- Styles provided by @/assets/styles/components.css -->
+<style scoped>
+.auth-page {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  position: relative;
+  overflow: hidden;
+}
+
+.bg-glow-auth {
+  position: absolute;
+  width: 60%;
+  height: 60%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
+  filter: blur(80px);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 3rem 2rem;
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+  z-index: 10;
+}
+
+.auth-header {
+  margin-bottom: 2.5rem;
+}
+
+.brand-logo {
+  width: 48px;
+  height: 48px;
+  background: var(--accent);
+  color: white;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 0 auto 1rem;
+}
+
+.brand-tagline {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.modern-input {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 1rem;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.modern-input:focus {
+  border-color: var(--accent);
+  background: var(--bg-secondary);
+}
+
+.btn-submit {
+  padding: 0.85rem;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-submit:hover:not(:disabled) {
+  background: var(--accent-light);
+  transform: translateY(-1px);
+}
+
+.btn-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error-msg {
+  color: #f44336;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.auth-footer {
+  margin-top: 2rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.link-primary {
+  color: var(--accent-light);
+  text-decoration: none;
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+.link-primary:hover {
+  text-decoration: underline;
+}
+
+.animate-zoom-in { animation: zoomIn 0.3s ease-out; }
+.animate-shake { animation: shake 0.4s ease-in-out; }
+
+@keyframes zoomIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+</style>

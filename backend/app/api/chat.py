@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 from collections.abc import AsyncGenerator
@@ -21,6 +22,7 @@ from app.db.models import Conversation, Message, User
 from app.db.session import AsyncSessionLocal, get_db
 from app.plugins import plugin_registry
 from app.rag.retriever import maybe_inject_rag_context
+from app.services.memory_sync import sync_conversation_to_markdown
 
 logger = structlog.get_logger(__name__)
 
@@ -41,7 +43,18 @@ def _sse_events_from_chunk(chunk: dict, full_content: str) -> tuple[list[str], s
     """
     events: list[str] = []
 
-    if "llm" in chunk:
+    if "approval" in chunk:
+        pending = chunk["approval"]["pending_tool_call"]
+        events.append(
+            _format_sse(
+                {
+                    "type": "approval_required",
+                    "tool": pending["name"],
+                    "args": pending.get("args", {}),
+                }
+            )
+        )
+    elif "llm" in chunk:
         ai_msg = chunk["llm"]["messages"][-1]
         # Emit tool_start events when the LLM decides to call tools
         if hasattr(ai_msg, "tool_calls") and ai_msg.tool_calls:
@@ -100,6 +113,12 @@ async def chat_stream(  # noqa: C901
     llm: ResolvedLLMConfig = Depends(get_llm_config),
     db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
+    # Check if this is a consent signal (HITL)
+    is_consent = body.content.startswith("[CONSENT:")
+    approved: bool | None = None
+    if is_consent:
+        approved = "ALLOW" in body.content
+
     conv = await db.scalar(
         select(Conversation).where(
             Conversation.id == body.conversation_id,
@@ -109,8 +128,10 @@ async def chat_stream(  # noqa: C901
     if not conv:
         raise HTTPException(status_code=404)
 
-    db.add(Message(conversation_id=conv.id, role="human", content=body.content))
-    await db.commit()
+    # Don't save metadata messages to database
+    if not is_consent:
+        db.add(Message(conversation_id=conv.id, role="human", content=body.content))
+        await db.commit()
 
     history_rows = await db.scalars(
         select(Message)
@@ -162,6 +183,11 @@ async def chat_stream(  # noqa: C901
             mcp_tools = await create_mcp_tools(
                 parse_mcp_configs(settings.mcp_servers_json)
             )
+
+        plugin_tools: list | None = None
+        if llm.enabled_tools is None or "plugin" in llm.enabled_tools:
+            plugin_tools = plugin_registry.get_all_tools() or None
+
         graph = create_graph(
             provider=llm.provider,
             model=llm.model_name,
@@ -172,13 +198,14 @@ async def chat_stream(  # noqa: C901
             openai_api_key=openai_key,
             tavily_api_key=tavily_key,
             mcp_tools=mcp_tools,
-            plugin_tools=plugin_registry.get_all_tools() or None,
+            plugin_tools=plugin_tools,
             conversation_id=str(conv_id),
         )
         full_content = ""
         last_ai_msg = None
+        state = AgentState(messages=lc_messages, approved=approved)
         try:
-            async for chunk in graph.astream(AgentState(messages=lc_messages)):
+            async for chunk in graph.astream(state):
                 if "llm" in chunk:
                     last_ai_msg = chunk["llm"]["messages"][-1]
                 events, full_content = _sse_events_from_chunk(chunk, full_content)
@@ -209,6 +236,8 @@ async def chat_stream(  # noqa: C901
                         conv_id=str(conv_id),
                         response_chars=len(full_content),
                     )
+                    # Sync to local Markdown
+                    asyncio.create_task(sync_conversation_to_markdown(conv_id))
                 except Exception:
                     logger.exception(
                         "failed_to_save_partial_response",

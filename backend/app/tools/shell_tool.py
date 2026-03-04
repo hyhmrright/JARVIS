@@ -44,6 +44,24 @@ async def _exec_sandbox(command: str, timeout_seconds: int) -> str:
             await manager.destroy_sandbox(container_id)
 
 
+async def _exec_local(command: str, timeout_seconds: int) -> str:
+    """Execute a command directly in the current container (DANGEROUS)."""
+    import asyncio
+    try:
+        proc = await asyncio.create_subprocess_shell(
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
+            return (stdout.decode() + "\n" + stderr.decode()).strip()
+        except asyncio.TimeoutError:
+            proc.kill()
+            return f"Command timed out after {timeout_seconds} seconds"
+    except Exception as exc:
+        return f"Execution error: {exc}"
+
 @tool
 async def shell_exec(command: str, timeout_seconds: int = 30) -> str:
     """Run a shell command and return combined stdout/stderr output.
@@ -64,14 +82,14 @@ async def shell_exec(command: str, timeout_seconds: int = 30) -> str:
         if pattern in cmd_lower:
             return f"Blocked: command contains forbidden pattern '{pattern}'"
 
-    if not settings.sandbox_enabled:
-        return (
-            "Shell execution requires sandbox mode. Set SANDBOX_ENABLED=true to enable."
-        )
+    if settings.sandbox_enabled:
+        output = await _exec_sandbox(command, timeout_seconds)
+    else:
+        # Fallback to local execution (e.g. inside the backend container)
+        output = await _exec_local(command, timeout_seconds)
+        output = f"[WARNING: Sandboxing disabled. Command executed in backend container.]\n{output}"
 
-    output = await _exec_sandbox(command, timeout_seconds)
-
-    if not output:
+    if not output.strip():
         return "(no output)"
 
     if len(output) > _MAX_OUTPUT:

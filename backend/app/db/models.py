@@ -1,3 +1,4 @@
+import enum
 import uuid
 from datetime import datetime
 from typing import Any
@@ -20,6 +21,12 @@ from app.core.permissions import DEFAULT_ENABLED_TOOLS
 from app.db.base import Base
 
 
+class UserRole(enum.StrEnum):
+    USER = "user"
+    ADMIN = "admin"
+    SUPERADMIN = "superadmin"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -29,6 +36,9 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(100))
+    role: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=UserRole.USER.value
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -255,6 +265,10 @@ class CronJob(Base):
     )
     schedule: Mapped[str] = mapped_column(String(100), nullable=False)
     task: Mapped[str] = mapped_column(Text, nullable=False)
+    trigger_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="cron"
+    )
+    trigger_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     last_run_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

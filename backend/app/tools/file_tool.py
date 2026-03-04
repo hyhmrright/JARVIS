@@ -33,7 +33,7 @@ def _safe_resolve(workspace: pathlib.Path, path: str) -> pathlib.Path | None:
     return resolved
 
 
-def create_file_tools(user_id: str) -> list[BaseTool]:
+def create_file_tools(user_id: str) -> list[BaseTool]:  # noqa: C901
     """Create file operation tools scoped to a user's workspace."""
     workspace = pathlib.Path(f"/tmp/jarvis/{user_id}")
 
@@ -82,4 +82,52 @@ def create_file_tools(user_id: str) -> list[BaseTool]:
             return f"Directory not found: {directory}"
         return _format_listing(safe_path)
 
-    return [file_read, file_write, file_list]
+    @tool
+    def file_delete(path: str) -> str:
+        """Delete a file or empty directory in your workspace.
+
+        Args:
+            path: File name or relative path within workspace.
+        """
+        safe_path = _safe_resolve(workspace, path)
+        if safe_path is None:
+            return f"Blocked: path '{path}' escapes workspace."
+        if not safe_path.exists():
+            return f"File or directory not found: {path}"
+        try:
+            if safe_path.is_file() or safe_path.is_symlink():
+                safe_path.unlink()
+            else:
+                safe_path.rmdir()
+            return f"Deleted: {path}"
+        except OSError as e:
+            return f"Failed to delete {path}: {e}"
+
+    @tool
+    def file_search(pattern: str, directory: str = ".") -> str:
+        """Search for files matching a glob pattern in your workspace.
+
+        Args:
+            pattern: Glob pattern (e.g., '*.py', '**/*.txt').
+            directory: Subdirectory to search in (default: workspace root).
+        """
+        safe_dir = _safe_resolve(workspace, directory)
+        if safe_dir is None:
+            return f"Blocked: path '{directory}' escapes workspace."
+        if not safe_dir.exists():
+            return f"Directory not found: {directory}"
+
+        matches = (
+            list(safe_dir.rglob(pattern))
+            if "**" in pattern
+            else list(safe_dir.glob(pattern))
+        )
+        if not matches:
+            return f"No files matched pattern: {pattern}"
+
+        lines = [f"  {m.relative_to(workspace.resolve())}" for m in matches[:100]]
+        if len(matches) > 100:
+            lines.append(f"  ... and {len(matches) - 100} more")
+        return "\n".join(lines)
+
+    return [file_read, file_write, file_list, file_delete, file_search]
