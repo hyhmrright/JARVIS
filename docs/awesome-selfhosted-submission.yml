@@ -1,0 +1,18 @@
+# awesome-selfhosted submission file for JARVIS
+#
+# IMPORTANT: Cannot submit until 2026-06-25 (4 months after v0.1.0 release on 2026-02-25)
+# Submit PR to: https://github.com/awesome-selfhosted/awesome-selfhosted-data
+# File goes in: software/jarvis.yml
+# PR title: "Add JARVIS"
+#
+name: JARVIS
+website_url: https://github.com/hyhmrright/JARVIS
+source_code_url: https://github.com/hyhmrright/JARVIS
+description: AI assistant platform with RAG knowledge base, multi-LLM support, plugin SDK, multi-channel gateway (Slack/Discord/Telegram), RBAC, and full observability stack.
+licenses:
+  - MIT
+platforms:
+  - Python
+  - Docker
+tags:
+  - Generative Artificial Intelligence (GenAI)
