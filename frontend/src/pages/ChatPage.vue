@@ -181,6 +181,9 @@
                 <button @click="regenerate(idx)" class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Regenerate">
                   <RotateCcw class="w-3 h-3" />
                 </button>
+                <button @click="playTTS(msg.content)" class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" :class="{ 'text-emerald-400': isPlayingTTS === msg.content }" title="Read Aloud">
+                  <Volume2 class="w-3 h-3" />
+                </button>
               </div>
             </div>
             
@@ -251,11 +254,13 @@ import "highlight.js/styles/github-dark.css";
 import { 
   Trash2, Zap, Settings, LogOut, 
   PanelLeft, SquarePen, Copy, RotateCcw,
-  Mic, ArrowUp, ShieldAlert, Share2, MessageSquare
+  Mic, ArrowUp, ShieldAlert, Share2, MessageSquare,
+  Volume2
 } from "lucide-vue-next";
 
 import LiveCanvas from "@/components/LiveCanvas.vue";
 import VoiceOverlay from "@/components/VoiceOverlay.vue";
+import client from "@/api/client";
 
 const { t } = useI18n();
 const chat = useChatStore();
@@ -266,6 +271,46 @@ const input = ref("");
 const sidebarCollapsed = ref(false);
 const messagesEl = ref<HTMLElement>();
 const voiceOverlay = ref<InstanceType<typeof VoiceOverlay>>();
+
+const currentAudio = ref<HTMLAudioElement | null>(null);
+const isPlayingTTS = ref<string | null>(null);
+
+const playTTS = async (text: string) => {
+  if (isPlayingTTS.value === text && currentAudio.value) {
+    currentAudio.value.pause();
+    isPlayingTTS.value = null;
+    return;
+  } else if (currentAudio.value) {
+    currentAudio.value.pause();
+  }
+  
+  try {
+    isPlayingTTS.value = text;
+    // Strip markdown formatting approximately
+    const cleanText = text.replace(/<[^>]*>?/gm, '').replace(/[*#_`~\[\]()]/g, '');
+    const response = await client.post('/tts/synthesize', {
+      text: cleanText.substring(0, 5000),
+      voice: "zh-CN-XiaoxiaoNeural",
+      rate: "+0%"
+    }, {
+      responseType: 'blob'
+    });
+    
+    const audioUrl = URL.createObjectURL(response.data);
+    const audio = new Audio(audioUrl);
+    currentAudio.value = audio;
+    
+    audio.onended = () => {
+      isPlayingTTS.value = null;
+      URL.revokeObjectURL(audioUrl);
+    };
+    
+    await audio.play();
+  } catch (error) {
+    console.error("TTS failed", error);
+    isPlayingTTS.value = null;
+  }
+};
 
 const suggestions = [
   { text: 'Run Security Scan', sub: 'Audit current workspace structure', prompt: 'Run a proactive security check' },
