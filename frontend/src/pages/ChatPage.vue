@@ -129,10 +129,10 @@
 
             <!-- Content Column -->
             <div class="pl-8 group relative min-h-[20px]">
+              <!-- eslint-disable-next-line vue/no-v-html -->
               <div class="markdown-body text-zinc-200 leading-[1.7] text-[14px]" v-html="renderMarkdown(msg.content)"></div>
-              
-              <!-- HITL Security Box -->
-              <div v-if="msg.pending_tool_call" class="mt-8 p-6 bg-zinc-950 border border-white/10 rounded-lg space-y-5 max-w-md shadow-2xl">
+
+              <!-- HITL Security Box -->              <div v-if="msg.pending_tool_call" class="mt-8 p-6 bg-zinc-950 border border-white/10 rounded-lg space-y-5 max-w-md shadow-2xl">
                 <div class="flex items-center gap-2 text-[9px] font-black text-white tracking-[0.2em]">
                   <ShieldAlert class="w-3.5 h-3.5" />
                   CONFIRM EXECUTION

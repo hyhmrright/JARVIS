@@ -223,7 +223,7 @@ onMounted(async () => {
 async function save() {
   saving.value = true;
   try {
-    const payload: any = { model_provider: provider.value, model_name: effectiveModelName.value, persona_override: personaOverride.value || null, enabled_tools: enabledTools.value };
+    const payload: Record<string, unknown> = { model_provider: provider.value, model_name: effectiveModelName.value, persona_override: personaOverride.value || null, enabled_tools: enabledTools.value };
     const nonEmptyKeys = apiKeys.value.filter(k => k.trim());
     if (nonEmptyKeys.length > 0) payload.api_keys = { [provider.value]: nonEmptyKeys };
     await client.put("/settings", payload);

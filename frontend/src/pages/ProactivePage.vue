@@ -126,13 +126,23 @@ import { ref, onMounted } from 'vue';
 import client from '@/api/client';
 import PageHeader from '@/components/PageHeader.vue';
 
-const jobs = ref<any[]>([]);
+interface CronJob {
+  id: string;
+  task: string;
+  schedule: string;
+  trigger_type: string;
+  trigger_metadata: Record<string, string>;
+  is_active: boolean;
+  last_run_at?: string;
+}
+
+const jobs = ref<CronJob[]>([]);
 const showAddModal = ref(false);
 const newJob = ref({
   task: '',
   schedule: '*/30 * * * *',
   trigger_type: 'cron',
-  trigger_metadata: {} as any
+  trigger_metadata: {} as Record<string, string>
 });
 
 const fetchJobs = async () => {

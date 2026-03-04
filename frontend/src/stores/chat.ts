@@ -12,7 +12,7 @@ interface Message {
   role: "human" | "ai";
   content: string;
   toolCalls?: ToolCall[];
-  pending_tool_call?: { name: string; args: any };
+  pending_tool_call?: { name: string; args: Record<string, unknown> };
 }
 
 interface Conversation { id: string; title: string }
@@ -154,10 +154,11 @@ export const useChatStore = defineStore("chat", {
             }
           }
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         const aiMsg = this.messages[this.messages.length - 1];
         if (aiMsg?.role === "ai") {
-          aiMsg.content = `> **System Warning**: Failed to communicate with the model.\n> \`${err.message}\`\n\nPlease check your configuration in **Settings** (e.g., ensure API keys are correctly filled) and try again.`;
+          const errMsg = err instanceof Error ? err.message : String(err);
+          aiMsg.content = `> **System Warning**: Failed to communicate with the model.\n> \`${errMsg}\`\n\nPlease check your configuration in **Settings** (e.g., ensure API keys are correctly filled) and try again.`;
         }
         console.error("[chat] streaming error:", err);
       } finally {

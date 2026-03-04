@@ -149,6 +149,14 @@ import { ref, onMounted, watch } from 'vue';
 import adminApi, { AdminUser, SystemStats } from '@/api/admin';
 import PageHeader from '@/components/PageHeader.vue';
 
+interface PluginInfo {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  tools: unknown[];
+}
+
 const tabs = [
   { id: 'users', label: 'Users' },
   { id: 'plugins', label: 'Plugins' },
@@ -160,7 +168,7 @@ const users = ref<AdminUser[]>([]);
 const totalUsers = ref(0);
 const page = ref(1);
 const limit = 20;
-const plugins = ref<any[]>([]);
+const plugins = ref<PluginInfo[]>([]);
 const stats = ref<SystemStats | null>(null);
 const showAddModal = ref(false);
 const installUrl = ref('');
