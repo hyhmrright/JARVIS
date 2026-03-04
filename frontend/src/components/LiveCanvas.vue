@@ -3,7 +3,7 @@
     <div class="canvas-header">
       <span class="canvas-title">Live Canvas</span>
       <div class="canvas-actions">
-        <button @click="popOut" title="Pop out">↗</button>
+        <button title="Pop out" @click="popOut">↗</button>
       </div>
     </div>
     <iframe

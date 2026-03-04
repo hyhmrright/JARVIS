@@ -21,7 +21,8 @@
             
             <div class="flex justify-between items-start mb-4">
               <div class="flex flex-wrap items-center gap-2">
-                <span :class="[
+                <span
+:class="[
                   'text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full',
                   job.trigger_type === 'cron' ? 'bg-zinc-800 text-zinc-400' :
                   job.trigger_type === 'web_watcher' ? 'bg-indigo-500/20 text-indigo-400' :
@@ -51,7 +52,7 @@
                 {{ job.last_run_at ? new Date(job.last_run_at).toLocaleString() : 'Never run' }}
               </div>
               
-              <button class="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400 transition-all text-sm p-1" @click="deleteJob(job.id)" title="Delete Task">
+              <button class="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400 transition-all text-sm p-1" title="Delete Task" @click="deleteJob(job.id)">
                 🗑
               </button>
             </div>
@@ -106,7 +107,7 @@
             </div>
             <div class="flex flex-col gap-2">
               <label class="text-xs font-semibold text-zinc-400">App Password</label>
-              <input type="password" v-model="newJob.trigger_metadata.imap_password" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" />
+              <input v-model="newJob.trigger_metadata.imap_password" type="password" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" />
             </div>
           </div>
         </div>
