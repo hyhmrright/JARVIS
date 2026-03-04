@@ -13,7 +13,7 @@
           <div class="w-5 h-5 bg-white text-black rounded-sm flex items-center justify-center text-[10px] font-bold">J</div>
           <span class="text-sm">JARVIS</span>
         </div>
-        <button @click="chat.newConversation" class="p-1.5 hover:bg-zinc-800 rounded transition-colors" title="New Chat">
+        <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors" title="New Chat" @click="chat.newConversation">
           <SquarePen class="w-4 h-4 text-zinc-400" />
         </button>
       </div>
@@ -22,17 +22,17 @@
         <div
           v-for="c in chat.conversations"
           :key="c.id"
-          @click="chat.selectConversation(c.id)"
           :class="[
             'group flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors relative',
             chat.currentConvId === c.id ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
           ]"
+          @click="chat.selectConversation(c.id)"
         >
           <MessageSquare class="w-3.5 h-3.5 flex-shrink-0" />
           <span class="text-xs truncate flex-1">{{ c.title }}</span>
           <button
-            @click.stop="chat.deleteConversation(c.id)"
             class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400"
+            @click.stop="chat.deleteConversation(c.id)"
           >
             <Trash2 class="w-3 h-3" />
           </button>
@@ -63,7 +63,7 @@
               </div>
             </div>
             
-            <button @click="handleLogout" class="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 px-2 py-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 rounded transition-all text-[10px] font-bold uppercase tracking-wider" title="Sign out">
+            <button class="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 px-2 py-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 rounded transition-all text-[10px] font-bold uppercase tracking-wider" title="Sign out" @click="handleLogout">
               <LogOut class="w-3 h-3" />
             </button>
           </div>
@@ -77,8 +77,8 @@
         <div class="flex items-center gap-4">
           <button 
             v-if="sidebarCollapsed"
-            @click="sidebarCollapsed = false"
             class="p-1.5 hover:bg-zinc-800 rounded transition-colors"
+            @click="sidebarCollapsed = false"
           >
             <PanelLeft class="w-4 h-4 text-zinc-400" />
           </button>
@@ -102,8 +102,8 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2 w-full max-w-lg mx-auto">
               <button 
                 v-for="s in suggestions" :key="s.text"
-                @click="input = s.prompt"
                 class="p-4 rounded-xl border border-zinc-800 bg-zinc-950/50 hover:bg-zinc-800 hover:border-zinc-700 transition-all text-left group"
+                @click="input = s.prompt"
               >
                 <div class="text-[13px] font-semibold text-zinc-200 group-hover:text-white">{{ s.text }}</div>
                 <div class="text-[11px] text-zinc-500 mt-1">{{ s.sub }}</div>
@@ -119,7 +119,8 @@
           >
             <!-- Sender Label -->
             <div class="flex items-center gap-3 select-none">
-              <div :class="['w-5 h-5 rounded-sm flex items-center justify-center text-[9px] font-bold tracking-tighter', 
+              <div
+:class="['w-5 h-5 rounded-sm flex items-center justify-center text-[9px] font-bold tracking-tighter', 
                 msg.role === 'ai' ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-400']">
                 {{ msg.role === 'ai' ? 'JARVIS' : (auth.displayName?.[0] || 'U') }}
               </div>
@@ -138,8 +139,8 @@
                 </div>
                 <div class="text-[13px] text-zinc-300">Target action: <code class="bg-zinc-800 text-white px-1.5 py-0.5 rounded font-mono">{{ msg.pending_tool_call.name }}</code></div>
                 <div class="flex gap-2">
-                  <button @click="chat.handleConsent(true)" class="flex-1 py-2.5 bg-white text-black rounded text-[11px] font-bold hover:bg-zinc-200 transition-all">APPROVE</button>
-                  <button @click="chat.handleConsent(false)" class="flex-1 py-2.5 bg-zinc-900 text-zinc-400 border border-zinc-800 rounded text-[11px] font-bold hover:bg-zinc-800 transition-all">REJECT</button>
+                  <button class="flex-1 py-2.5 bg-white text-black rounded text-[11px] font-bold hover:bg-zinc-200 transition-all" @click="chat.handleConsent(true)">APPROVE</button>
+                  <button class="flex-1 py-2.5 bg-zinc-900 text-zinc-400 border border-zinc-800 rounded text-[11px] font-bold hover:bg-zinc-800 transition-all" @click="chat.handleConsent(false)">REJECT</button>
                 </div>
               </div>
 
@@ -175,13 +176,13 @@
 
               <!-- Message Actions -->
               <div v-if="msg.role === 'ai' && msg.content" class="absolute -bottom-8 left-8 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button @click="copyText(msg.content)" class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Copy">
+                <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Copy" @click="copyText(msg.content)">
                   <Copy class="w-3 h-3" />
                 </button>
-                <button @click="regenerate(idx)" class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Regenerate">
+                <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Regenerate" @click="regenerate(idx)">
                   <RotateCcw class="w-3 h-3" />
                 </button>
-                <button @click="playTTS(msg.content)" class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" :class="{ 'text-emerald-400': isPlayingTTS === msg.content }" title="Read Aloud">
+                <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" :class="{ 'text-emerald-400': isPlayingTTS === msg.content }" title="Read Aloud" @click="playTTS(msg.content)">
                   <Volume2 class="w-3 h-3" />
                 </button>
               </div>
@@ -207,7 +208,7 @@
         <div class="max-w-3xl mx-auto px-6 pb-10">
           <div class="relative bg-zinc-950 border border-zinc-800 rounded-xl transition-all focus-within:border-zinc-700">
             <div class="flex items-end p-2 gap-1">
-              <button @click="voiceOverlay?.start()" class="p-2.5 text-zinc-500 hover:text-white transition-colors">
+              <button class="p-2.5 text-zinc-500 hover:text-white transition-colors" @click="voiceOverlay?.start()">
                 <Mic class="w-4 h-4" />
               </button>
               
@@ -215,14 +216,14 @@
                 v-model="input"
                 class="flex-1 bg-transparent border-none focus:ring-0 px-2 py-3 text-[14px] text-zinc-100 resize-none max-h-[300px] min-h-[44px] custom-scrollbar placeholder:text-zinc-600"
                 :placeholder="$t('chat.inputPlaceholder')"
-                @keydown.enter="handleEnter"
                 rows="1"
+                @keydown.enter="handleEnter"
               ></textarea>
               
               <button
-                @click="handleSend"
                 :disabled="!input.trim() || chat.streaming"
                 class="p-2.5 bg-white text-black rounded-lg disabled:opacity-10 transition-all active:scale-95"
+                @click="handleSend"
               >
                 <ArrowUp class="w-4 h-4 stroke-[3px]" />
               </button>
@@ -244,7 +245,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick, computed } from "vue";
 import { useRouter } from "vue-router";
-import { useI18n } from "vue-i18n";
 import { useChatStore } from "@/stores/chat";
 import { useAuthStore } from "@/stores/auth";
 import { marked } from "marked";
@@ -262,7 +262,6 @@ import LiveCanvas from "@/components/LiveCanvas.vue";
 import VoiceOverlay from "@/components/VoiceOverlay.vue";
 import client from "@/api/client";
 
-const { t } = useI18n();
 const chat = useChatStore();
 const auth = useAuthStore();
 const router = useRouter();
@@ -287,7 +286,7 @@ const playTTS = async (text: string) => {
   try {
     isPlayingTTS.value = text;
     // Strip markdown formatting approximately
-    const cleanText = text.replace(/<[^>]*>?/gm, '').replace(/[*#_`~\[\]()]/g, '');
+    const cleanText = text.replace(/<[^>]*>?/gm, '').replace(/[*#_`~[\]()]/g, '');
     const response = await client.post('/tts/synthesize', {
       text: cleanText.substring(0, 5000),
       voice: "zh-CN-XiaoxiaoNeural",
