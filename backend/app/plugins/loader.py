@@ -6,15 +6,15 @@ import importlib
 import importlib.metadata
 import importlib.util
 import inspect
-import sys
-import shutil
-import zipfile
 import io
+import shutil
+import sys
+import zipfile
 from pathlib import Path
 
 import httpx
-import yaml
 import structlog
+import yaml
 
 from app.plugins.api import PluginAPI
 from app.plugins.registry import PluginRegistry
@@ -107,7 +107,7 @@ def _load_plugin_package(path: Path, registry: PluginRegistry) -> None:
         manifest_path = path / "manifest.yml"
 
     try:
-        with open(manifest_path, "r") as f:
+        with open(manifest_path) as f:
             data = yaml.safe_load(f)
             manifest = JarvisPluginManifest(**data)
 
