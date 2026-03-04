@@ -45,7 +45,7 @@ class FeishuChannel(ChannelAdapter):
             # This is a stub for the event loop task
 
         # Mocking the background task for webhook event polling/queue processing
-        async def _mock_event_loop():
+        async def _mock_event_loop() -> None:
             while True:
                 await asyncio.sleep(3600)
 

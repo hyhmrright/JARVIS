@@ -1,4 +1,5 @@
 import structlog
+from langchain_core.messages import AIMessage
 from langchain_core.tools import BaseTool
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -161,7 +162,9 @@ def create_graph(
         return "tools"
 
     async def ask_approval(state: AgentState) -> dict:
-        return {"pending_tool_call": state.messages[-1].tool_calls[0]}
+        last_msg = state.messages[-1]
+        tool_calls = last_msg.tool_calls if isinstance(last_msg, AIMessage) else []
+        return {"pending_tool_call": tool_calls[0] if tool_calls else None}
 
     graph: StateGraph[AgentState] = StateGraph(AgentState)
     graph.add_node("llm", call_llm)

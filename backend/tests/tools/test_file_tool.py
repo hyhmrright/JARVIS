@@ -39,7 +39,13 @@ class TestCreateFileTools:
     def test_tool_names(self) -> None:
         tools = create_file_tools("test-user")
         names = {t.name for t in tools}
-        assert names == {"file_read", "file_write", "file_list", "file_delete", "file_search"}
+        assert names == {
+            "file_read",
+            "file_write",
+            "file_list",
+            "file_delete",
+            "file_search",
+        }
 
 
 class TestFileWrite:
@@ -159,7 +165,7 @@ class TestFileSearch:
         (user_workspace / "test1.py").write_text("print(1)", encoding="utf-8")
         (user_workspace / "test2.py").write_text("print(2)", encoding="utf-8")
         (user_workspace / "readme.txt").write_text("hello", encoding="utf-8")
-        
+
         tools = _tools(user_workspace)
         result = tools["file_search"].invoke({"pattern": "*.py", "directory": "."})
         assert "test1.py" in result

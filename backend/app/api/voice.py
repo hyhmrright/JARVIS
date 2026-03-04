@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/voice", tags=["voice"])
 
 
 @router.websocket("/stream")
-async def voice_stream(websocket: WebSocket):
+async def voice_stream(websocket: WebSocket) -> None:
     """WebSocket for real-time voice interaction (OpenClaw style).
 
     Protocol:

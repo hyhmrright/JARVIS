@@ -18,7 +18,7 @@ class WebhookChannel(ChannelAdapter):
         self.router = APIRouter()
 
         @self.router.post("/receive")
-        async def handle_webhook(request: Request):
+        async def handle_webhook(request: Request) -> Response | dict[str, str]:
             """Endpoint to receive messages from any external source.
 
             Expected JSON: {"user_id": "...", "text": "...", "reply_url": "..."}

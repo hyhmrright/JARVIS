@@ -66,5 +66,4 @@ class DockerSandbox:
 
     def run_command(self, command: list[str]) -> dict[str, Any]:
         """Run a CLI command in the sandbox."""
-        # Implementation similar to run_code
-        pass
+        raise NotImplementedError("run_command is not yet implemented")

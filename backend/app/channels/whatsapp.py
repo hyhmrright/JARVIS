@@ -24,10 +24,10 @@ class WhatsAppChannel(ChannelAdapter):
         self.router = APIRouter()
 
         @self.router.post("/webhook")
-        async def handle_webhook(request: Request):
+        async def handle_webhook(request: Request) -> Response:
             form_data = await request.form()
-            sender_id = form_data.get("From", "")
-            content = form_data.get("Body", "")
+            sender_id = str(form_data.get("From", ""))
+            content = str(form_data.get("Body", ""))
 
             if not sender_id or not content:
                 return Response(status_code=400)
