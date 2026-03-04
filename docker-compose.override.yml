@@ -1,4 +1,5 @@
 # docker-compose.override.yml
+# WARNING: Dev-only overrides. Do NOT use in production.
 # 本地开发自动合并此文件，生产部署用:
 #   docker compose -f docker-compose.yml up -d
 services:

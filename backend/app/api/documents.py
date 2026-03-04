@@ -5,14 +5,17 @@ from pathlib import Path
 
 import structlog
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from qdrant_client.models import FieldCondition, Filter, MatchValue
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import ResolvedLLMConfig, get_current_user, get_llm_config
 from app.core.config import settings
+from app.core.security import resolve_api_key
 from app.db.models import Document, User
 from app.db.session import get_db
 from app.infra.minio import get_minio_client
-from app.infra.qdrant import user_collection_name
+from app.infra.qdrant import get_qdrant_client, user_collection_name
 from app.rag.indexer import index_document
 
 logger = structlog.get_logger(__name__)
@@ -37,6 +40,66 @@ def extract_text(content: bytes, file_type: str) -> str:
         doc = docx.Document(io.BytesIO(content))
         return "\n".join(p.text for p in doc.paragraphs)
     return ""
+
+
+@router.get("")
+async def list_documents(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, list[dict]]:
+    rows = await db.scalars(
+        select(Document)
+        .where(Document.user_id == user.id, Document.is_deleted.is_(False))
+        .order_by(Document.created_at.desc())
+    )
+    docs = rows.all()
+    return {
+        "documents": [
+            {
+                "id": str(d.id),
+                "filename": d.filename,
+                "file_type": d.file_type,
+                "file_size_bytes": d.file_size_bytes,
+                "chunk_count": d.chunk_count,
+                "created_at": d.created_at.isoformat(),
+            }
+            for d in docs
+        ]
+    }
+
+
+@router.delete("/{doc_id}", status_code=204)
+async def delete_document(
+    doc_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    doc = await db.get(Document, doc_id)
+    if not doc or doc.user_id != user.id or doc.is_deleted:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    doc.is_deleted = True
+    await db.commit()
+
+    # Try to delete from Qdrant
+    try:
+        q_client = await get_qdrant_client()
+        collection = user_collection_name(str(user.id))
+        await q_client.delete(
+            collection_name=collection,
+            points_selector=Filter(
+                must=[
+                    FieldCondition(
+                        key="doc_id",
+                        match=MatchValue(value=str(doc.id)),
+                    )
+                ]
+            ),
+        )
+    except Exception:
+        logger.exception("qdrant_delete_failed", doc_id=str(doc.id))
+
+    logger.info("document_deleted", user_id=str(user.id), doc_id=str(doc.id))
 
 
 @router.post("", status_code=201)
@@ -66,7 +129,7 @@ async def upload_document(
         len(content),
     )
 
-    text = extract_text(content, ext)
+    text = await asyncio.to_thread(extract_text, content, ext)
     doc = Document(
         user_id=user.id,
         filename=safe_name,
@@ -77,7 +140,18 @@ async def upload_document(
     )
     db.add(doc)
     await db.flush()
-    chunk_count = await index_document(str(user.id), str(doc.id), text, llm.api_key)
+    # Embeddings always use OpenAI (text-embedding-3-small), resolve the
+    # OpenAI key regardless of which LLM provider the user has selected.
+    openai_key = resolve_api_key("openai", llm.raw_keys)
+    if not openai_key:
+        raise HTTPException(
+            status_code=400,
+            detail="OpenAI API key is required for document embedding. "
+            "Configure it in Settings or ask the admin.",
+        )
+    chunk_count = await index_document(
+        str(user.id), str(doc.id), text, openai_key, doc_name=safe_name
+    )
     doc.chunk_count = chunk_count
     await db.commit()
     logger.info(

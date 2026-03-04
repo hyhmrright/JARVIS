@@ -37,7 +37,23 @@
     "voiceComingSoon": "音声機能は近日公開予定",
     "inputPlaceholder": "メッセージを入力、Enter で送信...",
     "send": "送信",
-    "copy": "メッセージをコピー"
+    "copy": "メッセージをコピー",
+    "ttsPlay": "音声再生",
+    "ttsStop": "再生停止",
+    "streamError": "メッセージの送信に失敗しました。再試行してください",
+    "toolResult": "ツール結果",
+    "toolRunning": "実行中...",
+    "usage": "利用統計"
+  },
+  "usage": {
+    "title": "利用統計",
+    "tokensIn": "入力トークン",
+    "tokensOut": "出力トークン",
+    "messages": "メッセージ数",
+    "days": "日間",
+    "loading": "読み込み中...",
+    "noData": "利用データがありません",
+    "chartTitle": "過去 {days} 日間の出力トークン数"
   },
   "documents": {
     "title": "ナレッジベース",
@@ -51,12 +67,22 @@
     "provider": "モデルプロバイダー",
     "modelName": "モデル名",
     "apiKey": "API キー",
+    "apiKeys": "API キー",
+    "apiKeyPlaceholder": "API キーを入力",
+    "addApiKey": "キーを追加",
+    "existingKeys": "{count} 個のキーが保存済み",
     "save": "保存",
     "saved": "保存しました",
     "personaOverride": "カスタム指示",
     "personaPlaceholder": "例：ボスと呼んで、もっとカジュアルに...",
+    "saving": "保存中...",
+    "saveError": "保存に失敗しました。しばらくしてから再試行してください",
     "customModel": "カスタム...",
-    "customModelPlaceholder": "モデル名を入力（例：glm-4.7-FlashX）"
+    "customModelPlaceholder": "モデル名を入力（例：glm-4.7-FlashX）",
+    "toolPermissions": "ツール権限",
+    "toolPermissionsDescription": "AIアシスタントが使用できるツールを有効・無効にします。",
+    "installedPlugins": "インストール済みプラグイン",
+    "pluginTools": "{count} 個のツール"
   },
   "validation": {
     "emailRequired": "メールアドレスを入力してください",

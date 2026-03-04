@@ -1,5 +1,9 @@
 {
   "common": {
+    "prev": "上一页",
+    "next": "下一页",
+    "cancel": "取消",
+    "confirm": "确定",
     "backToChat": "← 返回聊天",
     "networkError": "网络错误，请检查网络连接",
     "rateLimitError": "请求太频繁，请稍后再试"
@@ -37,7 +41,23 @@
     "voiceComingSoon": "语音功能即将上线",
     "inputPlaceholder": "输入消息，Enter 发送...",
     "send": "发送",
-    "copy": "复制消息"
+    "copy": "复制消息",
+    "ttsPlay": "语音播放",
+    "ttsStop": "停止播放",
+    "streamError": "消息发送失败，请重试",
+    "toolResult": "工具结果",
+    "toolRunning": "执行中...",
+    "usage": "用量统计"
+  },
+  "usage": {
+    "title": "用量统计",
+    "tokensIn": "输入 Tokens",
+    "tokensOut": "输出 Tokens",
+    "messages": "消息数",
+    "days": "天",
+    "loading": "加载中...",
+    "noData": "暂无使用数据",
+    "chartTitle": "近 {days} 天输出 Token 用量"
   },
   "documents": {
     "title": "知识库",
@@ -51,17 +71,67 @@
     "provider": "模型提供商",
     "modelName": "模型名称",
     "apiKey": "API Key",
+    "apiKeys": "API Keys",
+    "apiKeyPlaceholder": "输入 API Key",
+    "addApiKey": "添加 Key",
+    "existingKeys": "已存储 {count} 个 Key",
     "save": "保存",
     "saved": "已保存",
     "personaOverride": "自定义指令",
     "personaPlaceholder": "例如：叫我老板、用更轻松的语气...",
+    "saving": "保存中...",
+    "saveError": "保存失败，请稍后再试",
     "customModel": "自定义...",
-    "customModelPlaceholder": "输入模型名称，例如 glm-4.7-FlashX"
+    "customModelPlaceholder": "输入模型名称，例如 glm-4.7-FlashX",
+    "toolPermissions": "工具权限",
+    "toolPermissionsDescription": "启用或禁用 AI 助手可使用的工具。",
+    "installedPlugins": "已安装插件",
+    "pluginTools": "{count} 个工具"
   },
   "validation": {
     "emailRequired": "请输入邮箱地址",
     "emailInvalid": "请输入有效的邮箱地址",
     "passwordRequired": "请输入密码",
     "passwordMinLength": "密码至少需要 8 个字符"
+  },
+  "admin": {
+    "title": "管理后台",
+    "tabs": {
+      "users": "用户管理",
+      "plugins": "插件管理",
+      "stats": "系统统计"
+    },
+    "users": {
+      "email": "邮箱",
+      "name": "名称",
+      "role": "角色",
+      "status": "状态",
+      "actions": "操作",
+      "active": "激活",
+      "disabled": "禁用",
+      "enable": "启用",
+      "disable": "禁用"
+    },
+    "plugins": {
+      "tools": "工具数",
+      "install": "安装新插件",
+      "installTitle": "安装插件",
+      "installDesc": "输入插件 Python 文件的原始 URL（如来自 GitHub）"
+    },
+    "stats": {
+      "users": "总用户数",
+      "conversations": "总对话数",
+      "messages": "总消息数",
+      "tokens": "总 Token 消耗"
+    }
+  },
+  "proactive": {
+    "title": "主动监控",
+    "addTask": "添加任务",
+    "noTasks": "暂无监控任务",
+    "lastRun": "最后触发",
+    "schedule": "调度频率",
+    "triggerType": "触发类型",
+    "taskPrompt": "AI 任务指令"
   }
 }

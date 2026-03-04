@@ -85,14 +85,14 @@ Docker 基础服务（postgres/redis/qdrant/minio）所有 worktree 共享。开
 
 | Working Directory | Backend Port | Frontend Port |
 |-------------------|-------------|---------------|
-| Main (root) | 8000 | 5173 |
-| Worktree 1 | 8001 | 5174 |
-| Worktree 2 | 8002 | 5175 |
+| Main (root) | 8000 | 3000 |
+| Worktree 1 | 8001 | 3100 |
+| Worktree 2 | 8002 | 3200 |
 
 ```bash
 # Specify ports when starting in a worktree
 uv run uvicorn app.main:app --reload --port 8001
-bun run dev --port 5174
+bun run dev --port 3100
 ```
 
 ### Notes / 注意事项
@@ -120,13 +120,13 @@ JARVIS/
 ├── backend/           # FastAPI backend (Python 3.13 + uv)
 │   ├── app/
 │   │   ├── main.py    # FastAPI entry point, lifespan manages infra connections
-│   │   ├── agent/     # LangGraph ReAct agent (graph/llm/state)
-│   │   ├── api/       # HTTP routes (auth/chat/conversations/documents/settings)
-│   │   ├── core/      # Config (Pydantic Settings), security (JWT/bcrypt/Fernet), rate limiting
+│   │   ├── agent/     # LangGraph ReAct agent (graph/llm/state/persona)
+│   │   ├── api/       # HTTP routes (auth/chat/conversations/documents/settings/logs)
+│   │   ├── core/      # Config (Pydantic Settings), security (JWT/bcrypt/Fernet), rate limiting, logging (structlog), logging middleware
 │   │   ├── db/        # SQLAlchemy async models and sessions
 │   │   ├── infra/     # Infrastructure client singletons (Qdrant/MinIO/Redis)
 │   │   ├── rag/       # RAG pipeline (chunker/embedder/indexer)
-│   │   └── tools/     # LangGraph tools (search/code_exec/file/datetime)
+│   │   └── tools/     # LangGraph tools (search/code_exec/datetime/file/shell/browser)
 │   ├── alembic/       # Database migrations
 │   └── tests/         # pytest test suite
 ├── frontend/          # Vue 3 + TypeScript + Vite + Pinia
@@ -159,9 +159,9 @@ JARVIS/
 
 **数据库模型**：5 张表 — `users`、`user_settings`（JSONB 存 Fernet 加密的 API keys）、`conversations`、`messages`（不可变）、`documents`（软删除）。全部使用 UUID 主键。
 
-**Infrastructure Singletons**: Qdrant uses module-level global + lazy init + asyncio.Lock; MinIO uses `@lru_cache` + `asyncio.to_thread()` (sync SDK); PostgreSQL uses module-level engine + sessionmaker.
+**Infrastructure Singletons**: Qdrant uses lazy async init with `asyncio.Lock` (client + collection creation each have their own lock); MinIO uses `@lru_cache` + `asyncio.to_thread()` (sync SDK); PostgreSQL uses module-level engine + sessionmaker.
 
-**基础设施单例**：Qdrant 用模块级全局变量 + lazy init + asyncio.Lock；MinIO 用 `@lru_cache` + `asyncio.to_thread()`（同步 SDK）；PostgreSQL 用模块级 engine + sessionmaker。
+**基础设施单例**：Qdrant 用 lazy 异步初始化 + `asyncio.Lock`（客户端和 collection 创建各有独立锁）；MinIO 用 `@lru_cache` + `asyncio.to_thread()`（同步 SDK）；PostgreSQL 用模块级 engine + sessionmaker。
 
 ### Frontend Architecture Highlights / 前端架构要点
 
@@ -173,9 +173,9 @@ JARVIS/
 
 **路由**：5 条路由，页面组件全部 lazy-loaded。`beforeEach` 守卫检查 `auth.isLoggedIn`。
 
-**API Client**: Axios instance with `baseURL: "/api"`, request interceptor reads token from localStorage. Dev server proxies `/api` → `http://backend:8000`.
+**API Client**: Axios instance with `baseURL: "/api"`, request interceptor reads token from localStorage, response interceptor handles 401 → auto logout. Dev server proxies `/api` → `http://localhost:8000` (Docker: `http://backend:8000`).
 
-**API 客户端**：Axios 实例 `baseURL: "/api"`，请求拦截器从 localStorage 读取 token。dev server proxy `/api` → `http://backend:8000`。
+**API 客户端**：Axios 实例 `baseURL: "/api"`，请求拦截器从 localStorage 读取 token，响应拦截器处理 401 → 自动登出。dev server proxy `/api` → `http://localhost:8000`（Docker 内：`http://backend:8000`）。
 
 **Internationalization**: vue-i18n, 6 languages, detection priority: localStorage → navigator.language → zh.
 
@@ -209,7 +209,7 @@ uv run alembic upgrade head           # Database migration / 数据库迁移
 uv run uvicorn app.main:app --reload  # Dev server :8000
 
 # Frontend (in frontend/ directory) / 前端（在 frontend/ 目录）
-bun run dev                           # Dev server :5173 (proxies /api → backend:8000)
+bun run dev                           # Dev server :3000 (proxies /api → backend:8000)
 
 # Full-stack Docker (dev, with debug ports) / 全栈 Docker（开发模式，含调试端口）
 docker compose up -d                  # App :80 · Backend :8000 · Grafana :3001 · Traefik dashboard :8080
@@ -235,6 +235,18 @@ bun run type-check           # vue-tsc
 ```
 
 ### Testing / 测试
+
+**When local tests cannot run (e.g., missing database), read the test files manually before pushing.**
+**本地无法运行测试时（如缺少数据库），推送前必须手动阅读相关测试文件。**
+
+Rule: for every source file modified, read the corresponding test file(s) and verify:
+规则：每修改一个源文件，就读对应的测试文件，确认：
+1. All `patch()`/mock targets still exist in the modified code / 所有 patch 目标在修改后的代码中仍然存在
+2. All error boundaries tested (OSError, None, ImportError, etc.) have matching handling in the implementation / 测试覆盖的错误边界在实现中有对应处理
+3. All test assertions match the new behavior / 测试断言与新实现的行为一致
+
+"lint/type-check passed" ≠ "tests will pass". Static analysis cannot catch wrong patch targets, missing exception handling, or incorrect filter logic.
+"lint/type-check 通过" ≠ "测试会通过"。静态分析无法发现错误的 patch 目标、缺失的异常处理、不正确的过滤逻辑。
 
 ```bash
 # Run in backend/ directory / 在 backend/ 目录执行
@@ -314,18 +326,9 @@ Were files modified in this session?
 
 | Tool | Type | Invocation | Model | Timing |
 |------|------|-----------|-------|--------|
-| code-simplifier | Task agent | `Task` tool, `subagent_type: "code-simplifier:code-simplifier"`, `model: "opus"` | **opus** | Before commit |
-| Pre-push code review | Skill | `Skill: superpowers:requesting-code-review` | **opus** (see note) | After commit, before push |
-| PR code review | Skill | `Skill: code-review:code-review --comment` | session default | After push (requires existing PR) |
-
-> **Model notes / 模型说明：**
->
-> - **code-simplifier**: Always pass `model: "opus"` explicitly when invoking via Task tool.
->   通过 Task 工具调用时，**必须**显式传入 `model: "opus"`。
-> - **superpowers:requesting-code-review**: This Skill's instructions tell Claude to dispatch `superpowers:code-reviewer` via Task tool. Claude makes that Task call directly, so **always pass `model: "opus"`** in that Task call to override the agent's `model: inherit` default.
->   该 Skill 的指令会让 Claude 通过 Task 工具派发 `superpowers:code-reviewer`，Claude 直接执行该 Task 调用，因此派发时**必须**传入 `model: "opus"` 以覆盖 agent 默认的 `model: inherit`。
-> - **code-review:code-review --comment**: Invoked via Skill tool (no model parameter available); runs with session model. No override possible via CLAUDE.md.
->   通过 Skill 工具调用，无 model 参数，继承 session 模型，无法通过 CLAUDE.md 控制。
+| code-simplifier | Task agent | `Task` tool, `subagent_type: "code-simplifier:code-simplifier"`, `model: "haiku"` | **haiku** | Before commit |
+| Pre-push code review | Task agent | `Task` tool, `subagent_type: "superpowers:code-reviewer"`, `model: "sonnet"` | **sonnet** | After commit, before push |
+| PR code review | Skill | `Skill: code-review:code-review --comment` | session default | After push (optional, user request) |
 
 ### Trigger Conditions / 触发条件（满足任一即触发）
 
@@ -346,11 +349,16 @@ Any one of the following triggers the workflow:
 Write code / Modify files
 写代码 / 修改文件
       ↓
+[REQUIRED] Run local static checks first (tools, not agents):
+【必须】先本地执行静态检查（工具层面，非 agent）：
+  cd backend && uv run ruff check --fix && uv run ruff format
+  cd backend && uv run mypy app
+      ↓
 ╔══════════════════ Quality Loop (repeat until no issues) ═════════════════╗
 ║ 质量循环（重复直到无问题）                                                ║
 ║                                                                          ║
-║  A. [REQUIRED] Task: code-simplifier (model: "opus")                     ║
-║     【必须】Task: code-simplifier（model: "opus"）                        ║
+║  A. [REQUIRED] Task: code-simplifier (model: "haiku")                    ║
+║     【必须】Task: code-simplifier（model: "haiku"）                       ║
 ║     (Task agent, directly modifies files / Task agent，会直接修改文件)   ║
 ║          ↓                                                               ║
 ║  B. git add + commit                                                     ║
@@ -359,12 +367,10 @@ Write code / Modify files
 ║     首次进入 → git commit                                                ║
 ║     修复后重入 → git commit --amend（未 push，保持历史干净）              ║
 ║          ↓                                                               ║
-║  C. [REQUIRED] Skill: superpowers:requesting-code-review                 ║
-║     【必须】Skill: superpowers:requesting-code-review                    ║
-║     (Provide BASE_SHA=HEAD~1, HEAD_SHA=HEAD;                             ║
-║      dispatch code-reviewer Task with model: "opus" — see Model notes   ║
-║      提供 BASE_SHA=HEAD~1, HEAD_SHA=HEAD；                               ║
-║      派发 code-reviewer Task 时传 model: "opus" — 见模型说明)            ║
+║  C. [REQUIRED] Task: superpowers:code-reviewer (model: "sonnet")         ║
+║     【必须】Task: superpowers:code-reviewer（model: "sonnet"）            ║
+║     (Provide BASE_SHA=HEAD~1, HEAD_SHA=HEAD                              ║
+║      提供 BASE_SHA=HEAD~1, HEAD_SHA=HEAD)                                ║
 ║          ↓                                                               ║
 ║     Issues found? / 发现问题？                                           ║
 ║       Yes → Fix code ──────────────────────────→ Back to step A         ║
@@ -373,9 +379,12 @@ Write code / Modify files
 ╚══════════════════════════════════════════════════════════════════════════╝
       ↓
 git push (execute immediately, do not delay / 立即执行，不得停留)
-      ↓ (if a GitHub PR exists / 若存在 GitHub PR)
-[REQUIRED] Skill: code-review:code-review --comment
-【必须】Skill: code-review:code-review --comment
+```
+
+**After pushing — only on explicit user request / 推送后，仅用户明确要求时：**
+
+```
+Skill: code-review:code-review --comment
 ```
 
 **Key Notes / 关键说明：**
@@ -409,6 +418,7 @@ The following reasons **must not** be used to skip the workflow:
 | "Changes are in stash, working tree is clean" / "改动在 stash 里，工作区是干净的" | Changes in stash also require the full workflow / stash 中的改动同样需要完整流程 |
 | "The user only said commit, not push" / "用户只说了 commit，没说要 push" | Push must follow commit immediately / commit 后必须立即 push，无需额外指令 |
 | "I'll push later" / "等会儿再 push" | Push is a required follow-up step, must not be delayed / push 是必要后续步骤，不得延迟 |
+| "code-simplifier said it looks fine" / "code-simplifier 说没问题了" | Agents do semantic review, not ruff/mypy execution; local tool checks are mandatory / agent 做语义审查不执行工具，本地 ruff/mypy 不可省略 |
 
 ---
 
@@ -421,7 +431,7 @@ The following reasons **must not** be used to skip the workflow:
 |------------|-------------------------------|
 | A. code-simplifier | Task agent has run, files organized / Task agent 已运行，文件已整理 |
 | B. git add + commit/amend | All changes (including simplifier modifications) committed / 所有改动（含 simplifier 修改）已提交 |
-| C. requesting-code-review | Review found no issues, or all issues fixed in next iteration / review 无问题，或所有问题已在下一圈修复 |
+| C. superpowers:code-reviewer | Review found no issues, or all issues fixed in next iteration / review 无问题，或所有问题已在下一圈修复 |
 
 The loop must be confirmed complete before the following tool calls:
 以下工具调用前必须确认循环已完成：
@@ -430,7 +440,7 @@ The loop must be confirmed complete before the following tool calls:
 - `Skill` calling `commit-commands:*`
 - `Skill` calling `pr-review-toolkit:*` (creating a PR / 创建 PR)
 
-**After pushing / 推送后**, if a PR exists, also execute:
+**After pushing / 推送后** (optional, only when user explicitly requests):
 - `Skill` calling `code-review:code-review --comment`
 
 **This rule applies to all projects, without exception.**

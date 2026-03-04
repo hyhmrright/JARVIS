@@ -7,6 +7,6 @@ CREATE TABLE IF NOT EXISTS alembic_version (
     CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
 );
 
--- 与最新迁移文件保持同步：002_add_persona_override.py
-INSERT INTO alembic_version (version_num) VALUES ('002')
+-- 与最新迁移文件保持同步：003_file_size_bigint.py
+INSERT INTO alembic_version (version_num) VALUES ('003')
     ON CONFLICT DO NOTHING;

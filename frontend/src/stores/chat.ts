@@ -1,7 +1,20 @@
 import { defineStore } from "pinia";
 import client from "@/api/client";
 
-interface Message { role: "human" | "ai"; content: string }
+interface ToolCall {
+  name: string;
+  args: Record<string, unknown>;
+  status: "running" | "done";
+  result?: string;
+}
+
+interface Message {
+  role: "human" | "ai";
+  content: string;
+  toolCalls?: ToolCall[];
+  pending_tool_call?: { name: string; args: any };
+}
+
 interface Conversation { id: string; title: string }
 
 export const useChatStore = defineStore("chat", {
@@ -43,6 +56,19 @@ export const useChatStore = defineStore("chat", {
         console.error("[chat] deleteConversation failed", err);
       }
     },
+
+    async handleConsent(approved: boolean) {
+      const lastAiMsg = this.messages[this.messages.length - 1];
+      if (!lastAiMsg || !lastAiMsg.pending_tool_call) return;
+
+      // Clear the pending state
+      const callInfo = lastAiMsg.pending_tool_call;
+      lastAiMsg.pending_tool_call = undefined;
+
+      // Resume by sending the approval signal to the stream
+      await this.sendMessage(`[CONSENT:${approved ? 'ALLOW' : 'DENY'}] ${callInfo.name}`);
+    },
+
     async sendMessage(content: string) {
       if (!this.currentConvId) {
         const title = content.slice(0, 30) + (content.length > 30 ? "..." : "");
@@ -50,10 +76,14 @@ export const useChatStore = defineStore("chat", {
         this.conversations.unshift(data);
         this.currentConvId = data.id;
       }
-      this.messages.push({ role: "human", content });
+      
+      // If it's a consent hidden message, don't show it
+      if (!content.startsWith("[CONSENT:")) {
+        this.messages.push({ role: "human", content });
+        this.messages.push({ role: "ai", content: "" });
+      }
+      
       this.streaming = true;
-      const aiMsg: Message = { role: "ai", content: "" };
-      this.messages.push(aiMsg);
 
       try {
         const token = localStorage.getItem("token");
@@ -63,26 +93,73 @@ export const useChatStore = defineStore("chat", {
           body: JSON.stringify({ conversation_id: this.currentConvId, content }),
         });
 
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        if (!resp.ok) {
+          let detail = `HTTP ${resp.status}`;
+          const errorText = await resp.text().catch(() => "");
+          try {
+            const parsed = JSON.parse(errorText);
+            if (parsed.detail) detail = typeof parsed.detail === 'string' ? parsed.detail : JSON.stringify(parsed.detail);
+          } catch {
+            if (errorText) detail = errorText;
+          }
+          throw new Error(detail);
+        }
         if (!resp.body) throw new Error("No response body");
 
         const reader = resp.body.getReader();
         const decoder = new TextDecoder();
+        let buffer = "";
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          const text = decoder.decode(value);
-          for (const line of text.split("\n")) {
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
             if (line.startsWith("data: ")) {
               try {
                 const data = JSON.parse(line.slice(6));
-                aiMsg.content = data.content;
-              } catch {
-                // 跳过无法解析的 SSE 行
-              }
+                const aiMsg = this.messages[this.messages.length - 1];
+                
+                if (data.type === "approval_required") {
+                  aiMsg.pending_tool_call = { name: data.tool, args: data.args };
+                  this.streaming = false;
+                  return; // Stop reading stream, wait for user
+                }
+
+                if (data.type === "tool_start") {
+                  if (!aiMsg.toolCalls) aiMsg.toolCalls = [];
+                  aiMsg.toolCalls.push({
+                    name: data.tool,
+                    args: data.args ?? {},
+                    status: "running",
+                  });
+                } else if (data.type === "tool_end") {
+                  const tc = aiMsg.toolCalls?.find(
+                    (t: ToolCall) => t.name === data.tool && t.status === "running",
+                  );
+                  if (tc) {
+                    tc.status = "done";
+                    tc.result = data.result_preview;
+                  }
+                } else {
+                  if (data.delta) {
+                    aiMsg.content += data.delta;
+                  } else if (data.content) {
+                    aiMsg.content = data.content;
+                  }
+                }
+              } catch { /* ignore SSE parse errors */ }
             }
           }
         }
+      } catch (err: any) {
+        const aiMsg = this.messages[this.messages.length - 1];
+        if (aiMsg?.role === "ai") {
+          aiMsg.content = `> **System Warning**: Failed to communicate with the model.\n> \`${err.message}\`\n\nPlease check your configuration in **Settings** (e.g., ensure API keys are correctly filled) and try again.`;
+        }
+        console.error("[chat] streaming error:", err);
       } finally {
         this.streaming = false;
       }

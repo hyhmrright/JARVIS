@@ -1,611 +1,387 @@
 <template>
-  <div class="chat-layout">
-    <aside class="sidebar">
-      <div class="sidebar-brand">
-        <span class="brand-icon">&#10022;</span>
-        <span class="brand-text">JARVIS</span>
-      </div>
-      <button class="new-chat-btn" @click="chat.newConversation()">
-        <span class="plus-icon">+</span>
-        {{ $t("chat.newConversation") }}
-      </button>
-      <ul class="conv-list">
-        <li
-          v-for="conv in chat.conversations"
-          :key="conv.id"
-          :class="['conv-item', { active: conv.id === chat.currentConvId }]"
-          @click="chat.selectConversation(conv.id)"
-        >
-          <span class="conv-title">{{ conv.title }}</span>
-          <button
-            class="conv-delete"
-            :title="$t('chat.deleteConfirm')"
-            @click.stop="confirmDelete(conv.id)"
-          >
-            &times;
-          </button>
-        </li>
-      </ul>
-      <div class="sidebar-footer">
-        <router-link to="/documents" class="footer-link">
-          <span class="footer-icon">&#9635;</span>
-          {{ $t("chat.documents") }}
-        </router-link>
-        <router-link to="/settings" class="footer-link">
-          <span class="footer-icon">&#9881;</span>
-          {{ $t("chat.settings") }}
-        </router-link>
-        <button class="footer-link logout-btn" @click="auth.logout(); router.push('/login')">
-          <span class="footer-icon">&#10140;</span>
-          {{ $t("chat.logout") }}
+  <div class="flex h-screen w-full bg-zinc-950 font-sans">
+    
+    <!-- Ultra-thin Sidebar -->
+    <aside 
+      :class="[
+        'flex flex-col bg-zinc-950 border-r border-zinc-800 transition-all duration-300 ease-in-out',
+        sidebarCollapsed ? 'w-0 border-none opacity-0' : 'w-[260px]'
+      ]"
+    >
+      <div class="h-14 flex items-center px-4 justify-between">
+        <div class="flex items-center gap-2 font-semibold tracking-tighter">
+          <div class="w-5 h-5 bg-white text-black rounded-sm flex items-center justify-center text-[10px] font-bold">J</div>
+          <span class="text-sm">JARVIS</span>
+        </div>
+        <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors" title="New Chat" @click="chat.newConversation">
+          <SquarePen class="w-4 h-4 text-zinc-400" />
         </button>
       </div>
-    </aside>
 
-    <main class="chat-main">
-      <div v-if="chat.messages.length === 0" class="empty-state">
-        <span class="empty-icon">&#10022;</span>
-        <h2>JARVIS</h2>
-        <p>{{ $t("chat.inputPlaceholder") }}</p>
-      </div>
-
-      <div v-else ref="messagesEl" class="messages">
+      <nav class="flex-1 overflow-y-auto px-2 py-4 space-y-0.5 custom-scrollbar">
         <div
-          v-for="(msg, i) in chat.messages"
-          :key="i"
-          :class="['message', msg.role]"
+          v-for="c in chat.conversations"
+          :key="c.id"
+          :class="[
+            'group flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors relative',
+            chat.currentConvId === c.id ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
+          ]"
+          @click="chat.selectConversation(c.id)"
         >
-          <div class="msg-avatar">
-            <span v-if="msg.role === 'ai'" class="avatar-ai">&#10022;</span>
-            <span v-else class="avatar-user">U</span>
-          </div>
-          <div class="msg-bubble">
-            <p>{{ msg.content }}</p>
-            <button
-              v-if="!(chat.streaming && i === chat.messages.length - 1)"
-              class="copy-btn"
-              :title="$t('chat.copy')"
-              @click="copyMessage(msg.content, i)"
-            >
-              <span v-if="copiedIndex === i">✓</span>
-              <span v-else>⧉</span>
+          <MessageSquare class="w-3.5 h-3.5 flex-shrink-0" />
+          <span class="text-xs truncate flex-1">{{ c.title }}</span>
+          <button
+            class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400"
+            @click.stop="chat.deleteConversation(c.id)"
+          >
+            <Trash2 class="w-3 h-3" />
+          </button>
+        </div>
+      </nav>
+
+      <div class="p-4 border-t border-zinc-800 space-y-4">
+        <div class="space-y-1">
+          <router-link to="/proactive" class="flex items-center gap-3 px-2 py-1.5 rounded text-xs text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all">
+            <Zap class="w-3.5 h-3.5" />
+            <span>Automations</span>
+          </router-link>
+          <router-link to="/settings" class="flex items-center gap-3 px-2 py-1.5 rounded text-xs text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all">
+            <Settings class="w-3.5 h-3.5" />
+            <span>Settings</span>
+          </router-link>
+        </div>
+        
+        <div class="pt-2 border-t border-zinc-800">
+          <div class="group flex items-center justify-between w-full px-2 py-2 bg-transparent hover:bg-zinc-900 rounded-lg transition-colors cursor-default">
+            <div class="flex items-center gap-3 overflow-hidden">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-zinc-800 to-zinc-700 flex items-center justify-center text-xs font-bold text-white shadow-sm border border-zinc-700/50 flex-shrink-0">
+                {{ auth.displayName?.[0] || 'U' }}
+              </div>
+              <div class="flex flex-col overflow-hidden">
+                <span class="text-xs font-medium text-zinc-200 truncate">{{ auth.displayName || 'User' }}</span>
+                <span class="text-[10px] text-zinc-500 truncate">Free Plan</span>
+              </div>
+            </div>
+            
+            <button class="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 px-2 py-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 rounded transition-all text-[10px] font-bold uppercase tracking-wider" title="Sign out" @click="handleLogout">
+              <LogOut class="w-3 h-3" />
             </button>
           </div>
         </div>
-        <div v-if="chat.streaming" class="streaming-indicator">
-          <span class="dot"></span>
-          <span class="dot"></span>
-          <span class="dot"></span>
+      </div>
+    </aside>
+
+    <!-- Content Well -->
+    <main class="flex-1 flex flex-col min-w-0 bg-zinc-900 relative">
+      <header class="h-14 flex items-center px-6 justify-between border-b border-zinc-800/50 bg-zinc-900/80 backdrop-blur-sm z-40">
+        <div class="flex items-center gap-4">
+          <button 
+            v-if="sidebarCollapsed"
+            class="p-1.5 hover:bg-zinc-800 rounded transition-colors"
+            @click="sidebarCollapsed = false"
+          >
+            <PanelLeft class="w-4 h-4 text-zinc-400" />
+          </button>
+          <h2 class="text-xs font-semibold text-zinc-100 tracking-tight">{{ currentConvTitle }}</h2>
+        </div>
+        <div class="flex items-center gap-3">
+          <button class="text-zinc-500 hover:text-zinc-300 transition-colors">
+            <Share2 class="w-4 h-4" />
+          </button>
+        </div>
+      </header>
+
+      <!-- Messages Stream -->
+      <div ref="messagesEl" class="flex-1 overflow-y-auto custom-scrollbar">
+        <div class="max-w-3xl mx-auto px-6 py-12 space-y-16">
+          
+          <!-- New Session Welcome -->
+          <div v-if="chat.messages.length === 0" class="pt-20 text-center animate-in fade-in slide-in-from-bottom-4 duration-1000">
+            <div class="w-10 h-10 bg-white text-black rounded-lg flex items-center justify-center font-bold mx-auto mb-6">J</div>
+            <h1 class="text-2xl font-bold text-zinc-50 mb-12 tracking-tight">Intelligence at your service.</h1>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 w-full max-w-lg mx-auto">
+              <button 
+                v-for="s in suggestions" :key="s.text"
+                class="p-4 rounded-xl border border-zinc-800 bg-zinc-950/50 hover:bg-zinc-800 hover:border-zinc-700 transition-all text-left group"
+                @click="input = s.prompt"
+              >
+                <div class="text-[13px] font-semibold text-zinc-200 group-hover:text-white">{{ s.text }}</div>
+                <div class="text-[11px] text-zinc-500 mt-1">{{ s.sub }}</div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Message Blocks -->
+          <div
+            v-for="(msg, idx) in chat.messages"
+            :key="idx"
+            class="flex flex-col gap-4 animate-in fade-in duration-700"
+          >
+            <!-- Sender Label -->
+            <div class="flex items-center gap-3 select-none">
+              <div
+:class="['w-5 h-5 rounded-sm flex items-center justify-center text-[9px] font-bold tracking-tighter', 
+                msg.role === 'ai' ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-400']">
+                {{ msg.role === 'ai' ? 'JARVIS' : (auth.displayName?.[0] || 'U') }}
+              </div>
+              <span class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">{{ msg.role === 'ai' ? 'Autonomous Agent' : 'User' }}</span>
+            </div>
+
+            <!-- Content Column -->
+            <div class="pl-8 group relative min-h-[20px]">
+              <div class="markdown-body text-zinc-200 leading-[1.7] text-[14px]" v-html="renderMarkdown(msg.content)"></div>
+              
+              <!-- HITL Security Box -->
+              <div v-if="msg.pending_tool_call" class="mt-8 p-6 bg-zinc-950 border border-white/10 rounded-lg space-y-5 max-w-md shadow-2xl">
+                <div class="flex items-center gap-2 text-[9px] font-black text-white tracking-[0.2em]">
+                  <ShieldAlert class="w-3.5 h-3.5" />
+                  CONFIRM EXECUTION
+                </div>
+                <div class="text-[13px] text-zinc-300">Target action: <code class="bg-zinc-800 text-white px-1.5 py-0.5 rounded font-mono">{{ msg.pending_tool_call.name }}</code></div>
+                <div class="flex gap-2">
+                  <button class="flex-1 py-2.5 bg-white text-black rounded text-[11px] font-bold hover:bg-zinc-200 transition-all" @click="chat.handleConsent(true)">APPROVE</button>
+                  <button class="flex-1 py-2.5 bg-zinc-900 text-zinc-400 border border-zinc-800 rounded text-[11px] font-bold hover:bg-zinc-800 transition-all" @click="chat.handleConsent(false)">REJECT</button>
+                </div>
+              </div>
+
+              <!-- Tool Execution Logs -->
+              <div v-if="msg.toolCalls?.length" class="mt-6 flex flex-col gap-2 pt-4 border-t border-zinc-800/50">
+                <details v-for="(tc, i) in msg.toolCalls" :key="i" class="group bg-zinc-950/80 border border-zinc-800/80 rounded-xl overflow-hidden text-xs transition-all">
+                  <summary class="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-zinc-900 transition-colors select-none marker:content-['']">
+                    <div :class="['w-1.5 h-1.5 rounded-full flex-shrink-0 shadow-[0_0_8px_rgba(255,255,255,0.5)]', tc.status === 'running' ? 'bg-amber-400 animate-pulse shadow-amber-400/50' : 'bg-emerald-500 shadow-emerald-500/50']"></div>
+                    <span class="font-mono text-zinc-300 font-semibold tracking-tight">{{ tc.name }}</span>
+                    <span class="text-zinc-600 truncate flex-1 font-mono text-[10px]">{{ tc.args ? JSON.stringify(tc.args).substring(0, 50) + (JSON.stringify(tc.args).length > 50 ? '...' : '') : '' }}</span>
+                    
+                    <div class="flex items-center gap-2">
+                      <span class="text-zinc-500 text-[9px] uppercase tracking-widest font-bold">{{ tc.status === 'running' ? 'Executing' : 'Completed' }}</span>
+                      <svg class="w-3.5 h-3.5 text-zinc-500 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                  </summary>
+                  
+                  <div class="px-4 py-4 bg-[#0a0a0a] border-t border-zinc-800/80">
+                    <div class="mb-2 flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                      <Zap class="w-3 h-3" /> Payload
+                    </div>
+                    <pre class="text-zinc-300 font-mono text-[11px] bg-zinc-900/40 p-3 rounded-lg border border-zinc-800/50 overflow-x-auto whitespace-pre-wrap leading-relaxed">{{ tc.args ? JSON.stringify(tc.args, null, 2) : '{}' }}</pre>
+                    
+                    <div v-if="tc.result" class="mt-5">
+                      <div class="mb-2 flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                        <PanelLeft class="w-3 h-3" /> Output / Response
+                      </div>
+                      <pre class="text-zinc-300 font-mono text-[11px] bg-zinc-900/40 p-3 rounded-lg border border-zinc-800/50 overflow-x-auto whitespace-pre-wrap max-h-80 overflow-y-auto leading-relaxed custom-scrollbar">{{ tc.result }}</pre>
+                    </div>
+                  </div>
+                </details>
+              </div>
+
+              <!-- Message Actions -->
+              <div v-if="msg.role === 'ai' && msg.content" class="absolute -bottom-8 left-8 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Copy" @click="copyText(msg.content)">
+                  <Copy class="w-3 h-3" />
+                </button>
+                <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Regenerate" @click="regenerate(idx)">
+                  <RotateCcw class="w-3 h-3" />
+                </button>
+                <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" :class="{ 'text-emerald-400': isPlayingTTS === msg.content }" title="Read Aloud" @click="playTTS(msg.content)">
+                  <Volume2 class="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+            
+            <!-- Canvas Inset -->
+            <div v-if="msg.role === 'ai' && hasHtml(msg.content)" class="pl-8 mt-6">
+              <LiveCanvas :content="msg.content" />
+            </div>
+          </div>
+
+          <!-- Typing Pulse -->
+          <div v-if="chat.streaming" class="flex items-center gap-2 pl-8 py-4">
+            <div class="w-1 h-1 bg-white/40 rounded-full animate-pulse"></div>
+            <div class="w-1 h-1 bg-white/40 rounded-full animate-pulse [animation-delay:0.2s]"></div>
+            <div class="w-1 h-1 bg-white/40 rounded-full animate-pulse [animation-delay:0.4s]"></div>
+          </div>
         </div>
       </div>
 
-      <div class="input-area">
-        <div class="input-wrapper">
-          <button class="voice-btn" disabled :title="$t('chat.voiceComingSoon')">
-            <span>&#9834;</span>
-          </button>
-          <textarea
-            v-model="input"
-            :placeholder="$t('chat.inputPlaceholder')"
-            :disabled="chat.streaming"
-            rows="1"
-            @keydown.enter.exact.prevent="send"
-          />
-          <button
-            class="send-btn"
-            :disabled="chat.streaming || !input.trim()"
-            @click="send"
-          >
-            <span>&#10148;</span>
-          </button>
+      <!-- Footer Dock -->
+      <div class="w-full bg-zinc-900 pt-2">
+        <div class="max-w-3xl mx-auto px-6 pb-10">
+          <div class="relative bg-zinc-950 border border-zinc-800 rounded-xl transition-all focus-within:border-zinc-700">
+            <div class="flex items-end p-2 gap-1">
+              <button class="p-2.5 text-zinc-500 hover:text-white transition-colors" @click="voiceOverlay?.start()">
+                <Mic class="w-4 h-4" />
+              </button>
+              
+              <textarea
+                v-model="input"
+                class="flex-1 bg-transparent border-none focus:ring-0 px-2 py-3 text-[14px] text-zinc-100 resize-none max-h-[300px] min-h-[44px] custom-scrollbar placeholder:text-zinc-600"
+                :placeholder="$t('chat.inputPlaceholder')"
+                rows="1"
+                @keydown.enter="handleEnter"
+              ></textarea>
+              
+              <button
+                :disabled="!input.trim() || chat.streaming"
+                class="p-2.5 bg-white text-black rounded-lg disabled:opacity-10 transition-all active:scale-95"
+                @click="handleSend"
+              >
+                <ArrowUp class="w-4 h-4 stroke-[3px]" />
+              </button>
+            </div>
+          </div>
+          <div class="mt-4 flex justify-center items-center gap-4 text-[9px] font-bold text-zinc-600 uppercase tracking-widest">
+            <span>Enterprise Guard Active</span>
+            <div class="w-1 h-1 bg-zinc-800 rounded-full"></div>
+            <span>End-to-End Encrypted</span>
+          </div>
         </div>
       </div>
     </main>
+
+    <VoiceOverlay ref="voiceOverlay" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from "vue";
+import { ref, onMounted, watch, nextTick, computed } from "vue";
 import { useRouter } from "vue-router";
-import { useI18n } from "vue-i18n";
 import { useChatStore } from "@/stores/chat";
 import { useAuthStore } from "@/stores/auth";
+import { marked } from "marked";
+import hljs from "highlight.js";
+import "highlight.js/styles/github-dark.css";
 
-const { t } = useI18n();
+import { 
+  Trash2, Zap, Settings, LogOut, 
+  PanelLeft, SquarePen, Copy, RotateCcw,
+  Mic, ArrowUp, ShieldAlert, Share2, MessageSquare,
+  Volume2
+} from "lucide-vue-next";
+
+import LiveCanvas from "@/components/LiveCanvas.vue";
+import VoiceOverlay from "@/components/VoiceOverlay.vue";
+import client from "@/api/client";
+
 const chat = useChatStore();
 const auth = useAuthStore();
 const router = useRouter();
+
 const input = ref("");
+const sidebarCollapsed = ref(false);
 const messagesEl = ref<HTMLElement>();
-const copiedIndex = ref<number | null>(null);
+const voiceOverlay = ref<InstanceType<typeof VoiceOverlay>>();
 
-async function copyMessage(content: string, index: number): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(content);
-    copiedIndex.value = index;
-    setTimeout(() => {
-      copiedIndex.value = null;
-    }, 1500);
-  } catch {
-    // Clipboard API unavailable (non-secure context or permission denied)
+const currentAudio = ref<HTMLAudioElement | null>(null);
+const isPlayingTTS = ref<string | null>(null);
+
+const playTTS = async (text: string) => {
+  if (isPlayingTTS.value === text && currentAudio.value) {
+    currentAudio.value.pause();
+    isPlayingTTS.value = null;
+    return;
+  } else if (currentAudio.value) {
+    currentAudio.value.pause();
   }
-}
+  
+  try {
+    isPlayingTTS.value = text;
+    // Strip markdown formatting approximately
+    const cleanText = text.replace(/<[^>]*>?/gm, '').replace(/[*#_`~[\]()]/g, '');
+    const response = await client.post('/tts/synthesize', {
+      text: cleanText.substring(0, 5000),
+      voice: "zh-CN-XiaoxiaoNeural",
+      rate: "+0%"
+    }, {
+      responseType: 'blob'
+    });
+    
+    const audioUrl = URL.createObjectURL(response.data);
+    const audio = new Audio(audioUrl);
+    currentAudio.value = audio;
+    
+    audio.onended = () => {
+      isPlayingTTS.value = null;
+      URL.revokeObjectURL(audioUrl);
+    };
+    
+    await audio.play();
+  } catch (error) {
+    console.error("TTS failed", error);
+    isPlayingTTS.value = null;
+  }
+};
 
-onMounted(() => chat.loadConversations());
+const suggestions = [
+  { text: 'Run Security Scan', sub: 'Audit current workspace structure', prompt: 'Run a proactive security check' },
+  { text: 'Dynamic Canvas', sub: 'Generate interactive UI components', prompt: 'Show me a demo of Live Canvas' },
+  { text: 'Deep Memory Search', sub: 'Search offline conversation logs', prompt: 'Search local memory for project roadmap' }
+];
 
-watch(
-  () => chat.messages.length,
-  async () => {
-    await nextTick();
-    messagesEl.value?.scrollTo(0, messagesEl.value.scrollHeight);
+marked.use({
+  breaks: true,
+  renderer: {
+    code({ text, lang }: { text: string; lang?: string }): string {
+      if (lang && hljs.getLanguage(lang)) {
+        return `<pre><code class="hljs language-${lang}">${hljs.highlight(text, { language: lang }).value}</code></pre>\n`;
+      }
+      return `<pre><code class="hljs">${hljs.highlightAuto(text).value}</code></pre>\n`;
+    },
   },
-);
+});
 
-async function send(): Promise<void> {
+const renderMarkdown = (text: string) => text ? marked.parse(text) : '<span class="cursor-block"></span>';
+const hasHtml = (text: string) => /<html>[\s\S]*?<\/html>/.test(text);
+const currentConvTitle = computed(() => chat.conversations.find((conv) => conv.id === chat.currentConvId)?.title || "Intelligence Terminal");
+
+const handleSend = async () => {
   if (!input.value.trim() || chat.streaming) return;
-  try {
-    await chat.sendMessage(input.value);
-    input.value = "";
-  } catch {
-    // Preserve input on send failure for user to retry
-  }
-}
+  const msg = input.value;
+  input.value = "";
+  await chat.sendMessage(msg);
+};
 
-async function confirmDelete(convId: string): Promise<void> {
-  if (confirm(t("chat.deleteConfirm"))) {
-    await chat.deleteConversation(convId);
-  }
-}
+const handleEnter = (e: KeyboardEvent) => {
+  // If IME is composing (e.g. typing Chinese), do nothing
+  if (e.isComposing) return;
+  
+  // If Shift is pressed, let it act as a newline
+  if (e.shiftKey) return;
+  
+  // Otherwise, prevent default newline and send
+  e.preventDefault();
+  handleSend();
+};
+
+const copyText = (text: string) => { navigator.clipboard.writeText(text); };
+const regenerate = async (idx: number) => {
+  const prevHuman = chat.messages.slice(0, idx).reverse().find(m => m.role === 'human');
+  if (prevHuman) await chat.sendMessage(prevHuman.content);
+};
+
+const handleLogout = () => { auth.logout(); router.push("/login"); };
+
+const scrollToBottom = async () => {
+  await nextTick();
+  if (messagesEl.value) messagesEl.value.scrollTo({ top: messagesEl.value.scrollHeight, behavior: "smooth" });
+};
+
+watch(() => chat.messages.length, scrollToBottom);
+watch(() => chat.streaming, (isStreaming) => { if (isStreaming) scrollToBottom(); });
+onMounted(async () => { await chat.loadConversations(); });
 </script>
 
 <style scoped>
-.chat-layout {
-  display: flex;
-  height: 100vh;
-  overflow: hidden;
-}
+.markdown-body :deep(pre) { background: #000; padding: 1.25rem; border-radius: 6px; margin: 1.5rem 0; border: 1px solid #27272a; overflow-x: auto; }
+.markdown-body :deep(code) { font-family: 'JetBrains Mono', monospace; font-size: 0.85em; }
+.markdown-body :deep(p) { margin-bottom: 1.5rem; }
+.markdown-body :deep(p:last-child) { margin-bottom: 0; }
 
-/* ── Sidebar ── */
-.sidebar {
-  width: 260px;
-  min-width: 260px;
-  background: var(--bg-secondary);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-md);
-}
+.cursor-block { display: inline-block; width: 6px; height: 14px; background: #fff; margin-left: 4px; animation: blink 1s step-end infinite; }
+@keyframes blink { 50% { opacity: 0; } }
 
-.sidebar-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-sm) var(--space-lg);
-}
+.custom-scrollbar::-webkit-scrollbar { width: 3px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
 
-.sidebar-brand .brand-icon {
-  font-size: 22px;
-  color: var(--accent);
-  filter: drop-shadow(0 0 8px var(--accent-a40));
-}
-
-.sidebar-brand .brand-text {
-  font-family: var(--font-heading);
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 3px;
-  color: var(--text-primary);
-}
-
-.new-chat-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: 10px var(--space-md);
-  background: transparent;
-  border: 1px solid var(--border-glow);
-  border-radius: var(--radius-md);
-  color: var(--accent);
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: var(--space-md);
-  transition:
-    background 0.3s ease,
-    border-color 0.3s ease;
-}
-
-.new-chat-btn:hover {
-  background: var(--accent-a08);
-  border-color: var(--accent);
-}
-
-.plus-icon {
-  font-size: 18px;
-  line-height: 1;
-}
-
-.conv-list {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.conv-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition:
-    background 0.2s ease,
-    border-left 0.2s ease;
-  border-left: 3px solid transparent;
-  position: relative;
-}
-
-.conv-item:hover {
-  background: var(--bg-elevated);
-}
-
-.conv-item.active {
-  background: var(--accent-a06);
-  border-left-color: var(--accent);
-}
-
-.conv-title {
-  font-size: 14px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  min-width: 0;
-}
-
-.conv-delete {
-  display: none;
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  font-size: 16px;
-  padding: 0 4px;
-  cursor: pointer;
-  flex-shrink: 0;
-  line-height: 1;
-  border-radius: var(--radius-sm);
-  transition: color 0.2s ease, background 0.2s ease;
-}
-
-.conv-item:hover .conv-delete {
-  display: block;
-}
-
-.conv-delete:hover {
-  color: var(--danger);
-  background: var(--danger-a10);
-}
-
-.conv-item.active .conv-title {
-  color: var(--text-primary);
-}
-
-.sidebar-footer {
-  border-top: 1px solid var(--border);
-  padding-top: var(--space-md);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.footer-link {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  font-size: 14px;
-  transition:
-    background 0.2s ease,
-    color 0.2s ease;
-  background: transparent;
-  width: 100%;
-  text-align: left;
-}
-
-.footer-link:hover {
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-}
-
-.footer-icon {
-  font-size: 16px;
-  width: 20px;
-  text-align: center;
-}
-
-.logout-btn {
-  cursor: pointer;
-}
-
-/* ── Main Chat Area ── */
-.chat-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  position: relative;
-}
-
-.empty-state {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-md);
-  opacity: 0.4;
-}
-
-.empty-icon {
-  font-size: 64px;
-  color: var(--accent);
-  filter: drop-shadow(0 0 24px var(--accent-a30));
-}
-
-.empty-state h2 {
-  font-family: var(--font-heading);
-  font-size: 24px;
-  letter-spacing: 6px;
-  color: var(--text-primary);
-}
-
-.empty-state p {
-  color: var(--text-muted);
-  font-size: 15px;
-}
-
-/* ── Messages ── */
-.messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--space-xl) var(--space-xl) 100px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
-}
-
-.message {
-  display: flex;
-  gap: var(--space-md);
-  max-width: 800px;
-  animation: fadeIn 0.3s ease;
-}
-
-.message.human {
-  align-self: flex-end;
-  flex-direction: row-reverse;
-}
-
-.message.ai {
-  align-self: flex-start;
-}
-
-.msg-avatar {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-}
-
-.avatar-ai {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, var(--accent), var(--accent-dim));
-  color: var(--bg-primary);
-  font-size: 16px;
-}
-
-.avatar-user {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--white-a08);
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.msg-bubble {
-  position: relative;
-  padding: 12px 16px 36px;
-  border-radius: var(--radius-lg);
-  line-height: 1.6;
-  font-size: 15px;
-}
-
-.message.human .msg-bubble {
-  background: linear-gradient(135deg, var(--accent-a15), var(--accent-a08));
-  border: 1px solid var(--accent-a12);
-  color: var(--text-primary);
-}
-
-.message.ai .msg-bubble {
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
-  color: var(--text-primary);
-}
-
-.msg-bubble p {
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.copy-btn {
-  display: none;
-  position: absolute;
-  bottom: 6px;
-  right: 8px;
-  width: 26px;
-  height: 26px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 13px;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
-  padding: 0;
-}
-
-.copy-btn:hover {
-  color: var(--accent);
-  background: var(--accent-a08);
-  border-color: var(--accent-a30);
-}
-
-.msg-bubble:hover .copy-btn {
-  display: flex;
-}
-
-/* ── Streaming Indicator ── */
-.streaming-indicator {
-  display: flex;
-  gap: 6px;
-  padding: 0 var(--space-xl);
-  padding-left: 52px;
-}
-
-.streaming-indicator .dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-  animation: pulse-glow 1.4s infinite;
-}
-
-.streaming-indicator .dot:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.streaming-indicator .dot:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-/* ── Input Area ── */
-.input-area {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: var(--space-md) var(--space-xl) var(--space-lg);
-  background: linear-gradient(to top, var(--bg-primary) 60%, transparent);
-}
-
-.input-wrapper {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-sm);
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-sm);
-  transition: border-color 0.3s ease;
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.input-wrapper:focus-within {
-  border-color: var(--accent-dim);
-  box-shadow: 0 0 0 3px var(--accent-a06);
-}
-
-.input-wrapper textarea {
-  flex: 1;
-  background: transparent;
-  border: none;
-  padding: 8px;
-  min-height: 24px;
-  max-height: 120px;
-  resize: none;
-  font-size: 15px;
-  line-height: 1.5;
-}
-
-.input-wrapper textarea:focus {
-  box-shadow: none;
-}
-
-.voice-btn,
-.send-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  font-size: 18px;
-}
-
-.voice-btn {
-  background: transparent;
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-}
-
-.send-btn {
-  background: linear-gradient(135deg, var(--accent), var(--accent-dim));
-  color: var(--bg-primary);
-}
-
-.send-btn:hover:not(:disabled) {
-  box-shadow: var(--shadow-glow);
-  transform: scale(1.05);
-}
-
-.send-btn:disabled {
-  background: var(--white-a06);
-  color: var(--text-muted);
-}
-
-/* ── Reduced Motion ── */
-@media (prefers-reduced-motion: reduce) {
-  .message {
-    animation: none;
-  }
-
-  .streaming-indicator .dot {
-    animation: none;
-    opacity: 0.6;
-  }
-}
-
-/* ── Responsive ── */
-@media (max-width: 768px) {
-  .sidebar {
-    width: 200px;
-    min-width: 200px;
-  }
-}
+details > summary { list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
 </style>

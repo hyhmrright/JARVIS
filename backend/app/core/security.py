@@ -80,14 +80,27 @@ def decrypt_api_keys(stored: dict) -> dict:
     return json.loads(decrypted)
 
 
-def resolve_api_key(provider: str, raw_keys: dict) -> str:
-    """解析用户的 API key，回退到 Settings 中的服务端配置。
+def _normalize_keys(raw: str | list[str]) -> list[str]:
+    """Normalize API key value to a list (backward compat)."""
+    if isinstance(raw, str):
+        return [raw] if raw else []
+    return [k for k in raw if k]
 
-    优先使用用户加密存储的 key，若为空则回退到 settings 中的
-    ``{provider}_api_key`` 环境变量。两者都为空时返回空字符串。
+
+def resolve_api_keys(provider: str, raw_keys: dict) -> list[str]:
+    """Resolve API keys for a provider. Returns a list of keys.
+
+    Priority: user keys first, then server-level key appended.
     """
-    user_key: str = decrypt_api_keys(raw_keys).get(provider, "")
-    if user_key:
-        return user_key
+    decrypted = decrypt_api_keys(raw_keys)
+    user_keys = _normalize_keys(decrypted.get(provider, ""))
     fallback: str = getattr(settings, f"{provider}_api_key", "")
-    return fallback
+    if fallback and fallback not in user_keys:
+        user_keys.append(fallback)
+    return user_keys
+
+
+def resolve_api_key(provider: str, raw_keys: dict) -> str:
+    """Resolve a single API key (first available). Backward-compatible wrapper."""
+    keys = resolve_api_keys(provider, raw_keys)
+    return keys[0] if keys else ""

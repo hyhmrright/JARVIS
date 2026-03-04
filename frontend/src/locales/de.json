@@ -37,7 +37,23 @@
     "voiceComingSoon": "Sprachfunktion demnächst verfügbar",
     "inputPlaceholder": "Nachricht eingeben, Enter zum Senden...",
     "send": "Senden",
-    "copy": "Nachricht kopieren"
+    "copy": "Nachricht kopieren",
+    "ttsPlay": "Audio abspielen",
+    "ttsStop": "Wiedergabe stoppen",
+    "streamError": "Nachricht konnte nicht gesendet werden, bitte erneut versuchen",
+    "toolResult": "Werkzeugergebnis",
+    "toolRunning": "Wird ausgeführt...",
+    "usage": "Nutzungsstatistik"
+  },
+  "usage": {
+    "title": "Nutzungsstatistik",
+    "tokensIn": "Eingabe-Token",
+    "tokensOut": "Ausgabe-Token",
+    "messages": "Nachrichten",
+    "days": " Tage",
+    "loading": "Wird geladen...",
+    "noData": "Keine Nutzungsdaten vorhanden",
+    "chartTitle": "Ausgabe-Token — letzte {days} Tage"
   },
   "documents": {
     "title": "Wissensdatenbank",
@@ -51,12 +67,22 @@
     "provider": "Modellanbieter",
     "modelName": "Modellname",
     "apiKey": "API-Schlüssel",
+    "apiKeys": "API-Schlüssel",
+    "apiKeyPlaceholder": "API-Schlüssel eingeben",
+    "addApiKey": "Schlüssel hinzufügen",
+    "existingKeys": "{count} Schlüssel gespeichert",
     "save": "Speichern",
     "saved": "Gespeichert",
     "personaOverride": "Benutzerdefinierte Anweisungen",
     "personaPlaceholder": "z.B.: Nenn mich Chef, verwende einen lockereren Ton...",
+    "saving": "Wird gespeichert...",
+    "saveError": "Speichern fehlgeschlagen, bitte versuchen Sie es später erneut",
     "customModel": "Benutzerdefiniert...",
-    "customModelPlaceholder": "Modellname eingeben, z.B. glm-4.7-FlashX"
+    "customModelPlaceholder": "Modellname eingeben, z.B. glm-4.7-FlashX",
+    "toolPermissions": "Werkzeugberechtigungen",
+    "toolPermissionsDescription": "Aktivieren oder deaktivieren Sie die Werkzeuge, die dem KI-Assistenten zur Verfügung stehen.",
+    "installedPlugins": "Installierte Plugins",
+    "pluginTools": "{count} Werkzeug(e)"
   },
   "validation": {
     "emailRequired": "Bitte geben Sie Ihre E-Mail-Adresse ein",

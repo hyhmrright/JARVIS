@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import decode_access_token, resolve_api_key
-from app.db.models import User, UserSettings
+from app.core.permissions import DEFAULT_ENABLED_TOOLS
+from app.core.security import decode_access_token, resolve_api_keys
+from app.db.models import User, UserRole, UserSettings
 from app.db.session import get_db
 
 security = HTTPBearer()
@@ -19,16 +20,16 @@ class ResolvedLLMConfig:
     provider: str
     model_name: str
     api_key: str
+    api_keys: list[str]
     enabled_tools: list[str] | None
     persona_override: str | None
+    raw_keys: dict[str, str]
 
 
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: AsyncSession = Depends(get_db),
-) -> User:
+async def _resolve_user(token: str, db: AsyncSession) -> User:
+    """Decode a JWT token and return the active user, or raise 401."""
     try:
-        user_id = decode_access_token(credentials.credentials)
+        user_id = decode_access_token(token)
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
@@ -39,6 +40,32 @@ async def get_current_user(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
+        )
+    return user
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    return await _resolve_user(credentials.credentials, db)
+
+
+async def get_current_user_query_token(
+    token: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Authenticate via ?token= query param (for SSE endpoints where headers
+    aren't supported)."""
+    return await _resolve_user(token, db)
+
+
+async def get_admin_user(user: User = Depends(get_current_user)) -> User:
+    """Ensure the current user has administrative privileges."""
+    if user.role not in (UserRole.ADMIN.value, UserRole.SUPERADMIN.value):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
         )
     return user
 
@@ -60,8 +87,8 @@ async def get_llm_config(
     model_name = settings.model_name if settings else "deepseek-chat"
     raw_keys = settings.api_keys if settings else {}
 
-    api_key = resolve_api_key(provider, raw_keys)
-    if not api_key:
+    api_keys = resolve_api_keys(provider, raw_keys)
+    if not api_keys:
         raise HTTPException(
             status_code=400,
             detail=f"No API key configured for provider '{provider}'. "
@@ -71,7 +98,13 @@ async def get_llm_config(
     return ResolvedLLMConfig(
         provider=provider,
         model_name=model_name,
-        api_key=api_key,
-        enabled_tools=settings.enabled_tools if settings else None,
+        api_key=api_keys[0],
+        api_keys=api_keys,
+        enabled_tools=(
+            settings.enabled_tools
+            if settings and settings.enabled_tools is not None
+            else DEFAULT_ENABLED_TOOLS
+        ),
         persona_override=settings.persona_override if settings else None,
+        raw_keys=raw_keys,
     )

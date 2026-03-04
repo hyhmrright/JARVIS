@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 from collections.abc import AsyncGenerator
@@ -6,16 +7,22 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent.compressor import compact_messages
 from app.agent.graph import create_graph
 from app.agent.persona import build_system_prompt
 from app.agent.state import AgentState
 from app.api.deps import ResolvedLLMConfig, get_current_user, get_llm_config
+from app.core.config import settings
+from app.core.security import resolve_api_key
 from app.db.models import Conversation, Message, User
 from app.db.session import AsyncSessionLocal, get_db
+from app.plugins import plugin_registry
+from app.rag.retriever import maybe_inject_rag_context
+from app.services.memory_sync import sync_conversation_to_markdown
 
 logger = structlog.get_logger(__name__)
 
@@ -24,18 +31,95 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 _ROLE_TO_MESSAGE = {"human": HumanMessage, "ai": AIMessage}
 
 
+def _format_sse(payload: dict) -> str:
+    """Encode a dict as an SSE data line."""
+    return "data: " + json.dumps(payload) + "\n\n"
+
+
+def _sse_events_from_chunk(chunk: dict, full_content: str) -> tuple[list[str], str]:
+    """Convert a LangGraph stream chunk into SSE event lines.
+
+    Returns (list_of_sse_lines, updated_full_content).
+    """
+    events: list[str] = []
+
+    if "approval" in chunk:
+        pending = chunk["approval"]["pending_tool_call"]
+        if pending is not None:
+            events.append(
+                _format_sse(
+                    {
+                        "type": "approval_required",
+                        "tool": pending["name"],
+                        "args": pending.get("args", {}),
+                    }
+                )
+            )
+    elif "llm" in chunk:
+        ai_msg = chunk["llm"]["messages"][-1]
+        # Emit tool_start events when the LLM decides to call tools
+        if hasattr(ai_msg, "tool_calls") and ai_msg.tool_calls:
+            for tc in ai_msg.tool_calls:
+                events.append(
+                    _format_sse(
+                        {
+                            "type": "tool_start",
+                            "tool": tc["name"],
+                            "args": tc.get("args", {}),
+                        }
+                    )
+                )
+
+        # Delta logic
+        new_content = ai_msg.content
+        delta = new_content[len(full_content) :]
+        full_content = new_content
+        if delta:
+            events.append(
+                _format_sse({"type": "delta", "delta": delta, "content": full_content})
+            )
+    elif "tools" in chunk:
+        for tm in chunk["tools"]["messages"]:
+            events.append(
+                _format_sse(
+                    {
+                        "type": "tool_end",
+                        "tool": tm.name,
+                        "result_preview": tm.content[:200],
+                    }
+                )
+            )
+    return events, full_content
+
+
+def _extract_token_counts(ai_msg: object | None) -> tuple[int, int]:
+    """Return (tokens_in, tokens_out) from an AIMessage's usage_metadata."""
+    if ai_msg is None:
+        return 0, 0
+    meta = getattr(ai_msg, "usage_metadata", None)
+    if not meta:
+        return 0, 0
+    return meta.get("input_tokens", 0) or 0, meta.get("output_tokens", 0) or 0
+
+
 class ChatRequest(BaseModel):
     conversation_id: uuid.UUID
-    content: str
+    content: str = Field(max_length=50000)
 
 
 @router.post("/stream")
-async def chat_stream(
+async def chat_stream(  # noqa: C901
     body: ChatRequest,
     user: User = Depends(get_current_user),
     llm: ResolvedLLMConfig = Depends(get_llm_config),
     db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
+    # Check if this is a consent signal (HITL)
+    is_consent = body.content.startswith("[CONSENT:")
+    approved: bool | None = None
+    if is_consent:
+        approved = "ALLOW" in body.content
+
     conv = await db.scalar(
         select(Conversation).where(
             Conversation.id == body.conversation_id,
@@ -45,8 +129,10 @@ async def chat_stream(
     if not conv:
         raise HTTPException(status_code=404)
 
-    db.add(Message(conversation_id=conv.id, role="human", content=body.content))
-    await db.commit()
+    # Don't save metadata messages to database
+    if not is_consent:
+        db.add(Message(conversation_id=conv.id, role="human", content=body.content))
+        await db.commit()
 
     history_rows = await db.scalars(
         select(Message)
@@ -62,6 +148,11 @@ async def chat_stream(
     system_msg = SystemMessage(content=build_system_prompt(llm.persona_override))
     lc_messages = [system_msg, *lc_messages]
 
+    openai_key = resolve_api_key("openai", llm.raw_keys)
+    lc_messages = await maybe_inject_rag_context(
+        lc_messages, body.content, str(user.id), openai_key
+    )
+
     conv_id = conv.id
 
     logger.info(
@@ -72,40 +163,86 @@ async def chat_stream(
         model=llm.model_name,
     )
 
+    # Resolve Tavily API key for web search (server-level only)
+    tavily_key = settings.tavily_api_key
+
     async def generate() -> AsyncGenerator[str]:
+        nonlocal lc_messages
+        try:
+            lc_messages = await compact_messages(
+                lc_messages,
+                provider=llm.provider,
+                model=llm.model_name,
+                api_key=llm.api_key,
+            )
+        except Exception:
+            logger.warning("context_compression_failed", exc_info=True)
+        mcp_tools: list = []
+        if llm.enabled_tools is None or "mcp" in llm.enabled_tools:
+            from app.tools.mcp_client import create_mcp_tools, parse_mcp_configs
+
+            mcp_tools = await create_mcp_tools(
+                parse_mcp_configs(settings.mcp_servers_json)
+            )
+
+        plugin_tools: list | None = None
+        if llm.enabled_tools is None or "plugin" in llm.enabled_tools:
+            plugin_tools = plugin_registry.get_all_tools() or None
+
         graph = create_graph(
             provider=llm.provider,
             model=llm.model_name,
             api_key=llm.api_key,
             enabled_tools=llm.enabled_tools,
+            api_keys=llm.api_keys,
+            user_id=str(user.id),
+            openai_api_key=openai_key,
+            tavily_api_key=tavily_key,
+            mcp_tools=mcp_tools,
+            plugin_tools=plugin_tools,
+            conversation_id=str(conv_id),
         )
         full_content = ""
+        last_ai_msg = None
+        state = AgentState(messages=lc_messages, approved=approved)
         try:
-            async for chunk in graph.astream(AgentState(messages=lc_messages)):
+            async for chunk in graph.astream(state):
                 if "llm" in chunk:
-                    ai_msg = chunk["llm"]["messages"][-1]
-                    full_content = ai_msg.content
-                    data = json.dumps({"content": full_content})
-                    yield "data: " + data + "\n\n"
+                    last_ai_msg = chunk["llm"]["messages"][-1]
+                events, full_content = _sse_events_from_chunk(chunk, full_content)
+                for event in events:
+                    yield event
         except Exception:
             logger.exception("chat_stream_error", conv_id=str(conv_id))
             raise
-
-        async with AsyncSessionLocal() as session:
-            async with session.begin():
-                session.add(
-                    Message(
-                        conversation_id=conv_id,
-                        role="ai",
-                        content=full_content,
-                        model_provider=llm.provider,
-                        model_name=llm.model_name,
+        finally:
+            if full_content:
+                try:
+                    tokens_in, tokens_out = _extract_token_counts(last_ai_msg)
+                    async with AsyncSessionLocal() as session:
+                        async with session.begin():
+                            session.add(
+                                Message(
+                                    conversation_id=conv_id,
+                                    role="ai",
+                                    content=full_content,
+                                    model_provider=llm.provider,
+                                    model_name=llm.model_name,
+                                    tokens_input=tokens_in,
+                                    tokens_output=tokens_out,
+                                )
+                            )
+                    logger.info(
+                        "chat_stream_completed",
+                        conv_id=str(conv_id),
+                        response_chars=len(full_content),
                     )
-                )
-        logger.info(
-            "chat_stream_completed",
-            conv_id=str(conv_id),
-            response_chars=len(full_content),
-        )
+                    # Sync to local Markdown
+                    asyncio.create_task(sync_conversation_to_markdown(conv_id))
+                except Exception:
+                    logger.exception(
+                        "failed_to_save_partial_response",
+                        conv_id=str(conv_id),
+                    )
 
     return StreamingResponse(generate(), media_type="text/event-stream")

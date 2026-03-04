@@ -37,7 +37,23 @@
     "voiceComingSoon": "음성 기능 출시 예정",
     "inputPlaceholder": "메시지를 입력하고 Enter로 전송...",
     "send": "전송",
-    "copy": "메시지 복사"
+    "copy": "메시지 복사",
+    "ttsPlay": "음성 재생",
+    "ttsStop": "재생 중지",
+    "streamError": "메시지 전송에 실패했습니다. 다시 시도해 주세요",
+    "toolResult": "도구 결과",
+    "toolRunning": "실행 중...",
+    "usage": "사용량 통계"
+  },
+  "usage": {
+    "title": "사용량 통계",
+    "tokensIn": "입력 토큰",
+    "tokensOut": "출력 토큰",
+    "messages": "메시지 수",
+    "days": "일",
+    "loading": "로딩 중...",
+    "noData": "사용 데이터가 없습니다",
+    "chartTitle": "최근 {days}일 출력 토큰 사용량"
   },
   "documents": {
     "title": "지식 베이스",
@@ -51,12 +67,22 @@
     "provider": "모델 제공업체",
     "modelName": "모델 이름",
     "apiKey": "API 키",
+    "apiKeys": "API 키",
+    "apiKeyPlaceholder": "API 키 입력",
+    "addApiKey": "키 추가",
+    "existingKeys": "{count}개의 키 저장됨",
     "save": "저장",
     "saved": "저장됨",
     "personaOverride": "사용자 지정 지시",
     "personaPlaceholder": "예: 보스라고 불러줘, 더 캐주얼하게...",
+    "saving": "저장 중...",
+    "saveError": "저장에 실패했습니다. 잠시 후 다시 시도해 주세요",
     "customModel": "직접 입력...",
-    "customModelPlaceholder": "모델 이름 입력 (예: glm-4.7-FlashX)"
+    "customModelPlaceholder": "모델 이름 입력 (예: glm-4.7-FlashX)",
+    "toolPermissions": "도구 권한",
+    "toolPermissionsDescription": "AI 어시스턴트가 사용할 수 있는 도구를 활성화하거나 비활성화합니다.",
+    "installedPlugins": "설치된 플러그인",
+    "pluginTools": "{count}개 도구"
   },
   "validation": {
     "emailRequired": "이메일 주소를 입력해 주세요",

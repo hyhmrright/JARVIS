@@ -80,8 +80,10 @@ docker-compose up -d             # Start all services (PostgreSQL, Redis, Qdrant
 
 ### Branch Strategy
 - **main**: Stable version (deployment branch)
-- **dev**: Daily development branch (all changes are made here)
-- Only merge `dev` into `main` when explicitly instructed
+- **dev**: Integration branch (for merging features before release)
+- **feature/* / fix/* / ...**: Daily development branches (all changes are made here)
+- Push changes to the **current active development branch** (e.g., `feature-xyz`)
+- Only merge into `dev` or `main` via PR or when explicitly instructed
 
 ### Code Quality Tools
 

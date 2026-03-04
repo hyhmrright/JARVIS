@@ -1,8 +1,10 @@
+import enum
 import uuid
 from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -15,7 +17,14 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.permissions import DEFAULT_ENABLED_TOOLS
 from app.db.base import Base
+
+
+class UserRole(enum.StrEnum):
+    USER = "user"
+    ADMIN = "admin"
+    SUPERADMIN = "superadmin"
 
 
 class User(Base):
@@ -27,6 +36,9 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(100))
+    role: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=UserRole.USER.value
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -73,7 +85,7 @@ class UserSettings(Base):
     enabled_tools: Mapped[list[str]] = mapped_column(
         JSONB,
         nullable=False,
-        default=lambda: ["search", "code_exec", "file", "datetime"],
+        default=lambda: list(DEFAULT_ENABLED_TOOLS),
     )
     persona_override: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
@@ -122,6 +134,52 @@ class Conversation(Base):
     )
 
 
+class AgentSession(Base):
+    __tablename__ = "agent_sessions"
+    __table_args__ = (
+        CheckConstraint(
+            "agent_type IN ('main', 'subagent', 'supervisor')",
+            name="ck_agent_sessions_type",
+        ),
+        CheckConstraint(
+            "status IN ('active', 'completed', 'aborted', 'error')",
+            name="ck_agent_sessions_status",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    parent_session_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_sessions.id", ondelete="SET NULL"),
+    )
+    agent_type: Mapped[str] = mapped_column(String(20), nullable=False, default="main")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    depth: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    context_summary: Mapped[str | None] = mapped_column(Text)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    conversation: Mapped["Conversation"] = relationship()
+    parent_session: Mapped["AgentSession | None"] = relationship(
+        remote_side="AgentSession.id",
+    )
+    messages: Mapped[list["Message"]] = relationship(
+        back_populates="agent_session",
+        order_by="Message.created_at",
+    )
+
+
 class Message(Base):
     __tablename__ = "messages"
     __table_args__ = (
@@ -140,6 +198,10 @@ class Message(Base):
         nullable=False,
         index=True,
     )
+    agent_session_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_sessions.id", ondelete="SET NULL"),
+    )
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     tool_calls: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
@@ -152,6 +214,9 @@ class Message(Base):
     )
 
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")
+    agent_session: Mapped["AgentSession | None"] = relationship(
+        back_populates="messages"
+    )
 
 
 class Document(Base):
@@ -174,7 +239,7 @@ class Document(Base):
     )
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     file_type: Mapped[str] = mapped_column(String(20), nullable=False)
-    file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    file_size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     chunk_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     qdrant_collection: Mapped[str] = mapped_column(String(255), nullable=False)
     minio_object_key: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -184,3 +249,60 @@ class Document(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="documents")
+
+
+class CronJob(Base):
+    __tablename__ = "cron_jobs"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    schedule: Mapped[str] = mapped_column(String(100), nullable=False)
+    task: Mapped[str] = mapped_column(Text, nullable=False)
+    trigger_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="cron"
+    )
+    trigger_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    next_run_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class Webhook(Base):
+    __tablename__ = "webhooks"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    task_template: Mapped[str] = mapped_column(Text, nullable=False)
+    secret_token: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    trigger_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_triggered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    user: Mapped["User"] = relationship("User")

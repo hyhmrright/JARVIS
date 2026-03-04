@@ -37,7 +37,23 @@
     "voiceComingSoon": "Voice feature coming soon",
     "inputPlaceholder": "Type a message, press Enter to send...",
     "send": "Send",
-    "copy": "Copy message"
+    "copy": "Copy message",
+    "ttsPlay": "Play audio",
+    "ttsStop": "Stop playback",
+    "streamError": "Failed to send message, please try again",
+    "toolResult": "Tool Result",
+    "toolRunning": "Running...",
+    "usage": "Usage"
+  },
+  "usage": {
+    "title": "Usage Statistics",
+    "tokensIn": "Input Tokens",
+    "tokensOut": "Output Tokens",
+    "messages": "Messages",
+    "days": " days",
+    "loading": "Loading...",
+    "noData": "No usage data available",
+    "chartTitle": "Output Token Usage — Last {days} Days"
   },
   "documents": {
     "title": "Knowledge Base",
@@ -51,12 +67,22 @@
     "provider": "Model Provider",
     "modelName": "Model Name",
     "apiKey": "API Key",
+    "apiKeys": "API Keys",
+    "apiKeyPlaceholder": "Enter API Key",
+    "addApiKey": "Add Key",
+    "existingKeys": "{count} key(s) stored",
     "save": "Save",
     "saved": "Saved",
     "personaOverride": "Custom Instructions",
     "personaPlaceholder": "e.g., Call me Boss, use a more casual tone...",
+    "saving": "Saving...",
+    "saveError": "Save failed, please try again later",
     "customModel": "Custom...",
-    "customModelPlaceholder": "Enter model name, e.g. glm-4.7-FlashX"
+    "customModelPlaceholder": "Enter model name, e.g. glm-4.7-FlashX",
+    "toolPermissions": "Tool Permissions",
+    "toolPermissionsDescription": "Enable or disable tools available to the AI assistant.",
+    "installedPlugins": "Installed Plugins",
+    "pluginTools": "{count} tool(s)"
   },
   "validation": {
     "emailRequired": "Please enter your email address",
