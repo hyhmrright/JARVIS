@@ -26,11 +26,11 @@ class DiscordChannel(ChannelAdapter):
         self._bot_task: asyncio.Task | None = None
 
         @self.client.event
-        async def on_ready():
+        async def on_ready() -> None:
             logger.info("discord_channel_ready", user=str(self.client.user))
 
         @self.client.event
-        async def on_message(message: discord.Message):
+        async def on_message(message: discord.Message) -> None:
             # Ignore own messages
             if message.author == self.client.user:
                 return

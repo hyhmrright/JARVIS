@@ -150,7 +150,7 @@ export const useChatStore = defineStore("chat", {
                     aiMsg.content = data.content;
                   }
                 }
-              } catch { }
+              } catch { /* ignore SSE parse errors */ }
             }
           }
         }

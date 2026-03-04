@@ -17,8 +17,8 @@ class WebhookChannel(ChannelAdapter):
         super().__init__()
         self.router = APIRouter()
 
-        @self.router.post("/receive")
-        async def handle_webhook(request: Request):
+        @self.router.post("/receive", response_model=None)
+        async def handle_webhook(request: Request) -> Response | dict[str, str]:
             """Endpoint to receive messages from any external source.
 
             Expected JSON: {"user_id": "...", "text": "...", "reply_url": "..."}
@@ -35,17 +35,16 @@ class WebhookChannel(ChannelAdapter):
                 gw_msg = GatewayMessage(
                     sender_id=user_id,
                     channel="webhook",
-                    # Use reply_url as channel ID if provided
                     channel_id=reply_url or user_id,
                     content=text,
                 )
-                if self._message_handler is not None:
-                    response = await self._message_handler(gw_msg)
-                    if response:
-                        # If a reply_url was provided, the client might expect us
-                        # to POST the response back there.
-                        # For now, we return it in the HTTP response.
-                        return {"reply": response}
+
+                if self._message_handler is None:
+                    return Response(content="OK", status_code=200)
+
+                response = await self._message_handler(gw_msg)
+                if response:
+                    return {"reply": response}
 
                 return Response(content="OK", status_code=200)
             except Exception:

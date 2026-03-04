@@ -9,9 +9,6 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
-import { useChatStore } from '@/stores/chat';
-// Global initialization if needed
 </script>
 
 <style>

@@ -10,7 +10,7 @@ from langchain_openai import ChatOpenAI
 def get_llm(provider: str, model: str, api_key: str, **kwargs: Any) -> BaseChatModel:
     match provider:
         case "deepseek":
-            return ChatDeepSeek(model=model, api_key=api_key, **kwargs)  # type: ignore[call-arg]
+            return ChatDeepSeek(model=model, api_key=api_key, **kwargs)
         case "openai":
             return ChatOpenAI(model=model, api_key=api_key, **kwargs)
         case "anthropic":

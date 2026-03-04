@@ -236,6 +236,18 @@ bun run type-check           # vue-tsc
 
 ### Testing / 测试
 
+**When local tests cannot run (e.g., missing database), read the test files manually before pushing.**
+**本地无法运行测试时（如缺少数据库），推送前必须手动阅读相关测试文件。**
+
+Rule: for every source file modified, read the corresponding test file(s) and verify:
+规则：每修改一个源文件，就读对应的测试文件，确认：
+1. All `patch()`/mock targets still exist in the modified code / 所有 patch 目标在修改后的代码中仍然存在
+2. All error boundaries tested (OSError, None, ImportError, etc.) have matching handling in the implementation / 测试覆盖的错误边界在实现中有对应处理
+3. All test assertions match the new behavior / 测试断言与新实现的行为一致
+
+"lint/type-check passed" ≠ "tests will pass". Static analysis cannot catch wrong patch targets, missing exception handling, or incorrect filter logic.
+"lint/type-check 通过" ≠ "测试会通过"。静态分析无法发现错误的 patch 目标、缺失的异常处理、不正确的过滤逻辑。
+
 ```bash
 # Run in backend/ directory / 在 backend/ 目录执行
 uv run pytest tests/ -v                        # All tests / 所有测试

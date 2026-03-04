@@ -317,12 +317,16 @@ const suggestions = [
   { text: 'Deep Memory Search', sub: 'Search offline conversation logs', prompt: 'Search local memory for project roadmap' }
 ];
 
-marked.setOptions({
-  highlight: (code, lang) => {
-    if (lang && hljs.getLanguage(lang)) return hljs.highlight(code, { language: lang }).value;
-    return hljs.highlightAuto(code).value;
-  },
+marked.use({
   breaks: true,
+  renderer: {
+    code({ text, lang }: { text: string; lang?: string }): string {
+      if (lang && hljs.getLanguage(lang)) {
+        return `<pre><code class="hljs language-${lang}">${hljs.highlight(text, { language: lang }).value}</code></pre>\n`;
+      }
+      return `<pre><code class="hljs">${hljs.highlightAuto(text).value}</code></pre>\n`;
+    },
+  },
 });
 
 const renderMarkdown = (text: string) => text ? marked.parse(text) : '<span class="cursor-block"></span>';

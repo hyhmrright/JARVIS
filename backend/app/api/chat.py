@@ -45,15 +45,16 @@ def _sse_events_from_chunk(chunk: dict, full_content: str) -> tuple[list[str], s
 
     if "approval" in chunk:
         pending = chunk["approval"]["pending_tool_call"]
-        events.append(
-            _format_sse(
-                {
-                    "type": "approval_required",
-                    "tool": pending["name"],
-                    "args": pending.get("args", {}),
-                }
+        if pending is not None:
+            events.append(
+                _format_sse(
+                    {
+                        "type": "approval_required",
+                        "tool": pending["name"],
+                        "args": pending.get("args", {}),
+                    }
+                )
             )
-        )
     elif "llm" in chunk:
         ai_msg = chunk["llm"]["messages"][-1]
         # Emit tool_start events when the LLM decides to call tools

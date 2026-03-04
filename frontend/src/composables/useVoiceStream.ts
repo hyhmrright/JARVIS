@@ -8,7 +8,6 @@ export function useVoiceStream() {
   
   let socket: WebSocket | null = null;
   let mediaRecorder: MediaRecorder | null = null;
-  const audioContext: AudioContext | null = null;
   const audioQueue: Blob[] = [];
   let isPlaying = false;
 

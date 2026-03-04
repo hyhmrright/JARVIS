@@ -56,9 +56,9 @@ class IMAPEmailProcessor(TriggerProcessor):
         last_uid = metadata.get("last_uid", 0)
         try:
 
-            def check_emails():
-                with imaplib.IMAP4_SSL(host) as mail:
-                    mail.login(user, password)
+            def check_emails() -> int | None:
+                with imaplib.IMAP4_SSL(str(host)) as mail:
+                    mail.login(str(user), str(password))
                     mail.select("inbox")
                     status, messages = mail.search(None, "UNSEEN")
                     if status != "OK":

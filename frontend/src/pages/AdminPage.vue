@@ -198,7 +198,7 @@ const handleInstall = async () => {
     showAddModal.value = false;
     installUrl.value = '';
     await fetchPlugins();
-  } catch (err) { alert('Failed to install plugin'); }
+  } catch { alert('Failed to install plugin'); }
 };
 
 watch(currentTab, (newTab) => {

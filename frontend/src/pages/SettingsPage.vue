@@ -157,7 +157,7 @@ import client from "@/api/client";
 import PageHeader from "@/components/PageHeader.vue";
 import { SUPPORTED_LOCALES } from "@/i18n";
 
-const { t, locale } = useI18n();
+const { locale } = useI18n();
 
 const onLocaleChange = (e: Event) => {
   const newLocale = (e.target as HTMLSelectElement).value;
@@ -177,7 +177,6 @@ const DEFAULT_MODEL: Record<string, string> = {
 };
 
 type ToolRegistry = { name: string; label: string; description: string; default_enabled: boolean };
-type PluginInfo = { id: string; name: string; version: string; description: string; tools: string[] };
 
 const provider = ref("deepseek");
 const modelSelect = ref("deepseek-chat");
@@ -218,7 +217,7 @@ onMounted(async () => {
     const savedModel = data.model_name ?? "";
     if (PROVIDER_MODELS[provider.value]?.includes(savedModel)) modelSelect.value = savedModel;
     else { modelSelect.value = "__custom__"; customModelName.value = savedModel; }
-  } catch {}
+  } catch { /* settings not yet saved, use defaults */ }
 });
 
 async function save() {

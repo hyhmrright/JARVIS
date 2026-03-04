@@ -6,15 +6,15 @@ import importlib
 import importlib.metadata
 import importlib.util
 import inspect
-import sys
-import shutil
-import zipfile
 import io
+import shutil
+import sys
+import zipfile
 from pathlib import Path
 
 import httpx
-import yaml
 import structlog
+import yaml
 
 from app.plugins.api import PluginAPI
 from app.plugins.registry import PluginRegistry
@@ -88,7 +88,12 @@ def _load_from_directory(registry: PluginRegistry, directory: Path) -> None:
     """Scan directory for .py files or OpenClaw-style packages."""
     if not directory.exists():
         return
-    for path in sorted(directory.iterdir()):
+    try:
+        entries = sorted(directory.iterdir())
+    except OSError:
+        logger.exception("plugin_directory_scan_failed", directory=str(directory))
+        return
+    for path in entries:
         if path.name.startswith("_"):
             continue
         if path.suffix == ".py":
@@ -107,7 +112,7 @@ def _load_plugin_package(path: Path, registry: PluginRegistry) -> None:
         manifest_path = path / "manifest.yml"
 
     try:
-        with open(manifest_path, "r") as f:
+        with open(manifest_path) as f:
             data = yaml.safe_load(f)
             manifest = JarvisPluginManifest(**data)
 
@@ -143,6 +148,8 @@ def _load_module_file(
         return
 
     for _, obj in inspect.getmembers(module, inspect.isclass):
+        if obj.__module__ != namespaced:
+            continue  # skip classes imported from other modules
         if issubclass(obj, JarvisPlugin) and obj is not JarvisPlugin:
             _instantiate_and_register(obj, registry, manifest_override)
 
