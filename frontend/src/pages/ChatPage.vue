@@ -199,6 +199,10 @@
             <div class="w-1 h-1 bg-white/40 rounded-full animate-pulse"></div>
             <div class="w-1 h-1 bg-white/40 rounded-full animate-pulse [animation-delay:0.2s]"></div>
             <div class="w-1 h-1 bg-white/40 rounded-full animate-pulse [animation-delay:0.4s]"></div>
+            <span
+              v-if="chat.routingAgent"
+              class="ml-1 text-[9px] font-bold text-zinc-500 uppercase tracking-widest px-2 py-0.5 bg-zinc-800 rounded-full"
+            >{{ agentLabel(chat.routingAgent) }}</span>
           </div>
         </div>
       </div>
@@ -310,6 +314,16 @@ const playTTS = async (text: string) => {
     isPlayingTTS.value = null;
   }
 };
+
+const AGENT_LABELS: Record<string, string> = {
+  code: "Code Agent",
+  research: "Research Agent",
+  writing: "Writing Agent",
+  complex: "Supervisor",
+  simple: "Agent",
+};
+
+const agentLabel = (agent: string): string => AGENT_LABELS[agent] ?? agent;
 
 const suggestions = [
   { text: 'Run Security Scan', sub: 'Audit current workspace structure', prompt: 'Run a proactive security check' },

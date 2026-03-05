@@ -23,6 +23,7 @@ export const useChatStore = defineStore("chat", {
     currentConvId: null as string | null,
     messages: [] as Message[],
     streaming: false,
+    routingAgent: null as string | null,
   }),
   actions: {
     async loadConversations() {
@@ -32,6 +33,7 @@ export const useChatStore = defineStore("chat", {
     async selectConversation(convId: string) {
       this.currentConvId = convId;
       this.messages = [];
+      this.routingAgent = null;
       try {
         const { data } = await client.get<Message[]>(`/conversations/${convId}/messages`);
         this.messages = data;
@@ -43,6 +45,7 @@ export const useChatStore = defineStore("chat", {
     newConversation() {
       this.currentConvId = null;
       this.messages = [];
+      this.routingAgent = null;
     },
     async deleteConversation(convId: string) {
       try {
@@ -51,6 +54,7 @@ export const useChatStore = defineStore("chat", {
         if (this.currentConvId === convId) {
           this.currentConvId = null;
           this.messages = [];
+          this.routingAgent = null;
         }
       } catch (err) {
         console.error("[chat] deleteConversation failed", err);
@@ -122,9 +126,12 @@ export const useChatStore = defineStore("chat", {
                 const data = JSON.parse(line.slice(6));
                 const aiMsg = this.messages[this.messages.length - 1];
                 
-                if (data.type === "approval_required") {
+                if (data.type === "routing") {
+                  this.routingAgent = data.agent;
+                } else if (data.type === "approval_required") {
                   aiMsg.pending_tool_call = { name: data.tool, args: data.args };
                   this.streaming = false;
+                  this.routingAgent = null; // finally won't run after return
                   return; // Stop reading stream, wait for user
                 }
 
@@ -162,6 +169,7 @@ export const useChatStore = defineStore("chat", {
         console.error("[chat] streaming error:", err);
       } finally {
         this.streaming = false;
+        this.routingAgent = null;
       }
     },
   },
