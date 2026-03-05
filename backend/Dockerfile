@@ -13,7 +13,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install dependencies into the system environment to avoid .venv conflicts in Docker
 COPY pyproject.toml uv.lock* ./
-RUN uv pip install --system -r pyproject.toml psycopg2-binary
+RUN uv pip install --system -r pyproject.toml psycopg2-binary \
+    --index-url https://pypi.tuna.tsinghua.edu.cn/simple \
+    --extra-index-url https://pypi.org/simple
 
 COPY . .
 
