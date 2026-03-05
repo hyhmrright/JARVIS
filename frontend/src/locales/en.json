@@ -1,5 +1,7 @@
 {
   "common": {
+    "close": "Close",
+    "loading": "Loading...",
     "backToChat": "← Back to Chat",
     "networkError": "Network error, please check your connection",
     "rateLimitError": "Too many requests, please try again later"
@@ -83,6 +85,21 @@
     "toolPermissionsDescription": "Enable or disable tools available to the AI assistant.",
     "installedPlugins": "Installed Plugins",
     "pluginTools": "{count} tool(s)"
+  },
+  "plugins": {
+    "title": "Plugin Management",
+    "empty": "No plugins installed",
+    "tools": "Tools",
+    "configure": "Configure",
+    "config_title": "{name} Configuration",
+    "key_placeholder": "Config key",
+    "value_placeholder": "Config value",
+    "secret": "Encrypt",
+    "add": "Add",
+    "no_config": "No config entries",
+    "load_error": "Failed to load config, please try again",
+    "save_error": "Failed to save config, please try again",
+    "delete_error": "Failed to delete config, please try again"
   },
   "validation": {
     "emailRequired": "Please enter your email address",

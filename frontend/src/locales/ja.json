@@ -1,5 +1,7 @@
 {
   "common": {
+    "close": "閉じる",
+    "loading": "読み込み中...",
     "backToChat": "← チャットに戻る",
     "networkError": "ネットワークエラーです。接続を確認してください",
     "rateLimitError": "リクエストが多すぎます。しばらくしてから再試行してください"
@@ -83,6 +85,21 @@
     "toolPermissionsDescription": "AIアシスタントが使用できるツールを有効・無効にします。",
     "installedPlugins": "インストール済みプラグイン",
     "pluginTools": "{count} 個のツール"
+  },
+  "plugins": {
+    "title": "プラグイン管理",
+    "empty": "インストール済みのプラグインはありません",
+    "tools": "ツール",
+    "configure": "設定",
+    "config_title": "{name} の設定",
+    "key_placeholder": "設定キー",
+    "value_placeholder": "設定値",
+    "secret": "暗号化",
+    "add": "追加",
+    "no_config": "設定項目はありません",
+    "load_error": "設定の読み込みに失敗しました",
+    "save_error": "設定の保存に失敗しました",
+    "delete_error": "設定の削除に失敗しました"
   },
   "validation": {
     "emailRequired": "メールアドレスを入力してください",

@@ -1,5 +1,7 @@
 {
   "common": {
+    "close": "Schließen",
+    "loading": "Wird geladen...",
     "backToChat": "← Zurück zum Chat",
     "networkError": "Netzwerkfehler, bitte überprüfen Sie Ihre Verbindung",
     "rateLimitError": "Zu viele Anfragen, bitte versuchen Sie es später erneut"
@@ -83,6 +85,21 @@
     "toolPermissionsDescription": "Aktivieren oder deaktivieren Sie die Werkzeuge, die dem KI-Assistenten zur Verfügung stehen.",
     "installedPlugins": "Installierte Plugins",
     "pluginTools": "{count} Werkzeug(e)"
+  },
+  "plugins": {
+    "title": "Plugin-Verwaltung",
+    "empty": "Keine Plugins installiert",
+    "tools": "Werkzeuge",
+    "configure": "Konfigurieren",
+    "config_title": "{name} Konfiguration",
+    "key_placeholder": "Konfigurationsschlüssel",
+    "value_placeholder": "Konfigurationswert",
+    "secret": "Verschlüsseln",
+    "add": "Hinzufügen",
+    "no_config": "Keine Konfigurationseinträge",
+    "load_error": "Fehler beim Laden der Konfiguration",
+    "save_error": "Fehler beim Speichern der Konfiguration",
+    "delete_error": "Fehler beim Löschen der Konfiguration"
   },
   "validation": {
     "emailRequired": "Bitte geben Sie Ihre E-Mail-Adresse ein",
