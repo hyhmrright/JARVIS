@@ -7,6 +7,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agent.compressor import compact_messages
 from app.agent.graph import create_graph
 from app.agent.persona import build_system_prompt
+from app.agent.router import classify_task
 from app.agent.state import AgentState
+from app.agent.supervisor import SupervisorState, create_supervisor_graph
 from app.api.deps import ResolvedLLMConfig, get_current_user, get_llm_config
 from app.core.config import settings
 from app.core.security import resolve_api_key
@@ -102,6 +105,85 @@ def _extract_token_counts(ai_msg: object | None) -> tuple[int, int]:
     return meta.get("input_tokens", 0) or 0, meta.get("output_tokens", 0) or 0
 
 
+def _build_expert_graph(
+    route: str,
+    *,
+    provider: str,
+    model: str,
+    api_key: str,
+    api_keys: list[str] | None,
+    user_id: str,
+    openai_api_key: str | None,
+    tavily_api_key: str | None,
+    enabled_tools: list[str] | None,
+    mcp_tools: list,
+    plugin_tools: list | None,
+    conversation_id: str,
+) -> CompiledStateGraph:
+    """Return the appropriate compiled LangGraph for the given routing label.
+
+    Expert agents (code/research/writing) each select a focused tool subset.
+    Unknown labels fall back to the standard ReAct graph with all enabled tools.
+    """
+    from app.agent.experts import (
+        create_code_agent_graph,
+        create_research_agent_graph,
+        create_writing_agent_graph,
+    )
+
+    if route == "code":
+        return create_code_agent_graph(
+            provider=provider,
+            model=model,
+            api_key=api_key,
+            user_id=user_id,
+            openai_api_key=openai_api_key,
+            api_keys=api_keys,
+            mcp_tools=mcp_tools,
+            plugin_tools=plugin_tools,
+            conversation_id=conversation_id,
+        )
+    if route == "research":
+        return create_research_agent_graph(
+            provider=provider,
+            model=model,
+            api_key=api_key,
+            user_id=user_id,
+            openai_api_key=openai_api_key,
+            tavily_api_key=tavily_api_key,
+            api_keys=api_keys,
+            mcp_tools=mcp_tools,
+            plugin_tools=plugin_tools,
+            conversation_id=conversation_id,
+        )
+    if route == "writing":
+        return create_writing_agent_graph(
+            provider=provider,
+            model=model,
+            api_key=api_key,
+            user_id=user_id,
+            openai_api_key=openai_api_key,
+            api_keys=api_keys,
+            mcp_tools=mcp_tools,
+            plugin_tools=plugin_tools,
+            conversation_id=conversation_id,
+        )
+    # "simple" or any unknown label -> standard ReAct graph
+    return create_graph(
+        provider=provider,
+        model=model,
+        api_key=api_key,
+        enabled_tools=enabled_tools,
+        api_keys=api_keys,
+        user_id=user_id,
+        openai_api_key=openai_api_key,
+        tavily_api_key=tavily_api_key,
+        mcp_tools=mcp_tools,
+        plugin_tools=plugin_tools,
+        conversation_id=conversation_id,
+    )
+
+
 class ChatRequest(BaseModel):
     conversation_id: uuid.UUID
     content: str = Field(max_length=50000)
@@ -166,7 +248,7 @@ async def chat_stream(  # noqa: C901
     # Resolve Tavily API key for web search (server-level only)
     tavily_key = settings.tavily_api_key
 
-    async def generate() -> AsyncGenerator[str]:
+    async def generate() -> AsyncGenerator[str]:  # noqa: C901
         nonlocal lc_messages
         try:
             lc_messages = await compact_messages(
@@ -189,29 +271,72 @@ async def chat_stream(  # noqa: C901
         if llm.enabled_tools is None or "plugin" in llm.enabled_tools:
             plugin_tools = plugin_registry.get_all_tools() or None
 
-        graph = create_graph(
-            provider=llm.provider,
-            model=llm.model_name,
-            api_key=llm.api_key,
-            enabled_tools=llm.enabled_tools,
-            api_keys=llm.api_keys,
-            user_id=str(user.id),
-            openai_api_key=openai_key,
-            tavily_api_key=tavily_key,
-            mcp_tools=mcp_tools,
-            plugin_tools=plugin_tools,
-            conversation_id=str(conv_id),
-        )
+        # Route classification — consent signals bypass routing
+        route = "simple"
+        if not is_consent:
+            route = await classify_task(
+                body.content,
+                provider=llm.provider,
+                model=llm.model_name,
+                api_key=llm.api_key,
+            )
+            yield _format_sse({"type": "routing", "agent": route})
+            logger.info("chat_routed", route=route, conv_id=str(conv_id))
+
         full_content = ""
         last_ai_msg = None
-        state = AgentState(messages=lc_messages, approved=approved)
+
         try:
-            async for chunk in graph.astream(state):
-                if "llm" in chunk:
-                    last_ai_msg = chunk["llm"]["messages"][-1]
-                events, full_content = _sse_events_from_chunk(chunk, full_content)
-                for event in events:
-                    yield event
+            if route == "complex":
+                # Supervisor pattern: non-streaming, runs plan→execute→aggregate
+                supervisor = create_supervisor_graph(
+                    provider=llm.provider,
+                    model=llm.model_name,
+                    api_key=llm.api_key,
+                    api_keys=llm.api_keys,
+                    user_id=str(user.id),
+                    openai_api_key=openai_key,
+                    tavily_api_key=tavily_key,
+                    enabled_tools=llm.enabled_tools,
+                )
+                final_state = await supervisor.ainvoke(
+                    SupervisorState(messages=lc_messages)
+                )
+                msgs = final_state.get("messages", [])
+                if msgs:
+                    last_ai_msg = msgs[-1]
+                    full_content = str(getattr(last_ai_msg, "content", ""))
+                    if full_content:
+                        yield _format_sse(
+                            {
+                                "type": "delta",
+                                "delta": full_content,
+                                "content": full_content,
+                            }
+                        )
+            else:
+                # Expert or standard ReAct — all use streaming AgentState graphs
+                graph = _build_expert_graph(
+                    route,
+                    provider=llm.provider,
+                    model=llm.model_name,
+                    api_key=llm.api_key,
+                    api_keys=llm.api_keys,
+                    user_id=str(user.id),
+                    openai_api_key=openai_key,
+                    tavily_api_key=tavily_key,
+                    enabled_tools=llm.enabled_tools,
+                    mcp_tools=mcp_tools,
+                    plugin_tools=plugin_tools,
+                    conversation_id=str(conv_id),
+                )
+                state = AgentState(messages=lc_messages, approved=approved)
+                async for chunk in graph.astream(state):
+                    if "llm" in chunk:
+                        last_ai_msg = chunk["llm"]["messages"][-1]
+                    events, full_content = _sse_events_from_chunk(chunk, full_content)
+                    for event in events:
+                        yield event
         except Exception:
             logger.exception("chat_stream_error", conv_id=str(conv_id))
             raise

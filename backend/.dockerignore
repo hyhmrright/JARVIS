@@ -1,0 +1,26 @@
+# Local virtual environment — the image builds its own in Stage 1
+.venv
+
+# Byte-compiled files
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Dev / test artifacts
+.pytest_cache
+tests/
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov/
+
+# Secrets — never bake into image
+.env
+*.env
+
+# Editor / OS noise
+.DS_Store
+*.swp
+*.swo

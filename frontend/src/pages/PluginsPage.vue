@@ -1,0 +1,355 @@
+<template>
+  <div class="plugins-page">
+    <h1>{{ t("plugins.title") }}</h1>
+
+    <div v-if="loading" class="loading">{{ t("common.loading") }}</div>
+
+    <div v-else-if="plugins.length === 0" class="empty-state">
+      {{ t("plugins.empty") }}
+    </div>
+
+    <div v-else class="plugin-list">
+      <div
+        v-for="plugin in plugins"
+        :key="plugin.plugin_id"
+        class="plugin-card"
+      >
+        <div class="plugin-header">
+          <h3>{{ plugin.name }}</h3>
+          <span class="version">v{{ plugin.version }}</span>
+        </div>
+
+        <p class="description">{{ plugin.description }}</p>
+
+        <div v-if="plugin.tools.length" class="tools">
+          <span class="label">{{ t("plugins.tools") }}:</span>
+          <span v-for="tool in plugin.tools" :key="tool" class="tag">{{
+            tool
+          }}</span>
+        </div>
+
+        <button class="configure-btn" @click="openConfig(plugin)">
+          {{ t("plugins.configure") }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Config modal -->
+    <Teleport to="body">
+      <div v-if="activePlugin" class="modal-overlay" @click.self="closeModal">
+        <div class="modal">
+          <h2>
+            {{ t("plugins.config_title", { name: activePlugin.name }) }}
+          </h2>
+
+          <div v-if="configLoading" class="loading">
+            {{ t("common.loading") }}
+          </div>
+
+          <template v-else>
+            <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
+            <div class="config-list">
+              <div
+                v-for="(item, key) in currentConfig"
+                :key="key"
+                class="config-row"
+              >
+                <span class="config-key">{{ key }}</span>
+                <span class="config-value">{{
+                  item.is_secret ? "***" : item.value
+                }}</span>
+                <button class="delete-btn" @click="removeConfig(String(key))">
+                  ✕
+                </button>
+              </div>
+              <p
+                v-if="Object.keys(currentConfig).length === 0"
+                class="no-config"
+              >
+                {{ t("plugins.no_config") }}
+              </p>
+            </div>
+
+            <div class="add-config-form">
+              <input
+                v-model="newKey"
+                :placeholder="t('plugins.key_placeholder')"
+              />
+              <input
+                v-model="newValue"
+                :type="newIsSecret ? 'password' : 'text'"
+                :placeholder="t('plugins.value_placeholder')"
+              />
+              <label class="secret-label">
+                <input v-model="newIsSecret" type="checkbox" />
+                {{ t("plugins.secret") }}
+              </label>
+              <button
+                class="add-btn"
+                :disabled="!newKey.trim() || !newValue.trim()"
+                @click="addConfig"
+              >
+                {{ t("plugins.add") }}
+              </button>
+            </div>
+          </template>
+
+          <button class="close-btn" @click="closeModal">
+            {{ t("common.close") }}
+          </button>
+        </div>
+      </div>
+    </Teleport>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
+import { pluginsApi, type PluginInfo, type ConfigItem } from "@/api/plugins";
+
+const { t } = useI18n();
+
+const plugins = ref<PluginInfo[]>([]);
+const loading = ref(true);
+const activePlugin = ref<PluginInfo | null>(null);
+const currentConfig = ref<Record<string, ConfigItem>>({});
+const configLoading = ref(false);
+const newKey = ref("");
+const newValue = ref("");
+const newIsSecret = ref(false);
+const errorMsg = ref("");
+
+onMounted(async () => {
+  try {
+    const resp = await pluginsApi.list();
+    plugins.value = resp.data;
+  } catch {
+    plugins.value = [];
+  } finally {
+    loading.value = false;
+  }
+});
+
+async function openConfig(plugin: PluginInfo) {
+  activePlugin.value = plugin;
+  configLoading.value = true;
+  errorMsg.value = "";
+  try {
+    const resp = await pluginsApi.getConfig(plugin.plugin_id);
+    currentConfig.value = resp.data;
+  } catch {
+    errorMsg.value = t("plugins.load_error");
+    currentConfig.value = {};
+  } finally {
+    configLoading.value = false;
+  }
+}
+
+function closeModal() {
+  activePlugin.value = null;
+  newKey.value = "";
+  newValue.value = "";
+  newIsSecret.value = false;
+}
+
+async function addConfig() {
+  if (!activePlugin.value || !newKey.value.trim() || !newValue.value.trim())
+    return;
+  try {
+    await pluginsApi.setConfig(
+      activePlugin.value.plugin_id,
+      newKey.value.trim(),
+      newValue.value,
+      newIsSecret.value,
+    );
+    await openConfig(activePlugin.value);
+    newKey.value = "";
+    newValue.value = "";
+    newIsSecret.value = false;
+  } catch {
+    errorMsg.value = t("plugins.save_error");
+  }
+}
+
+async function removeConfig(key: string) {
+  if (!activePlugin.value) return;
+  try {
+    await pluginsApi.deleteConfig(activePlugin.value.plugin_id, key);
+    await openConfig(activePlugin.value);
+  } catch {
+    errorMsg.value = t("plugins.delete_error");
+  }
+}
+</script>
+
+<style scoped>
+.plugins-page {
+  padding: 2rem;
+  max-width: 960px;
+  margin: 0 auto;
+}
+.plugin-list {
+  display: grid;
+  gap: 1rem;
+}
+.plugin-card {
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+.plugin-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.plugin-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.version {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+.description {
+  color: #4b5563;
+  margin: 0.25rem 0 0.75rem;
+}
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-right: 0.25rem;
+}
+.tag {
+  background: #f3f4f6;
+  border-radius: 4px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+}
+.configure-btn {
+  padding: 0.375rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  background: white;
+}
+.configure-btn:hover {
+  background: #f9fafb;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  width: 520px;
+  max-width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.modal h2 {
+  margin: 0 0 1.5rem;
+  font-size: 1.1rem;
+}
+.config-list {
+  border: 1px solid #f3f4f6;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+.config-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+.config-row:last-child {
+  border-bottom: none;
+}
+.config-key {
+  font-weight: 500;
+  flex: 1;
+}
+.config-value {
+  color: #6b7280;
+  flex: 2;
+  font-family: monospace;
+}
+.delete-btn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 0.25rem;
+}
+.no-config {
+  color: #9ca3af;
+  text-align: center;
+  padding: 1rem;
+  margin: 0;
+}
+.add-config-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.add-config-form input[type="text"],
+.add-config-form input[type="password"] {
+  flex: 1;
+  min-width: 100px;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+.secret-label {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.add-btn {
+  padding: 0.375rem 1rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+.add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.close-btn {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  background: white;
+}
+.error-msg {
+  color: #ef4444;
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+}
+</style>

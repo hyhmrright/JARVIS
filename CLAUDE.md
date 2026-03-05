@@ -111,7 +111,11 @@ bun run dev --port 3100
 
 JARVIS is an AI assistant platform with RAG knowledge base, multi-LLM support, and streaming conversations, using a monorepo structure.
 
+**Completed features (Phase 1-6)**: RAG knowledge base, LangGraph ReAct agent tools (search/code_exec/datetime/file/shell/browser), Gateway (Traefik), Cron jobs, Webhooks, Canvas rendering, Voice (TTS/STT), monitoring stack (Grafana/Loki/Prometheus).
+
 JARVIS 是具备 RAG 知识库、多 LLM 支持、流式对话的 AI 助手平台，采用 monorepo 结构。
+
+**已完成功能（Phase 1-6）**：RAG 知识库、LangGraph ReAct agent 工具集（search/code_exec/datetime/file/shell/browser）、Gateway（Traefik）、Cron 定时任务、Webhooks、Canvas 渲染、Voice（TTS/STT）、监控栈（Grafana/Loki/Prometheus）。
 
 ## Core Architecture / 核心架构
 
@@ -137,6 +141,7 @@ JARVIS/
 │       ├── locales/   # i18n (zh/en/ja/ko/fr/de)
 │       └── router/    # Vue Router + auth guard
 ├── database/          # Docker init scripts (postgres/redis/qdrant)
+├── monitoring/        # Observability stack (Grafana/Loki/Prometheus configs)
 ├── docker-compose.yml # Full-stack orchestration
 └── pyproject.toml     # Root dev tools config (ruff/pre-commit), no runtime deps
 ```
@@ -213,6 +218,7 @@ bun run dev                           # Dev server :3000 (proxies /api → backe
 
 # Full-stack Docker (dev, with debug ports) / 全栈 Docker（开发模式，含调试端口）
 docker compose up -d                  # App :80 · Backend :8000 · Grafana :3001 · Traefik dashboard :8080
+docker compose ps                     # Verify all containers are healthy/running / 验证所有容器均 healthy/running
 
 # Full-stack Docker (production, no debug ports) / 全栈 Docker（生产模式，无调试端口）
 docker compose -f docker-compose.yml up -d  # App :80 · Grafana :3001 only
@@ -250,6 +256,7 @@ Rule: for every source file modified, read the corresponding test file(s) and ve
 
 ```bash
 # Run in backend/ directory / 在 backend/ 目录执行
+uv run pytest --collect-only -q          # Fast import check: catches runtime errors (e.g. response_model) that ruff/mypy miss / 快速 import 检查：发现 ruff/mypy 检测不到的运行时注册错误
 uv run pytest tests/ -v                        # All tests / 所有测试
 uv run pytest tests/api/test_auth.py -v        # Single file / 单个文件
 uv run pytest tests/api/test_auth.py::test_login -v  # Single test case / 单个用例
