@@ -1,5 +1,7 @@
 {
   "common": {
+    "close": "Fermer",
+    "loading": "Chargement...",
     "backToChat": "← Retour au chat",
     "networkError": "Erreur réseau, veuillez vérifier votre connexion",
     "rateLimitError": "Trop de requêtes, veuillez réessayer plus tard"
@@ -83,6 +85,21 @@
     "toolPermissionsDescription": "Activer ou désactiver les outils disponibles pour l'assistant IA.",
     "installedPlugins": "Plugins installés",
     "pluginTools": "{count} outil(s)"
+  },
+  "plugins": {
+    "title": "Gestion des plugins",
+    "empty": "Aucun plugin installé",
+    "tools": "Outils",
+    "configure": "Configurer",
+    "config_title": "Configuration de {name}",
+    "key_placeholder": "Clé de configuration",
+    "value_placeholder": "Valeur de configuration",
+    "secret": "Chiffrer",
+    "add": "Ajouter",
+    "no_config": "Aucune entrée de configuration",
+    "load_error": "Échec du chargement de la configuration",
+    "save_error": "Échec de l'enregistrement de la configuration",
+    "delete_error": "Échec de la suppression de la configuration"
   },
   "validation": {
     "emailRequired": "Veuillez saisir votre adresse e-mail",
