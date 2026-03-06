@@ -6,7 +6,7 @@ from collections.abc import AsyncGenerator
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -184,6 +184,55 @@ def _build_expert_graph(
     )
 
 
+async def _load_tools(enabled_tools: list[str] | None) -> tuple[list, list | None]:
+    """Load MCP and plugin tools based on the user's enabled_tools config."""
+    mcp_tools: list = []
+    if enabled_tools is None or "mcp" in enabled_tools:
+        from app.tools.mcp_client import create_mcp_tools, parse_mcp_configs
+
+        mcp_tools = await create_mcp_tools(parse_mcp_configs(settings.mcp_servers_json))
+
+    plugin_tools: list | None = None
+    if enabled_tools is None or "plugin" in enabled_tools:
+        plugin_tools = plugin_registry.get_all_tools() or None
+
+    return mcp_tools, plugin_tools
+
+
+async def _save_response(
+    conv_id: uuid.UUID,
+    full_content: str,
+    last_ai_msg: BaseMessage | None,
+    llm: ResolvedLLMConfig,
+) -> None:
+    """Persist AI response to DB and trigger markdown sync."""
+    if not full_content:
+        return
+    try:
+        tokens_in, tokens_out = _extract_token_counts(last_ai_msg)
+        async with AsyncSessionLocal() as session:
+            async with session.begin():
+                session.add(
+                    Message(
+                        conversation_id=conv_id,
+                        role="ai",
+                        content=full_content,
+                        model_provider=llm.provider,
+                        model_name=llm.model_name,
+                        tokens_input=tokens_in,
+                        tokens_output=tokens_out,
+                    )
+                )
+        logger.info(
+            "chat_stream_completed",
+            conv_id=str(conv_id),
+            response_chars=len(full_content),
+        )
+        asyncio.create_task(sync_conversation_to_markdown(conv_id))
+    except Exception:
+        logger.exception("failed_to_save_partial_response", conv_id=str(conv_id))
+
+
 class ChatRequest(BaseModel):
     conversation_id: uuid.UUID
     content: str = Field(max_length=50000)
@@ -259,17 +308,7 @@ async def chat_stream(  # noqa: C901
             )
         except Exception:
             logger.warning("context_compression_failed", exc_info=True)
-        mcp_tools: list = []
-        if llm.enabled_tools is None or "mcp" in llm.enabled_tools:
-            from app.tools.mcp_client import create_mcp_tools, parse_mcp_configs
-
-            mcp_tools = await create_mcp_tools(
-                parse_mcp_configs(settings.mcp_servers_json)
-            )
-
-        plugin_tools: list | None = None
-        if llm.enabled_tools is None or "plugin" in llm.enabled_tools:
-            plugin_tools = plugin_registry.get_all_tools() or None
+        mcp_tools, plugin_tools = await _load_tools(llm.enabled_tools)
 
         # Route classification — consent signals bypass routing
         route = "simple"
@@ -341,33 +380,7 @@ async def chat_stream(  # noqa: C901
             logger.exception("chat_stream_error", conv_id=str(conv_id))
             raise
         finally:
-            if full_content:
-                try:
-                    tokens_in, tokens_out = _extract_token_counts(last_ai_msg)
-                    async with AsyncSessionLocal() as session:
-                        async with session.begin():
-                            session.add(
-                                Message(
-                                    conversation_id=conv_id,
-                                    role="ai",
-                                    content=full_content,
-                                    model_provider=llm.provider,
-                                    model_name=llm.model_name,
-                                    tokens_input=tokens_in,
-                                    tokens_output=tokens_out,
-                                )
-                            )
-                    logger.info(
-                        "chat_stream_completed",
-                        conv_id=str(conv_id),
-                        response_chars=len(full_content),
-                    )
-                    # Sync to local Markdown
-                    asyncio.create_task(sync_conversation_to_markdown(conv_id))
-                except Exception:
-                    logger.exception(
-                        "failed_to_save_partial_response",
-                        conv_id=str(conv_id),
-                    )
+            # always runs; _save_response is a no-op when full_content is empty
+            await _save_response(conv_id, full_content, last_ai_msg, llm)
 
     return StreamingResponse(generate(), media_type="text/event-stream")
