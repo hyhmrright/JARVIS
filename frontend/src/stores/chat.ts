@@ -128,6 +128,12 @@ export const useChatStore = defineStore("chat", {
                 
                 if (data.type === "routing") {
                   this.routingAgent = data.agent;
+                } else if (data.type === "title_updated") {
+                  // Update conversation title in sidebar in real time
+                  const conv = this.conversations.find(c => c.id === this.currentConvId);
+                  if (conv) {
+                    conv.title = data.title;
+                  }
                 } else if (data.type === "approval_required") {
                   aiMsg.pending_tool_call = { name: data.tool, args: data.args };
                   this.streaming = false;
