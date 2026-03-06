@@ -8,7 +8,9 @@
     "loading": "加载中...",
     "backToChat": "← 返回聊天",
     "networkError": "网络错误，请检查网络连接",
-    "rateLimitError": "请求太频繁，请稍后再试"
+    "rateLimitError": "请求太频繁，请稍后再试",
+    "copy": "复制",
+    "copied": "已复制！"
   },
   "login": {
     "title": "登录 JARVIS",
@@ -150,5 +152,20 @@
     "schedule": "调度频率",
     "triggerType": "触发类型",
     "taskPrompt": "AI 任务指令"
+  },
+  "apiKeys": {
+    "title": "个人 API 密钥",
+    "description": "创建长效令牌，用于脚本或第三方工具访问 JARVIS API。",
+    "create": "新建密钥",
+    "createTitle": "新建 API 密钥",
+    "namePlaceholder": "密钥名称（如：我的脚本）",
+    "scopeFull": "完整访问",
+    "scopeReadonly": "只读访问",
+    "empty": "暂无 API 密钥",
+    "lastUsed": "最近使用",
+    "revoke": "撤销",
+    "confirmDelete": "确定要撤销这个 API 密钥吗？此操作不可恢复。",
+    "revealTitle": "你的新 API 密钥",
+    "revealWarning": "请立即复制，此密钥不会再次显示。"
   }
 }
