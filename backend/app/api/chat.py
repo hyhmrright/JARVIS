@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.compressor import compact_messages
@@ -279,6 +279,9 @@ async def chat_stream(  # noqa: C901
     system_msg = SystemMessage(content=build_system_prompt(llm.persona_override))
     lc_messages = [system_msg, *lc_messages]
 
+    # Detect first exchange before RAG injection (counts only human messages)
+    is_first_exchange = sum(1 for m in lc_messages if isinstance(m, HumanMessage)) == 1
+
     openai_key = resolve_api_key("openai", llm.raw_keys)
     lc_messages = await maybe_inject_rag_context(
         lc_messages, body.content, str(user.id), openai_key
@@ -324,6 +327,7 @@ async def chat_stream(  # noqa: C901
 
         full_content = ""
         last_ai_msg = None
+        stream_completed = False
 
         try:
             if route == "complex":
@@ -353,6 +357,7 @@ async def chat_stream(  # noqa: C901
                                 "content": full_content,
                             }
                         )
+                stream_completed = True
             else:
                 # Expert or standard ReAct — all use streaming AgentState graphs
                 graph = _build_expert_graph(
@@ -376,11 +381,57 @@ async def chat_stream(  # noqa: C901
                     events, full_content = _sse_events_from_chunk(chunk, full_content)
                     for event in events:
                         yield event
+            stream_completed = True
         except Exception:
             logger.exception("chat_stream_error", conv_id=str(conv_id))
             raise
         finally:
-            # always runs; _save_response is a no-op when full_content is empty
-            await _save_response(conv_id, full_content, last_ai_msg, llm)
+            new_title: str | None = None
+            if full_content:
+                try:
+                    if stream_completed and is_first_exchange:
+                        from app.agent.title_generator import generate_title
+
+                        new_title = await generate_title(
+                            user_message=body.content,
+                            ai_reply=full_content,
+                            provider=llm.provider,
+                            model=llm.model_name,
+                            api_key=llm.api_key,
+                        )
+
+                    tokens_in, tokens_out = _extract_token_counts(last_ai_msg)
+                    async with AsyncSessionLocal() as session:
+                        async with session.begin():
+                            session.add(
+                                Message(
+                                    conversation_id=conv_id,
+                                    role="ai",
+                                    content=full_content,
+                                    model_provider=llm.provider,
+                                    model_name=llm.model_name,
+                                    tokens_input=tokens_in,
+                                    tokens_output=tokens_out,
+                                )
+                            )
+                            if new_title:
+                                await session.execute(
+                                    update(Conversation)
+                                    .where(Conversation.id == conv_id)
+                                    .values(title=new_title)
+                                )
+                    logger.info(
+                        "chat_stream_completed",
+                        conv_id=str(conv_id),
+                        response_chars=len(full_content),
+                    )
+                    asyncio.create_task(sync_conversation_to_markdown(conv_id))
+                except Exception:
+                    logger.exception(
+                        "failed_to_save_partial_response",
+                        conv_id=str(conv_id),
+                    )
+            if new_title:
+                yield _format_sse({"type": "title_updated", "title": new_title})
 
     return StreamingResponse(generate(), media_type="text/event-stream")
