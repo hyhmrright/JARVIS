@@ -5,9 +5,9 @@ from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
 from sqlalchemy import select, update
@@ -21,6 +21,8 @@ from app.agent.state import AgentState
 from app.agent.supervisor import SupervisorState, create_supervisor_graph
 from app.api.deps import ResolvedLLMConfig, get_current_user, get_llm_config
 from app.core.config import settings
+from app.core.limiter import limiter
+from app.core.sanitizer import sanitize_user_input
 from app.core.security import resolve_api_key
 from app.db.models import AgentSession, Conversation, Message, User
 from app.db.session import AsyncSessionLocal, get_db
@@ -197,56 +199,25 @@ async def _load_tools(enabled_tools: list[str] | None) -> tuple[list, list | Non
     return mcp_tools, plugin_tools
 
 
-async def _save_response(
-    conv_id: uuid.UUID,
-    full_content: str,
-    last_ai_msg: BaseMessage | None,
-    llm: ResolvedLLMConfig,
-) -> None:
-    """Persist AI response to DB and trigger markdown sync."""
-    if not full_content:
-        return
-    try:
-        tokens_in, tokens_out = _extract_token_counts(last_ai_msg)
-        async with AsyncSessionLocal() as session:
-            async with session.begin():
-                session.add(
-                    Message(
-                        conversation_id=conv_id,
-                        role="ai",
-                        content=full_content,
-                        model_provider=llm.provider,
-                        model_name=llm.model_name,
-                        tokens_input=tokens_in,
-                        tokens_output=tokens_out,
-                    )
-                )
-        logger.info(
-            "chat_stream_completed",
-            conv_id=str(conv_id),
-            response_chars=len(full_content),
-        )
-        asyncio.create_task(sync_conversation_to_markdown(conv_id))
-    except Exception:
-        logger.exception("failed_to_save_partial_response", conv_id=str(conv_id))
-
-
 class ChatRequest(BaseModel):
     conversation_id: uuid.UUID
     content: str = Field(max_length=50000)
 
 
 @router.post("/stream")
+@limiter.limit("30/minute")
 async def chat_stream(  # noqa: C901
+    request: Request,
     body: ChatRequest,
     user: User = Depends(get_current_user),
     llm: ResolvedLLMConfig = Depends(get_llm_config),
     db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
-    is_consent = body.content.startswith("[CONSENT:")
+    user_content = sanitize_user_input(body.content)
+    is_consent = user_content.startswith("[CONSENT:")
     approved: bool | None = None
     if is_consent:
-        approved = "ALLOW" in body.content
+        approved = "ALLOW" in user_content
 
     conv = await db.scalar(
         select(Conversation).where(
@@ -258,7 +229,7 @@ async def chat_stream(  # noqa: C901
         raise HTTPException(status_code=404)
 
     if not is_consent:
-        db.add(Message(conversation_id=conv.id, role="human", content=body.content))
+        db.add(Message(conversation_id=conv.id, role="human", content=user_content))
         await db.commit()
 
     history_rows = await db.scalars(
@@ -284,7 +255,7 @@ async def chat_stream(  # noqa: C901
         "",
     )
     rag_query = (
-        f"{body.content}\n{last_ai_content[:200]}" if last_ai_content else body.content
+        f"{user_content}\n{last_ai_content[:200]}" if last_ai_content else user_content
     )
     lc_messages = await maybe_inject_rag_context(
         lc_messages, rag_query, str(user.id), openai_key
@@ -333,7 +304,7 @@ async def chat_stream(  # noqa: C901
         route = "simple"
         if not is_consent:
             route = await classify_task(
-                body.content,
+                user_content,
                 provider=llm.provider,
                 model=llm.model_name,
                 api_key=llm.api_key,
@@ -420,7 +391,7 @@ async def chat_stream(  # noqa: C901
                         from app.agent.title_generator import generate_title
 
                         new_title = await generate_title(
-                            user_message=body.content,
+                            user_message=user_content,
                             ai_reply=full_content,
                             provider=llm.provider,
                             model=llm.model_name,
