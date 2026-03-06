@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_admin_user
-from app.db.models import Conversation, Message, User, UserRole
+from app.db.models import AuditLog, Conversation, Message, User, UserRole
 from app.db.session import get_db
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -118,4 +118,49 @@ async def get_system_stats(
         "message_count": msg_count,
         "total_tokens_input": tokens.total_in or 0,
         "total_tokens_output": tokens.total_out or 0,
+    }
+
+
+@router.get("/audit-logs")
+async def list_audit_logs(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=200),
+    action: str | None = Query(None, description="Filter by action name"),
+    user_id: uuid.UUID | None = Query(None, description="Filter by user"),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_admin_user),
+) -> dict[str, Any]:
+    """List audit log entries with optional filtering."""
+    offset = (page - 1) * limit
+    query = select(AuditLog).order_by(AuditLog.created_at.desc())
+    count_query = select(func.count()).select_from(AuditLog)
+
+    if action:
+        query = query.where(AuditLog.action == action)
+        count_query = count_query.where(AuditLog.action == action)
+    if user_id:
+        query = query.where(AuditLog.user_id == user_id)
+        count_query = count_query.where(AuditLog.user_id == user_id)
+
+    total = await db.scalar(count_query) or 0
+    rows = (await db.scalars(query.offset(offset).limit(limit))).all()
+
+    return {
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "items": [
+            {
+                "id": str(row.id),
+                "user_id": str(row.user_id) if row.user_id else None,
+                "action": row.action,
+                "resource_type": row.resource_type,
+                "resource_id": row.resource_id,
+                "ip_address": row.ip_address,
+                "user_agent": row.user_agent,
+                "extra": row.extra,
+                "created_at": row.created_at.isoformat(),
+            }
+            for row in rows
+        ],
     }
