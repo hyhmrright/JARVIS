@@ -2,14 +2,15 @@ import asyncio
 import json
 import uuid
 from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.compressor import compact_messages
@@ -20,8 +21,10 @@ from app.agent.state import AgentState
 from app.agent.supervisor import SupervisorState, create_supervisor_graph
 from app.api.deps import ResolvedLLMConfig, get_current_user, get_llm_config
 from app.core.config import settings
+from app.core.limiter import limiter
+from app.core.sanitizer import sanitize_user_input
 from app.core.security import resolve_api_key
-from app.db.models import Conversation, Message, User
+from app.db.models import AgentSession, Conversation, Message, User
 from app.db.session import AsyncSessionLocal, get_db
 from app.plugins import plugin_registry
 from app.rag.retriever import maybe_inject_rag_context
@@ -60,7 +63,6 @@ def _sse_events_from_chunk(chunk: dict, full_content: str) -> tuple[list[str], s
             )
     elif "llm" in chunk:
         ai_msg = chunk["llm"]["messages"][-1]
-        # Emit tool_start events when the LLM decides to call tools
         if hasattr(ai_msg, "tool_calls") and ai_msg.tool_calls:
             for tc in ai_msg.tool_calls:
                 events.append(
@@ -73,7 +75,6 @@ def _sse_events_from_chunk(chunk: dict, full_content: str) -> tuple[list[str], s
                     )
                 )
 
-        # Delta logic
         new_content = ai_msg.content
         delta = new_content[len(full_content) :]
         full_content = new_content
@@ -168,7 +169,6 @@ def _build_expert_graph(
             plugin_tools=plugin_tools,
             conversation_id=conversation_id,
         )
-    # "simple" or any unknown label -> standard ReAct graph
     return create_graph(
         provider=provider,
         model=model,
@@ -184,23 +184,40 @@ def _build_expert_graph(
     )
 
 
+async def _load_tools(enabled_tools: list[str] | None) -> tuple[list, list | None]:
+    """Load MCP and plugin tools based on the user's enabled_tools config."""
+    mcp_tools: list = []
+    if enabled_tools is None or "mcp" in enabled_tools:
+        from app.tools.mcp_client import create_mcp_tools, parse_mcp_configs
+
+        mcp_tools = await create_mcp_tools(parse_mcp_configs(settings.mcp_servers_json))
+
+    plugin_tools: list | None = None
+    if enabled_tools is None or "plugin" in enabled_tools:
+        plugin_tools = plugin_registry.get_all_tools() or None
+
+    return mcp_tools, plugin_tools
+
+
 class ChatRequest(BaseModel):
     conversation_id: uuid.UUID
     content: str = Field(max_length=50000)
 
 
 @router.post("/stream")
+@limiter.limit("30/minute")
 async def chat_stream(  # noqa: C901
+    request: Request,
     body: ChatRequest,
     user: User = Depends(get_current_user),
     llm: ResolvedLLMConfig = Depends(get_llm_config),
     db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
-    # Check if this is a consent signal (HITL)
-    is_consent = body.content.startswith("[CONSENT:")
+    user_content = sanitize_user_input(body.content)
+    is_consent = user_content.startswith("[CONSENT:")
     approved: bool | None = None
     if is_consent:
-        approved = "ALLOW" in body.content
+        approved = "ALLOW" in user_content
 
     conv = await db.scalar(
         select(Conversation).where(
@@ -211,9 +228,8 @@ async def chat_stream(  # noqa: C901
     if not conv:
         raise HTTPException(status_code=404)
 
-    # Don't save metadata messages to database
     if not is_consent:
-        db.add(Message(conversation_id=conv.id, role="human", content=body.content))
+        db.add(Message(conversation_id=conv.id, role="human", content=user_content))
         await db.commit()
 
     history_rows = await db.scalars(
@@ -230,9 +246,19 @@ async def chat_stream(  # noqa: C901
     system_msg = SystemMessage(content=build_system_prompt(llm.persona_override))
     lc_messages = [system_msg, *lc_messages]
 
+    # Detect first exchange (for auto title generation later)
+    is_first_exchange = sum(1 for m in lc_messages if isinstance(m, HumanMessage)) == 1
+
     openai_key = resolve_api_key("openai", llm.raw_keys)
+    last_ai_content = next(
+        (msg.content for msg in reversed(lc_messages) if isinstance(msg, AIMessage)),
+        "",
+    )
+    rag_query = (
+        f"{user_content}\n{last_ai_content[:200]}" if last_ai_content else user_content
+    )
     lc_messages = await maybe_inject_rag_context(
-        lc_messages, body.content, str(user.id), openai_key
+        lc_messages, rag_query, str(user.id), openai_key
     )
 
     conv_id = conv.id
@@ -245,7 +271,6 @@ async def chat_stream(  # noqa: C901
         model=llm.model_name,
     )
 
-    # Resolve Tavily API key for web search (server-level only)
     tavily_key = settings.tavily_api_key
 
     async def generate() -> AsyncGenerator[str]:  # noqa: C901
@@ -259,23 +284,27 @@ async def chat_stream(  # noqa: C901
             )
         except Exception:
             logger.warning("context_compression_failed", exc_info=True)
-        mcp_tools: list = []
-        if llm.enabled_tools is None or "mcp" in llm.enabled_tools:
-            from app.tools.mcp_client import create_mcp_tools, parse_mcp_configs
+        agent_session_id: uuid.UUID | None = None
+        try:
+            async with AsyncSessionLocal() as _init_sess:
+                async with _init_sess.begin():
+                    ag_sess = AgentSession(
+                        conversation_id=conv_id,
+                        agent_type="main",
+                        status="active",
+                    )
+                    _init_sess.add(ag_sess)
+                    await _init_sess.flush()
+                    agent_session_id = ag_sess.id
+        except Exception:
+            logger.warning("agent_session_create_failed", exc_info=True)
 
-            mcp_tools = await create_mcp_tools(
-                parse_mcp_configs(settings.mcp_servers_json)
-            )
+        mcp_tools, plugin_tools = await _load_tools(llm.enabled_tools)
 
-        plugin_tools: list | None = None
-        if llm.enabled_tools is None or "plugin" in llm.enabled_tools:
-            plugin_tools = plugin_registry.get_all_tools() or None
-
-        # Route classification — consent signals bypass routing
         route = "simple"
         if not is_consent:
             route = await classify_task(
-                body.content,
+                user_content,
                 provider=llm.provider,
                 model=llm.model_name,
                 api_key=llm.api_key,
@@ -285,10 +314,13 @@ async def chat_stream(  # noqa: C901
 
         full_content = ""
         last_ai_msg = None
+        stream_completed = False
+        stream_error = False
 
         try:
             if route == "complex":
                 # Supervisor pattern: non-streaming, runs plan→execute→aggregate
+                yield _format_sse({"type": "status", "message": "正在规划复杂任务..."})
                 supervisor = create_supervisor_graph(
                     provider=llm.provider,
                     model=llm.model_name,
@@ -303,17 +335,26 @@ async def chat_stream(  # noqa: C901
                     SupervisorState(messages=lc_messages)
                 )
                 msgs = final_state.get("messages", [])
+                if not msgs:
+                    yield _format_sse({"type": "delta", "delta": "", "content": ""})
                 if msgs:
                     last_ai_msg = msgs[-1]
                     full_content = str(getattr(last_ai_msg, "content", ""))
-                    if full_content:
-                        yield _format_sse(
-                            {
-                                "type": "delta",
-                                "delta": full_content,
-                                "content": full_content,
-                            }
-                        )
+                    # Chunk output every 50 chars for a streaming feel;
+                    # yield control between pieces so ASGI flushes each frame.
+                    if not full_content:
+                        yield _format_sse({"type": "delta", "delta": "", "content": ""})
+                    chunk_size = 50
+                    total = len(full_content)
+                    for i in range(0, total, chunk_size):
+                        piece = full_content[i : i + chunk_size]
+                        is_last = i + chunk_size >= total
+                        sse_event: dict = {"type": "delta", "delta": piece}
+                        if is_last:
+                            sse_event["content"] = full_content
+                        yield _format_sse(sse_event)
+                        if not is_last:
+                            await asyncio.sleep(0)
             else:
                 # Expert or standard ReAct — all use streaming AgentState graphs
                 graph = _build_expert_graph(
@@ -337,12 +378,26 @@ async def chat_stream(  # noqa: C901
                     events, full_content = _sse_events_from_chunk(chunk, full_content)
                     for event in events:
                         yield event
+            stream_completed = True
         except Exception:
+            stream_error = True
             logger.exception("chat_stream_error", conv_id=str(conv_id))
             raise
         finally:
+            new_title: str | None = None
             if full_content:
                 try:
+                    if stream_completed and is_first_exchange:
+                        from app.agent.title_generator import generate_title
+
+                        new_title = await generate_title(
+                            user_message=user_content,
+                            ai_reply=full_content,
+                            provider=llm.provider,
+                            model=llm.model_name,
+                            api_key=llm.api_key,
+                        )
+
                     tokens_in, tokens_out = _extract_token_counts(last_ai_msg)
                     async with AsyncSessionLocal() as session:
                         async with session.begin():
@@ -357,17 +412,40 @@ async def chat_stream(  # noqa: C901
                                     tokens_output=tokens_out,
                                 )
                             )
+                            if new_title:
+                                await session.execute(
+                                    update(Conversation)
+                                    .where(Conversation.id == conv_id)
+                                    .values(title=new_title)
+                                )
                     logger.info(
                         "chat_stream_completed",
                         conv_id=str(conv_id),
                         response_chars=len(full_content),
                     )
-                    # Sync to local Markdown
                     asyncio.create_task(sync_conversation_to_markdown(conv_id))
                 except Exception:
+                    new_title = None  # Don't emit title_updated if DB write failed
                     logger.exception(
                         "failed_to_save_partial_response",
                         conv_id=str(conv_id),
                     )
+            if agent_session_id:
+                try:
+                    session_status = "error" if stream_error else "completed"
+                    async with AsyncSessionLocal() as status_sess:
+                        async with status_sess.begin():
+                            await status_sess.execute(
+                                update(AgentSession)
+                                .where(AgentSession.id == agent_session_id)
+                                .values(
+                                    status=session_status,
+                                    completed_at=datetime.now(UTC),
+                                )
+                            )
+                except Exception:
+                    logger.warning("agent_session_update_failed", exc_info=True)
+            if new_title:
+                yield _format_sse({"type": "title_updated", "title": new_title})
 
     return StreamingResponse(generate(), media_type="text/event-stream")

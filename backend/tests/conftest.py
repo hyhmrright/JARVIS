@@ -1,5 +1,6 @@
 import os
 import uuid
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -38,6 +39,39 @@ def disable_rate_limiting():
     limiter.enabled = False
     yield
     limiter.enabled = True
+
+
+@pytest.fixture(autouse=True)
+def _suppress_auth_audit_logging():
+    """Mock audit logging in auth endpoints to prevent cross-event-loop pool issues.
+
+    Each async test gets its own event loop. log_action() acquires connections from
+    the module-level AsyncSessionLocal pool; those connections are bound to the calling
+    event loop and become invalid in the next test's event loop, causing asyncpg's
+    "another operation is in progress" error. Suppressing the call here prevents pool
+    contamination without affecting the dedicated test_audit.py unit tests.
+    """
+    with patch("app.api.auth.log_action", AsyncMock(return_value=None)):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def _suppress_pat_last_used_update():
+    """Mock AsyncSessionLocal in deps to prevent cross-event-loop pool contamination.
+
+    _resolve_pat() uses AsyncSessionLocal (now imported at module level in deps.py)
+    to update last_used_at. Those connections are bound to the calling event loop
+    and become invalid in the next test's event loop. Patching
+    app.api.deps.AsyncSessionLocal only affects the deps module namespace —
+    app.db.session.AsyncSessionLocal (used by get_db) is left intact.
+    """
+    mock_session = MagicMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+    mock_session.begin = MagicMock(return_value=mock_session)
+    mock_session.scalar = AsyncMock(return_value=None)
+    with patch("app.api.deps.AsyncSessionLocal", return_value=mock_session):
+        yield
 
 
 @pytest.fixture(scope="session")

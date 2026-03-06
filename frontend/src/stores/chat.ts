@@ -65,11 +65,9 @@ export const useChatStore = defineStore("chat", {
       const lastAiMsg = this.messages[this.messages.length - 1];
       if (!lastAiMsg || !lastAiMsg.pending_tool_call) return;
 
-      // Clear the pending state
       const callInfo = lastAiMsg.pending_tool_call;
       lastAiMsg.pending_tool_call = undefined;
 
-      // Resume by sending the approval signal to the stream
       await this.sendMessage(`[CONSENT:${approved ? 'ALLOW' : 'DENY'}] ${callInfo.name}`);
     },
 
@@ -81,7 +79,6 @@ export const useChatStore = defineStore("chat", {
         this.currentConvId = data.id;
       }
       
-      // If it's a consent hidden message, don't show it
       if (!content.startsWith("[CONSENT:")) {
         this.messages.push({ role: "human", content });
         this.messages.push({ role: "ai", content: "" });
@@ -128,6 +125,11 @@ export const useChatStore = defineStore("chat", {
                 
                 if (data.type === "routing") {
                   this.routingAgent = data.agent;
+                } else if (data.type === "title_updated") {
+                  const conv = this.conversations.find(c => c.id === this.currentConvId);
+                  if (conv && data.title) {
+                    conv.title = data.title;
+                  }
                 } else if (data.type === "approval_required") {
                   aiMsg.pending_tool_call = { name: data.tool, args: data.args };
                   this.streaming = false;

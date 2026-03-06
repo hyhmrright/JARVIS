@@ -26,11 +26,8 @@ def mock_embedder():
 
 @pytest.mark.asyncio
 async def test_retrieve_context_returns_chunks_above_threshold(mock_embedder):
-    """Hits above score_threshold are returned; hits below are filtered out."""
-    hits = [
-        _make_hit(score=0.85, text="Relevant content"),
-        _make_hit(score=0.60, text="Less relevant content"),
-    ]
+    """score_threshold is forwarded to Qdrant; Qdrant returns only matching hits."""
+    hits = [_make_hit(score=0.85, text="Relevant content")]
     mock_client = AsyncMock()
     mock_client.search = AsyncMock(return_value=hits)
 
@@ -44,6 +41,9 @@ async def test_retrieve_context_returns_chunks_above_threshold(mock_embedder):
             openai_api_key="sk-test",
             score_threshold=0.7,
         )
+
+    call_kwargs = mock_client.search.call_args.kwargs
+    assert call_kwargs.get("score_threshold") == 0.7
 
     assert len(result) == 1
     assert isinstance(result[0], RetrievedChunk)

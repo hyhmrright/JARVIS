@@ -1,14 +1,16 @@
+import hashlib
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
-from fastapi import Depends, HTTPException, Query, status
+from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import DEFAULT_ENABLED_TOOLS
 from app.core.security import decode_access_token, resolve_api_keys
-from app.db.models import User, UserRole, UserSettings
-from app.db.session import get_db
+from app.db.models import ApiKey, User, UserRole, UserSettings
+from app.db.session import AsyncSessionLocal, get_db
 
 security = HTTPBearer()
 
@@ -26,8 +28,23 @@ class ResolvedLLMConfig:
     raw_keys: dict[str, str]
 
 
-async def _resolve_user(token: str, db: AsyncSession) -> User:
-    """Decode a JWT token and return the active user, or raise 401."""
+async def _resolve_user(
+    token: str, db: AsyncSession, request: Request | None = None
+) -> User:
+    """Authenticate by JWT or PAT token and return the active user.
+
+    PAT tokens start with ``jv_``. Scope is stored in
+    ``request.state.api_key_scope`` for optional downstream enforcement.
+    JWT tokens always get scope ``full``.
+    """
+    if token.startswith("jv_"):
+        return await _resolve_pat(token, db, request)
+    return await _resolve_jwt(token, db, request)
+
+
+async def _resolve_jwt(
+    token: str, db: AsyncSession, request: Request | None = None
+) -> User:
     try:
         user_id = decode_access_token(token)
     except Exception as exc:
@@ -41,23 +58,61 @@ async def _resolve_user(token: str, db: AsyncSession) -> User:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
         )
+    if request is not None:
+        request.state.api_key_scope = "full"
+    return user
+
+
+async def _resolve_pat(
+    token: str, db: AsyncSession, request: Request | None = None
+) -> User:
+    key_hash = hashlib.sha256(token.encode()).hexdigest()
+    api_key = await db.scalar(select(ApiKey).where(ApiKey.key_hash == key_hash))
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key"
+        )
+    if api_key.expires_at and api_key.expires_at < datetime.now(UTC):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="API key expired"
+        )
+    user = await db.scalar(
+        select(User).where(User.id == api_key.user_id, User.is_active == True)  # noqa: E712
+    )
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
+        )
+    # Update last_used_at in an isolated session to avoid committing the
+    # shared request session from within the auth dependency.
+    async with AsyncSessionLocal() as _session:
+        async with _session.begin():
+            result = await _session.scalar(
+                select(ApiKey).where(ApiKey.id == api_key.id)
+            )
+            if result is not None:
+                result.last_used_at = datetime.now(UTC)
+    if request is not None:
+        request.state.api_key_scope = api_key.scope
     return user
 
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
+    request: Request = None,  # type: ignore[assignment]
 ) -> User:
-    return await _resolve_user(credentials.credentials, db)
+    return await _resolve_user(credentials.credentials, db, request)
 
 
 async def get_current_user_query_token(
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),
+    request: Request = None,  # type: ignore[assignment]
 ) -> User:
     """Authenticate via ?token= query param (for SSE endpoints where headers
     aren't supported)."""
-    return await _resolve_user(token, db)
+    return await _resolve_user(token, db, request)
 
 
 async def get_admin_user(user: User = Depends(get_current_user)) -> User:

@@ -45,7 +45,7 @@ async def run_agent_for_user(user_id: str, task: str) -> str:
             api_keys = resolve_api_keys(provider, raw_keys)
             if not api_keys:
                 logger.warning("agent_runner_no_api_keys", user_id=user_id)
-                return "No API key configured for this user."
+                return "未配置可用的 API Key，请先在设置页面中添加。"
 
             conv = Conversation(
                 user_id=uuid.UUID(user_id),
@@ -103,4 +103,4 @@ async def run_agent_for_user(user_id: str, task: str) -> str:
             return ai_content
     except Exception:
         logger.exception("agent_runner_error", user_id=user_id)
-        return "Agent execution failed."
+        return "抱歉，处理请求时出现错误，请稍后重试。"
