@@ -6,7 +6,7 @@ from collections.abc import AsyncGenerator
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -202,7 +202,7 @@ async def _load_tools(enabled_tools: list[str] | None) -> tuple[list, list | Non
 async def _save_response(
     conv_id: uuid.UUID,
     full_content: str,
-    last_ai_msg: object | None,
+    last_ai_msg: BaseMessage | None,
     llm: ResolvedLLMConfig,
 ) -> None:
     """Persist AI response to DB and trigger markdown sync."""

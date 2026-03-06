@@ -7,19 +7,25 @@ from langchain_core.messages import AIMessage
 
 from app.gateway.agent_runner import run_agent_for_user
 
+_USER_ID = "00000000-0000-0000-0000-000000000001"
+
+
+def _make_user_settings() -> MagicMock:
+    """Return a MagicMock mimicking a UserSettings row with defaults."""
+    us = MagicMock()
+    us.model_provider = "deepseek"
+    us.model_name = "deepseek-chat"
+    us.api_keys = {}
+    us.persona_override = None
+    us.enabled_tools = None
+    return us
+
 
 @pytest.mark.asyncio
 async def test_run_agent_for_user_returns_ai_reply():
     """Successful run returns the AI message content."""
-    mock_us = MagicMock()
-    mock_us.model_provider = "deepseek"
-    mock_us.model_name = "deepseek-chat"
-    mock_us.api_keys = {}
-    mock_us.persona_override = None
-    mock_us.enabled_tools = None
-
     mock_db = AsyncMock()
-    mock_db.scalar = AsyncMock(return_value=mock_us)
+    mock_db.scalar = AsyncMock(return_value=_make_user_settings())
     mock_db.add = MagicMock()
     mock_db.flush = AsyncMock()
     mock_db.commit = AsyncMock()
@@ -36,9 +42,7 @@ async def test_run_agent_for_user_returns_ai_reply():
         patch("app.gateway.agent_runner.resolve_api_keys", return_value=["fake-key"]),
         patch("app.gateway.agent_runner.create_graph", return_value=mock_graph),
     ):
-        result = await run_agent_for_user(
-            "00000000-0000-0000-0000-000000000001", "帮我做个计划"
-        )
+        result = await run_agent_for_user(_USER_ID, "帮我做个计划")
 
     assert result == "任务完成。"
     mock_graph.ainvoke.assert_called_once()
@@ -47,15 +51,8 @@ async def test_run_agent_for_user_returns_ai_reply():
 @pytest.mark.asyncio
 async def test_run_agent_for_user_no_api_key_returns_message():
     """Missing API key returns a descriptive error string without raising."""
-    mock_us = MagicMock()
-    mock_us.model_provider = "deepseek"
-    mock_us.model_name = "deepseek-chat"
-    mock_us.api_keys = {}
-    mock_us.persona_override = None
-    mock_us.enabled_tools = None
-
     mock_db = AsyncMock()
-    mock_db.scalar = AsyncMock(return_value=mock_us)
+    mock_db.scalar = AsyncMock(return_value=_make_user_settings())
 
     mock_ctx = AsyncMock()
     mock_ctx.__aenter__ = AsyncMock(return_value=mock_db)
@@ -65,11 +62,9 @@ async def test_run_agent_for_user_no_api_key_returns_message():
         patch("app.gateway.agent_runner.AsyncSessionLocal", return_value=mock_ctx),
         patch("app.gateway.agent_runner.resolve_api_keys", return_value=[]),
     ):
-        result = await run_agent_for_user(
-            "00000000-0000-0000-0000-000000000001", "test"
-        )
+        result = await run_agent_for_user(_USER_ID, "test")
 
-    assert result == "No API key configured for this user."
+    assert result == "未配置可用的 API Key，请先在设置页面中添加。"
 
 
 @pytest.mark.asyncio
@@ -80,8 +75,6 @@ async def test_run_agent_for_user_exception_returns_chinese_message():
     mock_ctx.__aexit__ = AsyncMock(return_value=None)
 
     with patch("app.gateway.agent_runner.AsyncSessionLocal", return_value=mock_ctx):
-        result = await run_agent_for_user(
-            "00000000-0000-0000-0000-000000000001", "test"
-        )
+        result = await run_agent_for_user(_USER_ID, "test")
 
     assert result == "抱歉，处理请求时出现错误，请稍后重试。"
