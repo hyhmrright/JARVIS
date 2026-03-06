@@ -18,6 +18,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import log_action
 from app.core.limiter import limiter
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.models import User, UserSettings
@@ -78,6 +79,7 @@ async def register(
     db.add(UserSettings(user_id=user.id))
     await db.commit()
     logger.info("user_registered", user_id=str(user.id), email=body.email)
+    await log_action("user.register", user_id=user.id, request=request)
     return TokenResponse(
         access_token=create_access_token(str(user.id)),
         role=user.role,
@@ -92,13 +94,25 @@ async def login(
 ) -> TokenResponse:
     """验证邮箱和密码，成功后返回 JWT token。"""
     user = await db.scalar(select(User).where(User.email == body.email))
-    if not user or not await asyncio.to_thread(
+    password_ok = user is not None and await asyncio.to_thread(
         verify_password, body.password, user.password_hash
-    ):
+    )
+    if not password_ok:
         # 统一返回 401，不区分"用户不存在"和"密码错误"以防枚举攻击
         logger.warning("login_failed", email=body.email)
+        # Record user_id when the account exists (does not leak enumeration to caller).
+        await log_action(
+            "user.login_failed",
+            user_id=user.id if user else None,
+            # Storing the attempted email is intentional for forensic
+            # correlation; it is admin-only and never returned to the caller.
+            extra={"email": body.email},
+            request=request,
+        )
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    assert user is not None  # narrowing: password_ok=True implies user was found
     logger.info("login_success", user_id=str(user.id), email=user.email)
+    await log_action("user.login", user_id=user.id, request=request)
     return TokenResponse(
         access_token=create_access_token(str(user.id)),
         role=user.role,

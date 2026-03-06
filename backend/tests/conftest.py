@@ -1,5 +1,6 @@
 import os
 import uuid
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -38,6 +39,20 @@ def disable_rate_limiting():
     limiter.enabled = False
     yield
     limiter.enabled = True
+
+
+@pytest.fixture(autouse=True)
+def _suppress_auth_audit_logging():
+    """Mock audit logging in auth endpoints to prevent cross-event-loop pool issues.
+
+    Each async test gets its own event loop. log_action() acquires connections from
+    the module-level AsyncSessionLocal pool; those connections are bound to the calling
+    event loop and become invalid in the next test's event loop, causing asyncpg's
+    "another operation is in progress" error. Suppressing the call here prevents pool
+    contamination without affecting the dedicated test_audit.py unit tests.
+    """
+    with patch("app.api.auth.log_action", AsyncMock(return_value=None)):
+        yield
 
 
 @pytest.fixture(scope="session")
