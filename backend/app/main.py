@@ -17,6 +17,7 @@ from app.api.conversations import router as conversations_router
 from app.api.cron import router as cron_router
 from app.api.documents import router as documents_router
 from app.api.gateway import router as gateway_router
+from app.api.keys import router as keys_router
 from app.api.logs import router as logs_router
 from app.api.plugins import router as plugins_router
 from app.api.settings import router as settings_router
@@ -126,6 +127,7 @@ app.include_router(tts_router)
 app.include_router(voice_router)
 app.include_router(usage_router)
 app.include_router(webhooks_router)
+app.include_router(keys_router)
 
 
 @app.get("/health")
