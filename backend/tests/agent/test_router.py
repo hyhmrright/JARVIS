@@ -22,9 +22,7 @@ async def test_classify_returns_valid_label():
         mock_get_llm.return_value = mock_llm
 
         # Message has action word "帮" → falls through rule layer to LLM
-        result = await classify_task(
-            "请帮我协调这个数据处理工作流", **_CALL_KWARGS
-        )
+        result = await classify_task("请帮我协调这个数据处理工作流", **_CALL_KWARGS)
         assert result == "code"
         mock_get_llm.assert_called_once()
 
