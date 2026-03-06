@@ -4,7 +4,10 @@
     "loading": "Chargement...",
     "backToChat": "← Retour au chat",
     "networkError": "Erreur réseau, veuillez vérifier votre connexion",
-    "rateLimitError": "Trop de requêtes, veuillez réessayer plus tard"
+    "rateLimitError": "Trop de requêtes, veuillez réessayer plus tard",
+    "cancel": "Annuler",
+    "copy": "Copier",
+    "copied": "Copié !"
   },
   "login": {
     "title": "Connexion à JARVIS",
@@ -106,5 +109,20 @@
     "emailInvalid": "Veuillez saisir une adresse e-mail valide",
     "passwordRequired": "Veuillez saisir votre mot de passe",
     "passwordMinLength": "Le mot de passe doit contenir au moins 8 caractères"
+  },
+  "apiKeys": {
+    "title": "Clés API personnelles",
+    "description": "Créez des jetons durables pour accéder à l'API JARVIS depuis des scripts ou outils tiers.",
+    "create": "Nouvelle clé",
+    "createTitle": "Créer une clé API",
+    "namePlaceholder": "Nom de la clé (ex : Mon script)",
+    "scopeFull": "Accès complet",
+    "scopeReadonly": "Lecture seule",
+    "empty": "Aucune clé API",
+    "lastUsed": "Dernière utilisation",
+    "revoke": "Révoquer",
+    "confirmDelete": "Révoquer cette clé API ? Cette action est irréversible.",
+    "revealTitle": "Votre nouvelle clé API",
+    "revealWarning": "Copiez-la maintenant, elle ne sera plus affichée."
   }
 }

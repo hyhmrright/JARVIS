@@ -128,6 +128,113 @@
           </div>
         </section>
 
+        <!-- Personal API Keys (PAT) -->
+        <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm">
+          <div class="flex items-center justify-between mb-6">
+            <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase">
+              {{ $t('apiKeys.title') }}
+            </h3>
+            <button
+              type="button"
+              class="text-xs font-medium px-3 py-1.5 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-colors"
+              @click="showCreateKeyModal = true"
+            >
+              + {{ $t('apiKeys.create') }}
+            </button>
+          </div>
+          <p class="text-xs text-zinc-500 mb-4">{{ $t('apiKeys.description') }}</p>
+          <div v-if="apiKeysList.length === 0" class="text-xs text-zinc-600 italic">
+            {{ $t('apiKeys.empty') }}
+          </div>
+          <div v-else class="space-y-2">
+            <div
+              v-for="key in apiKeysList"
+              :key="key.id"
+              class="flex items-center justify-between bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3"
+            >
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium text-zinc-200 truncate">{{ key.name }}</span>
+                  <span
+                    class="text-[10px] px-1.5 py-0.5 rounded font-mono"
+                    :class="key.scope === 'readonly' ? 'bg-amber-500/20 text-amber-400' : 'bg-green-500/20 text-green-400'"
+                  >{{ key.scope }}</span>
+                </div>
+                <div class="text-xs text-zinc-500 font-mono mt-0.5">
+                  {{ key.prefix }}••••••••
+                  <span v-if="key.last_used_at" class="ml-3 font-sans">
+                    {{ $t('apiKeys.lastUsed') }}: {{ new Date(key.last_used_at).toLocaleDateString() }}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                class="ml-4 text-xs text-red-400 hover:text-red-300 transition-colors"
+                @click="handleDeleteKey(key.id)"
+              >
+                {{ $t('apiKeys.revoke') }}
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Create Key Modal -->
+        <Teleport to="body">
+          <div v-if="showCreateKeyModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <div class="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 w-full max-w-sm mx-4 shadow-xl">
+              <h4 class="text-sm font-semibold text-zinc-200 mb-4">{{ $t('apiKeys.createTitle') }}</h4>
+              <div class="space-y-3">
+                <input
+                  v-model="newKeyName"
+                  type="text"
+                  class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600"
+                  :placeholder="$t('apiKeys.namePlaceholder')"
+                />
+                <select
+                  v-model="newKeyScope"
+                  class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600"
+                >
+                  <option value="full">full — {{ $t('apiKeys.scopeFull') }}</option>
+                  <option value="readonly">readonly — {{ $t('apiKeys.scopeReadonly') }}</option>
+                </select>
+              </div>
+              <div class="flex gap-3 mt-5">
+                <button
+                  type="button"
+                  class="flex-1 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors"
+                  @click="handleCreateKey"
+                >{{ $t('apiKeys.create') }}</button>
+                <button
+                  type="button"
+                  class="flex-1 py-2.5 text-sm bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors"
+                  @click="showCreateKeyModal = false"
+                >{{ $t('common.cancel') }}</button>
+              </div>
+            </div>
+          </div>
+        </Teleport>
+
+        <!-- One-time key reveal modal -->
+        <Teleport to="body">
+          <div v-if="justCreatedKey" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <div class="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl">
+              <h4 class="text-sm font-semibold text-zinc-200 mb-2">{{ $t('apiKeys.revealTitle') }}</h4>
+              <p class="text-xs text-amber-400 mb-4">{{ $t('apiKeys.revealWarning') }}</p>
+              <div class="flex items-center gap-2 bg-zinc-950 border border-zinc-700 rounded-lg px-4 py-3">
+                <code class="flex-1 text-xs font-mono text-green-400 break-all">{{ justCreatedKey }}</code>
+                <button type="button" class="text-xs text-zinc-400 hover:text-zinc-200 transition-colors whitespace-nowrap" @click="copyKey">
+                  {{ keysCopied ? $t('common.copied') : $t('common.copy') }}
+                </button>
+              </div>
+              <button
+                type="button"
+                class="w-full mt-4 py-2.5 text-sm bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors"
+                @click="justCreatedKey = null"
+              >{{ $t('common.close') }}</button>
+            </div>
+          </div>
+        </Teleport>
+
         <div class="flex justify-end pt-4">
           <button type="submit" class="px-8 py-3 bg-white text-black text-sm font-bold rounded-lg hover:bg-zinc-200 transition-colors disabled:opacity-50" :disabled="saving">
             {{ saving ? $t("settings.saving") : $t("settings.save") }}
@@ -156,8 +263,10 @@ import { useI18n } from "vue-i18n";
 import client from "@/api/client";
 import PageHeader from "@/components/PageHeader.vue";
 import { SUPPORTED_LOCALES } from "@/i18n";
+import { listApiKeys, createApiKey, deleteApiKey } from "@/api/keys";
+import type { ApiKeyItem, ApiKeyCreateRequest } from "@/api/keys";
 
-const { locale } = useI18n();
+const { locale, t } = useI18n();
 
 const onLocaleChange = (e: Event) => {
   const newLocale = (e.target as HTMLSelectElement).value;
@@ -206,6 +315,50 @@ function toggleTool(name: string) {
   else enabledTools.value.push(name);
 }
 
+// ── Personal API Keys ──────────────────────────────────────────────────────
+const apiKeysList = ref<ApiKeyItem[]>([]);
+const showCreateKeyModal = ref(false);
+const newKeyName = ref("");
+const newKeyScope = ref<"full" | "readonly">("full");
+const justCreatedKey = ref<string | null>(null);
+const keysCopied = ref(false);
+
+async function loadApiKeys(): Promise<void> {
+  try {
+    apiKeysList.value = await listApiKeys();
+  } catch {
+    // silently ignore on load failure
+  }
+}
+
+async function handleCreateKey(): Promise<void> {
+  if (!newKeyName.value.trim()) return;
+  const req: ApiKeyCreateRequest = {
+    name: newKeyName.value.trim(),
+    scope: newKeyScope.value,
+  };
+  const resp = await createApiKey(req);
+  justCreatedKey.value = resp.raw_key;
+  newKeyName.value = "";
+  newKeyScope.value = "full";
+  showCreateKeyModal.value = false;
+  await loadApiKeys();
+}
+
+async function handleDeleteKey(id: string): Promise<void> {
+  if (!confirm(t("apiKeys.confirmDelete"))) return;
+  await deleteApiKey(id);
+  await loadApiKeys();
+}
+
+function copyKey(): void {
+  if (justCreatedKey.value) {
+    navigator.clipboard.writeText(justCreatedKey.value);
+    keysCopied.value = true;
+    setTimeout(() => (keysCopied.value = false), 2000);
+  }
+}
+
 onMounted(async () => {
   try {
     const { data } = await client.get("/settings");
@@ -218,6 +371,7 @@ onMounted(async () => {
     if (PROVIDER_MODELS[provider.value]?.includes(savedModel)) modelSelect.value = savedModel;
     else { modelSelect.value = "__custom__"; customModelName.value = savedModel; }
   } catch { /* settings not yet saved, use defaults */ }
+  await loadApiKeys();
 });
 
 async function save() {

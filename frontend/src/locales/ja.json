@@ -4,7 +4,10 @@
     "loading": "読み込み中...",
     "backToChat": "← チャットに戻る",
     "networkError": "ネットワークエラーです。接続を確認してください",
-    "rateLimitError": "リクエストが多すぎます。しばらくしてから再試行してください"
+    "rateLimitError": "リクエストが多すぎます。しばらくしてから再試行してください",
+    "cancel": "キャンセル",
+    "copy": "コピー",
+    "copied": "コピー済み！"
   },
   "login": {
     "title": "JARVIS にログイン",
@@ -106,5 +109,20 @@
     "emailInvalid": "有効なメールアドレスを入力してください",
     "passwordRequired": "パスワードを入力してください",
     "passwordMinLength": "パスワードは8文字以上必要です"
+  },
+  "apiKeys": {
+    "title": "個人APIキー",
+    "description": "スクリプトやツールからJARVIS APIにアクセスするための長期トークンを作成します。",
+    "create": "新規作成",
+    "createTitle": "APIキーを作成",
+    "namePlaceholder": "キー名（例：マイスクリプト）",
+    "scopeFull": "フルアクセス",
+    "scopeReadonly": "読み取り専用",
+    "empty": "APIキーがありません",
+    "lastUsed": "最終使用",
+    "revoke": "失効",
+    "confirmDelete": "このAPIキーを失効させますか？元に戻せません。",
+    "revealTitle": "新しいAPIキー",
+    "revealWarning": "今すぐコピーしてください。再表示されません。"
   }
 }

@@ -4,7 +4,10 @@
     "loading": "Loading...",
     "backToChat": "← Back to Chat",
     "networkError": "Network error, please check your connection",
-    "rateLimitError": "Too many requests, please try again later"
+    "rateLimitError": "Too many requests, please try again later",
+    "cancel": "Cancel",
+    "copy": "Copy",
+    "copied": "Copied!"
   },
   "login": {
     "title": "Login to JARVIS",
@@ -106,5 +109,20 @@
     "emailInvalid": "Please enter a valid email address",
     "passwordRequired": "Please enter your password",
     "passwordMinLength": "Password must be at least 8 characters"
+  },
+  "apiKeys": {
+    "title": "Personal API Keys",
+    "description": "Create long-lived tokens for scripts or third-party tools to access the JARVIS API.",
+    "create": "New Key",
+    "createTitle": "Create API Key",
+    "namePlaceholder": "Key name (e.g. My Script)",
+    "scopeFull": "Full access",
+    "scopeReadonly": "Read-only access",
+    "empty": "No API keys yet",
+    "lastUsed": "Last used",
+    "revoke": "Revoke",
+    "confirmDelete": "Revoke this API key? This cannot be undone.",
+    "revealTitle": "Your New API Key",
+    "revealWarning": "Copy it now — it won't be shown again."
   }
 }

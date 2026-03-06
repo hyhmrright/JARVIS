@@ -4,7 +4,10 @@
     "loading": "로딩 중...",
     "backToChat": "← 채팅으로 돌아가기",
     "networkError": "네트워크 오류입니다. 연결을 확인해 주세요",
-    "rateLimitError": "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요"
+    "rateLimitError": "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요",
+    "cancel": "취소",
+    "copy": "복사",
+    "copied": "복사됨!"
   },
   "login": {
     "title": "JARVIS 로그인",
@@ -106,5 +109,20 @@
     "emailInvalid": "유효한 이메일 주소를 입력해 주세요",
     "passwordRequired": "비밀번호를 입력해 주세요",
     "passwordMinLength": "비밀번호는 8자 이상이어야 합니다"
+  },
+  "apiKeys": {
+    "title": "개인 API 키",
+    "description": "스크립트나 도구에서 JARVIS API에 접근하기 위한 장기 토큰을 생성합니다.",
+    "create": "새 키 만들기",
+    "createTitle": "API 키 생성",
+    "namePlaceholder": "키 이름 (예: 내 스크립트)",
+    "scopeFull": "전체 접근",
+    "scopeReadonly": "읽기 전용",
+    "empty": "API 키가 없습니다",
+    "lastUsed": "마지막 사용",
+    "revoke": "폐기",
+    "confirmDelete": "이 API 키를 폐기하시겠습니까? 되돌릴 수 없습니다.",
+    "revealTitle": "새 API 키",
+    "revealWarning": "지금 복사하세요. 다시 표시되지 않습니다."
   }
 }
