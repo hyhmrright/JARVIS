@@ -31,7 +31,6 @@ def test_rag_injection_skipped_when_no_chunks() -> None:
     ]
     chunks: list[RetrievedChunk] = []
 
-    # Simulate the guard: if not rag_chunks, skip injection
     if chunks:
         rag_msg = SystemMessage(content=format_rag_context(chunks))
         lc_messages = [lc_messages[0], rag_msg, *lc_messages[1:]]
