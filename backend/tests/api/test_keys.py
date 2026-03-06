@@ -1,6 +1,7 @@
 """Tests for Personal API Keys CRUD: POST/GET/DELETE /api/keys."""
 
 import uuid
+from datetime import UTC
 
 import pytest
 from httpx import AsyncClient
@@ -147,3 +148,31 @@ async def test_cannot_delete_other_users_key(client: AsyncClient) -> None:
     client.headers["Authorization"] = f"Bearer {token_b}"
     del_resp = await client.delete(f"/api/keys/{key_id}")
     assert del_resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_expired_pat_returns_401(client: AsyncClient) -> None:
+    """A PAT with expires_at in the past should return 401."""
+    import uuid
+    from datetime import datetime, timedelta
+
+    email = f"exp_{uuid.uuid4().hex[:8]}@example.com"
+    reg = await client.post(
+        "/api/auth/register",
+        json={"email": email, "password": "password123"},
+    )
+    token = reg.json()["access_token"]
+    client.headers["Authorization"] = f"Bearer {token}"
+
+    # Create a key with expires_at in the past
+    past = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+    create_resp = await client.post(
+        "/api/keys", json={"name": "Expired", "scope": "full", "expires_at": past}
+    )
+    assert create_resp.status_code == 201
+    raw_key = create_resp.json()["raw_key"]
+
+    # Use the expired key
+    client.headers["Authorization"] = f"Bearer {raw_key}"
+    resp = await client.get("/api/keys")
+    assert resp.status_code == 401
