@@ -2,6 +2,7 @@ import asyncio
 import json
 import uuid
 from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
@@ -21,7 +22,7 @@ from app.agent.supervisor import SupervisorState, create_supervisor_graph
 from app.api.deps import ResolvedLLMConfig, get_current_user, get_llm_config
 from app.core.config import settings
 from app.core.security import resolve_api_key
-from app.db.models import Conversation, Message, User
+from app.db.models import AgentSession, Conversation, Message, User
 from app.db.session import AsyncSessionLocal, get_db
 from app.plugins import plugin_registry
 from app.rag.retriever import maybe_inject_rag_context
@@ -60,7 +61,6 @@ def _sse_events_from_chunk(chunk: dict, full_content: str) -> tuple[list[str], s
             )
     elif "llm" in chunk:
         ai_msg = chunk["llm"]["messages"][-1]
-        # Emit tool_start events when the LLM decides to call tools
         if hasattr(ai_msg, "tool_calls") and ai_msg.tool_calls:
             for tc in ai_msg.tool_calls:
                 events.append(
@@ -73,7 +73,6 @@ def _sse_events_from_chunk(chunk: dict, full_content: str) -> tuple[list[str], s
                     )
                 )
 
-        # Delta logic
         new_content = ai_msg.content
         delta = new_content[len(full_content) :]
         full_content = new_content
@@ -168,7 +167,6 @@ def _build_expert_graph(
             plugin_tools=plugin_tools,
             conversation_id=conversation_id,
         )
-    # "simple" or any unknown label -> standard ReAct graph
     return create_graph(
         provider=provider,
         model=model,
@@ -245,7 +243,6 @@ async def chat_stream(  # noqa: C901
     llm: ResolvedLLMConfig = Depends(get_llm_config),
     db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
-    # Check if this is a consent signal (HITL)
     is_consent = body.content.startswith("[CONSENT:")
     approved: bool | None = None
     if is_consent:
@@ -260,7 +257,6 @@ async def chat_stream(  # noqa: C901
     if not conv:
         raise HTTPException(status_code=404)
 
-    # Don't save metadata messages to database
     if not is_consent:
         db.add(Message(conversation_id=conv.id, role="human", content=body.content))
         await db.commit()
@@ -279,11 +275,10 @@ async def chat_stream(  # noqa: C901
     system_msg = SystemMessage(content=build_system_prompt(llm.persona_override))
     lc_messages = [system_msg, *lc_messages]
 
-    # Detect first exchange before RAG injection (counts only human messages)
+    # Detect first exchange (for auto title generation later)
     is_first_exchange = sum(1 for m in lc_messages if isinstance(m, HumanMessage)) == 1
 
     openai_key = resolve_api_key("openai", llm.raw_keys)
-    # Build enriched query: current message + last AI reply for better recall
     last_ai_content = next(
         (msg.content for msg in reversed(lc_messages) if isinstance(msg, AIMessage)),
         "",
@@ -305,7 +300,6 @@ async def chat_stream(  # noqa: C901
         model=llm.model_name,
     )
 
-    # Resolve Tavily API key for web search (server-level only)
     tavily_key = settings.tavily_api_key
 
     async def generate() -> AsyncGenerator[str]:  # noqa: C901
@@ -319,9 +313,23 @@ async def chat_stream(  # noqa: C901
             )
         except Exception:
             logger.warning("context_compression_failed", exc_info=True)
+        agent_session_id: uuid.UUID | None = None
+        try:
+            async with AsyncSessionLocal() as _init_sess:
+                async with _init_sess.begin():
+                    ag_sess = AgentSession(
+                        conversation_id=conv_id,
+                        agent_type="main",
+                        status="active",
+                    )
+                    _init_sess.add(ag_sess)
+                    await _init_sess.flush()
+                    agent_session_id = ag_sess.id
+        except Exception:
+            logger.warning("agent_session_create_failed", exc_info=True)
+
         mcp_tools, plugin_tools = await _load_tools(llm.enabled_tools)
 
-        # Route classification — consent signals bypass routing
         route = "simple"
         if not is_consent:
             route = await classify_task(
@@ -336,6 +344,7 @@ async def chat_stream(  # noqa: C901
         full_content = ""
         last_ai_msg = None
         stream_completed = False
+        stream_error = False
 
         try:
             if route == "complex":
@@ -365,7 +374,6 @@ async def chat_stream(  # noqa: C901
                                 "content": full_content,
                             }
                         )
-                stream_completed = True
             else:
                 # Expert or standard ReAct — all use streaming AgentState graphs
                 graph = _build_expert_graph(
@@ -391,6 +399,7 @@ async def chat_stream(  # noqa: C901
                         yield event
             stream_completed = True
         except Exception:
+            stream_error = True
             logger.exception("chat_stream_error", conv_id=str(conv_id))
             raise
         finally:
@@ -435,10 +444,26 @@ async def chat_stream(  # noqa: C901
                     )
                     asyncio.create_task(sync_conversation_to_markdown(conv_id))
                 except Exception:
+                    new_title = None  # Don't emit title_updated if DB write failed
                     logger.exception(
                         "failed_to_save_partial_response",
                         conv_id=str(conv_id),
                     )
+            if agent_session_id:
+                try:
+                    session_status = "error" if stream_error else "completed"
+                    async with AsyncSessionLocal() as status_sess:
+                        async with status_sess.begin():
+                            await status_sess.execute(
+                                update(AgentSession)
+                                .where(AgentSession.id == agent_session_id)
+                                .values(
+                                    status=session_status,
+                                    completed_at=datetime.now(UTC),
+                                )
+                            )
+                except Exception:
+                    logger.warning("agent_session_update_failed", exc_info=True)
             if new_title:
                 yield _format_sse({"type": "title_updated", "title": new_title})
 

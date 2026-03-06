@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import structlog
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -28,11 +30,14 @@ async def generate_title(
     try:
         llm = get_llm(provider, model, api_key)
         context = f"User: {user_message[:200]}\nAssistant: {ai_reply[:200]}"
-        response = await llm.ainvoke(
-            [
-                SystemMessage(content=_TITLE_PROMPT),
-                HumanMessage(content=context),
-            ]
+        response = await asyncio.wait_for(
+            llm.ainvoke(
+                [
+                    SystemMessage(content=_TITLE_PROMPT),
+                    HumanMessage(content=context),
+                ]
+            ),
+            timeout=8.0,
         )
         title = response.content
         return (title if isinstance(title, str) else "").strip()[:50] or None

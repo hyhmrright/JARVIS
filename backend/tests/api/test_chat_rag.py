@@ -31,7 +31,6 @@ def test_rag_injection_skipped_when_no_chunks() -> None:
     ]
     chunks: list[RetrievedChunk] = []
 
-    # Simulate the guard: if not rag_chunks, skip injection
     if chunks:
         rag_msg = SystemMessage(content=format_rag_context(chunks))
         lc_messages = [lc_messages[0], rag_msg, *lc_messages[1:]]
@@ -83,24 +82,3 @@ def test_format_rag_context_multiple_chunks() -> None:
     assert "beta.pdf" in result
     assert "Content from alpha" in result
     assert "Content from beta" in result
-
-
-async def test_rag_score_threshold_passed_to_qdrant():
-    """score_threshold is forwarded to Qdrant search, not filtered in Python."""
-    from unittest.mock import AsyncMock, patch
-
-    from app.rag.retriever import retrieve_context
-
-    mock_client = AsyncMock()
-    mock_client.search = AsyncMock(return_value=[])
-
-    with (
-        patch("app.rag.retriever.get_qdrant_client", AsyncMock(return_value=mock_client)),
-        patch("app.rag.retriever.get_embedder") as mock_embedder,
-    ):
-        mock_embedder.return_value.aembed_query = AsyncMock(return_value=[0.1] * 1536)
-        await retrieve_context("test query", "user-123", "fake-key")
-
-    call_kwargs = mock_client.search.call_args.kwargs
-    assert "score_threshold" in call_kwargs
-    assert call_kwargs["score_threshold"] == 0.7

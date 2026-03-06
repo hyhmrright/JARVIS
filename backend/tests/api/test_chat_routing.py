@@ -7,19 +7,19 @@ import pytest
 
 from app.api.chat import _build_expert_graph, _format_sse
 
-_COMMON_KWARGS: dict = dict(
-    provider="openai",
-    model="gpt-4o",
-    api_key="sk-test",
-    api_keys=None,
-    user_id="user-1",
-    openai_api_key="sk-oai",
-    tavily_api_key=None,
-    enabled_tools=None,
-    mcp_tools=[],
-    plugin_tools=None,
-    conversation_id="conv-1",
-)
+_COMMON_KWARGS: dict = {
+    "provider": "openai",
+    "model": "gpt-4o",
+    "api_key": "sk-test",
+    "api_keys": None,
+    "user_id": "user-1",
+    "openai_api_key": "sk-oai",
+    "tavily_api_key": None,
+    "enabled_tools": None,
+    "mcp_tools": [],
+    "plugin_tools": None,
+    "conversation_id": "conv-1",
+}
 
 
 def test_routing_sse_event_format() -> None:
