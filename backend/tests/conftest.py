@@ -1,6 +1,6 @@
 import os
 import uuid
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -52,6 +52,27 @@ def _suppress_auth_audit_logging():
     contamination without affecting the dedicated test_audit.py unit tests.
     """
     with patch("app.api.auth.log_action", AsyncMock(return_value=None)):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def _suppress_pat_last_used_update():
+    """Mock AsyncSessionLocal at its definition site to prevent pool contamination.
+
+    _resolve_pat() imports AsyncSessionLocal inside the function body from
+    app.db.session, so the correct patch target is app.db.session.AsyncSessionLocal
+    (not app.api.deps.AsyncSessionLocal, which is never a module attribute).
+    Those connections are bound to the calling event loop and become invalid in
+    the next test's event loop, causing asyncpg's "another operation is in
+    progress" error. Suppressing it here prevents pool contamination without
+    affecting the dedicated PAT auth behaviour under test.
+    """
+    mock_session = MagicMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+    mock_session.begin = MagicMock(return_value=mock_session)
+    mock_session.scalar = AsyncMock(return_value=None)
+    with patch("app.db.session.AsyncSessionLocal", return_value=mock_session):
         yield
 
 
