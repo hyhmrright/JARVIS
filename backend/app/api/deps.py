@@ -1,5 +1,6 @@
+import hashlib
 from dataclasses import dataclass
-from datetime import UTC
+from datetime import UTC, datetime
 
 from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -8,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import DEFAULT_ENABLED_TOOLS
 from app.core.security import decode_access_token, resolve_api_keys
-from app.db.models import User, UserRole, UserSettings
-from app.db.session import get_db
+from app.db.models import ApiKey, User, UserRole, UserSettings
+from app.db.session import AsyncSessionLocal, get_db
 
 security = HTTPBearer()
 
@@ -65,11 +66,6 @@ async def _resolve_jwt(
 async def _resolve_pat(
     token: str, db: AsyncSession, request: Request | None = None
 ) -> User:
-    import hashlib
-    from datetime import datetime
-
-    from app.db.models import ApiKey
-
     key_hash = hashlib.sha256(token.encode()).hexdigest()
     api_key = await db.scalar(select(ApiKey).where(ApiKey.key_hash == key_hash))
     if not api_key:
@@ -89,8 +85,6 @@ async def _resolve_pat(
         )
     # Update last_used_at in an isolated session to avoid committing the
     # shared request session from within the auth dependency.
-    from app.db.session import AsyncSessionLocal
-
     async with AsyncSessionLocal() as _session:
         async with _session.begin():
             result = await _session.scalar(
