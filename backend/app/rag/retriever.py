@@ -39,6 +39,7 @@ async def retrieve_context(
             collection_name=user_collection_name(user_id),
             query_vector=query_vec,
             limit=top_k,
+            score_threshold=score_threshold,
         )
     except UnexpectedResponse as exc:
         if exc.status_code == 404:
@@ -56,7 +57,7 @@ async def retrieve_context(
             score=hit.score,
         )
         for hit in hits
-        if hit.score >= score_threshold and hit.payload
+        if hit.payload
     ]
 
 

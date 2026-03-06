@@ -283,8 +283,16 @@ async def chat_stream(  # noqa: C901
     is_first_exchange = sum(1 for m in lc_messages if isinstance(m, HumanMessage)) == 1
 
     openai_key = resolve_api_key("openai", llm.raw_keys)
+    # Build enriched query: current message + last AI reply for better recall
+    last_ai_content = next(
+        (msg.content for msg in reversed(lc_messages) if isinstance(msg, AIMessage)),
+        "",
+    )
+    rag_query = (
+        f"{body.content}\n{last_ai_content[:200]}" if last_ai_content else body.content
+    )
     lc_messages = await maybe_inject_rag_context(
-        lc_messages, body.content, str(user.id), openai_key
+        lc_messages, rag_query, str(user.id), openai_key
     )
 
     conv_id = conv.id
