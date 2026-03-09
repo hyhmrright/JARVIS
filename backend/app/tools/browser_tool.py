@@ -1,9 +1,13 @@
 import base64
 import ipaddress
 import urllib.parse
+import json
 
 import structlog
 from langchain_core.tools import tool
+
+from app.core.config import settings
+from app.sandbox.manager import SandboxManager, SandboxError
 
 logger = structlog.get_logger(__name__)
 
@@ -30,110 +34,127 @@ def _is_blocked(url: str) -> bool:
         return False
 
 
+async def _run_in_sandbox(script: str) -> str:
+    """Execute a Playwright script inside the sandbox."""
+    if not settings.sandbox_enabled:
+        return "ERROR: Sandbox is disabled. Browser tools require sandboxing for security."
+
+    manager = SandboxManager()
+    container_id = None
+    try:
+        container_id = await manager.create_sandbox(user_id="agent", session_id="browser")
+        
+        # Escape the script for shell echo
+        escaped_script = script.replace("'", "'\\''")
+        setup_cmd = f"printf '%s' '{escaped_script}' > /tmp/browser_script.py"
+        await manager.exec_in_sandbox(container_id, setup_cmd)
+        
+        # Run with playwright
+        output = await manager.exec_in_sandbox(container_id, "python3 /tmp/browser_script.py", timeout=60)
+        return output
+    except SandboxError as e:
+        return f"Sandbox Error: {e}"
+    except Exception as e:
+        logger.exception("browser_sandbox_failed")
+        return f"Browser execution failed: {e}"
+    finally:
+        if container_id:
+            await manager.destroy_sandbox(container_id)
+
+
 @tool
-async def browser_navigate(url: str, action: str = "extract") -> str:
-    """Navigate to a URL and perform the requested action.
-
-    Actions:
-    - extract (default): Return page text content.
-    - screenshot: Return a confirmation message with page title.
-
-    Args:
-        url: The URL to navigate to.
-        action: The action to perform (extract or screenshot).
+async def browser_navigate(url: str) -> str:
+    """Navigate to a URL and extract the page text content.
+    
+    Use this to read the content of a website.
     """
     if _is_blocked(url):
         return f"Blocked: URL '{url}' targets a private/internal host."
 
-    if action not in ("extract", "screenshot"):
-        return f"Unknown action: {action}. Supported actions: extract, screenshot."
+    script = f"""
+import asyncio
+from playwright.async_api import async_playwright
 
-    try:
-        from playwright.async_api import async_playwright
-
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+async def main():
+    async with async_playwright() as p:
+        try:
+            browser = await p.chromium.launch(headless=True, args=['--no-sandbox'])
             page = await browser.new_page()
-            await page.goto(url, wait_until="networkidle", timeout=30000)
-
-            if action == "screenshot":
-                title = await page.title()
-                await browser.close()
-                return f"Page loaded successfully. Title: {title}"
-
-            # action == "extract"
-            text = await page.inner_text("body")
+            await page.goto('{url}', wait_until='networkidle', timeout=30000)
+            text = await page.inner_text('body')
+            print(text[:{_MAX_TEXT}])
             await browser.close()
+        except Exception as e:
+            print(f'Error: {{e}}')
 
-            if not text.strip():
-                return "(empty page)"
-
-            if len(text) > _MAX_TEXT:
-                return text[:_MAX_TEXT] + "\n... (truncated)"
-
-            return text
-
-    except ImportError:
-        return (
-            "playwright not installed. "
-            "Run: uv add playwright && playwright install chromium"
-        )
-    except Exception as e:
-        logger.exception("browser_navigate_failed", url=url)
-        return f"Browser navigation failed: {e}"
+if __name__ == '__main__':
+    asyncio.run(main())
+"""
+    return await _run_in_sandbox(script)
 
 
 @tool
 async def browser_screenshot(url: str) -> str:
-    """Take a screenshot of a webpage and return as Base64.
-
+    """Take a screenshot of a webpage and return as Base64 data URL.
+    
     Use this when you need to see the visual layout of a page.
     """
     if _is_blocked(url):
         return f"Blocked: URL '{url}' targets a private/internal host."
 
-    try:
-        from playwright.async_api import async_playwright
+    script = f"""
+import asyncio
+import base64
+from playwright.async_api import async_playwright
 
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+async def main():
+    async with async_playwright() as p:
+        try:
+            browser = await p.chromium.launch(headless=True, args=['--no-sandbox'])
             page = await browser.new_page()
-            await page.set_viewport_size({"width": 1280, "height": 800})
-            await page.goto(url, wait_until="networkidle", timeout=30000)
-            screenshot_bytes = await page.screenshot(full_page=True)
+            await page.set_viewport_size({{'width': 1280, 'height': 800}})
+            await page.goto('{url}', wait_until='networkidle', timeout=30000)
+            screenshot_bytes = await page.screenshot(full_page=False)
+            base64_str = base64.b64encode(screenshot_bytes).decode('utf-8')
+            print(f'data:image/png;base64,{{base64_str}}')
             await browser.close()
-            base64_str = base64.b64encode(screenshot_bytes).decode("utf-8")
-            return f"data:image/png;base64,{base64_str}"
-    except ImportError:
-        return (
-            "playwright not installed. "
-            "Run: uv add playwright && playwright install chromium"
-        )
-    except Exception as e:
-        logger.exception("browser_screenshot_failed", url=url)
-        return f"Error taking screenshot of {url}: {e}"
+        except Exception as e:
+            print(f'Error: {{e}}')
+
+if __name__ == '__main__':
+    asyncio.run(main())
+"""
+    return await _run_in_sandbox(script)
 
 
 @tool
 async def browser_click(url: str, selector: str) -> str:
     """Click an element on a webpage and return the updated text content.
-
+    
     Use this to interact with buttons, menus, or forms.
     """
     if _is_blocked(url):
         return f"Blocked: URL '{url}' targets a private/internal host."
 
-    try:
-        from playwright.async_api import async_playwright
+    script = f"""
+import asyncio
+from playwright.async_api import async_playwright
 
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+async def main():
+    async with async_playwright() as p:
+        try:
+            browser = await p.chromium.launch(headless=True, args=['--no-sandbox'])
             page = await browser.new_page()
-            await page.goto(url, wait_until="networkidle")
-            await page.click(selector)
-            await page.wait_for_timeout(1000)
-            text = await page.inner_text("body")
+            await page.goto('{url}', wait_until='networkidle', timeout=30000)
+            await page.click('{selector}')
+            await asyncio.sleep(2) # Wait for animation/load
+            text = await page.inner_text('body')
+            print(text[:{_MAX_TEXT}])
             await browser.close()
-            return f"Clicked {selector}. New content snippet: {text[:5000]}"
-    except Exception as e:
-        return f"Error clicking {selector}: {e}"
+        except Exception as e:
+            print(f'Error: {{e}}')
+
+if __name__ == '__main__':
+    asyncio.run(main())
+"""
+    return await _run_in_sandbox(script)
