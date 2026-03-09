@@ -4,5 +4,5 @@
 
 ---
 
-- [ ] **Track: OpenClaw 特性对齐 (OpenClaw Feature Alignment)**
+- [x] **Track: OpenClaw 特性对齐 (OpenClaw Feature Alignment)**
 *Link: [./tracks/openclaw_alignment_20260309/](./tracks/openclaw_alignment_20260309/)*
