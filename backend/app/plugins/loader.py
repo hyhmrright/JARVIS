@@ -11,11 +11,13 @@ import shutil
 import sys
 import zipfile
 from pathlib import Path
+from typing import Any
 
 import httpx
 import structlog
 import yaml
 
+from app.core.config import settings
 from app.plugins.api import PluginAPI
 from app.plugins.registry import PluginRegistry
 from app.plugins.sdk import JarvisPlugin, JarvisPluginManifest
@@ -127,7 +129,7 @@ async def load_markdown_skills(
                     from app.plugins.sdk import JarvisPlugin, JarvisPluginManifest, PluginCategory
                     
                     class VirtualSkillPlugin(JarvisPlugin):
-                        def __init__(self, tool):
+                        def __init__(self, tool: Any) -> None:
                             self.tool = tool
                             self.manifest = JarvisPluginManifest(
                                 plugin_id=f"skill_{tool.name}",

@@ -1,6 +1,7 @@
 """Docker sandbox manager for isolated command execution using Docker SDK."""
 
 import asyncio
+from typing import Any
 import docker
 import structlog
 from docker.errors import DockerException, NotFound
@@ -17,11 +18,11 @@ class SandboxError(Exception):
 class SandboxManager:
     """Create, execute in, and destroy Docker sandbox containers using Docker SDK."""
 
-    def __init__(self):
-        self._client = None
+    def __init__(self) -> None:
+        self._client: Any = None
 
     @property
-    def client(self):
+    def client(self) -> Any:
         """Lazy initialization of the Docker client."""
         if self._client is None:
             try:
@@ -36,7 +37,7 @@ class SandboxManager:
 
         Returns the container ID.
         """
-        def _run():
+        def _run() -> Any:
             return self.client.containers.run(
                 image=settings.sandbox_image,
                 command="sleep " + str(settings.sandbox_timeout),
@@ -59,7 +60,7 @@ class SandboxManager:
                 user_id=user_id,
                 session_id=session_id,
             )
-            return container.id
+            return str(container.id)
         except Exception as e:
             logger.error("sandbox_create_failed", error=str(e))
             raise SandboxError(f"Failed to create sandbox: {e}") from e
@@ -74,7 +75,7 @@ class SandboxManager:
 
         Returns combined stdout/stderr output.
         """
-        def _exec():
+        def _exec() -> tuple[int, bytes]:
             container = self.client.containers.get(container_id)
             # exec_run returns (exit_code, output)
             result = container.exec_run(
@@ -110,7 +111,7 @@ class SandboxManager:
 
     async def destroy_sandbox(self, container_id: str) -> None:
         """Force-remove a sandbox container."""
-        def _remove():
+        def _remove() -> None:
             try:
                 container = self.client.containers.get(container_id)
                 container.remove(force=True)

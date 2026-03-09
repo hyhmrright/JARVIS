@@ -27,53 +27,54 @@ class DiscordChannel(BaseChannelAdapter):
         self._setup_events()
 
     def _setup_events(self) -> None:
-        @self._client.event
-        async def on_ready() -> None:
-            logger.info("discord_channel_ready", user=str(self._client.user))
+        self._client.event(self._on_ready)
+        self._client.event(self._on_message)
 
-        @self._client.event
-        async def on_message(message: discord.Message) -> None:
-            # Ignore own messages
-            if message.author == self._client.user:
+    async def _on_ready(self) -> None:
+        logger.info("discord_channel_ready", user=str(self._client.user))
+
+    async def _on_message(self, message: discord.Message) -> None:
+        # Ignore own messages
+        if message.author == self._client.user:
+            return
+        if not message.content:
+            return
+
+        # Check for DM or Mention
+        is_dm = isinstance(message.channel, discord.DMChannel)
+        is_mentioned = (
+            self._client.user in message.mentions if self._client.user else False
+        )
+
+        # Process only if it's a DM or the bot is mentioned
+        if not (is_dm or is_mentioned):
+            return
+
+        # Clean content if it was a mention
+        content = message.content
+        if is_mentioned and self._client.user:
+            content = content.replace(f"<@{self._client.user.id}>", "").strip()
+            content = content.replace(f"<@!{self._client.user.id}>", "").strip()
+
+        gw_msg = GatewayMessage(
+            sender_id=str(message.author.id),
+            channel="discord",
+            channel_id=str(message.channel.id),
+            content=content,
+        )
+
+        if self._message_handler is not None:
+            try:
+                response = await self._message_handler(gw_msg)
+            except Exception:
+                logger.exception(
+                    "discord_handler_error",
+                    sender_id=gw_msg.sender_id,
+                )
                 return
-            if not message.content:
-                return
-
-            # Check for DM or Mention
-            is_dm = isinstance(message.channel, discord.DMChannel)
-            is_mentioned = (
-                self._client.user in message.mentions if self._client.user else False
-            )
-
-            # Process only if it's a DM or the bot is mentioned
-            if not (is_dm or is_mentioned):
-                return
-
-            # Clean content if it was a mention
-            content = message.content
-            if is_mentioned and self._client.user:
-                content = content.replace(f"<@{self._client.user.id}>", "").strip()
-                content = content.replace(f"<@!{self._client.user.id}>", "").strip()
-
-            gw_msg = GatewayMessage(
-                sender_id=str(message.author.id),
-                channel="discord",
-                channel_id=str(message.channel.id),
-                content=content,
-            )
-
-            if self._message_handler is not None:
-                try:
-                    response = await self._message_handler(gw_msg)
-                except Exception:
-                    logger.exception(
-                        "discord_handler_error",
-                        sender_id=gw_msg.sender_id,
-                    )
-                    return
-                if response:
-                    for chunk in chunk_text(response, _DISCORD_MAX_MESSAGE_LEN):
-                        await message.channel.send(chunk)
+            if response:
+                for chunk in chunk_text(response, _DISCORD_MAX_MESSAGE_LEN):
+                    await message.channel.send(chunk)
 
     async def start(self) -> None:
         """Start the Discord client in the background.

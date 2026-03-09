@@ -76,7 +76,7 @@ class SkillParser:
 
         # Create Pydantic model for arguments
         # All params are strings for simplicity in template substitution
-        fields = {p_name: (str, ...) for p_name in params.keys()}
+        fields: dict[str, Any] = {p_name: (str, ...) for p_name in params.keys()}
         args_schema = create_model(f"{name}_args", **fields)
 
         async def _run(**kwargs: Any) -> str:

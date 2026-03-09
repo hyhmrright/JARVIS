@@ -91,6 +91,8 @@ class FeishuChannel(BaseChannelAdapter):
 
     async def _handle_and_reply(self, gw_msg: GatewayMessage, reply_to_id: str) -> None:
         """Process message and send reply."""
+        if not self._message_handler:
+            return
         try:
             response = await self._message_handler(gw_msg)
             if response:

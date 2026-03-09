@@ -26,9 +26,12 @@ from app.api.usage import router as usage_router
 from app.api.voice import router as voice_router
 from app.api.webhooks import router as webhooks_router
 from app.channels.discord import DiscordChannel
+from app.channels.feishu import FeishuChannel
 from app.channels.slack import SlackChannel
 from app.channels.telegram import TelegramChannel
 from app.channels.webhook import WebhookChannel
+from app.channels.whatsapp import WhatsAppChannel
+
 from app.channels.whatsapp import WhatsAppChannel
 from app.core.config import settings
 from app.core.limiter import limiter

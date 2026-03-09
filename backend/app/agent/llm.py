@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any
 
 import structlog
 from langchain_anthropic import ChatAnthropic
@@ -34,28 +34,31 @@ def get_llm(provider: str, model: str, api_key: str, **kwargs: Any) -> BaseChatM
 
 
 def get_llm_with_fallback(
-    provider: str,
-    model: str,
-    api_key: str,
-    **kwargs: Any
+    provider: str, model: str, api_key: str, **kwargs: Any
 ) -> BaseChatModel:
     """Get an LLM with automatic failover to predefined backup models."""
     primary_llm = get_llm(provider, model, api_key, **kwargs)
-    
+
     # Define fallback chain based on available settings
-    fallbacks: List[BaseChatModel] = []
-    
+    fallbacks: list[BaseChatModel] = []
+
     # 1. Fallback to OpenAI if not primary
     if provider != "openai" and settings.openai_api_key:
         try:
             fallbacks.append(get_llm("openai", "gpt-4o-mini", settings.openai_api_key))
         except Exception:
             pass
-            
+
     # 2. Fallback to Anthropic if not primary
     if provider != "anthropic" and settings.anthropic_api_key:
         try:
-            fallbacks.append(get_llm("anthropic", "claude-3-haiku-20240307", settings.anthropic_api_key))
+            fallbacks.append(
+                get_llm(
+                    "anthropic",
+                    "claude-3-haiku-20240307",
+                    settings.anthropic_api_key,
+                )
+            )
         except Exception:
             pass
 
@@ -63,5 +66,7 @@ def get_llm_with_fallback(
         logger.debug("no_fallbacks_available", provider=provider)
         return primary_llm
 
-    logger.info("llm_with_failover_ready", provider=provider, fallback_count=len(fallbacks))
+    logger.info(
+        "llm_with_failover_ready", provider=provider, fallback_count=len(fallbacks)
+    )
     return primary_llm.with_fallbacks(fallbacks)
