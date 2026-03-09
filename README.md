@@ -2,28 +2,34 @@
 
 # JARVIS
 
-> An AI assistant platform with RAG knowledge base, multi-LLM support, and real-time streaming conversations — featuring a Dark Luxury design language.
+> A self-hosted AI assistant platform with RAG, multi-channel messaging, sandboxed tool execution, and full observability — one `docker compose up` away.
 
-![License](https://img.shields.io/github/license/hyhmrright/JARVIS)
-![Python](https://img.shields.io/badge/python-3.13-blue)
-![Vue](https://img.shields.io/badge/vue-3-brightgreen)
+[![License](https://img.shields.io/github/license/hyhmrright/JARVIS)](LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/hyhmrright/JARVIS)](https://github.com/hyhmrright/JARVIS/releases)
+[![CI](https://github.com/hyhmrright/JARVIS/actions/workflows/ci.yml/badge.svg)](https://github.com/hyhmrright/JARVIS/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.13-blue)](https://www.python.org)
+[![Vue](https://img.shields.io/badge/vue-3-brightgreen)](https://vuejs.org)
 
 ## Features
 
-- **Multi-Model Support** — DeepSeek / OpenAI / Anthropic, switchable per-user in Settings
-- **RAG Knowledge Base** — Upload PDF / TXT / MD / DOCX with automatic chunking and vector indexing
-- **Streaming Chat** — SSE token-by-token output via LangGraph ReAct agent
-- **Dark Luxury UI** — Glassmorphism cards, gold gradient accents, smooth animation transitions
-- **Multilingual** — 6 languages: Chinese / English / Japanese / Korean / French / German
-- **Production-grade Infrastructure** — 4-layer network isolation, Traefik edge router, Prometheus + Grafana observability
+- **Multi-Channel Messaging** — Unified adapter layer for Slack, Discord, Telegram, and Feishu; add new channels without touching the agent core
+- **Sandboxed Tool Execution** — Browser and shell tools run in ephemeral Docker containers, fully isolated from the host filesystem and network
+- **LLM Failover** — Configurable fallback chains across DeepSeek / OpenAI / Anthropic; transparent retries when a provider goes down
+- **RAG Knowledge Base** — Upload PDF / TXT / MD / DOCX with automatic chunking and vector indexing (Qdrant)
+- **Dynamic Skills** — Drop a `SKILL.md` in your project root; JARVIS parses and exposes it as a callable skill at runtime
+- **Personal API Keys** — Programmatic access via `jv_`-prefixed tokens; scoped (`full` / `readonly`), expirable, and hashed at rest
+- **Live Canvas** — Stream ECharts visualizations and interactive forms into the sidebar alongside Markdown
+- **Voice Input/Output** — TTS and STT support for hands-free interaction
+- **Multilingual UI** — 6 languages: Chinese, English, Japanese, Korean, French, German
+- **Production-grade Infrastructure** — Traefik edge router, Prometheus + Grafana + Loki observability, 4-layer network isolation
 
 ## System Limitations (Sandbox)
 
-JARVIS runs strictly inside an isolated Docker container environment to ensure system safety and security. 
+JARVIS runs entirely inside Docker containers to ensure host safety.
 
-- **No Host OS Access**: JARVIS cannot execute commands on your local host system (e.g., macOS, Windows, Linux).
-- **No Native Package Managers**: It cannot install native software on your computer (like running `brew install`, `apt-get`, or `npm install -g` on your physical machine). 
-- **Isolated Execution**: Any terminal commands executed by the AI (such as Python scripts or shell utilities) run solely inside the backend Docker container or a dedicated Sandbox container, completely isolated from your main operating system.
+- **No Host OS Access** — Cannot execute commands on your local machine (macOS, Windows, Linux).
+- **No Native Package Managers** — Cannot run `brew install`, `apt-get`, or `npm install -g` on the host.
+- **Isolated Execution** — All AI-executed commands (Python scripts, shell utilities) run inside the backend container or a dedicated sandbox container, fully isolated from the host OS.
 
 ## Tech Stack
 
@@ -168,18 +174,26 @@ bun run dev   # http://localhost:5173  (proxies /api → localhost:8000)
 JARVIS/
 ├── backend/                    # FastAPI (Python 3.13 + uv)
 │   ├── app/
-│   │   ├── agent/              # LangGraph ReAct agent
-│   │   ├── api/                # HTTP routes (auth/chat/conversations/documents/settings)
+│   │   ├── agent/              # LangGraph ReAct agent + LLM failover
+│   │   ├── api/                # HTTP routes (auth/chat/conversations/documents/keys/settings)
+│   │   ├── channels/           # Channel adapters (Slack/Discord/Telegram/Feishu)
 │   │   ├── core/               # Config, JWT/bcrypt/Fernet security, rate limiting
 │   │   ├── db/                 # SQLAlchemy async models + sessions
+│   │   ├── gateway/            # Channel router + session manager
 │   │   ├── infra/              # Qdrant / MinIO / Redis singletons
+│   │   ├── plugins/            # Plugin loader + SKILL.md parser
 │   │   ├── rag/                # Document chunker + embedder + indexer
-│   │   └── tools/              # LangGraph tools (search/code_exec/file/datetime)
+│   │   ├── sandbox/            # Docker-based sandbox manager
+│   │   ├── scheduler/          # Cron job runner + triggers
+│   │   ├── services/           # Cross-cutting services (memory sync)
+│   │   └── tools/              # LangGraph tools (search/browser/shell/code_exec/file)
 │   ├── alembic/                # Database migrations
 │   └── tests/                  # pytest suite
 ├── frontend/                   # Vue 3 + TypeScript + Vite + Pinia
 │   └── src/
 │       ├── api/                # Axios singleton + auth interceptor
+│       ├── components/         # Shared components (Canvas, Voice, PageHeader)
+│       ├── composables/        # Vue composables (speech input, voice stream)
 │       ├── stores/             # Pinia stores (auth + chat)
 │       ├── pages/              # Login / Register / Chat / Documents / Settings
 │       └── locales/            # i18n (zh/en/ja/ko/fr/de)
