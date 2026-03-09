@@ -4,5 +4,5 @@
 
 ---
 
-- [ ] **Track: 实现用户 API 密钥管理 (Implement User API Key Management)**
+- [x] **Track: 实现用户 API 密钥管理 (Implement User API Key Management)**
   *Link: [./tracks/api_key_mgmt_20260309/](./tracks/api_key_mgmt_20260309/)*
