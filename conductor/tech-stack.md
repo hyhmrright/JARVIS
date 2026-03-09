@@ -9,7 +9,7 @@
 - **并发控制**：Asyncio, Asyncpg。
 - **自动化调度**：APScheduler。
 - **消息适配器**：aiogram (Telegram), slack-bolt (Slack), discord.py (Discord)。
-- **沙箱环境**：Python Docker SDK。
+- **沙箱环境**：Python Docker SDK, Playwright (Chromium)。
 
 ## 前端 (Frontend)
 - **框架**：Vue 3 (Composition API)。
