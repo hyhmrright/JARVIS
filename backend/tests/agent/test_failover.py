@@ -47,6 +47,4 @@ async def test_llm_no_fallback_if_no_keys():
             llm = get_llm_with_fallback("deepseek", "deepseek-chat", "sk-123")
 
             assert llm == mock_primary
-            assert (
-                not hasattr(llm, "with_fallbacks") or not llm.with_fallbacks.called
-            )
+            assert not hasattr(llm, "with_fallbacks") or not llm.with_fallbacks.called

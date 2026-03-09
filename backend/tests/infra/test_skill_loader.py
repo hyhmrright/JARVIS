@@ -14,7 +14,8 @@ async def test_load_markdown_skills(tmp_path: Path):
     skill_dir.mkdir()
 
     skill_file = skill_dir / "test_skill.md"
-    skill_file.write_text("""# Test Skill
+    skill_file.write_text(
+        """# Test Skill
 Test description.
 
 ## Parameters
@@ -26,7 +27,9 @@ Test description.
 ```bash
 echo {{input}}
 ```
-""", encoding="utf-8")
+""",
+        encoding="utf-8",
+    )
 
     registry = PluginRegistry()
 
@@ -44,6 +47,7 @@ echo {{input}}
     # Now simulate activation to see if tool is registered
     # activate_all_plugins calls plugin.on_load(api)
     from app.plugins.loader import activate_all_plugins
+
     await activate_all_plugins(registry)
 
     tools = registry.get_all_tools()

@@ -32,9 +32,7 @@ class SkillParser:
         header = sections[0].strip()
         title_match = re.search(r"^# (.*)$", header, re.MULTILINE)
         title = (
-            title_match.group(1).strip()
-            if title_match
-            else filename.replace(".md", "")
+            title_match.group(1).strip() if title_match else filename.replace(".md", "")
         )
 
         # Split header by newlines to find lines
@@ -54,9 +52,7 @@ class SkillParser:
             s = s.strip()
             if s.startswith("Parameters"):
                 # Use MULTILINE here to match each param line
-                param_matches = re.finditer(
-                    r"^\s*-\s*`(\w+)`:\s*(.*)", s, re.MULTILINE
-                )
+                param_matches = re.finditer(r"^\s*-\s*`(\w+)`:\s*(.*)", s, re.MULTILINE)
                 for m in param_matches:
                     params[m.group(1)] = m.group(2).strip()
             elif s.startswith("Implementation"):

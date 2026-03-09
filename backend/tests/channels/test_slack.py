@@ -43,9 +43,10 @@ async def test_slack_on_message_flow():
 
 @pytest.mark.asyncio
 async def test_slack_start_stop():
-    with patch("app.channels.slack.AsyncApp"), patch(
-        "app.channels.slack.AsyncSocketModeHandler"
-    ) as mock_handler_cls:
+    with (
+        patch("app.channels.slack.AsyncApp"),
+        patch("app.channels.slack.AsyncSocketModeHandler") as mock_handler_cls,
+    ):
         mock_handler = mock_handler_cls.return_value
 
         # start_async must return a coroutine

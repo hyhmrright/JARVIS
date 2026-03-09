@@ -109,9 +109,7 @@ class SandboxManager:
                 container_id=container_id[:12],
                 timeout=timeout,
             )
-            raise SandboxError(
-                f"Command timed out after {timeout} seconds"
-            ) from None
+            raise SandboxError(f"Command timed out after {timeout} seconds") from None
         except NotFound as e:
             raise SandboxError(f"Container {container_id} not found") from e
         except Exception as e:

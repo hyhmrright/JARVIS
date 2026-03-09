@@ -36,8 +36,7 @@ async def _run_in_sandbox(script: str) -> str:
     """Execute a Playwright script inside the sandbox."""
     if not settings.sandbox_enabled:
         return (
-            "ERROR: Sandbox is disabled. "
-            "Browser tools require sandboxing for security."
+            "ERROR: Sandbox is disabled. Browser tools require sandboxing for security."
         )
 
     manager = SandboxManager()

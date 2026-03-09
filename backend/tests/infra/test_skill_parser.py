@@ -22,6 +22,7 @@ echo "Fetching user {{user_id}} in {{format}} format..."
 ```
 """
 
+
 @pytest.mark.asyncio
 async def test_parse_markdown(skill_md):
     parser = SkillParser()
@@ -33,6 +34,7 @@ async def test_parse_markdown(skill_md):
     assert data["parameters"]["format"] == "Output format (json or text)."
     assert data["implementation_type"] == "bash"
     assert 'echo "Fetching user {{user_id}}' in data["implementation_code"]
+
 
 @pytest.mark.asyncio
 async def test_create_tool(skill_md):
@@ -48,6 +50,7 @@ async def test_create_tool(skill_md):
     assert "user_id" in schema["properties"]
     assert "format" in schema["properties"]
 
+
 @pytest.mark.asyncio
 async def test_execute_bash_skill():
     mock_manager = AsyncMock()
@@ -62,10 +65,10 @@ async def test_execute_bash_skill():
     assert "user 42" in output
     mock_manager.create_sandbox.assert_called_once()
     mock_manager.exec_in_sandbox.assert_called_once_with(
-        "container_123",
-        'echo "Fetching user 42 in json format..."'
+        "container_123", 'echo "Fetching user 42 in json format..."'
     )
     mock_manager.destroy_sandbox.assert_called_once_with("container_123")
+
 
 @pytest.mark.asyncio
 async def test_execute_python_skill():

@@ -21,6 +21,7 @@ async def test_sandbox_create_uses_sdk():
         assert container_id == "test_container_id_123456"
         mock_client.containers.run.assert_called_once()
 
+
 @pytest.mark.asyncio
 async def test_sandbox_exec_uses_sdk():
     """验证 exec_in_sandbox 是否使用 Docker SDK。"""
@@ -39,6 +40,7 @@ async def test_sandbox_exec_uses_sdk():
         assert output == "hello world"
         mock_container.exec_run.assert_called_once()
 
+
 @pytest.mark.asyncio
 async def test_sandbox_destroy_uses_sdk():
     """验证 destroy_sandbox 是否使用 Docker SDK。"""
@@ -53,6 +55,7 @@ async def test_sandbox_destroy_uses_sdk():
 
         mock_container.remove.assert_called_once_with(force=True)
 
+
 @pytest.mark.asyncio
 async def test_sandbox_create_fails():
     """验证 create_sandbox 失败时的处理。"""
@@ -64,6 +67,7 @@ async def test_sandbox_create_fails():
         manager = SandboxManager()
         with pytest.raises(SandboxError, match="Failed to create sandbox"):
             await manager.create_sandbox("user1", "session1")
+
 
 @pytest.mark.asyncio
 async def test_sandbox_exec_timeout():
@@ -79,10 +83,12 @@ async def test_sandbox_exec_timeout():
             with pytest.raises(SandboxError, match="timed out after"):
                 await manager.exec_in_sandbox("id", "cmd", timeout=1)
 
+
 @pytest.mark.asyncio
 async def test_sandbox_exec_not_found():
     """验证 exec_in_sandbox 容器未找到。"""
     from docker.errors import NotFound
+
     with patch("docker.from_env") as mock_docker:
         mock_client = MagicMock()
         mock_docker.return_value = mock_client
@@ -91,6 +97,7 @@ async def test_sandbox_exec_not_found():
         manager = SandboxManager()
         with pytest.raises(SandboxError, match="not found"):
             await manager.exec_in_sandbox("invalid_id", "cmd")
+
 
 @pytest.mark.asyncio
 async def test_sandbox_exec_multiline_output():
@@ -109,6 +116,7 @@ async def test_sandbox_exec_multiline_output():
 
         assert output == "line1\nline2\nline3"
         mock_container.exec_run.assert_called_once()
+
 
 @pytest.mark.asyncio
 async def test_sandbox_exec_nonzero_exit():
