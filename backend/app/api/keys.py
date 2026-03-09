@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import os
 import uuid
 from datetime import datetime
 from typing import Any
@@ -14,21 +12,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.security import generate_api_key, hash_api_key
 from app.db.models import ApiKey, User
 from app.db.session import get_db
 
 router = APIRouter(prefix="/api/keys", tags=["keys"])
 
 _MAX_KEYS_PER_USER = 10
-
-
-def _generate_pat() -> str:
-    """Generate a new Personal Access Token: jv_ + 64 hex chars (32 random bytes)."""
-    return "jv_" + os.urandom(32).hex()
-
-
-def _hash_token(token: str) -> str:
-    return hashlib.sha256(token.encode()).hexdigest()
 
 
 class ApiKeyCreate(BaseModel):
@@ -83,11 +73,11 @@ async def create_key(
             detail=f"Maximum of {_MAX_KEYS_PER_USER} API keys per user reached",
         )
 
-    raw_key = _generate_pat()
+    raw_key = generate_api_key()
     api_key = ApiKey(
         user_id=user.id,
         name=body.name,
-        key_hash=_hash_token(raw_key),
+        key_hash=hash_api_key(raw_key),
         prefix=raw_key[:8],  # first 8 chars of the raw token
         scope=body.scope,
         expires_at=body.expires_at,
