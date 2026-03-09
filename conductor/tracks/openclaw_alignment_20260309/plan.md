@@ -3,7 +3,7 @@
 ## Phase 1: 基础设施与 Docker 沙箱 (Phase 1: Infrastructure & Docker Sandbox)
 - [x] Task: 集成 Python Docker SDK 并实现通用的 `SandboxManager`。 [bcc0b10]
 - [x] Task: 编写针对 `SandboxManager` 的测试，确保命令在隔离容器中执行并能返回结果。 [22ac8c7]
-- [ ] Task: 实现基础的 `ShellTool` 接口并关联至 Docker 沙箱。
+- [x] Task: 实现基础的 `ShellTool` 接口并关联至 Docker 沙箱。 [bcc0b10]
 - [ ] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)
 
 ## Phase 2: 轻量化技能系统 (Phase 2: Lightweight Skills System)
