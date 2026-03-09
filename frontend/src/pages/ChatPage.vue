@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-screen w-full bg-zinc-950 font-sans">
+  <div class="flex h-screen w-full bg-zinc-950 font-sans overflow-hidden">
     
     <!-- Ultra-thin Sidebar -->
     <aside 
@@ -11,7 +11,7 @@
       <div class="h-14 flex items-center px-4 justify-between">
         <div class="flex items-center gap-2 font-semibold tracking-tighter">
           <div class="w-5 h-5 bg-white text-black rounded-sm flex items-center justify-center text-[10px] font-bold">J</div>
-          <span class="text-sm">JARVIS</span>
+          <span class="text-sm text-zinc-100">JARVIS</span>
         </div>
         <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors" title="New Chat" @click="chat.newConversation">
           <SquarePen class="w-4 h-4 text-zinc-400" />
@@ -85,6 +85,14 @@
           <h2 class="text-xs font-semibold text-zinc-100 tracking-tight">{{ currentConvTitle }}</h2>
         </div>
         <div class="flex items-center gap-3">
+          <button 
+            v-if="activeCanvasContent"
+            :class="['p-1.5 rounded transition-colors', canvasVisible ? 'bg-zinc-100 text-zinc-950' : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800']"
+            title="Toggle Canvas"
+            @click="canvasVisible = !canvasVisible"
+          >
+            <Layout class="w-4 h-4" />
+          </button>
           <button class="text-zinc-500 hover:text-zinc-300 transition-colors">
             <Share2 class="w-4 h-4" />
           </button>
@@ -120,7 +128,7 @@
             <!-- Sender Label -->
             <div class="flex items-center gap-3 select-none">
               <div
-:class="['w-5 h-5 rounded-sm flex items-center justify-center text-[9px] font-bold tracking-tighter', 
+                :class="['w-5 h-5 rounded-sm flex items-center justify-center text-[9px] font-bold tracking-tighter', 
                 msg.role === 'ai' ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-400']">
                 {{ msg.role === 'ai' ? 'JARVIS' : (auth.displayName?.[0] || 'U') }}
               </div>
@@ -187,11 +195,6 @@
                 </button>
               </div>
             </div>
-            
-            <!-- Canvas Inset -->
-            <div v-if="msg.role === 'ai' && hasHtml(msg.content)" class="pl-8 mt-6">
-              <LiveCanvas :content="msg.content" />
-            </div>
           </div>
 
           <!-- Typing Pulse -->
@@ -242,6 +245,15 @@
       </div>
     </main>
 
+    <!-- Right Sidebar for Live Canvas -->
+    <LiveCanvas 
+      :content="activeCanvasContent" 
+      :is-visible="canvasVisible" 
+      :collapsed="canvasCollapsed" 
+      @close="canvasVisible = false"
+      @submit="handleCanvasSubmit"
+    />
+
     <VoiceOverlay ref="voiceOverlay" />
   </div>
 </template>
@@ -259,7 +271,7 @@ import {
   Trash2, Zap, Settings, LogOut, 
   PanelLeft, SquarePen, Copy, RotateCcw,
   Mic, ArrowUp, ShieldAlert, Share2, MessageSquare,
-  Volume2
+  Volume2, Layout
 } from "lucide-vue-next";
 
 import LiveCanvas from "@/components/LiveCanvas.vue";
@@ -274,6 +286,27 @@ const input = ref("");
 const sidebarCollapsed = ref(false);
 const messagesEl = ref<HTMLElement>();
 const voiceOverlay = ref<InstanceType<typeof VoiceOverlay>>();
+
+// Canvas State
+const canvasVisible = ref(false);
+const canvasCollapsed = ref(false);
+
+const activeCanvasContent = computed(() => {
+  // Find the latest message with HTML, Chart or Form
+  const lastCanvasMsg = [...chat.messages].reverse().find(m => m.role === 'ai' && (hasHtml(m.content) || hasCanvasData(m.content)));
+  return lastCanvasMsg ? lastCanvasMsg.content : "";
+});
+
+// Auto-open canvas when new content arrives
+watch(activeCanvasContent, (newVal) => {
+  if (newVal && !canvasVisible.value) {
+    canvasVisible.value = true;
+  }
+});
+
+const handleCanvasSubmit = async (values: any) => {
+  await chat.sendMessage(`Form Submitted: ${JSON.stringify(values)}`);
+};
 
 const currentAudio = ref<HTMLAudioElement | null>(null);
 const isPlayingTTS = ref<string | null>(null);
@@ -345,6 +378,10 @@ marked.use({
 
 const renderMarkdown = (text: string) => text ? marked.parse(text) : '<span class="cursor-block"></span>';
 const hasHtml = (text: string) => /<html>[\s\S]*?<\/html>/.test(text);
+const hasCanvasData = (text: string) => {
+  if (text.includes('"type": "chart"') || text.includes('"type": "form"')) return true;
+  return false;
+};
 const currentConvTitle = computed(() => chat.conversations.find((conv) => conv.id === chat.currentConvId)?.title || "Intelligence Terminal");
 
 const handleSend = async () => {
