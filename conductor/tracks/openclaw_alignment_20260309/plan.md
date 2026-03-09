@@ -8,8 +8,8 @@
 
 ## Phase 2: 轻量化技能系统 (Phase 2: Lightweight Skills System)
 - [x] Task: 创建根目录 `/skills/` 并定义 `SKILL.md` 的解析模式 (Parser)。 [e76fd7c]
-- [ ] Task: 实现一个 `DynamicToolLoader`，用于在启动时加载并在 LangGraph 中注册技能。
-- [ ] Task: 编写测试：模拟一个新的 `SKILL.md` 文件并验证 AI 是否能正确识别并调用它。
+- [x] Task: 实现一个 `DynamicToolLoader`，用于在启动时加载并在 LangGraph 中注册技能。 [e76fd7c]
+- [x] Task: 编写测试：模拟一个新的 `SKILL.md` 文件并验证 AI 是否能正确识别并调用它。 [4bf4c11]
 - [ ] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md)
 
 ## Phase 3: 多渠道消息网关 (Phase 3: Multi-channel Message Gateway)
