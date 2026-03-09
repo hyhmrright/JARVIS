@@ -26,8 +26,8 @@
 - [x] Task: 联调：通过 WebSocket 或 SSE 接收 AI 发送的可视化组件定义并渲染。 [688962d]
 - [x] Task: Conductor - User Manual Verification 'Phase 4' (Protocol in workflow.md) [c4b4fbc]
 
-## Phase 5: 自动化与调度 (Phase 5: Automation & Scheduling)
+## Phase 5: 自动化与调度 (Phase 5: Automation & Scheduling) [checkpoint: c4ae2fa]
 - [x] Task: 集成 `APScheduler` 并实现基于 Cron 表达式的任务管理器。 [f381a40]
 - [x] Task: 开发公开的 Webhook 接口用于接收外部事件。 [f381a40]
 - [x] Task: 编写测试：验证 Cron 任务能在指定时间点成功触发 Agent 逻辑。 [f381a40]
-- [ ] Task: Conductor - User Manual Verification 'Phase 5' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 5' (Protocol in workflow.md) [c4ae2fa]
