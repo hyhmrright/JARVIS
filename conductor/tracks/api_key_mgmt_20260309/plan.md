@@ -18,4 +18,4 @@
 ## Phase 4: 前端界面 (Frontend Interface)
 - [x] Task: 创建 API 密钥管理面板 (Create API key management panel) [810f384]
 - [x] Task: 集成 API 端点并在前端显示状态 (Integrate API endpoints & show state) [810f384]
-- [ ] Task: Conductor - User Manual Verification 'Phase 4' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 4' (Protocol in workflow.md) [checkpoint: 78d1f50]
