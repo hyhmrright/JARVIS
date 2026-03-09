@@ -46,7 +46,7 @@
       <!-- Form Container -->
       <div v-else-if="type === 'form'" class="p-8 text-zinc-900">
         <h3 class="text-lg font-bold mb-6 border-b pb-2">{{ formData.title || 'Interactive Form' }}</h3>
-        <form @submit.prevent="submitForm" class="space-y-6">
+        <form class="space-y-6" @submit.prevent="submitForm">
           <div v-for="field in formData.fields" :key="field.name" class="space-y-2">
             <label class="block text-sm font-semibold text-zinc-700">{{ field.label }}</label>
             
@@ -115,7 +115,7 @@ const type = computed(() => {
     const data = JSON.parse(props.content);
     if (data.type === 'chart') return 'chart';
     if (data.type === 'form') return 'form';
-  } catch (e) {
+  } catch {
     // Not JSON
   }
   // Fallback check for ECharts JSON inside markdown
@@ -139,10 +139,25 @@ const wrappedHtml = computed(() => {
 });
 
 // Form Logic
-const formData = computed(() => {
+interface FormField {
+  name: string;
+  label: string;
+  type: string;
+  placeholder?: string;
+  required?: boolean;
+  default?: any;
+  options?: Array<{ label: string; value: any }>;
+}
+
+interface FormData {
+  title?: string;
+  fields: FormField[];
+}
+
+const formData = computed<FormData>(() => {
   try {
     return JSON.parse(props.content);
-  } catch (e) {
+  } catch {
     return { title: 'Interactive Form', fields: [] };
   }
 });
@@ -151,7 +166,7 @@ const formValues = ref<Record<string, any>>({});
 
 watch(formData, (newVal) => {
   if (newVal.fields) {
-    newVal.fields.forEach((f: any) => {
+    newVal.fields.forEach((f: FormField) => {
       if (formValues.value[f.name] === undefined) {
         formValues.value[f.name] = f.default || '';
       }
