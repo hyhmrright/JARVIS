@@ -18,6 +18,10 @@ JARVIS 是一个现代化的 AI 助手平台，专注于提供卓越的用户体
 5. **可插拔插件系统**：基于 LangGraph 的 ReAct agent 架构，支持自定义工具扩展。
 6. **可观测性**：集成 Prometheus + Grafana，提供实时的系统监控和日志审计。
 7. **开发者 API**：支持生成长效个人 API 密钥 (PAT)，便于通过脚本或第三方集成安全访问平台功能。
+8. **多渠道集成**：支持通过 Telegram, 飞书, Discord 和 Slack 进行跨平台交互。
+9. **轻量化技能系统**：支持通过 SKILL.md (Markdown) 快速定义和动态加载 AI 技能。
+10. **实时交互画布**：侧边栏 Live Canvas 支持 HTML 预览、ECharts 动态图表和交互式表单。
+11. **主动自动化**：支持基于 Cron 表达式的定时任务和外部 Webhook 事件触发。
 
 ## 成功标准 (Success Criteria)
 - 系统支持超过 10,000 条消息的并发流式处理而不崩溃。

@@ -7,6 +7,9 @@
 - **迁移工具**：Alembic。
 - **校验与设置**：Pydantic v2+, Pydantic-Settings。
 - **并发控制**：Asyncio, Asyncpg。
+- **自动化调度**：APScheduler。
+- **消息适配器**：aiogram (Telegram), slack-bolt (Slack), discord.py (Discord)。
+- **沙箱环境**：Python Docker SDK。
 
 ## 前端 (Frontend)
 - **框架**：Vue 3 (Composition API)。
@@ -15,6 +18,7 @@
 - **状态管理**：Pinia。
 - **样式**：Tailwind CSS (v4+), Custom CSS。
 - **UI 组件库**：Radix Vue, Lucide Vue Next。
+- **数据可视化**：ECharts。
 - **网络请求**：Axios。
 
 ## 基础设施 (Infrastructure)
