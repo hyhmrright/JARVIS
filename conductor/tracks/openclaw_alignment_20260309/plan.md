@@ -13,7 +13,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md) [2515d9c]
 
 ## Phase 3: 多渠道消息网关 (Phase 3: Multi-channel Message Gateway)
-- [ ] Task: 在 `app/channels/` 下定义 `BaseChannelAdapter` 抽象基类。
+- [x] Task: 在 `app/channels/` 下定义 `BaseChannelAdapter` 抽象基类。 [0cb7b91]
 - [ ] Task: 优先实现 Telegram 适配器（包括 Webhook 接收与回复分发逻辑）。
 - [ ] Task: 编写测试：通过 Mock 平台 API 验证消息的解析与路由逻辑。
 - [ ] Task: 实现飞书 (Lark) 与 Discord/Slack 的基础适配器结构。
