@@ -13,7 +13,7 @@
 ## Phase 3: 身份验证中间件 (Authentication Middleware)
 - [x] Task: 实现 API 密钥身份验证装饰器/依赖项 (Implement API key auth dependency) [c4521b4]
 - [x] Task: 验证 API 密钥在受保护端点上的工作情况 (Verify key auth on protected endpoints) [c4521b4]
-- [ ] Task: Conductor - User Manual Verification 'Phase 3' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3' (Protocol in workflow.md) [checkpoint: 30082c3]
 
 ## Phase 4: 前端界面 (Frontend Interface)
 - [ ] Task: 创建 API 密钥管理面板 (Create API key management panel)
