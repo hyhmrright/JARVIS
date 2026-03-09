@@ -49,6 +49,7 @@ async def test_api_key_crud_flow(client: AsyncClient, db_session: AsyncSession) 
     result = await db_session.scalar(stmt)
     assert result is None
 
+
 @pytest.mark.asyncio
 async def test_api_key_limit(client: AsyncClient, db_session: AsyncSession) -> None:
     # 创建用户

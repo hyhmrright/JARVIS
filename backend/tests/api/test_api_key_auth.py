@@ -41,12 +41,14 @@ async def test_api_key_authentication(
     assert len(keys) >= 1
     assert any(k["name"] == "Auth Test Key" for k in keys)
 
+
 @pytest.mark.asyncio
 async def test_invalid_api_key(client: AsyncClient) -> None:
     headers = {"Authorization": "Bearer jv_invalid_key_12345"}
     response = await client.get("/api/keys", headers=headers)
     assert response.status_code == 401
     assert response.json()["detail"] == "Invalid API key"
+
 
 @pytest.mark.asyncio
 async def test_expired_api_key(client: AsyncClient, db_session: AsyncSession) -> None:
