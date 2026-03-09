@@ -6,8 +6,8 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md) [checkpoint: d21aa17]
 
 ## Phase 2: 后端 API 端点 (Backend API Endpoints)
-- [ ] Task: 实现创建、列举和删除 API 密钥的端点 (Implement CRUD endpoints for API keys)
-- [ ] Task: 为新端点编写测试 (Write tests for new endpoints)
+- [x] Task: 实现创建、列举和删除 API 密钥的端点 (Implement CRUD endpoints for API keys) [1133d10]
+- [x] Task: 为新端点编写测试 (Write tests for new endpoints) [1133d10]
 - [ ] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md)
 
 ## Phase 3: 身份验证中间件 (Authentication Middleware)
