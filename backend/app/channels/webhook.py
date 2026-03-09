@@ -3,12 +3,12 @@ from typing import Any
 import structlog
 from fastapi import APIRouter, Request, Response
 
-from app.gateway.models import ChannelAdapter, GatewayMessage
+from app.channels.base import BaseChannelAdapter, GatewayMessage
 
 logger = structlog.get_logger(__name__)
 
 
-class WebhookChannel(ChannelAdapter):
+class WebhookChannel(BaseChannelAdapter):
     """Generic Webhook channel adapter for third-party integrations."""
 
     channel_name = "webhook"

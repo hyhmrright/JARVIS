@@ -26,7 +26,7 @@ class PluginAPI:
         self._registry.add_tool(self._plugin_id, tool)
 
     def register_channel(self, adapter: object) -> None:
-        """Register a ChannelAdapter contributed by this plugin."""
+        """Register a BaseChannelAdapter contributed by this plugin."""
         self._registry.add_channel(self._plugin_id, adapter)
 
     def get_config(self, key: str, default: str | None = None) -> str | None:

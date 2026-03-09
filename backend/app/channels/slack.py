@@ -6,14 +6,14 @@ import structlog
 from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
 from slack_bolt.app.async_app import AsyncApp
 
-from app.gateway.models import ChannelAdapter, GatewayMessage, chunk_text
+from app.channels.base import BaseChannelAdapter, GatewayMessage, chunk_text
 
 logger = structlog.get_logger(__name__)
 
 _SLACK_MAX_MESSAGE_LEN = 4000
 
 
-class SlackChannel(ChannelAdapter):
+class SlackChannel(BaseChannelAdapter):
     """Slack bot channel adapter using Socket Mode (AsyncBolt)."""
 
     channel_name = "slack"

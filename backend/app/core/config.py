@@ -25,6 +25,9 @@ class Settings(BaseSettings):
 
     # Channel bot tokens — optional, leave empty to disable the channel
     telegram_bot_token: str = ""
+    telegram_webhook_url: str = ""
+    feishu_app_id: str = ""
+    feishu_app_secret: str = ""
     discord_bot_token: str = ""
     slack_bot_token: str = ""
     slack_app_token: str = ""

@@ -16,7 +16,7 @@ logger = structlog.get_logger(__name__)
 class _PluginEntry:
     plugin: JarvisPlugin
     tools: list[BaseTool] = field(default_factory=list)
-    channels: list = field(default_factory=list)  # list[ChannelAdapter]
+    channels: list = field(default_factory=list)  # list[BaseChannelAdapter]
 
 
 class PluginRegistry:

@@ -4,14 +4,14 @@ from typing import Any
 import discord
 import structlog
 
-from app.gateway.models import ChannelAdapter, GatewayMessage, chunk_text
+from app.channels.base import BaseChannelAdapter, GatewayMessage, chunk_text
 
 logger = structlog.get_logger(__name__)
 
 _DISCORD_MAX_MESSAGE_LEN = 2000
 
 
-class DiscordChannel(ChannelAdapter):
+class DiscordChannel(BaseChannelAdapter):
     """Discord bot channel adapter using discord.py."""
 
     channel_name = "discord"

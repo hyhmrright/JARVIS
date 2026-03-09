@@ -3,14 +3,16 @@ from typing import Any
 
 import structlog
 
-from app.gateway.models import ChannelAdapter, chunk_text
+from fastapi import APIRouter, Request, Response
+
+from app.channels.base import BaseChannelAdapter, GatewayMessage, chunk_text
 
 logger = structlog.get_logger(__name__)
 
 _FEISHU_MAX_MESSAGE_LEN = 20000  # Feishu/Lark limits
 
 
-class FeishuChannel(ChannelAdapter):
+class FeishuChannel(BaseChannelAdapter):
     """Feishu (Lark) bot channel adapter.
 
     Inspired by OpenClaw's Feishu extension.
@@ -25,12 +27,27 @@ class FeishuChannel(ChannelAdapter):
         self.app_id = app_id
         self.app_secret = app_secret
         self.verification_token = verification_token
+        self.router = APIRouter()
         self._webhook_task: asyncio.Task | None = None
         self._handler_registered = False
-        # In a full implementation, we would use larksuite/lark-openapi-python
-        # self.client = lark.Client.builder().app_id(
-        #     app_id
-        # ).app_secret(app_secret).build()
+        self._setup_router()
+
+    def _setup_router(self) -> None:
+        @self.router.post("/webhook")
+        async def handle_webhook(request: Request) -> Response | dict[str, Any]:
+            # Basic Feishu verification and event handling stub
+            try:
+                data = await request.json()
+                # URL verification
+                if data.get("type") == "url_verification":
+                    return {"challenge": data.get("challenge")}
+                
+                # Event handling logic would go here
+                logger.info("feishu_webhook_received", event_type=data.get("header", {}).get("event_type"))
+                return {"status": "ok"}
+            except Exception:
+                logger.exception("feishu_webhook_error")
+                return Response(status_code=500)
 
     async def start(self) -> None:
         """Start the Feishu event listener."""
