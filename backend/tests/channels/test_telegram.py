@@ -333,3 +333,63 @@ def test_set_message_handler_stores_handler() -> None:
 
     channel.set_message_handler(my_handler)
     assert channel._message_handler is my_handler
+
+
+# ---------------------------------------------------------------------------
+# 10. Webhook Support
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_telegram_webhook_handling():
+    """验证 Telegram Webhook 路由是否能正确处理更新。"""
+    with (
+        patch("app.channels.telegram.Bot"),
+        patch("app.channels.telegram.Dispatcher") as mock_dp_class,
+    ):
+        mock_dp = mock_dp_class.return_value
+        mock_dp.feed_update = AsyncMock()
+
+        adapter = TelegramChannel("token", webhook_url="http://example.com")
+
+        # Simulate request
+        from fastapi import Request
+
+        mock_request = MagicMock(spec=Request)
+        mock_request.json = AsyncMock(
+            return_value={
+                "update_id": 123,
+                "message": {
+                    "message_id": 456,
+                    "date": 123456789,
+                    "chat": {"id": 100, "type": "private"},
+                    "text": "hi",
+                },
+            }
+        )
+
+        # Call handle_update directly (it's inside _setup_router)
+        # We need to find the route in adapter.router
+        handle_update = adapter.router.routes[0].endpoint
+        response = await handle_update(mock_request)
+
+        assert response.status_code == 200
+        mock_dp.feed_update.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_telegram_start_sets_webhook():
+    """验证 start() 在有 webhook_url 时设置 webhook。"""
+    with (
+        patch("app.channels.telegram.Bot") as mock_bot_class,
+        patch("app.channels.telegram.Dispatcher"),
+    ):
+        mock_bot = mock_bot_class.return_value
+        mock_bot.set_webhook = AsyncMock()
+
+        adapter = TelegramChannel("token", webhook_url="http://example.com")
+        await adapter.start()
+
+        mock_bot.set_webhook.assert_called_once_with(
+            url="http://example.com/api/channels/telegram/webhook"
+        )

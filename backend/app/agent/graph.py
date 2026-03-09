@@ -141,7 +141,7 @@ def create_graph(
         conversation_id=conversation_id,
     )
 
-    llm = get_llm_with_fallback(provider, model, all_keys[0], fallback_providers)
+    llm = get_llm_with_fallback(provider, model, all_keys[0])
     llm_with_tools = llm.bind_tools(tools)
     tool_node = ToolNode(tools)
 

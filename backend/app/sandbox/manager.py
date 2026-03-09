@@ -1,8 +1,11 @@
-"""Docker sandbox manager for isolated command execution."""
+"""Docker sandbox manager for isolated command execution using Docker SDK."""
 
 import asyncio
+from typing import Any
 
+import docker
 import structlog
+from docker.errors import DockerException, NotFound
 
 from app.core.config import settings
 
@@ -14,45 +17,55 @@ class SandboxError(Exception):
 
 
 class SandboxManager:
-    """Create, execute in, and destroy Docker sandbox containers."""
+    """Create, execute in, and destroy Docker sandbox containers using Docker SDK."""
+
+    def __init__(self) -> None:
+        self._client: Any = None
+
+    @property
+    def client(self) -> Any:
+        """Lazy initialization of the Docker client."""
+        if self._client is None:
+            try:
+                self._client = docker.from_env()
+            except DockerException as e:
+                logger.error("docker_client_init_failed", error=str(e))
+                raise SandboxError(f"Failed to connect to Docker daemon: {e}") from e
+        return self._client
 
     async def create_sandbox(self, user_id: str, session_id: str) -> str:
         """Create a Docker container for isolated execution.
 
         Returns the container ID.
         """
-        cmd = [
-            "docker",
-            "run",
-            "-d",
-            f"--cpus={settings.sandbox_cpu_limit}",
-            f"--memory={settings.sandbox_memory_limit}",
-            "--network=none",
-            f"--label=jarvis.user_id={user_id}",
-            f"--label=jarvis.session_id={session_id}",
-            settings.sandbox_image,
-            "sleep",
-            str(settings.sandbox_timeout),
-        ]
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await proc.communicate()
 
-        if proc.returncode != 0:
-            error_msg = stderr.decode(errors="replace").strip()
-            raise SandboxError(f"Failed to create sandbox: {error_msg}")
+        def _run() -> Any:
+            return self.client.containers.run(
+                image=settings.sandbox_image,
+                command="sleep " + str(settings.sandbox_timeout),
+                detach=True,
+                nano_cpus=int(settings.sandbox_cpu_limit * 1e9),
+                mem_limit=settings.sandbox_memory_limit,
+                network_disabled=True,
+                labels={
+                    "jarvis.user_id": user_id,
+                    "jarvis.session_id": session_id,
+                },
+                remove=False,  # We want to control removal
+            )
 
-        container_id = stdout.decode().strip()
-        logger.info(
-            "sandbox_created",
-            container_id=container_id[:12],
-            user_id=user_id,
-            session_id=session_id,
-        )
-        return container_id
+        try:
+            container = await asyncio.to_thread(_run)
+            logger.info(
+                "sandbox_created",
+                container_id=container.id[:12],
+                user_id=user_id,
+                session_id=session_id,
+            )
+            return str(container.id)
+        except Exception as e:
+            logger.error("sandbox_create_failed", error=str(e))
+            raise SandboxError(f"Failed to create sandbox: {e}") from e
 
     async def exec_in_sandbox(
         self,
@@ -64,57 +77,66 @@ class SandboxManager:
 
         Returns combined stdout/stderr output.
         """
-        cmd = [
-            "docker",
-            "exec",
-            container_id,
-            "sh",
-            "-c",
-            command,
-        ]
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+
+        def _exec() -> tuple[int, bytes]:
+            container = self.client.containers.get(container_id)
+            # exec_run returns (exit_code, output)
+            result = container.exec_run(
+                cmd=["sh", "-c", command],
+                workdir="/tmp",
+            )
+            return result
+
         try:
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(),
+            # Note: Docker SDK doesn't have a direct timeout for exec_run easily.
+            # asyncio.wait_for will handle the async side.
+            exit_code, output = await asyncio.wait_for(
+                asyncio.to_thread(_exec),
                 timeout=timeout,
             )
-        except TimeoutError:
-            proc.kill()
-            await proc.wait()
-            raise SandboxError(f"Command timed out after {timeout} seconds") from None
 
-        output = (stdout + stderr).decode(errors="replace").strip()
-        if proc.returncode != 0:
-            logger.warning(
-                "sandbox_nonzero_exit",
+            output_str = output.decode(errors="replace").strip()
+            if exit_code != 0:
+                logger.warning(
+                    "sandbox_nonzero_exit",
+                    container_id=container_id[:12],
+                    exit_code=exit_code,
+                )
+            return output_str
+        except TimeoutError:
+            logger.error(
+                "sandbox_exec_timeout",
                 container_id=container_id[:12],
-                returncode=proc.returncode,
+                timeout=timeout,
             )
-        return output
+            raise SandboxError(f"Command timed out after {timeout} seconds") from None
+        except NotFound as e:
+            raise SandboxError(f"Container {container_id} not found") from e
+        except Exception as e:
+            logger.error(
+                "sandbox_exec_failed", container_id=container_id[:12], error=str(e)
+            )
+            raise SandboxError(f"Failed to execute in sandbox: {e}") from e
 
     async def destroy_sandbox(self, container_id: str) -> None:
         """Force-remove a sandbox container."""
-        cmd = ["docker", "rm", "-f", container_id]
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        _, stderr = await proc.communicate()
 
-        if proc.returncode != 0:
-            error_msg = stderr.decode(errors="replace").strip()
-            logger.warning(
-                "sandbox_destroy_failed",
-                container_id=container_id[:12],
-                error=error_msg,
-            )
-        else:
+        def _remove() -> None:
+            try:
+                container = self.client.containers.get(container_id)
+                container.remove(force=True)
+            except NotFound:
+                pass  # Already gone
+
+        try:
+            await asyncio.to_thread(_remove)
             logger.info(
                 "sandbox_destroyed",
                 container_id=container_id[:12],
+            )
+        except Exception as e:
+            logger.warning(
+                "sandbox_destroy_failed",
+                container_id=container_id[:12],
+                error=str(e),
             )

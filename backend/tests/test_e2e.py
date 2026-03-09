@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -12,10 +14,12 @@ async def client():
         yield c
 
 
+@pytest.mark.asyncio
 async def test_full_flow(client):
+    unique_email = f"e2e_{uuid.uuid4().hex[:8]}@test.com"
     # 1. 注册
     r = await client.post(
-        "/api/auth/register", json={"email": "e2e@test.com", "password": "pass1234"}
+        "/api/auth/register", json={"email": unique_email, "password": "pass1234"}
     )
     assert r.status_code == 201
     token = r.json()["access_token"]

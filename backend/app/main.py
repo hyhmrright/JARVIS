@@ -26,6 +26,7 @@ from app.api.usage import router as usage_router
 from app.api.voice import router as voice_router
 from app.api.webhooks import router as webhooks_router
 from app.channels.discord import DiscordChannel
+from app.channels.feishu import FeishuChannel
 from app.channels.slack import SlackChannel
 from app.channels.telegram import TelegramChannel
 from app.channels.webhook import WebhookChannel
@@ -64,7 +65,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Initialize and start messaging channels
     if settings.telegram_bot_token:
-        channel_registry.register(TelegramChannel(settings.telegram_bot_token))
+        tg_adapter = TelegramChannel(
+            settings.telegram_bot_token, settings.telegram_webhook_url
+        )
+        channel_registry.register(tg_adapter)
+        app.include_router(tg_adapter.router, prefix="/api/channels/telegram")
+    if settings.feishu_app_id and settings.feishu_app_secret:
+        fs_adapter = FeishuChannel(settings.feishu_app_id, settings.feishu_app_secret)
+        channel_registry.register(fs_adapter)
+        app.include_router(fs_adapter.router, prefix="/api/channels/feishu")
     if settings.discord_bot_token:
         channel_registry.register(DiscordChannel(settings.discord_bot_token))
     if settings.slack_bot_token and settings.slack_app_token:

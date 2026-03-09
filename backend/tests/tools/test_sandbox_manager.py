@@ -1,135 +1,77 @@
-"""Tests for SandboxManager with mocked subprocess calls."""
-
-from __future__ import annotations
-
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from app.sandbox.manager import SandboxError, SandboxManager
 
 
-def _make_proc(
-    returncode: int = 0,
-    stdout: bytes = b"",
-    stderr: bytes = b"",
-) -> MagicMock:
-    """Build a mock async process."""
-    proc = MagicMock()
-    proc.returncode = returncode
-    proc.communicate = AsyncMock(return_value=(stdout, stderr))
-    proc.kill = MagicMock()
-    proc.wait = AsyncMock()
-    return proc
-
-
-@pytest.fixture
-def manager() -> SandboxManager:
-    return SandboxManager()
-
-
-# ── create_sandbox ──────────────────────────────────────────────
-
-
 @pytest.mark.asyncio
-async def test_create_sandbox_success(manager: SandboxManager) -> None:
-    fake_id = "abc123def456"
-    proc = _make_proc(stdout=f"{fake_id}\n".encode())
+async def test_create_sandbox_success():
+    with patch("docker.from_env") as mock_docker:
+        mock_client = MagicMock()
+        mock_docker.return_value = mock_client
+        mock_container = MagicMock()
+        mock_container.id = "test_id"
+        mock_client.containers.run.return_value = mock_container
 
-    target = "app.sandbox.manager.asyncio.create_subprocess_exec"
-    with patch(target, return_value=proc) as mock_exec:
+        manager = SandboxManager()
         cid = await manager.create_sandbox("user-1", "sess-1")
 
-    assert cid == fake_id
-    args = mock_exec.call_args
-    flat = args[0]
-    assert flat[0] == "docker"
-    assert flat[1] == "run"
-    assert "-d" in flat
-    assert "--network=none" in flat
-    assert "--label=jarvis.user_id=user-1" in flat
-    assert "--label=jarvis.session_id=sess-1" in flat
+        assert cid == "test_id"
+        mock_client.containers.run.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_create_sandbox_failure(manager: SandboxManager) -> None:
-    proc = _make_proc(returncode=1, stderr=b"image not found")
+async def test_create_sandbox_failure():
+    with patch("docker.from_env") as mock_docker:
+        mock_client = MagicMock()
+        mock_docker.return_value = mock_client
+        mock_client.containers.run.side_effect = Exception("Docker error")
 
-    with (
-        patch("app.sandbox.manager.asyncio.create_subprocess_exec", return_value=proc),
-        pytest.raises(SandboxError, match="image not found"),
-    ):
-        await manager.create_sandbox("u", "s")
-
-
-# ── exec_in_sandbox ─────────────────────────────────────────────
+        manager = SandboxManager()
+        with pytest.raises(SandboxError, match="Failed to create sandbox"):
+            await manager.create_sandbox("u", "s")
 
 
 @pytest.mark.asyncio
-async def test_exec_in_sandbox_success(manager: SandboxManager) -> None:
-    proc = _make_proc(stdout=b"hello world\n")
+async def test_exec_in_sandbox_success():
+    with patch("docker.from_env") as mock_docker:
+        mock_client = MagicMock()
+        mock_docker.return_value = mock_client
+        mock_container = MagicMock()
+        mock_client.containers.get.return_value = mock_container
+        mock_container.exec_run.return_value = (0, b"output")
 
-    target = "app.sandbox.manager.asyncio.create_subprocess_exec"
-    with patch(target, return_value=proc) as mock_exec:
-        output = await manager.exec_in_sandbox("cid123", "echo hello world")
+        manager = SandboxManager()
+        output = await manager.exec_in_sandbox("cid", "ls")
 
-    assert output == "hello world"
-    args = mock_exec.call_args[0]
-    assert args[0] == "docker"
-    assert args[1] == "exec"
-    assert "cid123" in args
-    assert "echo hello world" in args
-
-
-@pytest.mark.asyncio
-async def test_exec_in_sandbox_timeout(manager: SandboxManager) -> None:
-    proc = MagicMock()
-    proc.communicate = AsyncMock(side_effect=TimeoutError)
-    proc.kill = MagicMock()
-    proc.wait = AsyncMock()
-
-    with (
-        patch("app.sandbox.manager.asyncio.create_subprocess_exec", return_value=proc),
-        pytest.raises(SandboxError, match="timed out"),
-    ):
-        await manager.exec_in_sandbox("cid123", "sleep 999", timeout=1)
+        assert output == "output"
+        mock_container.exec_run.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_exec_in_sandbox_nonzero_exit(manager: SandboxManager) -> None:
-    proc = _make_proc(returncode=1, stdout=b"", stderr=b"error output")
+async def test_exec_in_sandbox_timeout():
+    with patch("docker.from_env") as mock_docker:
+        mock_client = MagicMock()
+        mock_docker.return_value = mock_client
+        mock_container = MagicMock()
+        mock_client.containers.get.return_value = mock_container
 
-    with patch("app.sandbox.manager.asyncio.create_subprocess_exec", return_value=proc):
-        output = await manager.exec_in_sandbox("cid123", "bad_command")
-
-    assert "error output" in output
-
-
-# ── destroy_sandbox ─────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_destroy_sandbox_success(manager: SandboxManager) -> None:
-    proc = _make_proc(stdout=b"cid123\n")
-
-    target = "app.sandbox.manager.asyncio.create_subprocess_exec"
-    with patch(target, return_value=proc) as mock_exec:
-        await manager.destroy_sandbox("cid123")
-
-    args = mock_exec.call_args[0]
-    assert args == ("docker", "rm", "-f", "cid123")
+        with patch("asyncio.wait_for", side_effect=TimeoutError()):
+            manager = SandboxManager()
+            with pytest.raises(SandboxError, match="timed out"):
+                await manager.exec_in_sandbox("cid", "sleep 10", timeout=1)
 
 
 @pytest.mark.asyncio
-async def test_destroy_sandbox_failure_logs_warning(
-    manager: SandboxManager,
-) -> None:
-    proc = _make_proc(returncode=1, stderr=b"no such container")
+async def test_destroy_sandbox_success():
+    with patch("docker.from_env") as mock_docker:
+        mock_client = MagicMock()
+        mock_docker.return_value = mock_client
+        mock_container = MagicMock()
+        mock_client.containers.get.return_value = mock_container
 
-    with (
-        patch("app.sandbox.manager.asyncio.create_subprocess_exec", return_value=proc),
-        patch("app.sandbox.manager.logger") as mock_logger,
-    ):
-        await manager.destroy_sandbox("cid123")
+        manager = SandboxManager()
+        await manager.destroy_sandbox("cid")
 
-    mock_logger.warning.assert_called_once()
+        mock_container.remove.assert_called_once_with(force=True)

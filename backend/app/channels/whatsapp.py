@@ -4,7 +4,7 @@ import structlog
 from fastapi import APIRouter, Request, Response
 from twilio.rest import Client
 
-from app.gateway.models import ChannelAdapter, GatewayMessage, chunk_text
+from app.channels.base import BaseChannelAdapter, GatewayMessage, chunk_text
 
 logger = structlog.get_logger(__name__)
 
@@ -12,7 +12,7 @@ logger = structlog.get_logger(__name__)
 _WHATSAPP_MAX_MESSAGE_LEN = 1600
 
 
-class WhatsAppChannel(ChannelAdapter):
+class WhatsAppChannel(BaseChannelAdapter):
     """WhatsApp bot channel adapter using Twilio Webhooks."""
 
     channel_name = "whatsapp"

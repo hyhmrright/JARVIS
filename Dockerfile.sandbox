@@ -1,10 +1,27 @@
-FROM python:3.13-slim
+# High-performance sandbox image with browser automation support
+FROM mcr.microsoft.com/playwright/python:v1.50.0-noble
 
+# Install extra tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl git nodejs npm && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir numpy pandas matplotlib requests
+# Install common data science and automation libs
+RUN pip install --no-cache-dir \
+    numpy \
+    pandas \
+    matplotlib \
+    requests \
+    beautifulsoup4 \
+    lxml
+
+# Ensure chromium is ready (pre-installed in base image, but just in case)
+RUN playwright install chromium
 
 WORKDIR /workspace
 
-USER nobody
+# Set environment for headless execution
+ENV DISPLAY=:99
+ENV PYTHONUNBUFFERED=1
+
+# Note: We keep as root for playwright/chromium sandbox compatibility in some docker environments, 
+# but in production, we should use a non-root user with proper permissions.

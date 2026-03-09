@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from app.channels.base import BaseChannelAdapter, GatewayMessage, chunk_text
 from app.gateway.channel_registry import ChannelRegistry
-from app.gateway.models import ChannelAdapter, GatewayMessage, chunk_text
 from app.gateway.router import GatewayRouter
 from app.gateway.session_manager import SessionManager
 
@@ -16,7 +16,7 @@ from app.gateway.session_manager import SessionManager
 # ---------------------------------------------------------------------------
 
 
-class _FakeAdapter(ChannelAdapter):
+class _FakeAdapter(BaseChannelAdapter):
     channel_name = "fake"
 
     def __init__(self) -> None:

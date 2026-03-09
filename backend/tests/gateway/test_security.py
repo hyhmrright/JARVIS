@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from app.channels.base import BaseChannelAdapter, GatewayMessage
 from app.gateway.channel_registry import ChannelRegistry
-from app.gateway.models import ChannelAdapter, GatewayMessage
 from app.gateway.router import GatewayRouter
 from app.gateway.security import (
     PAIRING_INVALID,
@@ -71,7 +71,7 @@ def _make_session_redis_mock(stored: dict | None = None) -> MagicMock:
     return redis
 
 
-class _FakeAdapter(ChannelAdapter):
+class _FakeAdapter(BaseChannelAdapter):
     channel_name = "fake"
 
     def __init__(self) -> None:
