@@ -87,7 +87,7 @@ class DiscordChannel(BaseChannelAdapter):
         if self._task is not None:
             logger.warning("discord_task_died_restarting")
             self._task = None
-        
+
         self._task = asyncio.create_task(self._client.start(self._bot_token))
         logger.info("discord_channel_started")
 
@@ -115,7 +115,7 @@ class DiscordChannel(BaseChannelAdapter):
         except ValueError:
             logger.warning("discord_invalid_channel_id", channel_id=channel_id)
             return
-        
+
         try:
             channel = self._client.get_channel(cid)
             if channel is None:
@@ -123,11 +123,11 @@ class DiscordChannel(BaseChannelAdapter):
         except Exception:
             logger.warning("discord_channel_fetch_failed", channel_id=channel_id)
             return
-            
+
         if not isinstance(channel, discord.abc.Messageable):
             logger.warning("discord_channel_not_messageable", channel_id=channel_id)
             return
-            
+
         try:
             for chunk in chunk_text(content, _DISCORD_MAX_MESSAGE_LEN):
                 await channel.send(chunk)

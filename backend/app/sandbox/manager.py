@@ -2,6 +2,7 @@
 
 import asyncio
 from typing import Any
+
 import docker
 import structlog
 from docker.errors import DockerException, NotFound
@@ -37,6 +38,7 @@ class SandboxManager:
 
         Returns the container ID.
         """
+
         def _run() -> Any:
             return self.client.containers.run(
                 image=settings.sandbox_image,
@@ -49,7 +51,7 @@ class SandboxManager:
                     "jarvis.user_id": user_id,
                     "jarvis.session_id": session_id,
                 },
-                remove=False, # We want to control removal
+                remove=False,  # We want to control removal
             )
 
         try:
@@ -75,6 +77,7 @@ class SandboxManager:
 
         Returns combined stdout/stderr output.
         """
+
         def _exec() -> tuple[int, bytes]:
             container = self.client.containers.get(container_id)
             # exec_run returns (exit_code, output)
@@ -91,7 +94,7 @@ class SandboxManager:
                 asyncio.to_thread(_exec),
                 timeout=timeout,
             )
-            
+
             output_str = output.decode(errors="replace").strip()
             if exit_code != 0:
                 logger.warning(
@@ -100,23 +103,32 @@ class SandboxManager:
                     exit_code=exit_code,
                 )
             return output_str
-        except asyncio.TimeoutError:
-            logger.error("sandbox_exec_timeout", container_id=container_id[:12], timeout=timeout)
-            raise SandboxError(f"Command timed out after {timeout} seconds") from None
-        except NotFound:
-            raise SandboxError(f"Container {container_id} not found")
+        except TimeoutError:
+            logger.error(
+                "sandbox_exec_timeout",
+                container_id=container_id[:12],
+                timeout=timeout,
+            )
+            raise SandboxError(
+                f"Command timed out after {timeout} seconds"
+            ) from None
+        except NotFound as e:
+            raise SandboxError(f"Container {container_id} not found") from e
         except Exception as e:
-            logger.error("sandbox_exec_failed", container_id=container_id[:12], error=str(e))
+            logger.error(
+                "sandbox_exec_failed", container_id=container_id[:12], error=str(e)
+            )
             raise SandboxError(f"Failed to execute in sandbox: {e}") from e
 
     async def destroy_sandbox(self, container_id: str) -> None:
         """Force-remove a sandbox container."""
+
         def _remove() -> None:
             try:
                 container = self.client.containers.get(container_id)
                 container.remove(force=True)
             except NotFound:
-                pass # Already gone
+                pass  # Already gone
 
         try:
             await asyncio.to_thread(_remove)

@@ -31,8 +31,6 @@ from app.channels.slack import SlackChannel
 from app.channels.telegram import TelegramChannel
 from app.channels.webhook import WebhookChannel
 from app.channels.whatsapp import WhatsAppChannel
-
-from app.channels.whatsapp import WhatsAppChannel
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.logging import configure_logging
@@ -67,7 +65,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Initialize and start messaging channels
     if settings.telegram_bot_token:
-        tg_adapter = TelegramChannel(settings.telegram_bot_token, settings.telegram_webhook_url)
+        tg_adapter = TelegramChannel(
+            settings.telegram_bot_token, settings.telegram_webhook_url
+        )
         channel_registry.register(tg_adapter)
         app.include_router(tg_adapter.router, prefix="/api/channels/telegram")
     if settings.feishu_app_id and settings.feishu_app_secret:

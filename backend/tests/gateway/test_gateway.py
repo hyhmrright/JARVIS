@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.gateway.channel_registry import ChannelRegistry
 from app.channels.base import BaseChannelAdapter, GatewayMessage, chunk_text
+from app.gateway.channel_registry import ChannelRegistry
 from app.gateway.router import GatewayRouter
 from app.gateway.session_manager import SessionManager
 

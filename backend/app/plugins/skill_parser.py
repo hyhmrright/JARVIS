@@ -17,6 +17,7 @@ class SkillParser:
 
     def __init__(self, sandbox_manager: SandboxManager | None = None):
         from app.sandbox.manager import SandboxManager
+
         self.sandbox_manager = sandbox_manager or SandboxManager()
 
     def parse_markdown(self, md_content: str, filename: str) -> Dict[str, Any]:
@@ -26,14 +27,18 @@ class SkillParser:
 
         # Split by ## sections
         sections = re.split(r"^## ", md_content, flags=re.MULTILINE)
-        
+
         # Header section (Title & Description)
         header = sections[0].strip()
         title_match = re.search(r"^# (.*)$", header, re.MULTILINE)
-        title = title_match.group(1).strip() if title_match else filename.replace(".md", "")
-        
+        title = (
+            title_match.group(1).strip()
+            if title_match
+            else filename.replace(".md", "")
+        )
+
         # Split header by newlines to find lines
-        lines = [l.strip() for l in header.split("\n") if l.strip()]
+        lines = [line.strip() for line in header.split("\n") if line.strip()]
         # First line might be the title
         if lines and lines[0].startswith("#"):
             description = lines[1] if len(lines) > 1 else f"Skill {title}"
@@ -44,12 +49,14 @@ class SkillParser:
         params: Dict[str, str] = {}
         impl_type = None
         impl_code = None
-        
+
         for s in sections[1:]:
             s = s.strip()
             if s.startswith("Parameters"):
                 # Use MULTILINE here to match each param line
-                param_matches = re.finditer(r"^\s*-\s*`(\w+)`:\s*(.*)", s, re.MULTILINE)
+                param_matches = re.finditer(
+                    r"^\s*-\s*`(\w+)`:\s*(.*)", s, re.MULTILINE
+                )
                 for m in param_matches:
                     params[m.group(1)] = m.group(2).strip()
             elif s.startswith("Implementation"):
@@ -92,7 +99,7 @@ class SkillParser:
             description=description,
             coroutine=_run,
             args_schema=args_schema,
-            func=lambda **kwargs: "Async execution required", # Fallback for sync
+            func=lambda **kwargs: "Async execution required",  # Fallback for sync
         )
 
     async def _execute_bash(self, code: str, **kwargs: Any) -> str:
@@ -101,12 +108,11 @@ class SkillParser:
         command = code
         for k, v in kwargs.items():
             command = command.replace(f"{{{{{k}}}}}", str(v))
-        
+
         container_id = None
         try:
             container_id = await self.sandbox_manager.create_sandbox(
-                user_id="skill_agent",
-                session_id="skill_exec"
+                user_id="skill_agent", session_id="skill_exec"
             )
             output = await self.sandbox_manager.exec_in_sandbox(container_id, command)
             return output
@@ -126,12 +132,11 @@ class SkillParser:
             # Basic escaping for single-quoted strings in python
             escaped_v = str(v).replace("'", "\\'")
             script = script.replace(f"{{{{{k}}}}}", escaped_v)
-        
+
         container_id = None
         try:
             container_id = await self.sandbox_manager.create_sandbox(
-                user_id="skill_agent",
-                session_id="skill_exec"
+                user_id="skill_agent", session_id="skill_exec"
             )
             # Write script to file inside container and run it
             # Using sh -c to echo into a file
@@ -139,8 +144,10 @@ class SkillParser:
             escaped_script = script.replace("'", "'\\''")
             setup_cmd = f"printf '%s' '{escaped_script}' > /tmp/skill.py"
             await self.sandbox_manager.exec_in_sandbox(container_id, setup_cmd)
-            
-            output = await self.sandbox_manager.exec_in_sandbox(container_id, "python3 /tmp/skill.py")
+
+            output = await self.sandbox_manager.exec_in_sandbox(
+                container_id, "python3 /tmp/skill.py"
+            )
             return output
         except Exception as e:
             logger.error("skill_python_execution_failed", error=str(e))

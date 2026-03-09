@@ -1,13 +1,12 @@
 import base64
 import ipaddress
 import urllib.parse
-import json
 
 import structlog
 from langchain_core.tools import tool
 
 from app.core.config import settings
-from app.sandbox.manager import SandboxManager, SandboxError
+from app.sandbox.manager import SandboxError, SandboxManager
 
 logger = structlog.get_logger(__name__)
 
@@ -37,20 +36,27 @@ def _is_blocked(url: str) -> bool:
 async def _run_in_sandbox(script: str) -> str:
     """Execute a Playwright script inside the sandbox."""
     if not settings.sandbox_enabled:
-        return "ERROR: Sandbox is disabled. Browser tools require sandboxing for security."
+        return (
+            "ERROR: Sandbox is disabled. "
+            "Browser tools require sandboxing for security."
+        )
 
     manager = SandboxManager()
     container_id = None
     try:
-        container_id = await manager.create_sandbox(user_id="agent", session_id="browser")
-        
+        container_id = await manager.create_sandbox(
+            user_id="agent", session_id="browser"
+        )
+
         # Escape the script for shell echo
         escaped_script = script.replace("'", "'\\''")
         setup_cmd = f"printf '%s' '{escaped_script}' > /tmp/browser_script.py"
         await manager.exec_in_sandbox(container_id, setup_cmd)
-        
+
         # Run with playwright
-        output = await manager.exec_in_sandbox(container_id, "python3 /tmp/browser_script.py", timeout=60)
+        output = await manager.exec_in_sandbox(
+            container_id, "python3 /tmp/browser_script.py", timeout=60
+        )
         return output
     except SandboxError as e:
         return f"Sandbox Error: {e}"
@@ -65,7 +71,7 @@ async def _run_in_sandbox(script: str) -> str:
 @tool
 async def browser_navigate(url: str) -> str:
     """Navigate to a URL and extract the page text content.
-    
+
     Use this to read the content of a website.
     """
     if _is_blocked(url):
@@ -96,7 +102,7 @@ if __name__ == '__main__':
 @tool
 async def browser_screenshot(url: str) -> str:
     """Take a screenshot of a webpage and return as Base64 data URL.
-    
+
     Use this when you need to see the visual layout of a page.
     """
     if _is_blocked(url):
@@ -130,7 +136,7 @@ if __name__ == '__main__':
 @tool
 async def browser_click(url: str, selector: str) -> str:
     """Click an element on a webpage and return the updated text content.
-    
+
     Use this to interact with buttons, menus, or forms.
     """
     if _is_blocked(url):

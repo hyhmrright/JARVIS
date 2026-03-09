@@ -16,7 +16,7 @@ _TELEGRAM_MAX_MESSAGE_LEN = 4096
 
 class TelegramChannel(BaseChannelAdapter):
     """Telegram bot channel adapter using aiogram.
-    
+
     Supports both long-polling and Webhooks.
     """
 
@@ -69,7 +69,7 @@ class TelegramChannel(BaseChannelAdapter):
         async def handle_update(request: Request) -> Response:
             if not self.webhook_url:
                 return Response(status_code=404)
-            
+
             try:
                 update_data = await request.json()
                 update = types.Update(**update_data)
@@ -81,12 +81,14 @@ class TelegramChannel(BaseChannelAdapter):
 
     async def start(self) -> None:
         """Start the channel adapter.
-        
+
         If webhook_url is provided, it sets the webhook.
         Otherwise, it starts long-polling in the background.
         """
         if self.webhook_url:
-            webhook_path = f"{self.webhook_url.rstrip('/')}/api/channels/telegram/webhook"
+            webhook_path = (
+                f"{self.webhook_url.rstrip('/')}/api/channels/telegram/webhook"
+            )
             await self.bot.set_webhook(url=webhook_path)
             logger.info("telegram_webhook_set", url=webhook_path)
         else:
@@ -110,7 +112,7 @@ class TelegramChannel(BaseChannelAdapter):
                 except asyncio.CancelledError:
                     pass
                 self._polling_task = None
-        
+
         await self.bot.session.close()
         logger.info("telegram_channel_stopped")
 
@@ -120,12 +122,13 @@ class TelegramChannel(BaseChannelAdapter):
         content: str,
         attachments: list[Any] | None = None,
     ) -> None:
-        """Send a message to a Telegram chat, splitting if over 4096 chars."""
+        """Send a message back to the channel."""
         try:
             chat_id = int(channel_id)
         except ValueError:
-            logger.warning("telegram_invalid_channel_id", channel_id=channel_id)
+            logger.warning("telegram_invalid_chat_id", channel_id=channel_id)
             return
+
         try:
             for chunk in chunk_text(content, _TELEGRAM_MAX_MESSAGE_LEN):
                 await self.bot.send_message(chat_id=chat_id, text=chunk)

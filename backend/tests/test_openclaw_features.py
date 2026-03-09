@@ -56,7 +56,7 @@ async def test_skill_md_loading(tmp_path: Path):
     """验证是否能加载根目录下的 SKILL.md 文件并转化为工具。"""
     skills_dir = tmp_path / "skills"
     skills_dir.mkdir()
-    
+
     skill_content = """# System Info
 Get system information using uname.
 
@@ -71,19 +71,19 @@ uname {{options}}
 ```
 """
     (skills_dir / "system_info.md").write_text(skill_content, encoding="utf-8")
-    
-    from app.plugins.loader import load_markdown_skills, activate_all_plugins
+
+    from app.plugins.loader import activate_all_plugins, load_markdown_skills
     from app.plugins.registry import PluginRegistry
-    
+
     reg = PluginRegistry()
     with patch("app.sandbox.manager.SandboxManager"):
         await load_markdown_skills(reg, [skills_dir])
         await activate_all_plugins(reg)
-    
+
     tools = reg.get_all_tools()
     tool_names = [t.name for t in tools]
     assert "system_info" in tool_names
-    
+
     # Verify description
     si_tool = next(t for t in tools if t.name == "system_info")
     assert "Get system information" in si_tool.description

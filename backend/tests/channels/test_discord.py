@@ -10,8 +10,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import discord
 import pytest
 
-from app.channels.discord import _DISCORD_MAX_MESSAGE_LEN, DiscordChannel
 from app.channels.base import GatewayMessage
+from app.channels.discord import _DISCORD_MAX_MESSAGE_LEN, DiscordChannel
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
@@ -264,7 +264,7 @@ async def test_on_message_calls_handler_and_sends_reply() -> None:
     # author != client.user so it's not ignored
     mock_msg.author = MagicMock()
     channel._client.user = MagicMock()
-    
+
     # Mock mention
     mock_msg.mentions = [channel._client.user]
     mock_msg.channel = MagicMock(spec=discord.TextChannel)
