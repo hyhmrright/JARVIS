@@ -4,7 +4,9 @@
 提供密码哈希、JWT token 签发/验证、API Key 对称加密等核心安全功能。
 """
 
+import hashlib
 import json
+import secrets
 from datetime import UTC, datetime, timedelta
 
 import bcrypt
@@ -104,3 +106,18 @@ def resolve_api_key(provider: str, raw_keys: dict) -> str:
     """Resolve a single API key (first available). Backward-compatible wrapper."""
     keys = resolve_api_keys(provider, raw_keys)
     return keys[0] if keys else ""
+
+
+# ---------------------------------------------------------------------------
+# API 密钥管理 (Internal PATs)
+# ---------------------------------------------------------------------------
+
+
+def generate_api_key() -> str:
+    """生成一个安全的随机 API 密钥（前缀为 jv_）。"""
+    return f"jv_{secrets.token_urlsafe(48)}"
+
+
+def hash_api_key(raw_token: str) -> str:
+    """使用 sha256 对原始密钥进行哈希处理。"""
+    return hashlib.sha256(raw_token.encode()).hexdigest()
