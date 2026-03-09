@@ -1,7 +1,7 @@
 # 实施计划: 实现用户 API 密钥管理 (Implement User API Key Management)
 
 ## Phase 1: 后端模型与数据库 (Backend Models & Database)
-- [ ] Task: 定义 `APIKey` 模型和 Alembic 迁移 (Define APIKey model & migrations)
+- [x] Task: 定义 \`APIKey\` 模型和 Alembic 迁移 (Define APIKey model & migrations) [264565f]
 - [ ] Task: 实现密钥生成逻辑和哈希处理 (Implement key generation & hashing logic)
 - [ ] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)
 
