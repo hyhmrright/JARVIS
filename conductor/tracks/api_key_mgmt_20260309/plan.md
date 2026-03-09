@@ -2,7 +2,7 @@
 
 ## Phase 1: 后端模型与数据库 (Backend Models & Database)
 - [x] Task: 定义 \`APIKey\` 模型和 Alembic 迁移 (Define APIKey model & migrations) [264565f]
-- [ ] Task: 实现密钥生成逻辑和哈希处理 (Implement key generation & hashing logic)
+- [x] Task: 实现密钥生成逻辑和哈希处理 (Implement key generation & hashing logic) [a922ec2]
 - [ ] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)
 
 ## Phase 2: 后端 API 端点 (Backend API Endpoints)
