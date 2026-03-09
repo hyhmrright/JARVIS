@@ -20,10 +20,10 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 3' (Protocol in workflow.md) [5936a58]
 
 ## Phase 4: 前端实时画布 (Phase 4: Frontend Live Canvas)
-- [ ] Task: 在 Vue 3 中创建 `LiveCanvas.vue` 侧边栏组件并实现响应式布局。
-- [ ] Task: 集成 ECharts 实现数据图表渲染逻辑，并支持基于 JSON 定义的交互式表单。
-- [ ] Task: 实现 HTML 安全预览沙箱 (Iframe-based Sandbox for HTML Previews)。
-- [ ] Task: 联调：通过 WebSocket 或 SSE 接收 AI 发送的可视化组件定义并渲染。
+- [x] Task: 在 Vue 3 中创建 `LiveCanvas.vue` 侧边栏组件并实现响应式布局。 [688962d]
+- [x] Task: 集成 ECharts 实现数据图表渲染逻辑，并支持基于 JSON 定义的交互式表单。 [688962d]
+- [x] Task: 实现 HTML 安全预览沙箱 (Iframe-based Sandbox for HTML Previews)。 [688962d]
+- [x] Task: 联调：通过 WebSocket 或 SSE 接收 AI 发送的可视化组件定义并渲染。 [688962d]
 - [ ] Task: Conductor - User Manual Verification 'Phase 4' (Protocol in workflow.md)
 
 ## Phase 5: 自动化与调度 (Phase 5: Automation & Scheduling)
