@@ -16,6 +16,6 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 3' (Protocol in workflow.md) [checkpoint: 30082c3]
 
 ## Phase 4: 前端界面 (Frontend Interface)
-- [ ] Task: 创建 API 密钥管理面板 (Create API key management panel)
-- [ ] Task: 集成 API 端点并在前端显示状态 (Integrate API endpoints & show state)
+- [x] Task: 创建 API 密钥管理面板 (Create API key management panel) [810f384]
+- [x] Task: 集成 API 端点并在前端显示状态 (Integrate API endpoints & show state) [810f384]
 - [ ] Task: Conductor - User Manual Verification 'Phase 4' (Protocol in workflow.md)
