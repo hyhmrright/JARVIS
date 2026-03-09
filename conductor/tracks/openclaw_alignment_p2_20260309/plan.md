@@ -6,11 +6,11 @@
 - [x] Task: 补全 `FeishuChannel` 消息分发逻辑并添加测试。 [294cef3]
 - [x] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md) [e629853]
 
-## Phase 2: 浏览器自动化工具 (Phase 2: Browser Automation)
-- [ ] Task: 更新 `Dockerfile.sandbox` 加入 Chromium 和 Playwright 驱动。
-- [ ] Task: 实现 `BrowserTool` 并集成至 `SandboxManager`。
-- [ ] Task: 编写测试验证浏览器工具的功能（导航、抓取）。
-- [ ] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md)
+## Phase 2: 浏览器自动化工具 (Phase 2: Browser Automation) [checkpoint: 9c81b52]
+- [x] Task: 更新 `Dockerfile.sandbox` 加入 Chromium 和 Playwright 驱动。 [503566e]
+- [x] Task: 实现 `BrowserTool` 并集成至 `SandboxManager`。 [70517ea]
+- [x] Task: 编写测试验证浏览器工具的功能（导航、抓取）。 [70517ea]
+- [x] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md) [9c81b52]
 
 ## Phase 3: 模型故障转移机制 (Phase 3: Model Failover & Redundancy)
 - [ ] Task: 重构 `app/agent/factory.py` 引入 `FailoverLLM` 包装器。
