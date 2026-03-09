@@ -1,5 +1,7 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
+
 from app.tools.shell_tool import shell_exec
 
 

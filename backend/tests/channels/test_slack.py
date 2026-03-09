@@ -1,8 +1,10 @@
 import asyncio
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from app.channels.slack import SlackChannel
+
+import pytest
+
 from app.channels.base import GatewayMessage
+from app.channels.slack import SlackChannel
 
 
 @pytest.mark.asyncio

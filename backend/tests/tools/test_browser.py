@@ -1,9 +1,11 @@
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
+
 from app.tools.browser_tool import (
+    browser_click,
     browser_navigate,
     browser_screenshot,
-    browser_click,
 )
 
 

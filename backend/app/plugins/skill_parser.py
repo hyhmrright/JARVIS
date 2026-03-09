@@ -1,7 +1,7 @@
 """SKILL.md (OpenClaw style) parser for lightweight agent skills."""
 
 import re
-from typing import Any, Dict
+from typing import Any
 
 import structlog
 from langchain_core.tools import StructuredTool
@@ -20,7 +20,7 @@ class SkillParser:
 
         self.sandbox_manager = sandbox_manager or SandboxManager()
 
-    def parse_markdown(self, md_content: str, filename: str) -> Dict[str, Any]:
+    def parse_markdown(self, md_content: str, filename: str) -> dict[str, Any]:
         """Extract metadata and sections from a SKILL.md file."""
         # Normalize line endings
         md_content = md_content.replace("\r\n", "\n")
@@ -46,7 +46,7 @@ class SkillParser:
             description = lines[0] if lines else f"Skill {title}"
 
         # Other sections
-        params: Dict[str, str] = {}
+        params: dict[str, str] = {}
         impl_type = None
         impl_code = None
 
@@ -73,7 +73,7 @@ class SkillParser:
             "implementation_code": impl_code,
         }
 
-    def create_tool(self, skill_data: Dict[str, Any]) -> StructuredTool:
+    def create_tool(self, skill_data: dict[str, Any]) -> StructuredTool:
         """Create a LangChain StructuredTool from parsed skill data."""
         name = skill_data["name"].lower().replace(" ", "_").replace("-", "_")
         description = skill_data["description"]

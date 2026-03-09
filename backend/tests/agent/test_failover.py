@@ -1,5 +1,7 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+
 from app.agent.llm import get_llm_with_fallback
 
 
