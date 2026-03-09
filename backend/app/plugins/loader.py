@@ -80,8 +80,70 @@ async def load_all_plugins(
     dirs = list(plugin_dirs or [])
     if _DEFAULT_PLUGIN_DIR not in dirs:
         dirs.append(_DEFAULT_PLUGIN_DIR)
+    
+    # Also search project-level skills/ and settings.skills_dir
+    project_skills_dir = Path(__file__).parents[3] / "skills"
+    config_skills_dir = Path(settings.skills_dir)
+    
     for d in dirs:
         _load_from_directory(registry, d)
+    
+    # Load lightweight Markdown skills
+    await load_markdown_skills(registry, [project_skills_dir, config_skills_dir])
+
+
+async def load_markdown_skills(
+    registry: PluginRegistry,
+    skill_dirs: list[Path],
+) -> None:
+    """Scan directories for SKILL.md files and register them as tools."""
+    from app.plugins.skill_parser import SkillParser
+    from app.sandbox.manager import SandboxManager
+    
+    parser = SkillParser(sandbox_manager=SandboxManager())
+    
+    for directory in skill_dirs:
+        if not directory.exists():
+            continue
+            
+        # Recursive search for .md files
+        for path in directory.rglob("*.md"):
+            if path.name.startswith("_"):
+                continue
+            
+            try:
+                md_content = path.read_text(encoding="utf-8")
+                # Basic check if it's a SKILL.md (should have # Title and ## Implementation/Prompt)
+                if "# " in md_content and ("## Implementation" in md_content or "## Prompt" in md_content):
+                    skill_data = parser.parse_markdown(md_content, path.name)
+                    tool = parser.create_tool(skill_data)
+                    
+                    # We wrap the tool in a minimal JarvisPlugin to fit the registry
+                    # but since we just need tools, we can register them directly
+                    # via a virtual plugin if needed, or update registry to allow raw tools.
+                    # Currently, PluginRegistry.register_plugin expects a JarvisPlugin.
+                    
+                    # For now, let's register it as a "virtual" plugin
+                    from app.plugins.sdk import JarvisPlugin, JarvisPluginManifest, PluginCategory
+                    
+                    class VirtualSkillPlugin(JarvisPlugin):
+                        def __init__(self, tool):
+                            self.tool = tool
+                            self.manifest = JarvisPluginManifest(
+                                plugin_id=f"skill_{tool.name}",
+                                name=skill_data["name"],
+                                description=skill_data["description"],
+                                category=PluginCategory.TOOL,
+                                version="0.1.0"
+                            )
+                        async def on_load(self, api: PluginAPI) -> None:
+                            api.register_tool(self.tool)
+
+                    virtual_plugin = VirtualSkillPlugin(tool)
+                    registry.register_plugin(virtual_plugin)
+                    logger.info("skill_registered", skill_name=skill_data["name"], path=str(path))
+            except Exception:
+                logger.exception("skill_load_failed", path=str(path))
 
 
 def _load_from_directory(registry: PluginRegistry, directory: Path) -> None:
