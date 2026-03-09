@@ -10,8 +10,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import discord
 import pytest
 
-from app.channels.discord_channel import _DISCORD_MAX_MESSAGE_LEN, DiscordChannel
-from app.gateway.models import GatewayMessage
+from app.channels.discord import _DISCORD_MAX_MESSAGE_LEN, DiscordChannel
+from app.channels.base import GatewayMessage
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
@@ -21,8 +21,10 @@ from app.gateway.models import GatewayMessage
 def _make_channel(token: str = "test_token") -> DiscordChannel:
     """Create a DiscordChannel with mocked discord.Client internals."""
     with (
-        patch("app.channels.discord_channel.discord.Client") as mock_client_cls,
-        patch("app.channels.discord_channel.discord.Intents") as mock_intents_cls,
+        patch("app.channels.discord.discord.Client")
+ as mock_client_cls,
+        patch("app.channels.discord.discord.Intents")
+ as mock_intents_cls,
     ):
         mock_intents = MagicMock()
         mock_intents_cls.default.return_value = mock_intents
@@ -53,8 +55,10 @@ def _capturing_channel() -> Iterator[tuple[DiscordChannel, dict]]:
         return f
 
     with (
-        patch("app.channels.discord_channel.discord.Client") as mock_client_cls,
-        patch("app.channels.discord_channel.discord.Intents") as mock_intents_cls,
+        patch("app.channels.discord.discord.Client")
+ as mock_client_cls,
+        patch("app.channels.discord.discord.Intents")
+ as mock_intents_cls,
         patch("asyncio.create_task", return_value=MagicMock()),
     ):
         mock_intents = MagicMock()
@@ -260,6 +264,10 @@ async def test_on_message_calls_handler_and_sends_reply() -> None:
     # author != client.user so it's not ignored
     mock_msg.author = MagicMock()
     channel._client.user = MagicMock()
+    
+    # Mock mention
+    mock_msg.mentions = [channel._client.user]
+    mock_msg.channel = MagicMock(spec=discord.TextChannel)
 
     async def my_handler(msg: GatewayMessage) -> str:
         return "pong"

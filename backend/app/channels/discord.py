@@ -19,36 +19,41 @@ class DiscordChannel(BaseChannelAdapter):
 
     def __init__(self, bot_token: str) -> None:
         super().__init__()
+        self._bot_token = bot_token
         intents = discord.Intents.default()
         intents.message_content = True
-        self.client = discord.Client(intents=intents)
-        self.bot_token = bot_token
-        self._bot_task: asyncio.Task | None = None
+        self._client = discord.Client(intents=intents)
+        self._task: asyncio.Task | None = None
+        self._setup_events()
 
-        @self.client.event
+    def _setup_events(self) -> None:
+        @self._client.event
         async def on_ready() -> None:
-            logger.info("discord_channel_ready", user=str(self.client.user))
+            logger.info("discord_channel_ready", user=str(self._client.user))
 
-        @self.client.event
+        @self._client.event
         async def on_message(message: discord.Message) -> None:
             # Ignore own messages
-            if message.author == self.client.user:
+            if message.author == self._client.user:
+                return
+            if not message.content:
                 return
 
             # Check for DM or Mention
             is_dm = isinstance(message.channel, discord.DMChannel)
             is_mentioned = (
-                self.client.user in message.mentions if self.client.user else False
+                self._client.user in message.mentions if self._client.user else False
             )
 
+            # Process only if it's a DM or the bot is mentioned
             if not (is_dm or is_mentioned):
                 return
 
             # Clean content if it was a mention
             content = message.content
-            if is_mentioned and self.client.user:
-                content = content.replace(f"<@{self.client.user.id}>", "").strip()
-                content = content.replace(f"<@!{self.client.user.id}>", "").strip()
+            if is_mentioned and self._client.user:
+                content = content.replace(f"<@{self._client.user.id}>", "").strip()
+                content = content.replace(f"<@!{self._client.user.id}>", "").strip()
 
             gw_msg = GatewayMessage(
                 sender_id=str(message.author.id),
@@ -62,33 +67,39 @@ class DiscordChannel(BaseChannelAdapter):
                     response = await self._message_handler(gw_msg)
                 except Exception:
                     logger.exception(
-                        "discord_handler_error", sender_id=gw_msg.sender_id
+                        "discord_handler_error",
+                        sender_id=gw_msg.sender_id,
                     )
                     return
-
                 if response:
                     for chunk in chunk_text(response, _DISCORD_MAX_MESSAGE_LEN):
                         await message.channel.send(chunk)
 
     async def start(self) -> None:
-        """Start the Discord bot client in a background task."""
-        if self._bot_task is not None and not self._bot_task.done():
+        """Start the Discord client in the background.
+
+        Idempotent: subsequent calls are no-ops if the client is already running.
+        """
+        if self._task is not None and not self._task.done():
             logger.warning("discord_channel_already_started")
             return
-
-        self._bot_task = asyncio.create_task(self.client.start(self.bot_token))
+        if self._task is not None:
+            logger.warning("discord_task_died_restarting")
+            self._task = None
+        
+        self._task = asyncio.create_task(self._client.start(self._bot_token))
         logger.info("discord_channel_started")
 
     async def stop(self) -> None:
-        """Stop the Discord bot client."""
-        await self.client.close()
-        if self._bot_task is not None:
-            self._bot_task.cancel()
+        """Close the Discord client and cancel the background task."""
+        await self._client.close()
+        if self._task is not None:
+            self._task.cancel()
             try:
-                await self._bot_task
+                await self._task
             except asyncio.CancelledError:
                 pass
-            self._bot_task = None
+            self._task = None
         logger.info("discord_channel_stopped")
 
     async def send_message(
@@ -97,16 +108,27 @@ class DiscordChannel(BaseChannelAdapter):
         content: str,
         attachments: list[Any] | None = None,
     ) -> None:
-        """Send a message to a Discord channel/DM."""
+        """Send a message to a Discord channel, splitting if over 2000 chars."""
         try:
-            channel = await self.client.fetch_channel(int(channel_id))
-            valid_types = (
-                discord.TextChannel,
-                discord.DMChannel,
-                discord.GroupChannel,
-            )
-            if isinstance(channel, valid_types):
-                for chunk in chunk_text(content, _DISCORD_MAX_MESSAGE_LEN):
-                    await channel.send(chunk)
+            cid = int(channel_id)
+        except ValueError:
+            logger.warning("discord_invalid_channel_id", channel_id=channel_id)
+            return
+        
+        try:
+            channel = self._client.get_channel(cid)
+            if channel is None:
+                channel = await self._client.fetch_channel(cid)
+        except Exception:
+            logger.warning("discord_channel_fetch_failed", channel_id=channel_id)
+            return
+            
+        if not isinstance(channel, discord.abc.Messageable):
+            logger.warning("discord_channel_not_messageable", channel_id=channel_id)
+            return
+            
+        try:
+            for chunk in chunk_text(content, _DISCORD_MAX_MESSAGE_LEN):
+                await channel.send(chunk)
         except Exception:
             logger.warning("discord_send_failed", channel_id=channel_id)
