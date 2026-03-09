@@ -12,12 +12,12 @@
 - [x] Task: 编写测试：模拟一个新的 `SKILL.md` 文件并验证 AI 是否能正确识别并调用它。 [4bf4c11]
 - [x] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md) [2515d9c]
 
-## Phase 3: 多渠道消息网关 (Phase 3: Multi-channel Message Gateway)
+## Phase 3: 多渠道消息网关 (Phase 3: Multi-channel Message Gateway) [checkpoint: 5936a58]
 - [x] Task: 在 `app/channels/` 下定义 `BaseChannelAdapter` 抽象基类。 [0cb7b91]
 - [x] Task: 优先实现 Telegram 适配器（包括 Webhook 接收与回复分发逻辑）。 [a2cdde1]
 - [x] Task: 编写测试：通过 Mock 平台 API 验证消息的解析与路由逻辑。 [a2cdde1]
 - [x] Task: 实现飞书 (Lark) 与 Discord/Slack 的基础适配器结构。 [cbe1767]
-- [ ] Task: Conductor - User Manual Verification 'Phase 3' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3' (Protocol in workflow.md) [5936a58]
 
 ## Phase 4: 前端实时画布 (Phase 4: Frontend Live Canvas)
 - [ ] Task: 在 Vue 3 中创建 `LiveCanvas.vue` 侧边栏组件并实现响应式布局。
