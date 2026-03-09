@@ -72,9 +72,6 @@ async def test_sandbox_exec_timeout():
         mock_container = MagicMock()
         mock_client.containers.get.return_value = mock_container
         
-        # We need to mock asyncio.to_thread to raise TimeoutError or mock wait_for
-        # Actually manager.py uses asyncio.wait_for around to_thread.
-        # We can simulate wait_for timeout by patching it.
         with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError()):
             manager = SandboxManager()
             with pytest.raises(SandboxError, match="timed out after"):
@@ -92,3 +89,37 @@ async def test_sandbox_exec_not_found():
         manager = SandboxManager()
         with pytest.raises(SandboxError, match="not found"):
             await manager.exec_in_sandbox("invalid_id", "cmd")
+
+@pytest.mark.asyncio
+async def test_sandbox_exec_multiline_output():
+    """验证 exec_in_sandbox 能够返回多行输出。"""
+    with patch("docker.from_env") as mock_docker:
+        mock_client = MagicMock()
+        mock_docker.return_value = mock_client
+        mock_container = MagicMock()
+        mock_client.containers.get.return_value = mock_container
+        
+        multiline_output = b"line1\nline2\nline3\n"
+        mock_container.exec_run.return_value = (0, multiline_output)
+        
+        manager = SandboxManager()
+        output = await manager.exec_in_sandbox("id", "ls -l")
+        
+        assert output == "line1\nline2\nline3"
+        mock_container.exec_run.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_sandbox_exec_nonzero_exit():
+    """验证 exec_in_sandbox 在非零退出码时的记录（不抛出异常，但返回输出）。"""
+    with patch("docker.from_env") as mock_docker:
+        mock_client = MagicMock()
+        mock_docker.return_value = mock_client
+        mock_container = MagicMock()
+        mock_client.containers.get.return_value = mock_container
+        
+        mock_container.exec_run.return_value = (1, b"error message\n")
+        
+        manager = SandboxManager()
+        output = await manager.exec_in_sandbox("id", "invalid_cmd")
+        
+        assert output == "error message"
