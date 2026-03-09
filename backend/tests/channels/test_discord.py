@@ -21,10 +21,8 @@ from app.channels.discord import _DISCORD_MAX_MESSAGE_LEN, DiscordChannel
 def _make_channel(token: str = "test_token") -> DiscordChannel:
     """Create a DiscordChannel with mocked discord.Client internals."""
     with (
-        patch("app.channels.discord.discord.Client")
- as mock_client_cls,
-        patch("app.channels.discord.discord.Intents")
- as mock_intents_cls,
+        patch("app.channels.discord.discord.Client") as mock_client_cls,
+        patch("app.channels.discord.discord.Intents") as mock_intents_cls,
     ):
         mock_intents = MagicMock()
         mock_intents_cls.default.return_value = mock_intents
@@ -46,7 +44,7 @@ def _capturing_channel() -> Iterator[tuple[DiscordChannel, dict]]:
     """Yield a (channel, handlers) pair.
 
     The handlers dict contains 'on_message' and 'on_ready' callables registered
-    via the client.event decorator, so tests can invoke them directly.
+    via the client.event(func) call.
     """
     captured: dict = {}
 
@@ -55,10 +53,8 @@ def _capturing_channel() -> Iterator[tuple[DiscordChannel, dict]]:
         return f
 
     with (
-        patch("app.channels.discord.discord.Client")
- as mock_client_cls,
-        patch("app.channels.discord.discord.Intents")
- as mock_intents_cls,
+        patch("app.channels.discord.discord.Client") as mock_client_cls,
+        patch("app.channels.discord.discord.Intents") as mock_intents_cls,
         patch("asyncio.create_task", return_value=MagicMock()),
     ):
         mock_intents = MagicMock()
@@ -257,8 +253,8 @@ async def test_on_message_calls_handler_and_sends_reply() -> None:
     with _capturing_channel() as (channel, captured):
         pass  # _setup_events() already ran during __init__
 
-    assert "on_message" in captured, "on_message event was not registered"
-    on_message = captured["on_message"]
+    assert "_on_message" in captured, "_on_message was not registered"
+    on_message = captured["_on_message"]
 
     mock_msg = _mock_discord_message()
     # author != client.user so it's not ignored
@@ -288,7 +284,7 @@ async def test_on_message_ignores_self_messages() -> None:
     with _capturing_channel() as (channel, captured):
         pass
 
-    on_message = captured["on_message"]
+    on_message = captured["_on_message"]
 
     handler_called = False
 
@@ -318,7 +314,7 @@ async def test_on_message_ignores_empty_content() -> None:
     with _capturing_channel() as (channel, captured):
         pass
 
-    on_message = captured["on_message"]
+    on_message = captured["_on_message"]
 
     handler_called = False
 
@@ -349,10 +345,14 @@ async def test_on_message_handler_exception_does_not_propagate() -> None:
     with _capturing_channel() as (channel, captured):
         pass
 
-    on_message = captured["on_message"]
+    on_message = captured["_on_message"]
     mock_msg = _mock_discord_message()
     mock_msg.author = MagicMock()
     channel._client.user = MagicMock()
+
+    # Mock mention
+    mock_msg.mentions = [channel._client.user]
+    mock_msg.channel = MagicMock(spec=discord.TextChannel)
 
     async def crashing_handler(msg: GatewayMessage) -> str:
         raise RuntimeError("boom")
@@ -367,7 +367,7 @@ async def test_on_message_handler_exception_does_not_propagate() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 11. set_message_handler (inherited from ChannelAdapter)
+# 11. set_message_handler (inherited from BaseChannelAdapter)
 # ---------------------------------------------------------------------------
 
 
