@@ -11,8 +11,8 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md) [checkpoint: aa53b64]
 
 ## Phase 3: 身份验证中间件 (Authentication Middleware)
-- [ ] Task: 实现 API 密钥身份验证装饰器/依赖项 (Implement API key auth dependency)
-- [ ] Task: 验证 API 密钥在受保护端点上的工作情况 (Verify key auth on protected endpoints)
+- [x] Task: 实现 API 密钥身份验证装饰器/依赖项 (Implement API key auth dependency) [c4521b4]
+- [x] Task: 验证 API 密钥在受保护端点上的工作情况 (Verify key auth on protected endpoints) [c4521b4]
 - [ ] Task: Conductor - User Manual Verification 'Phase 3' (Protocol in workflow.md)
 
 ## Phase 4: 前端界面 (Frontend Interface)
