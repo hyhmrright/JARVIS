@@ -22,7 +22,7 @@
     - [ ] 编写集成测试 `tests/rag/test_ollama_rag.py`。
     - [ ] 确保 Ollama 模型能够接收 RAG 检索到的上下文并进行回复。
     - [ ] 验证测试通过。
-- [ ] Task: 验证工具调用能力 (TDD)
+- [x] Task: 验证工具调用能力 (TDD) 0908f5e
     - [ ] 编写测试用例 `tests/agent/test_ollama_tools.py`（使用 Llama 3.1 等支持模型）。
     - [ ] 调整 LangGraph Agent 逻辑以适配 Ollama 的工具调用格式。
     - [ ] 验证测试通过。
