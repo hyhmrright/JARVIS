@@ -33,7 +33,7 @@
     - [ ] 编写 Vitest 测试 `frontend/src/tests/ollama_models.test.ts`。
     - [ ] 修改模型选择组件，使其能够合并来自后端的动态 Ollama 模型列表。
     - [ ] 验证测试通过。
-- [ ] Task: 整体冒烟测试与 UI 优化
+- [x] Task: 整体冒烟测试与 UI 优化 6409b56
     - [ ] 确保深色奢华 UI 在使用本地模型时响应依然丝滑。
     - [ ] 添加 Ollama 服务连接状态的 UI 提示（可选）。
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Frontend UI & Final Validation' (Protocol in workflow.md)
