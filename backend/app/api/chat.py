@@ -286,6 +286,7 @@ async def chat_stream(  # noqa: C901
                 provider=llm.provider,
                 model=llm.model_name,
                 api_key=llm.api_key,
+                base_url=llm.base_url,
             )
         except Exception:
             logger.warning("context_compression_failed", exc_info=True)
@@ -313,6 +314,7 @@ async def chat_stream(  # noqa: C901
                 provider=llm.provider,
                 model=llm.model_name,
                 api_key=llm.api_key,
+                base_url=llm.base_url,
             )
             yield _format_sse({"type": "routing", "agent": route})
             logger.info("chat_routed", route=route, conv_id=str(conv_id))
@@ -403,6 +405,7 @@ async def chat_stream(  # noqa: C901
                             provider=llm.provider,
                             model=llm.model_name,
                             api_key=llm.api_key,
+                            base_url=llm.base_url,
                         )
 
                     tokens_in, tokens_out = _extract_token_counts(last_ai_msg)

@@ -25,10 +25,11 @@ async def generate_title(
     provider: str,
     model: str,
     api_key: str,
+    base_url: str | None = None,
 ) -> str | None:
     """Generate a short conversation title. Returns None on any error."""
     try:
-        llm = get_llm(provider, model, api_key)
+        llm = get_llm(provider, model, api_key, base_url=base_url)
         context = f"User: {user_message[:200]}\nAssistant: {ai_reply[:200]}"
         response = await asyncio.wait_for(
             llm.ainvoke(
