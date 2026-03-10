@@ -147,4 +147,5 @@ async def get_settings(
         "persona_override": settings.persona_override,
         "enabled_tools": settings.enabled_tools,
         "tool_registry": _TOOL_REGISTRY_DICTS,
+        "ollama_base_url": raw_keys.get("ollama_base_url"),
     }

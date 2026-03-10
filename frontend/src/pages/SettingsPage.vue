@@ -35,6 +35,16 @@
                   :placeholder="$t('settings.customModelPlaceholder')"
                 />
               </div>
+
+              <div v-if="provider === 'ollama'" class="flex flex-col gap-2">
+                <label class="text-xs font-semibold text-zinc-400">Ollama Base URL</label>
+                <input
+                  v-model="ollamaBaseUrl"
+                  class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors"
+                  placeholder="http://localhost:11434"
+                />
+                <p class="text-[10px] text-zinc-500">Docker users: use http://host.docker.internal:11434</p>
+              </div>
             </div>
           </section>
 
@@ -292,6 +302,7 @@ type ToolRegistry = { name: string; label: string; description: string; default_
 const provider = ref("deepseek");
 const modelSelect = ref("deepseek-chat");
 const customModelName = ref("");
+const ollamaBaseUrl = ref("");
 const apiKeys = ref<string[]>([""]);
 const keyCounts = ref<Record<string, number>>({});
 const personaOverride = ref("");
@@ -379,6 +390,7 @@ onMounted(async () => {
     keyCounts.value = data.key_counts ?? {};
     toolRegistry.value = data.tool_registry ?? [];
     enabledTools.value = data.enabled_tools ?? [];
+    ollamaBaseUrl.value = data.ollama_base_url ?? "";
     const savedModel = data.model_name ?? "";
     if (providerModels.value[provider.value]?.includes(savedModel)) modelSelect.value = savedModel;
     else { modelSelect.value = "__custom__"; customModelName.value = savedModel; }
@@ -390,8 +402,20 @@ async function save() {
   saving.value = true;
   try {
     const payload: any = { model_provider: provider.value, model_name: effectiveModelName.value, persona_override: personaOverride.value || null, enabled_tools: enabledTools.value };
+    
+    const apiKeysPayload: Record<string, any> = {};
     const nonEmptyKeys = apiKeys.value.filter(k => k.trim());
-    if (nonEmptyKeys.length > 0) payload.api_keys = { [provider.value]: nonEmptyKeys };
+    if (nonEmptyKeys.length > 0) apiKeysPayload[provider.value] = nonEmptyKeys;
+    
+    // Add Ollama Base URL to the keys payload so it gets encrypted/stored
+    if (ollamaBaseUrl.value.trim()) {
+      apiKeysPayload['ollama_base_url'] = ollamaBaseUrl.value.trim();
+    }
+    
+    if (Object.keys(apiKeysPayload).length > 0) {
+      payload.api_keys = apiKeysPayload;
+    }
+    
     await client.put("/settings", payload);
     const { data: refreshed } = await client.get("/settings");
     keyCounts.value = refreshed.key_counts ?? {};

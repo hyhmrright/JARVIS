@@ -31,16 +31,20 @@ def get_llm(provider: str, model: str, api_key: str, **kwargs: Any) -> BaseChatM
         case "zhipuai":
             return ChatZhipuAI(model=model, api_key=api_key, **kwargs)
         case "ollama":
-            return ChatOllama(model=model, base_url=settings.ollama_base_url, **kwargs)
+            return ChatOllama(
+                model=model,
+                base_url=kwargs.pop("base_url", settings.ollama_base_url),
+                **kwargs,
+            )
         case _:
             raise ValueError(f"Unknown provider: {provider}")
 
 
 def get_llm_with_fallback(
-    provider: str, model: str, api_key: str, **kwargs: Any
+    provider: str, model: str, api_key: str, base_url: str | None = None, **kwargs: Any
 ) -> BaseChatModel:
     """Get an LLM with automatic failover to predefined backup models."""
-    primary_llm = get_llm(provider, model, api_key, **kwargs)
+    primary_llm = get_llm(provider, model, api_key, base_url=base_url, **kwargs)
 
     # Define fallback chain based on available settings
     fallbacks: list[BaseChatModel] = []

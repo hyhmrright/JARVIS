@@ -1,6 +1,7 @@
 import hashlib
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -25,7 +26,8 @@ class ResolvedLLMConfig:
     api_keys: list[str]
     enabled_tools: list[str] | None
     persona_override: str | None
-    raw_keys: dict[str, str]
+    raw_keys: dict[str, Any]
+    base_url: str | None = None
 
 
 async def _resolve_user(
@@ -162,4 +164,7 @@ async def get_llm_config(
         ),
         persona_override=settings.persona_override if settings else None,
         raw_keys=raw_keys,
+        base_url=raw_keys.get(f"{provider}_base_url")
+        if isinstance(raw_keys.get(f"{provider}_base_url"), str)
+        else None,
     )
