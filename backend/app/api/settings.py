@@ -11,6 +11,7 @@ from app.core.permissions import DEFAULT_ENABLED_TOOLS, TOOL_NAMES, TOOL_REGISTR
 from app.core.security import decrypt_api_keys, encrypt_api_keys
 from app.db.models import User, UserSettings
 from app.db.session import get_db
+from app.infra.ollama import get_ollama_models
 
 logger = structlog.get_logger(__name__)
 
@@ -25,6 +26,23 @@ _TOOL_REGISTRY_DICTS = [
     }
     for t in TOOL_REGISTRY
 ]
+
+# Static models for cloud providers
+PROVIDER_MODELS: dict[str, list[str]] = {
+    "deepseek": ["deepseek-chat", "deepseek-reasoner"],
+    "openai": ["gpt-4o-mini", "gpt-4o", "o1-mini", "o3-mini"],
+    "anthropic": ["claude-3-5-haiku-20241022", "claude-3-5-sonnet-20241022"],
+    "zhipuai": [
+        "glm-4-flash",
+        "glm-4",
+        "glm-4-plus",
+        "glm-4.5",
+        "glm-4.7",
+        "glm-4.7-FlashX",
+        "glm-5",
+        "glm-z1-flash",
+    ],
+}
 
 DEFAULT_SETTINGS: dict[str, object] = {
     "model_provider": "deepseek",
@@ -45,11 +63,25 @@ def _mask_key(key: str) -> str:
 
 
 class SettingsUpdate(BaseModel):
-    model_provider: Literal["deepseek", "openai", "anthropic", "zhipuai"]
+    model_provider: Literal["deepseek", "openai", "anthropic", "zhipuai", "ollama"]
     model_name: str = Field(max_length=100)
     api_keys: dict[str, str | list[str]] | None = None
     persona_override: str | None = Field(default=None, max_length=2000)
     enabled_tools: list[str] | None = None
+
+
+@router.get("/models")
+async def list_available_models() -> dict[str, list[str]]:
+    """Return all available LLM models for each provider."""
+    all_models = PROVIDER_MODELS.copy()
+    try:
+        # Dynamic discovery for local Ollama models
+        ollama_models = await get_ollama_models()
+        all_models["ollama"] = ollama_models
+    except Exception:
+        logger.warning("ollama_discovery_failed", exc_info=True)
+        all_models["ollama"] = []
+    return all_models
 
 
 @router.put("")

@@ -18,6 +18,7 @@
                   <option value="openai">OpenAI</option>
                   <option value="anthropic">Anthropic</option>
                   <option value="zhipuai">ZhipuAI (GLM)</option>
+                  <option value="ollama">Ollama (Local)</option>
                 </select>
               </div>
 
@@ -274,15 +275,16 @@ const onLocaleChange = (e: Event) => {
   localStorage.setItem('jarvis_locale', newLocale);
 };
 
-const PROVIDER_MODELS: Record<string, string[]> = {
+const providerModels = ref<Record<string, string[]>>({
   deepseek: ["deepseek-chat", "deepseek-reasoner"],
   openai: ["gpt-4o-mini", "gpt-4o", "o1-mini", "o3-mini"],
   anthropic: ["claude-3-5-haiku-20241022", "claude-3-5-sonnet-20241022"],
   zhipuai: ["glm-4-flash", "glm-4", "glm-4-plus", "glm-4.5", "glm-4.7", "glm-4.7-FlashX", "glm-5", "glm-z1-flash"],
-};
+  ollama: [],
+});
 
 const DEFAULT_MODEL: Record<string, string> = {
-  deepseek: "deepseek-chat", openai: "gpt-4o-mini", anthropic: "claude-3-5-haiku-20241022", zhipuai: "glm-4-flash",
+  deepseek: "deepseek-chat", openai: "gpt-4o-mini", anthropic: "claude-3-5-haiku-20241022", zhipuai: "glm-4-flash", ollama: "",
 };
 
 type ToolRegistry = { name: string; label: string; description: string; default_enabled: boolean };
@@ -299,12 +301,21 @@ const saved = ref(false);
 const saving = ref(false);
 const saveError = ref(false);
 
-const currentProviderModels = computed(() => PROVIDER_MODELS[provider.value] ?? []);
+const currentProviderModels = computed(() => providerModels.value[provider.value] ?? []);
 const effectiveModelName = computed(() => modelSelect.value === "__custom__" ? customModelName.value : modelSelect.value);
 const existingKeyCount = computed(() => keyCounts.value[provider.value] ?? 0);
 
+async function loadModels() {
+  try {
+    const { data } = await client.get("/settings/models");
+    providerModels.value = data;
+  } catch (err) {
+    console.error("[settings] Failed to load models:", err);
+  }
+}
+
 function onProviderChange() {
-  modelSelect.value = DEFAULT_MODEL[provider.value] ?? PROVIDER_MODELS[provider.value]?.[0] ?? "";
+  modelSelect.value = DEFAULT_MODEL[provider.value] ?? providerModels.value[provider.value]?.[0] ?? "";
   customModelName.value = "";
   apiKeys.value = [""];
 }
@@ -360,6 +371,7 @@ function copyKey(): void {
 }
 
 onMounted(async () => {
+  await loadModels();
   try {
     const { data } = await client.get("/settings");
     provider.value = data.model_provider;
@@ -368,7 +380,7 @@ onMounted(async () => {
     toolRegistry.value = data.tool_registry ?? [];
     enabledTools.value = data.enabled_tools ?? [];
     const savedModel = data.model_name ?? "";
-    if (PROVIDER_MODELS[provider.value]?.includes(savedModel)) modelSelect.value = savedModel;
+    if (providerModels.value[provider.value]?.includes(savedModel)) modelSelect.value = savedModel;
     else { modelSelect.value = "__custom__"; customModelName.value = savedModel; }
   } catch { /* settings not yet saved, use defaults */ }
   await loadApiKeys();
