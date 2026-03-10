@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     whatsapp_from_number: str = "whatsapp:+14155238886"  # Twilio sandbox default
 
     # Non-sensitive — safe defaults for local development
+    ollama_base_url: str = "http://localhost:11434"
     qdrant_url: str = "http://localhost:6333"
     minio_endpoint: str = "localhost:9000"
     minio_bucket: str = "jarvis-documents"
