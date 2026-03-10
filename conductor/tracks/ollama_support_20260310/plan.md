@@ -14,7 +14,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Backend Infrastructure & Model Discovery' (Protocol in workflow.md) 93d5e18
 
 ## Phase 2: Chat, RAG & Tool Integration
-- [ ] Task: 验证流式输出支持 (TDD)
+- [x] Task: 验证流式输出支持 (TDD) a7c1d50
     - [ ] 编写端到端测试 `tests/api/test_ollama_stream.py`。
     - [ ] 确保 `backend/app/api/conversations.py` 能正确处理 Ollama 的流式响应。
     - [ ] 验证测试通过。
