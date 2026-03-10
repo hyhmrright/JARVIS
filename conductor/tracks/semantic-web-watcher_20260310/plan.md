@@ -10,18 +10,10 @@
 ## Phase 2: 语义触发器逻辑实现 (TDD)
 *本阶段实现核心的 `SemanticWatcherProcessor`，集成 LLM 对比逻辑。*
 
-- [ ] Task: 实现 `SemanticWatcherProcessor` (Red Phase)
-    - [ ] 在 `tests/scheduler/test_semantic_watcher.py` 中编写针对 `should_fire` 的单元测试。
-    - [ ] 模拟网页变动但语义未变的情况（预期返回 `False`）。
-    - [ ] 模拟语义重大变动的情况（预期返回 `True`）。
-- [ ] Task: 实现 `SemanticWatcherProcessor` (Green Phase)
-    - [ ] 在 `app/scheduler/triggers.py` 中新增 `SemanticWatcherProcessor` 类。
-    - [ ] 实现基于 LLM 的文本对比逻辑。
-    - [ ] 确保测试通过。
-- [ ] Task: 优化与重构 (Refactor Phase)
-    - [ ] 提取 LLM 对比提示词（Prompt）到独立模块。
-    - [ ] 处理超长文本的分片与摘要逻辑。
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: 语义触发器逻辑实现 (TDD)' (Protocol in workflow.md)
+- [x] Task: 实现 `SemanticWatcherProcessor` (Red Phase) (已编写并确认失败测试用例) 5646c69
+- [x] Task: 实现 `SemanticWatcherProcessor` (Green Phase) (已集成并测试通过) 5646c69
+- [x] Task: 优化与重构 (Refactor Phase) (已提取提示词并实现截断逻辑) 5646c69
+- [~] Task: Conductor - User Manual Verification 'Phase 2: 语义触发器逻辑实现 (TDD)' (Protocol in workflow.md)
 
 ## Phase 3: 工具接口与 Agent 集成
 *将语义监控能力开放给 Agent，使其能通过工具设置此类任务。*

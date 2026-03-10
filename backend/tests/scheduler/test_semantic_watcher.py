@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, MagicMock
 from app.scheduler.triggers import evaluate_trigger
 
 @pytest.mark.asyncio
@@ -17,12 +17,12 @@ async def test_semantic_watcher_trigger_no_change():
     
     with (
         patch("httpx.AsyncClient.get") as mock_get,
-        patch("app.agent.llm.get_llm_with_fallback") as mock_get_llm
+        patch("app.scheduler.triggers.get_llm_with_fallback") as mock_get_llm
     ):
         # 模拟 HTTP 响应
         mock_resp = AsyncMock()
         mock_resp.text = new_content
-        mock_resp.raise_for_status = AsyncMock()
+        mock_resp.raise_for_status = MagicMock()
         mock_get.return_value.__aenter__.return_value = mock_resp
         
         # 模拟 LLM 对比结果：语义一致
@@ -48,11 +48,11 @@ async def test_semantic_watcher_trigger_significant_change():
     
     with (
         patch("httpx.AsyncClient.get") as mock_get,
-        patch("app.agent.llm.get_llm_with_fallback") as mock_get_llm
+        patch("app.scheduler.triggers.get_llm_with_fallback") as mock_get_llm
     ):
         mock_resp = AsyncMock()
         mock_resp.text = new_content
-        mock_resp.raise_for_status = AsyncMock()
+        mock_resp.raise_for_status = MagicMock()
         mock_get.return_value.__aenter__.return_value = mock_resp
         
         # 模拟 LLM 对比结果：语义变动

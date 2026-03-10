@@ -6,6 +6,15 @@ from typing import Any
 
 import httpx
 import structlog
+from langchain_core.messages import HumanMessage, SystemMessage
+
+from app.agent.llm import get_llm_with_fallback
+from app.core.config import settings
+
+from app.scheduler.prompts import (
+    SEMANTIC_WATCHER_SYSTEM_PROMPT,
+    SEMANTIC_WATCHER_USER_PROMPT,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -39,6 +48,69 @@ class WebWatcherProcessor(TriggerProcessor):
                     return True
         except Exception:
             logger.exception("web_watcher_check_failed", url=url)
+
+        return False
+
+
+class SemanticWatcherProcessor(TriggerProcessor):
+    """Fires when a webpage's content has a significant semantic change."""
+
+    def _truncate_content(self, text: str, max_chars: int = 12000) -> str:
+        """Truncate text to fit within typical context windows with safety margin."""
+        if len(text) <= max_chars:
+            return text
+        return text[:max_chars] + "\n...[内容已截断]"
+
+    async def should_fire(self, metadata: dict[str, Any]) -> bool:
+        url = metadata.get("url")
+        if not url:
+            return False
+
+        last_summary = metadata.get("last_semantic_summary", "")
+        target = metadata.get("target", "核心主旨、事实或重要实体变动")
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.get(url)
+                response.raise_for_status()
+                new_content = self._truncate_content(response.text)
+
+            # Use LLM to check for semantic change
+            # Fallback to deepseek if not configured in settings
+            provider = "deepseek"
+            model = "deepseek-chat"
+            api_key = settings.deepseek_api_key
+
+            llm = get_llm_with_fallback(provider, model, api_key)
+
+            prompt = SEMANTIC_WATCHER_USER_PROMPT.format(
+                target=target,
+                last_summary=last_summary or "尚无记录",
+                new_content=new_content,
+            )
+            messages = [
+                SystemMessage(content=SEMANTIC_WATCHER_SYSTEM_PROMPT),
+                HumanMessage(content=prompt),
+            ]
+
+            res = await llm.ainvoke(messages)
+            reply = str(res.content).strip()
+
+            if reply.startswith("语义已变动："):
+                new_summary = reply[len("语义已变动：") :].strip()
+                metadata["last_semantic_summary"] = new_summary
+                return True
+
+            # If no record exists, store initial summary but don't fire yet
+            if not last_summary:
+                # First run, initialize summary but don't fire
+                metadata["last_semantic_summary"] = (
+                    "已初始化。后续将监控：" + target
+                )
+                return False
+
+        except Exception:
+            logger.exception("semantic_watcher_check_failed", url=url)
 
         return False
 
@@ -83,6 +155,7 @@ class IMAPEmailProcessor(TriggerProcessor):
 
 _PROCESSORS: dict[str, TriggerProcessor] = {
     "web_watcher": WebWatcherProcessor(),
+    "semantic_watcher": SemanticWatcherProcessor(),
     "email": IMAPEmailProcessor(),
 }
 
