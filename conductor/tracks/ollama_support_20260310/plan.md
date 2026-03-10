@@ -18,7 +18,7 @@
     - [ ] 编写端到端测试 `tests/api/test_ollama_stream.py`。
     - [ ] 确保 `backend/app/api/conversations.py` 能正确处理 Ollama 的流式响应。
     - [ ] 验证测试通过。
-- [ ] Task: 集成 RAG 知识库支持 (TDD)
+- [x] Task: 集成 RAG 知识库支持 (TDD) ff43add
     - [ ] 编写集成测试 `tests/rag/test_ollama_rag.py`。
     - [ ] 确保 Ollama 模型能够接收 RAG 检索到的上下文并进行回复。
     - [ ] 验证测试通过。
