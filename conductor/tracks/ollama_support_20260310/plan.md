@@ -13,7 +13,7 @@
     - [ ] 验证测试通过。
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Backend Infrastructure & Model Discovery' (Protocol in workflow.md) 93d5e18
 
-## Phase 2: Chat, RAG & Tool Integration
+## Phase 2: Chat, RAG & Tool Integration [checkpoint: 95b2f40]
 - [x] Task: 验证流式输出支持 (TDD) a7c1d50
     - [ ] 编写端到端测试 `tests/api/test_ollama_stream.py`。
     - [ ] 确保 `backend/app/api/conversations.py` 能正确处理 Ollama 的流式响应。
@@ -26,7 +26,7 @@
     - [ ] 编写测试用例 `tests/agent/test_ollama_tools.py`（使用 Llama 3.1 等支持模型）。
     - [ ] 调整 LangGraph Agent 逻辑以适配 Ollama 的工具调用格式。
     - [ ] 验证测试通过。
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Chat, RAG & Tool Integration' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Chat, RAG & Tool Integration' (Protocol in workflow.md) 95b2f40
 
 ## Phase 3: Frontend UI & Final Validation
 - [ ] Task: 动态加载 Ollama 模型到前端 (TDD)
