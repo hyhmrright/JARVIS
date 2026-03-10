@@ -31,9 +31,11 @@ def get_llm(provider: str, model: str, api_key: str, **kwargs: Any) -> BaseChatM
         case "zhipuai":
             return ChatZhipuAI(model=model, api_key=api_key, **kwargs)
         case "ollama":
+            target_url = kwargs.pop("base_url", settings.ollama_base_url)
+            logger.info("creating_ollama_client", model=model, url=target_url)
             return ChatOllama(
                 model=model,
-                base_url=kwargs.pop("base_url", settings.ollama_base_url),
+                base_url=target_url,
                 **kwargs,
             )
         case _:
