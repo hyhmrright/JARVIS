@@ -31,9 +31,7 @@ def get_llm(provider: str, model: str, api_key: str, **kwargs: Any) -> BaseChatM
         case "zhipuai":
             return ChatZhipuAI(model=model, api_key=api_key, **kwargs)
         case "ollama":
-            return ChatOllama(
-                model=model, base_url=settings.ollama_base_url, **kwargs
-            )
+            return ChatOllama(model=model, base_url=settings.ollama_base_url, **kwargs)
         case _:
             raise ValueError(f"Unknown provider: {provider}")
 
