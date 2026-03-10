@@ -4,5 +4,5 @@
 
 ---
 
-- [ ] **Track: web_watcher 功能可以语义监控**
+- [x] **Track: web_watcher 功能可以语义监控**
 *Link: [./tracks/semantic-web-watcher_20260310/](./tracks/semantic-web-watcher_20260310/)*
