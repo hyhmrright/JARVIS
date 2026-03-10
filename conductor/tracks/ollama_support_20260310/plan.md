@@ -7,7 +7,7 @@
     - [ ] 编写测试用例 `tests/infra/test_ollama_discovery.py` 模拟 Ollama API 响应。
     - [ ] 在 `backend/app/infra/ollama.py` 中实现模型获取逻辑。
     - [ ] 验证测试通过。
-- [ ] Task: 集成 ChatOllama 到模型工厂 (TDD)
+- [x] Task: 集成 ChatOllama 到模型工厂 (TDD) a814288
     - [ ] 编写测试用例 `tests/agent/test_ollama_factory.py`。
     - [ ] 在 `backend/app/agent/factory.py` 中集成 `ChatOllama`。
     - [ ] 验证测试通过。
