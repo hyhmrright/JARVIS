@@ -1,7 +1,7 @@
 # Implementation Plan: Ollama Support Integration
 
 ## Phase 1: Backend Infrastructure & Model Discovery
-- [ ] Task: 配置 Ollama 基础设置
+- [x] Task: 配置 Ollama 基础设置 687773f
     - [ ] 在 `backend/app/core/config.py` 中添加 `OLLAMA_BASE_URL` 配置。
 - [ ] Task: 实现 Ollama 模型发现服务 (TDD)
     - [ ] 编写测试用例 `tests/infra/test_ollama_discovery.py` 模拟 Ollama API 响应。
