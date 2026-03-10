@@ -66,7 +66,9 @@ def get_llm_with_fallback(
     if provider != "deepseek" and settings.deepseek_api_key:
         try:
             fallbacks.append(
-                get_llm("deepseek", "deepseek-chat", settings.deepseek_api_key, **kwargs)
+                get_llm(
+                    "deepseek", "deepseek-chat", settings.deepseek_api_key, **kwargs
+                )
             )
         except Exception:
             logger.warning("deepseek_fallback_init_failed")
