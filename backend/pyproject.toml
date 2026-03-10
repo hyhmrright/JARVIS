@@ -43,6 +43,7 @@ dependencies = [
     "slack-sdk>=3.40.1",
     "docker>=7.1.0",
     "twilio>=9.10.2",
+    "langchain-ollama>=1.0.1",
 ]
 
 [dependency-groups]
