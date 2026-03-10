@@ -3,7 +3,7 @@
 ## Phase 1: Backend Infrastructure & Model Discovery
 - [x] Task: 配置 Ollama 基础设置 687773f
     - [ ] 在 `backend/app/core/config.py` 中添加 `OLLAMA_BASE_URL` 配置。
-- [ ] Task: 实现 Ollama 模型发现服务 (TDD)
+- [x] Task: 实现 Ollama 模型发现服务 (TDD) 3d9e090
     - [ ] 编写测试用例 `tests/infra/test_ollama_discovery.py` 模拟 Ollama API 响应。
     - [ ] 在 `backend/app/infra/ollama.py` 中实现模型获取逻辑。
     - [ ] 验证测试通过。
