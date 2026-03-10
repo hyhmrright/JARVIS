@@ -48,6 +48,7 @@ def _resolve_tools(
     mcp_tools: list[BaseTool] | None = None,
     plugin_tools: list[BaseTool] | None = None,
     conversation_id: str | None = None,
+    base_url: str | None = None,
 ) -> list[BaseTool]:
     if enabled_tools is not None:
         tools = [_TOOL_MAP[name] for name in enabled_tools if name in _TOOL_MAP]
@@ -87,6 +88,7 @@ def _resolve_tools(
                 openai_api_key=openai_api_key,
                 tavily_api_key=tavily_api_key,
                 enabled_tools=enabled_tools,
+                base_url=base_url,
             )
         )
 
@@ -140,6 +142,7 @@ def create_graph(
         mcp_tools=mcp_tools,
         plugin_tools=plugin_tools,
         conversation_id=conversation_id,
+        base_url=base_url,
     )
 
     llm = get_llm_with_fallback(provider, model, all_keys[0], base_url=base_url)

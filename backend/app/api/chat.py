@@ -120,6 +120,7 @@ def _build_expert_graph(
     mcp_tools: list,
     plugin_tools: list | None,
     conversation_id: str,
+    base_url: str | None = None,
 ) -> CompiledStateGraph:
     """Return the appropriate compiled LangGraph for the given routing label.
 
@@ -143,6 +144,7 @@ def _build_expert_graph(
             mcp_tools=mcp_tools,
             plugin_tools=plugin_tools,
             conversation_id=conversation_id,
+            base_url=base_url,
         )
     if route == "research":
         return create_research_agent_graph(
@@ -156,6 +158,7 @@ def _build_expert_graph(
             mcp_tools=mcp_tools,
             plugin_tools=plugin_tools,
             conversation_id=conversation_id,
+            base_url=base_url,
         )
     if route == "writing":
         return create_writing_agent_graph(
@@ -168,6 +171,7 @@ def _build_expert_graph(
             mcp_tools=mcp_tools,
             plugin_tools=plugin_tools,
             conversation_id=conversation_id,
+            base_url=base_url,
         )
     return create_graph(
         provider=provider,
@@ -181,6 +185,7 @@ def _build_expert_graph(
         mcp_tools=mcp_tools,
         plugin_tools=plugin_tools,
         conversation_id=conversation_id,
+        base_url=base_url,
     )
 
 
@@ -330,6 +335,7 @@ async def chat_stream(  # noqa: C901
                     openai_api_key=openai_key,
                     tavily_api_key=tavily_key,
                     enabled_tools=llm.enabled_tools,
+                    base_url=llm.base_url,
                 )
                 final_state = await supervisor.ainvoke(
                     SupervisorState(messages=lc_messages)
@@ -370,6 +376,7 @@ async def chat_stream(  # noqa: C901
                     mcp_tools=mcp_tools,
                     plugin_tools=plugin_tools,
                     conversation_id=str(conv_id),
+                    base_url=llm.base_url,
                 )
                 state = AgentState(messages=lc_messages, approved=approved)
                 async for chunk in graph.astream(state):
