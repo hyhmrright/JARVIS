@@ -76,10 +76,10 @@ class SemanticWatcherProcessor(TriggerProcessor):
                 new_content = self._truncate_content(response.text)
 
             # Use LLM to check for semantic change
-            # Fallback to deepseek if not configured in settings
-            provider = "deepseek"
-            model = "deepseek-chat"
-            api_key = settings.deepseek_api_key
+            # Fallback to deepseek if not explicitly configured in settings
+            provider = getattr(settings, "model_provider", "deepseek")
+            model = getattr(settings, "model_name", "deepseek-chat")
+            api_key = getattr(settings, f"{provider}_api_key", settings.deepseek_api_key)
 
             llm = get_llm_with_fallback(provider, model, api_key)
 
