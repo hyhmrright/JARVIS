@@ -15,9 +15,9 @@
 - [x] Task: 优化与重构 (Refactor Phase) (已提取提示词并实现截断逻辑) c1483fa
 - [x] Task: Conductor - User Manual Verification 'Phase 2: 语义触发器逻辑实现 (TDD)' (Protocol in workflow.md) c1483fa
 
-## Phase 3: 工具接口与 Agent 集成
+## Phase 3: 工具接口与 Agent 集成 [checkpoint: a32c565]
 *将语义监控能力开放给 Agent，使其能通过工具设置此类任务。*
 
-- [x] Task: 升级 `cron_set` 工具 (已支持 trigger_type 和 metadata) 5646c69
-- [x] Task: 集成测试 (已编写并运行端到端测试，验证工具与调度器集成) c1483fa
-- [~] Task: Conductor - User Manual Verification 'Phase 3: 工具接口与 Agent 集成' (Protocol in workflow.md)
+- [x] Task: 升级 `cron_set` 工具 (已支持 trigger_type 和 metadata) a32c565
+- [x] Task: 集成测试 (已编写并运行端到端测试，验证工具与调度器集成) a32c565
+- [x] Task: Conductor - User Manual Verification 'Phase 3: 工具接口与 Agent 集成' (Protocol in workflow.md) a32c565
