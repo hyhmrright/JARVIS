@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     anthropic_api_key: str = ""
     zhipuai_api_key: str = ""
+    ollama_api_key: str = "local"  # Default placeholder for local-only provider
 
     # Tool API keys — optional, used as server-level fallback
     tavily_api_key: str = ""
