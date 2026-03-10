@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import uuid
 
 import structlog
@@ -20,13 +22,24 @@ def create_cron_tools(user_id: str) -> tuple[BaseTool, BaseTool, BaseTool]:
     uid = uuid.UUID(user_id)
 
     @tool
-    async def cron_set(schedule: str, task: str) -> str:
+    async def cron_set(
+        schedule: str,
+        task: str,
+        trigger_type: str = "cron",
+        metadata: dict[str, Any] | None = None,
+    ) -> str:
         """Schedule a recurring task using a cron expression.
 
         Args:
             schedule: Cron expression (e.g. "0 9 * * 1-5" = weekdays at 9am,
                       "0 8 * * *" = daily at 8am, "*/30 * * * *" = every 30 min)
-            task: Natural language description of what to do when triggered
+            task: Natural language description of what to do when triggered.
+            trigger_type: Type of trigger. Use "cron" for simple timing,
+                         "web_watcher" for hash-based content monitoring, or
+                         "semantic_watcher" for LLM-based semantic monitoring.
+            metadata: Optional configuration for the trigger.
+                      For web_watcher/semantic_watcher, provide {"url": "..."}.
+                      For semantic_watcher, can also add {"target": "..."}.
         """
         try:
             CronTrigger.from_crontab(schedule)
@@ -36,15 +49,26 @@ def create_cron_tools(user_id: str) -> tuple[BaseTool, BaseTool, BaseTool]:
                 "Use standard 5-field cron format, e.g. '0 9 * * 1-5'."
             )
         async with AsyncSessionLocal() as db:
-            job = CronJob(user_id=uid, schedule=schedule, task=task)
+            job = CronJob(
+                user_id=uid,
+                schedule=schedule,
+                task=task,
+                trigger_type=trigger_type,
+                trigger_metadata=metadata,
+            )
             db.add(job)
             await db.commit()
             await db.refresh(job)
         from app.scheduler.runner import register_cron_job
 
         register_cron_job(str(job.id), user_id, schedule, task)
-        logger.info("cron_job_created", user_id=user_id, job_id=str(job.id))
-        return f"Scheduled: '{task}' with schedule '{schedule}' (id: {job.id})"
+        logger.info(
+            "cron_job_created",
+            user_id=user_id,
+            job_id=str(job.id),
+            trigger_type=trigger_type,
+        )
+        return f"Scheduled: '{task}' with schedule '{schedule}' (type: {trigger_type}, id: {job.id})"
 
     @tool
     async def cron_list() -> str:
@@ -63,8 +87,10 @@ def create_cron_tools(user_id: str) -> tuple[BaseTool, BaseTool, BaseTool]:
             last = (
                 j.last_run_at.strftime("%Y-%m-%d %H:%M") if j.last_run_at else "never"
             )
+            type_info = f" | type: {j.trigger_type}" if j.trigger_type != "cron" else ""
+            meta_info = f" | meta: {j.trigger_metadata}" if j.trigger_metadata else ""
             lines.append(
-                f"- [{j.id}] '{j.task}' | schedule: {j.schedule} | last run: {last}"
+                f"- [{j.id}] '{j.task}' | schedule: {j.schedule}{type_info}{meta_info} | last run: {last}"
             )
         return "\n".join(lines)
 

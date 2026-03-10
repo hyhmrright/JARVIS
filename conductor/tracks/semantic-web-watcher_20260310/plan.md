@@ -18,9 +18,6 @@
 ## Phase 3: 工具接口与 Agent 集成
 *将语义监控能力开放给 Agent，使其能通过工具设置此类任务。*
 
-- [ ] Task: 升级 `cron_set` 工具
-    - [ ] 修改 `app/tools/cron_tool.py`，允许传入 `trigger_type="semantic_watcher"`。
-    - [ ] 支持传入初始监控 URL 和语义监控目标（Target）。
-- [ ] Task: 集成测试
-    - [ ] 编写端到端测试，验证 Agent 调用工具后，后台能正确触发语义监控。
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: 工具接口与 Agent 集成' (Protocol in workflow.md)
+- [x] Task: 升级 `cron_set` 工具 (已支持 trigger_type 和 metadata) 5646c69
+- [x] Task: 集成测试 (已编写并运行端到端测试，验证工具与调度器集成) c1483fa
+- [~] Task: Conductor - User Manual Verification 'Phase 3: 工具接口与 Agent 集成' (Protocol in workflow.md)
