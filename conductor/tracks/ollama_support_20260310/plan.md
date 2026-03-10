@@ -1,6 +1,6 @@
 # Implementation Plan: Ollama Support Integration
 
-## Phase 1: Backend Infrastructure & Model Discovery
+## Phase 1: Backend Infrastructure & Model Discovery [checkpoint: 93d5e18]
 - [x] Task: 配置 Ollama 基础设置 687773f
     - [ ] 在 `backend/app/core/config.py` 中添加 `OLLAMA_BASE_URL` 配置。
 - [x] Task: 实现 Ollama 模型发现服务 (TDD) 3d9e090
@@ -11,7 +11,7 @@
     - [ ] 编写测试用例 `tests/agent/test_ollama_factory.py`。
     - [ ] 在 `backend/app/agent/factory.py` 中集成 `ChatOllama`。
     - [ ] 验证测试通过。
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Backend Infrastructure & Model Discovery' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Backend Infrastructure & Model Discovery' (Protocol in workflow.md) 93d5e18
 
 ## Phase 2: Chat, RAG & Tool Integration
 - [ ] Task: 验证流式输出支持 (TDD)
