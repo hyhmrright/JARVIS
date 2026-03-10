@@ -13,9 +13,11 @@ from app.core.config import settings
 logger = structlog.get_logger(__name__)
 
 
-def get_llm(provider: str, model: str, api_key: str, **kwargs: Any) -> BaseChatModel:
-    """Create a raw LLM instance for a given provider."""
-    # Set reasonable defaults for common params
+def get_llm(
+    provider: str, model: str, api_key: str, base_url: str | None = None, **kwargs: Any
+) -> BaseChatModel:
+    """Factory function to return a LangChain ChatModel instance."""
+    # Ensure temperature defaults to 0 for consistency
     if "temperature" not in kwargs:
         kwargs["temperature"] = 0
     if "max_retries" not in kwargs:
@@ -31,7 +33,7 @@ def get_llm(provider: str, model: str, api_key: str, **kwargs: Any) -> BaseChatM
         case "zhipuai":
             return ChatZhipuAI(model=model, api_key=api_key, **kwargs)
         case "ollama":
-            target_url = kwargs.pop("base_url", settings.ollama_base_url)
+            target_url = base_url or settings.ollama_base_url
             logger.info("creating_ollama_client", model=model, url=target_url)
             return ChatOllama(
                 model=model,
@@ -54,22 +56,20 @@ def get_llm_with_fallback(
     # 1. Fallback to OpenAI if not primary
     if provider != "openai" and settings.openai_api_key:
         try:
-            fallbacks.append(get_llm("openai", "gpt-4o-mini", settings.openai_api_key))
-        except Exception:
-            pass
-
-    # 2. Fallback to Anthropic if not primary
-    if provider != "anthropic" and settings.anthropic_api_key:
-        try:
             fallbacks.append(
-                get_llm(
-                    "anthropic",
-                    "claude-3-haiku-20240307",
-                    settings.anthropic_api_key,
-                )
+                get_llm("openai", "gpt-4o-mini", settings.openai_api_key, **kwargs)
             )
         except Exception:
-            pass
+            logger.warning("openai_fallback_init_failed")
+
+    # 2. Fallback to DeepSeek if not primary
+    if provider != "deepseek" and settings.deepseek_api_key:
+        try:
+            fallbacks.append(
+                get_llm("deepseek", "deepseek-chat", settings.deepseek_api_key, **kwargs)
+            )
+        except Exception:
+            logger.warning("deepseek_fallback_init_failed")
 
     if not fallbacks:
         logger.debug("no_fallbacks_available", provider=provider)
