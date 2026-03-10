@@ -21,3 +21,4 @@
 - [x] Task: 升级 `cron_set` 工具 (已支持 trigger_type 和 metadata) a32c565
 - [x] Task: 集成测试 (已编写并运行端到端测试，验证工具与调度器集成) a32c565
 - [x] Task: Conductor - User Manual Verification 'Phase 3: 工具接口与 Agent 集成' (Protocol in workflow.md) a32c565
+\n## Phase: Review Fixes\n- [x] Task: Apply review suggestions ca9ef88
