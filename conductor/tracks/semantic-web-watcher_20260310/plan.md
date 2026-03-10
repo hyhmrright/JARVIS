@@ -1,11 +1,11 @@
 # Implementation Plan: Semantic Web Watcher Monitoring
 
-## Phase 1: 基础设施与数据模型扩展
+## Phase 1: 基础设施与数据模型扩展 [checkpoint: 5646c69]
 *本阶段重点是扩展 `CronJob` 模型，以支持语义监控所需的元数据，并准备测试环境。*
 
-- [x] Task: 扩展 `CronJob` 模型与迁移 (已确认: JSONB 字段已支持存储 last_semantic_summary，无需迁移)
-- [x] Task: TDD 环境准备 (已编写失败测试用例)
-- [~] Task: Conductor - User Manual Verification 'Phase 1: 基础设施与数据模型扩展' (Protocol in workflow.md)
+- [x] Task: 扩展 `CronJob` 模型与迁移 (已确认: JSONB 字段已支持存储 last_semantic_summary，无需迁移) 5646c69
+- [x] Task: TDD 环境准备 (已编写失败测试用例) 5646c69
+- [x] Task: Conductor - User Manual Verification 'Phase 1: 基础设施与数据模型扩展' (Protocol in workflow.md) 5646c69
 
 ## Phase 2: 语义触发器逻辑实现 (TDD)
 *本阶段实现核心的 `SemanticWatcherProcessor`，集成 LLM 对比逻辑。*
