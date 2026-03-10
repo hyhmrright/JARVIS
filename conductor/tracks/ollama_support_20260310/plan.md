@@ -29,7 +29,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Chat, RAG & Tool Integration' (Protocol in workflow.md) 95b2f40
 
 ## Phase 3: Frontend UI & Final Validation
-- [ ] Task: 动态加载 Ollama 模型到前端 (TDD)
+- [x] Task: 动态加载 Ollama 模型到前端 (TDD) bb0188b
     - [ ] 编写 Vitest 测试 `frontend/src/tests/ollama_models.test.ts`。
     - [ ] 修改模型选择组件，使其能够合并来自后端的动态 Ollama 模型列表。
     - [ ] 验证测试通过。
