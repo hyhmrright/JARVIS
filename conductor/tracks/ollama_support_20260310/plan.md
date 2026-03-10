@@ -28,7 +28,7 @@
     - [ ] 验证测试通过。
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Chat, RAG & Tool Integration' (Protocol in workflow.md) 95b2f40
 
-## Phase 3: Frontend UI & Final Validation
+## Phase 3: Frontend UI & Final Validation [checkpoint: 0a52545]
 - [x] Task: 动态加载 Ollama 模型到前端 (TDD) bb0188b
     - [ ] 编写 Vitest 测试 `frontend/src/tests/ollama_models.test.ts`。
     - [ ] 修改模型选择组件，使其能够合并来自后端的动态 Ollama 模型列表。
@@ -36,4 +36,4 @@
 - [x] Task: 整体冒烟测试与 UI 优化 6409b56
     - [ ] 确保深色奢华 UI 在使用本地模型时响应依然丝滑。
     - [ ] 添加 Ollama 服务连接状态的 UI 提示（可选）。
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Frontend UI & Final Validation' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Frontend UI & Final Validation' (Protocol in workflow.md) 0a52545
