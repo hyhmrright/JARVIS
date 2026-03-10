@@ -3,13 +3,9 @@
 ## Phase 1: 基础设施与数据模型扩展
 *本阶段重点是扩展 `CronJob` 模型，以支持语义监控所需的元数据，并准备测试环境。*
 
-- [ ] Task: 扩展 `CronJob` 模型与迁移
-    - [ ] 在 `app/db/models.py` 的 `CronJob` 中确认/添加 `trigger_metadata` 对 `last_semantic_summary` 的支持。
-    - [ ] 创建并运行 Alembic 迁移脚本（如需字段调整）。
-- [ ] Task: TDD 环境准备
-    - [ ] 创建 `tests/scheduler/test_semantic_watcher.py`。
-    - [ ] 编写模拟 LLM 对比逻辑的失败测试用例。
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: 基础设施与数据模型扩展' (Protocol in workflow.md)
+- [x] Task: 扩展 `CronJob` 模型与迁移 (已确认: JSONB 字段已支持存储 last_semantic_summary，无需迁移)
+- [x] Task: TDD 环境准备 (已编写失败测试用例)
+- [~] Task: Conductor - User Manual Verification 'Phase 1: 基础设施与数据模型扩展' (Protocol in workflow.md)
 
 ## Phase 2: 语义触发器逻辑实现 (TDD)
 *本阶段实现核心的 `SemanticWatcherProcessor`，集成 LLM 对比逻辑。*
