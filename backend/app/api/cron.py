@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.security import fernet_encrypt
 from app.db.models import CronJob, User
 from app.db.session import get_db
 from app.scheduler.runner import register_cron_job, unregister_cron_job
@@ -58,12 +59,20 @@ async def create_cron_job(
             status_code=400, detail=f"Invalid trigger_type. Must be one of: {valid}"
         )
 
+    # Encrypt sensitive fields in trigger_metadata before storage
+    trigger_metadata = dict(data.trigger_metadata) if data.trigger_metadata else None
+    if trigger_metadata and data.trigger_type == "email":
+        if "imap_password" in trigger_metadata:
+            trigger_metadata["imap_password"] = fernet_encrypt(
+                str(trigger_metadata["imap_password"])
+            )
+
     job = CronJob(
         user_id=user.id,
         schedule=data.schedule,
         task=data.task,
         trigger_type=data.trigger_type,
-        trigger_metadata=data.trigger_metadata,
+        trigger_metadata=trigger_metadata,
     )
     db.add(job)
     await db.commit()
@@ -98,7 +107,7 @@ async def toggle_cron_job(
     job_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, str]:
+) -> dict[str, Any]:
     """Enable or disable a monitoring job."""
     job = await db.get(CronJob, job_id)
     if not job or job.user_id != user.id:
