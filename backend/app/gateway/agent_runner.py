@@ -54,6 +54,12 @@ async def run_agent_for_user(user_id: str, task: str) -> str:
             db.add(conv)
             await db.flush()
 
+            # Persist human message BEFORE invoking agent so its timestamp
+            # precedes the AI message in chronological ordering.
+            human_msg = Message(conversation_id=conv.id, role="human", content=task)
+            db.add(human_msg)
+            await db.flush()
+
             lc_messages = [
                 SystemMessage(content=build_system_prompt(persona)),
                 HumanMessage(content=task),
@@ -83,7 +89,6 @@ async def run_agent_for_user(user_id: str, task: str) -> str:
             result = await graph.ainvoke(AgentState(messages=lc_messages))
             ai_content = str(result["messages"][-1].content)
 
-            db.add(Message(conversation_id=conv.id, role="human", content=task))
             db.add(
                 Message(
                     conversation_id=conv.id,
