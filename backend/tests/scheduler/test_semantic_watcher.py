@@ -21,7 +21,9 @@ async def test_semantic_watcher_trigger_no_change():
     with (
         patch("httpx.AsyncClient.get") as mock_get,
         patch("app.scheduler.triggers.get_llm_with_fallback") as mock_get_llm,
+        patch("app.scheduler.triggers.settings") as mock_settings,
     ):
+        mock_settings.deepseek_api_key = "test-key"
         # 模拟 HTTP 响应
         mock_resp = AsyncMock()
         mock_resp.text = new_content
@@ -54,7 +56,9 @@ async def test_semantic_watcher_trigger_significant_change():
     with (
         patch("httpx.AsyncClient.get") as mock_get,
         patch("app.scheduler.triggers.get_llm_with_fallback") as mock_get_llm,
+        patch("app.scheduler.triggers.settings") as mock_settings,
     ):
+        mock_settings.deepseek_api_key = "test-key"
         mock_resp = AsyncMock()
         mock_resp.text = new_content
         mock_resp.raise_for_status = MagicMock()

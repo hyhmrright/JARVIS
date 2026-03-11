@@ -68,6 +68,16 @@ def _get_fernet() -> Fernet:
     return Fernet(settings.encryption_key.encode())
 
 
+def fernet_encrypt(value: str) -> str:
+    """Encrypt a string value using the app's Fernet key."""
+    return _get_fernet().encrypt(value.encode()).decode()
+
+
+def fernet_decrypt(value: str) -> str:
+    """Decrypt a Fernet-encrypted string value."""
+    return _get_fernet().decrypt(value.encode()).decode()
+
+
 def encrypt_api_keys(api_keys: dict) -> dict:
     """将 api_keys 字典中的所有值加密后返回新字典。"""
     encrypted = _get_fernet().encrypt(json.dumps(api_keys).encode()).decode()

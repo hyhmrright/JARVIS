@@ -10,6 +10,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.agent.llm import get_llm_with_fallback
 from app.core.config import settings
+from app.core.security import fernet_decrypt
 from app.scheduler.prompts import (
     SEMANTIC_WATCHER_SYSTEM_PROMPT,
     SEMANTIC_WATCHER_USER_PROMPT,
@@ -74,13 +75,19 @@ class SemanticWatcherProcessor(TriggerProcessor):
                 response.raise_for_status()
                 new_content = self._truncate_content(response.text)
 
-            # Use LLM to check for semantic change
-            # Fallback to deepseek if not explicitly configured in settings
-            provider = getattr(settings, "model_provider", "deepseek")
-            model = getattr(settings, "model_name", "deepseek-chat")
-            api_key = getattr(
-                settings, f"{provider}_api_key", settings.deepseek_api_key
-            )
+            # Use server-level LLM keys for semantic checking.
+            # Priority: deepseek > openai (whichever has a key configured).
+            if settings.deepseek_api_key:
+                provider = "deepseek"
+                model = "deepseek-chat"
+                api_key = settings.deepseek_api_key
+            elif settings.openai_api_key:
+                provider = "openai"
+                model = "gpt-4o-mini"
+                api_key = settings.openai_api_key
+            else:
+                logger.error("semantic_watcher_no_api_key")
+                return False
 
             llm = get_llm_with_fallback(provider, model, api_key)
 
@@ -120,8 +127,13 @@ class IMAPEmailProcessor(TriggerProcessor):
     async def should_fire(self, metadata: dict[str, Any]) -> bool:
         host = metadata.get("imap_host")
         user = metadata.get("imap_user")
-        password = metadata.get("imap_password")
-        if not all([host, user, password]):
+        password_encrypted = metadata.get("imap_password")
+        if not all([host, user, password_encrypted]):
+            return False
+        try:
+            password = fernet_decrypt(str(password_encrypted))
+        except Exception:
+            logger.error("imap_password_decrypt_failed", user=user)
             return False
 
         last_uid = metadata.get("last_uid", 0)
