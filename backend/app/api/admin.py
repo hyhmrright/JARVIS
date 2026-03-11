@@ -2,6 +2,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +11,11 @@ from app.db.models import AuditLog, Conversation, Message, User, UserRole
 from app.db.session import get_db
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+class UserUpdate(BaseModel):
+    role: str | None = None
+    is_active: bool | None = None
 
 
 @router.get("/users")
@@ -48,17 +54,20 @@ async def list_users(
 @router.patch("/users/{user_id}")
 async def update_user(
     user_id: uuid.UUID,
-    data: dict[str, Any],
+    data: UserUpdate,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_admin_user),
 ) -> dict[str, str]:
     """Update user role or status."""
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="Cannot modify your own account")
+
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if "role" in data:
-        if data["role"] not in [r.value for r in UserRole]:
+    if data.role is not None:
+        if data.role not in [r.value for r in UserRole]:
             raise HTTPException(status_code=400, detail="Invalid role")
         # Only SUPERADMIN can promote/demote other SUPERADMINs/ADMINs
         if (
@@ -66,10 +75,10 @@ async def update_user(
             and admin.role != UserRole.SUPERADMIN.value
         ):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
-        user.role = data["role"]
+        user.role = data.role
 
-    if "is_active" in data:
-        user.is_active = bool(data["is_active"])
+    if data.is_active is not None:
+        user.is_active = bool(data.is_active)
 
     await db.commit()
     return {"status": "ok"}
@@ -82,6 +91,11 @@ async def delete_user(
     admin: User = Depends(get_admin_user),
 ) -> dict[str, str]:
     """Soft-delete a user."""
+    if user_id == admin.id:
+        raise HTTPException(
+            status_code=400, detail="Cannot deactivate your own account"
+        )
+
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
