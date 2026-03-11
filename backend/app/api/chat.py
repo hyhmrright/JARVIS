@@ -242,11 +242,17 @@ async def chat_stream(  # noqa: C901
         .where(Message.conversation_id == conv.id)
         .order_by(Message.created_at)
     )
-    lc_messages = [
-        _ROLE_TO_MESSAGE[msg.role](content=msg.content)
-        for msg in history_rows.all()
-        if msg.role in _ROLE_TO_MESSAGE
-    ]
+    all_history = history_rows.all()
+    lc_messages = []
+    for msg in all_history:
+        if msg.role in _ROLE_TO_MESSAGE:
+            lc_messages.append(_ROLE_TO_MESSAGE[msg.role](content=msg.content))
+        else:
+            logger.debug(
+                "chat_history_message_skipped",
+                role=msg.role,
+                msg_id=str(msg.id),
+            )
 
     system_msg = SystemMessage(content=build_system_prompt(llm.persona_override))
     lc_messages = [system_msg, *lc_messages]

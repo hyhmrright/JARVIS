@@ -34,8 +34,13 @@ def _safe_resolve(workspace: pathlib.Path, path: str) -> pathlib.Path | None:
 
 
 def create_file_tools(user_id: str) -> list[BaseTool]:  # noqa: C901
-    """Create file operation tools scoped to a user's workspace."""
+    """Create file operation tools scoped to a user's workspace.
+
+    Note: workspace lives under /tmp which is not persistent across
+    container restarts. Files will be lost on restart.
+    """
     workspace = pathlib.Path(f"/tmp/jarvis/{user_id}")
+    workspace.mkdir(parents=True, exist_ok=True)
 
     @tool
     def file_read(path: str) -> str:

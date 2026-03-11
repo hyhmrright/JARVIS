@@ -38,7 +38,7 @@ async def compact_messages(
 
         [system_msg, AIMessage(summary), ...last *keep_recent* messages]
     """
-    total_chars = sum(len(str(m.content)) for m in messages)
+    total_chars = sum(len(f"{m.type}: {m.content}") for m in messages)
     if total_chars < threshold:
         return messages
 
