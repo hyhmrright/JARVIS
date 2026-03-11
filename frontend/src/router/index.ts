@@ -19,8 +19,12 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const auth = useAuthStore();
-  if (to.meta.requiresAuth && !auth.isLoggedIn) return "/login";
-  if (to.meta.requiresAdmin && !auth.isAdmin) return "/";
+  if (to.meta.requiresAuth && !auth.isLoggedIn) {
+    return "/login";
+  }
+  if (to.meta.requiresAdmin && !auth.isAdmin) {
+    return "/";
+  }
 });
 
 export default router;

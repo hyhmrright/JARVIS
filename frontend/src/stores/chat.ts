@@ -79,12 +79,12 @@ export const useChatStore = defineStore("chat", {
         this.conversations.unshift(data);
         this.currentConvId = data.id;
       }
-      
+
       if (!content.startsWith("[CONSENT:")) {
         this.messages.push({ role: "human", content });
         this.messages.push({ role: "ai", content: "" });
       }
-      
+
       this.streaming = true;
 
       try {
@@ -99,11 +99,15 @@ export const useChatStore = defineStore("chat", {
         if (!resp.ok) {
           let detail = `HTTP ${resp.status}`;
           const errorText = await resp.text().catch(() => "");
-          try {
-            const parsed = JSON.parse(errorText);
-            if (parsed.detail) detail = typeof parsed.detail === 'string' ? parsed.detail : JSON.stringify(parsed.detail);
-          } catch {
-            if (errorText) detail = errorText;
+          if (errorText) {
+            try {
+              const parsed = JSON.parse(errorText);
+              detail = typeof parsed.detail === "string"
+                ? parsed.detail
+                : JSON.stringify(parsed.detail);
+            } catch {
+              detail = errorText;
+            }
           }
           throw new Error(detail);
         }
@@ -124,7 +128,7 @@ export const useChatStore = defineStore("chat", {
               try {
                 const data = JSON.parse(line.slice(6));
                 const aiMsg = this.messages[this.messages.length - 1];
-                
+
                 if (data.type === "routing") {
                   this.routingAgent = data.agent;
                 } else if (data.type === "title_updated") {
@@ -135,12 +139,14 @@ export const useChatStore = defineStore("chat", {
                 } else if (data.type === "approval_required") {
                   aiMsg.pending_tool_call = { name: data.tool, args: data.args };
                   this.streaming = false;
-                  this.routingAgent = null; // finally won't run after return
-                  return; // Stop reading stream, wait for user
+                  this.routingAgent = null;
+                  return;
                 }
 
                 if (data.type === "tool_start") {
-                  if (!aiMsg.toolCalls) aiMsg.toolCalls = [];
+                  if (!aiMsg.toolCalls) {
+                    aiMsg.toolCalls = [];
+                  }
                   aiMsg.toolCalls.push({
                     name: data.tool,
                     args: data.args ?? {},
@@ -148,7 +154,7 @@ export const useChatStore = defineStore("chat", {
                   });
                 } else if (data.type === "tool_end") {
                   const tc = aiMsg.toolCalls?.find(
-                    (t: ToolCall) => t.name === data.tool && t.status === "running",
+                    (t: ToolCall) => t.name === data.tool && t.status === "running"
                   );
                   if (tc) {
                     tc.status = "done";
@@ -161,7 +167,9 @@ export const useChatStore = defineStore("chat", {
                     aiMsg.content = data.content;
                   }
                 }
-              } catch { /* ignore SSE parse errors */ }
+              } catch {
+                // Ignore SSE parse errors
+              }
             }
           }
         }

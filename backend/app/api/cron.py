@@ -112,4 +112,4 @@ async def toggle_cron_job(
     else:
         unregister_cron_job(str(job.id))
 
-    return {"status": "ok", "is_active": str(job.is_active)}
+    return {"status": "ok", "is_active": job.is_active}

@@ -351,24 +351,25 @@ async def chat_stream(  # noqa: C901
                 msgs = final_state.get("messages", [])
                 if not msgs:
                     yield _format_sse({"type": "delta", "delta": "", "content": ""})
-                if msgs:
+                else:
                     last_ai_msg = msgs[-1]
                     full_content = str(getattr(last_ai_msg, "content", ""))
-                    # Chunk output every 50 chars for a streaming feel;
-                    # yield control between pieces so ASGI flushes each frame.
                     if not full_content:
                         yield _format_sse({"type": "delta", "delta": "", "content": ""})
-                    chunk_size = 50
-                    total = len(full_content)
-                    for i in range(0, total, chunk_size):
-                        piece = full_content[i : i + chunk_size]
-                        is_last = i + chunk_size >= total
-                        sse_event: dict = {"type": "delta", "delta": piece}
-                        if is_last:
-                            sse_event["content"] = full_content
-                        yield _format_sse(sse_event)
-                        if not is_last:
-                            await asyncio.sleep(0)
+                    else:
+                        # Chunk output every 50 chars for a streaming feel;
+                        # yield control between pieces so ASGI flushes each frame.
+                        chunk_size = 50
+                        total = len(full_content)
+                        for i in range(0, total, chunk_size):
+                            piece = full_content[i : i + chunk_size]
+                            is_last = i + chunk_size >= total
+                            sse_event: dict = {"type": "delta", "delta": piece}
+                            if is_last:
+                                sse_event["content"] = full_content
+                            yield _format_sse(sse_event)
+                            if not is_last:
+                                await asyncio.sleep(0)
             else:
                 # Expert or standard ReAct — all use streaming AgentState graphs
                 graph = _build_expert_graph(

@@ -78,7 +78,7 @@ async def update_user(
         user.role = data.role
 
     if data.is_active is not None:
-        user.is_active = bool(data.is_active)
+        user.is_active = data.is_active
 
     await db.commit()
     return {"status": "ok"}

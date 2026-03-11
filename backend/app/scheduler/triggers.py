@@ -75,17 +75,14 @@ class SemanticWatcherProcessor(TriggerProcessor):
                 response.raise_for_status()
                 new_content = self._truncate_content(response.text)
 
-            # Use server-level LLM keys for semantic checking.
-            # Priority: deepseek > openai (whichever has a key configured).
-            if settings.deepseek_api_key:
-                provider = "deepseek"
-                model = "deepseek-chat"
-                api_key = settings.deepseek_api_key
-            elif settings.openai_api_key:
+            provider = "deepseek"
+            model = "deepseek-chat"
+            api_key = settings.deepseek_api_key
+            if not api_key:
                 provider = "openai"
                 model = "gpt-4o-mini"
                 api_key = settings.openai_api_key
-            else:
+            if not api_key:
                 logger.error("semantic_watcher_no_api_key")
                 return False
 

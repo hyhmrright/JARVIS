@@ -31,7 +31,9 @@ class ResolvedLLMConfig:
 
 
 async def _resolve_user(
-    token: str, db: AsyncSession, request: Request = None,  # type: ignore[assignment]
+    token: str,
+    db: AsyncSession,
+    request: Request = None,  # type: ignore[assignment]
 ) -> User:
     """Authenticate by JWT or PAT token and return the active user.
 
@@ -45,7 +47,9 @@ async def _resolve_user(
 
 
 async def _resolve_jwt(
-    token: str, db: AsyncSession, request: Request = None,  # type: ignore[assignment]
+    token: str,
+    db: AsyncSession,
+    request: Request = None,  # type: ignore[assignment]
 ) -> User:
     try:
         user_id = decode_access_token(token)
@@ -66,7 +70,9 @@ async def _resolve_jwt(
 
 
 async def _resolve_pat(
-    token: str, db: AsyncSession, request: Request = None,  # type: ignore[assignment]
+    token: str,
+    db: AsyncSession,
+    request: Request = None,  # type: ignore[assignment]
 ) -> User:
     key_hash = hashlib.sha256(token.encode()).hexdigest()
     api_key = await db.scalar(select(ApiKey).where(ApiKey.key_hash == key_hash))

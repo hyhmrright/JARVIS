@@ -42,15 +42,15 @@ async def sync_conversation_to_markdown(conversation_id: uuid.UUID) -> None:
             date_str = conv.created_at.strftime("%Y-%m-%d")
             file_path = sync_dir / f"{date_str}-{conversation_id}.md"
 
-            lines = []
-            # YAML Frontmatter
-            lines.append("---")
-            lines.append(f"title: {_yaml_quote(conv.title)}")
-            lines.append(f"id: {conversation_id}")
-            lines.append(f"date: {conv.created_at.isoformat()!r}")
-            lines.append(f"updated: {conv.updated_at.isoformat()!r}")
-            lines.append("tags: [jarvis, memory]")
-            lines.append("---\n")
+            lines = [
+                "---",
+                f"title: {_yaml_quote(conv.title)}",
+                f"id: {conversation_id}",
+                f"date: {conv.created_at.isoformat()!r}",
+                f"updated: {conv.updated_at.isoformat()!r}",
+                "tags: [jarvis, memory]",
+                "---\n",
+            ]
 
             for msg in messages:
                 role = "USER" if msg.role == "human" else "JARVIS"

@@ -67,7 +67,10 @@ async def run_agent_for_user(user_id: str, task: str) -> str:
 
             mcp_tools: list = []
             if "mcp" in enabled:
-                from app.tools.mcp_client import create_mcp_tools, parse_mcp_configs
+                from app.tools.mcp_client import (
+                    create_mcp_tools,
+                    parse_mcp_configs,
+                )
 
                 mcp_tools = await create_mcp_tools(
                     parse_mcp_configs(settings.mcp_servers_json)
