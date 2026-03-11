@@ -2,6 +2,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +12,15 @@ from app.db.session import get_db
 from app.scheduler.runner import register_cron_job, unregister_cron_job
 
 router = APIRouter(prefix="/api/cron", tags=["cron"])
+
+_VALID_TRIGGER_TYPES = {"cron", "web_watcher", "semantic_watcher", "email"}
+
+
+class CronJobCreate(BaseModel):
+    schedule: str = Field(min_length=1, max_length=100)
+    task: str = Field(min_length=1, max_length=4000)
+    trigger_type: str = Field(default="cron", max_length=50)
+    trigger_metadata: dict[str, Any] | None = None
 
 
 @router.get("")
@@ -37,17 +47,23 @@ async def list_cron_jobs(
 
 @router.post("")
 async def create_cron_job(
-    data: dict[str, Any],
+    data: CronJobCreate,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     """Create a new proactive monitoring job."""
+    if data.trigger_type not in _VALID_TRIGGER_TYPES:
+        valid = sorted(_VALID_TRIGGER_TYPES)
+        raise HTTPException(
+            status_code=400, detail=f"Invalid trigger_type. Must be one of: {valid}"
+        )
+
     job = CronJob(
         user_id=user.id,
-        schedule=data["schedule"],
-        task=data["task"],
-        trigger_type=data.get("trigger_type", "cron"),
-        trigger_metadata=data.get("trigger_metadata"),
+        schedule=data.schedule,
+        task=data.task,
+        trigger_type=data.trigger_type,
+        trigger_metadata=data.trigger_metadata,
     )
     db.add(job)
     await db.commit()
