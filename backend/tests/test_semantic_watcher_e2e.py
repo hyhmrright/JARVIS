@@ -20,7 +20,7 @@ async def test_cron_set_semantic_watcher_e2e():
 
     with (
         patch("app.tools.cron_tool.AsyncSessionLocal") as mock_session_factory,
-        patch("app.scheduler.runner.register_cron_job") as mock_register
+        patch("app.scheduler.runner.register_cron_job") as mock_register,
     ):
         mock_db = AsyncMock()
         mock_session_factory.return_value.__aenter__.return_value = mock_db
@@ -29,12 +29,14 @@ async def test_cron_set_semantic_watcher_e2e():
         mock_db.commit = AsyncMock()
         mock_db.refresh = AsyncMock()
 
-        result = await cron_set.ainvoke({
-            "schedule": schedule,
-            "task": task,
-            "trigger_type": trigger_type,
-            "metadata": metadata
-        })
+        result = await cron_set.ainvoke(
+            {
+                "schedule": schedule,
+                "task": task,
+                "trigger_type": trigger_type,
+                "metadata": metadata,
+            }
+        )
 
         assert "Scheduled" in result
         assert "type: semantic_watcher" in result
@@ -49,6 +51,7 @@ async def test_cron_set_semantic_watcher_e2e():
 
         # 验证调度器注册
         mock_register.assert_called_once()
+
 
 @pytest.mark.asyncio
 async def test_cron_list_with_semantic_info():

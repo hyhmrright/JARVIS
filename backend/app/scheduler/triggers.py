@@ -105,9 +105,7 @@ class SemanticWatcherProcessor(TriggerProcessor):
             # If no record exists, store initial summary but don't fire yet
             if not last_summary:
                 # First run, initialize summary but don't fire
-                metadata["last_semantic_summary"] = (
-                    "已初始化。后续将监控：" + target
-                )
+                metadata["last_semantic_summary"] = "已初始化。后续将监控：" + target
                 return False
 
         except Exception:

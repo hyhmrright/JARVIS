@@ -12,7 +12,7 @@ async def test_semantic_watcher_trigger_no_change():
     metadata = {
         "url": "https://example.com",
         "last_semantic_summary": "这是一篇关于 AI 的新闻摘要。",
-        "target": "主旨"
+        "target": "主旨",
     }
 
     # 模拟抓取到的网页内容
@@ -20,7 +20,7 @@ async def test_semantic_watcher_trigger_no_change():
 
     with (
         patch("httpx.AsyncClient.get") as mock_get,
-        patch("app.scheduler.triggers.get_llm_with_fallback") as mock_get_llm
+        patch("app.scheduler.triggers.get_llm_with_fallback") as mock_get_llm,
     ):
         # 模拟 HTTP 响应
         mock_resp = AsyncMock()
@@ -38,13 +38,14 @@ async def test_semantic_watcher_trigger_no_change():
         fired = await evaluate_trigger("semantic_watcher", metadata)
         assert fired is False
 
+
 @pytest.mark.asyncio
 async def test_semantic_watcher_trigger_significant_change():
     """验证当语义发生重大变动时，触发任务。"""
     metadata = {
         "url": "https://example.com",
         "last_semantic_summary": "原价 $99。",
-        "target": "价格"
+        "target": "价格",
     }
 
     # 模拟抓取到的网页内容（价格变了）
@@ -52,7 +53,7 @@ async def test_semantic_watcher_trigger_significant_change():
 
     with (
         patch("httpx.AsyncClient.get") as mock_get,
-        patch("app.scheduler.triggers.get_llm_with_fallback") as mock_get_llm
+        patch("app.scheduler.triggers.get_llm_with_fallback") as mock_get_llm,
     ):
         mock_resp = AsyncMock()
         mock_resp.text = new_content
