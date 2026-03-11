@@ -12,6 +12,12 @@ from app.db.session import AsyncSessionLocal
 logger = structlog.get_logger(__name__)
 
 
+def _yaml_quote(value: str) -> str:
+    """Return a single-quoted YAML string, escaping single quotes within."""
+    escaped = value.replace("'", "''")
+    return f"'{escaped}'"
+
+
 async def sync_conversation_to_markdown(conversation_id: uuid.UUID) -> None:
     """Export a conversation to a local Markdown file (Obsidian compatible)."""
     try:
@@ -34,15 +40,15 @@ async def sync_conversation_to_markdown(conversation_id: uuid.UUID) -> None:
 
             # File naming: date-id.md (safe for all filesystems)
             date_str = conv.created_at.strftime("%Y-%m-%d")
-            file_path = sync_dir / f"{date_str}-{str(conversation_id)[:8]}.md"
+            file_path = sync_dir / f"{date_str}-{conversation_id}.md"
 
             lines = []
             # YAML Frontmatter
             lines.append("---")
-            lines.append(f"title: {conv.title}")
+            lines.append(f"title: {_yaml_quote(conv.title)}")
             lines.append(f"id: {conversation_id}")
-            lines.append(f"date: {conv.created_at.isoformat()}")
-            lines.append(f"updated: {conv.updated_at.isoformat()}")
+            lines.append(f"date: {conv.created_at.isoformat()!r}")
+            lines.append(f"updated: {conv.updated_at.isoformat()!r}")
             lines.append("tags: [jarvis, memory]")
             lines.append("---\n")
 
