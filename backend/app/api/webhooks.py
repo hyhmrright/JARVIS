@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
+from app.core.limiter import limiter
 from app.db.models import User, Webhook
 
 logger = structlog.get_logger(__name__)
@@ -103,6 +104,7 @@ async def delete_webhook(
 
 
 @router.post("/{webhook_id}/trigger", status_code=202)
+@limiter.limit("30/minute")
 async def trigger_webhook(
     webhook_id: uuid.UUID,
     request: Request,
