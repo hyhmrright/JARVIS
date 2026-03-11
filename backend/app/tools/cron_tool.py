@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import uuid
+from typing import Any
 
 import structlog
 from apscheduler.triggers.cron import CronTrigger
@@ -68,7 +67,10 @@ def create_cron_tools(user_id: str) -> tuple[BaseTool, BaseTool, BaseTool]:
             job_id=str(job.id),
             trigger_type=trigger_type,
         )
-        return f"Scheduled: '{task}' with schedule '{schedule}' (type: {trigger_type}, id: {job.id})"
+        return (
+            f"Scheduled: '{task}' with schedule '{schedule}' "
+            f"(type: {trigger_type}, id: {job.id})"
+        )
 
     @tool
     async def cron_list() -> str:
@@ -90,7 +92,8 @@ def create_cron_tools(user_id: str) -> tuple[BaseTool, BaseTool, BaseTool]:
             type_info = f" | type: {j.trigger_type}" if j.trigger_type != "cron" else ""
             meta_info = f" | meta: {j.trigger_metadata}" if j.trigger_metadata else ""
             lines.append(
-                f"- [{j.id}] '{j.task}' | schedule: {j.schedule}{type_info}{meta_info} | last run: {last}"
+                f"- [{j.id}] '{j.task}' | schedule: {j.schedule}"
+                f"{type_info}{meta_info} | last run: {last}"
             )
         return "\n".join(lines)
 

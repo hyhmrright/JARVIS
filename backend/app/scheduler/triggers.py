@@ -10,7 +10,6 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.agent.llm import get_llm_with_fallback
 from app.core.config import settings
-
 from app.scheduler.prompts import (
     SEMANTIC_WATCHER_SYSTEM_PROMPT,
     SEMANTIC_WATCHER_USER_PROMPT,
@@ -79,7 +78,9 @@ class SemanticWatcherProcessor(TriggerProcessor):
             # Fallback to deepseek if not explicitly configured in settings
             provider = getattr(settings, "model_provider", "deepseek")
             model = getattr(settings, "model_name", "deepseek-chat")
-            api_key = getattr(settings, f"{provider}_api_key", settings.deepseek_api_key)
+            api_key = getattr(
+                settings, f"{provider}_api_key", settings.deepseek_api_key
+            )
 
             llm = get_llm_with_fallback(provider, model, api_key)
 
