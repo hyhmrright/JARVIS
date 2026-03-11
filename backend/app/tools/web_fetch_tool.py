@@ -9,7 +9,16 @@ import trafilatura
 from langchain_core.tools import tool
 
 _MAX_CONTENT_LENGTH = 8000  # chars, ~2000 tokens
-_BLOCKED_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "[::1]"}
+_BLOCKED_HOSTS = {
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+    "[::1]",
+    "::1",
+    "metadata.google.internal",
+    "169.254.169.254",  # AWS/GCP/Azure IMDS
+    "100.100.100.200",  # Alibaba Cloud metadata
+}
 
 
 def is_safe_url(url: str) -> bool:
@@ -18,14 +27,14 @@ def is_safe_url(url: str) -> bool:
     if parsed.scheme not in ("http", "https"):
         return False
     hostname = parsed.hostname or ""
-    if hostname in _BLOCKED_HOSTS:
+    if hostname.lower() in _BLOCKED_HOSTS:
         return False
     try:
         addr = ipaddress.ip_address(hostname)
         if addr.is_private or addr.is_loopback or addr.is_link_local:
             return False
     except ValueError:
-        pass  # Not an IP literal — hostname is fine
+        pass  # Not an IP literal — hostname will be resolved by httpx
     return True
 
 
