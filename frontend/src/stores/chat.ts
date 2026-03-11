@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import client from "@/api/client";
+import { useAuthStore } from "@/stores/auth";
 
 interface ToolCall {
   name: string;
@@ -87,7 +88,8 @@ export const useChatStore = defineStore("chat", {
       this.streaming = true;
 
       try {
-        const token = localStorage.getItem("token");
+        const auth = useAuthStore();
+        const token = auth.token;
         const resp = await fetch("/api/chat/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
