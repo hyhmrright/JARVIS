@@ -73,6 +73,9 @@ async def _stream_llm_reply(
     rag_context: str,
 ) -> str:
     """Run the LLM graph, stream deltas, and return the full reply."""
+    if not cfg.api_keys:
+        return ""
+
     system_content = build_system_prompt(cfg.persona)
     lc_messages: list[Any] = [SystemMessage(content=system_content)]
     if rag_context:
@@ -91,14 +94,23 @@ async def _stream_llm_reply(
     )
 
     full_reply = ""
+    prev_content = ""
     async for chunk in graph.astream(AgentState(messages=lc_messages)):
         if "llm" in chunk:
             msg = chunk["llm"]["messages"][-1]
             if msg.content:
-                delta = str(msg.content)[len(full_reply) :]
-                full_reply = str(msg.content)
+                new_content = str(msg.content)
+                # Reset prev_content per LLM node pass so that tool-call
+                # interleaving does not carry the cursor from a previous pass.
+                delta = new_content[len(prev_content) :]
+                prev_content = new_content
+                full_reply += delta
                 if delta:
                     await websocket.send_json({"type": "ai_text_delta", "delta": delta})
+        else:
+            # A non-llm node (e.g. tools) has run; reset the per-pass cursor so
+            # the next LLM node entry starts fresh.
+            prev_content = ""
     return full_reply
 
 
