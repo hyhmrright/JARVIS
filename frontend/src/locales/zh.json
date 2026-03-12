@@ -151,7 +151,25 @@
     "lastRun": "最后触发",
     "schedule": "调度频率",
     "triggerType": "触发类型",
-    "taskPrompt": "AI 任务指令"
+    "taskPrompt": "AI 任务指令",
+    "targetLabel": "监控目标",
+    "targetPlaceholder": "产品价格、新闻标题、关键词…",
+    "useBrowser": "使用浏览器渲染（支持 SPA 页面）",
+    "fireOnInit": "创建后立即触发一次",
+    "imapFolder": "邮件文件夹",
+    "imapPort": "IMAP 端口",
+    "triggerTypes": {
+      "cron": "定时任务",
+      "web_watcher": "网页监控（哈希）",
+      "semantic_watcher": "网页监控（语义）",
+      "email": "邮件触发"
+    },
+    "testTrigger": "测试触发",
+    "testResult": "测试结果",
+    "triggered": "是否触发",
+    "testFailed": "测试失败，请稍后重试",
+    "history": "执行历史",
+    "noHistory": "暂无执行记录"
   },
   "apiKeys": {
     "title": "个人 API 密钥",

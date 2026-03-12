@@ -110,6 +110,33 @@
     "passwordRequired": "Please enter your password",
     "passwordMinLength": "Password must be at least 8 characters"
   },
+  "proactive": {
+    "title": "Proactive Monitoring",
+    "addTask": "Add Task",
+    "noTasks": "No monitoring tasks",
+    "lastRun": "Last triggered",
+    "schedule": "Schedule",
+    "triggerType": "Trigger Type",
+    "taskPrompt": "AI Task Prompt",
+    "targetLabel": "Monitor Target",
+    "targetPlaceholder": "Product price, news headline, keyword…",
+    "useBrowser": "Use browser rendering (SPA support)",
+    "fireOnInit": "Fire once immediately after creation",
+    "imapFolder": "IMAP Folder",
+    "imapPort": "IMAP Port",
+    "triggerTypes": {
+      "cron": "Scheduled",
+      "web_watcher": "Web Watcher (hash)",
+      "semantic_watcher": "Web Watcher (semantic)",
+      "email": "Email Trigger"
+    },
+    "testTrigger": "Test Trigger",
+    "testResult": "Test Result",
+    "triggered": "Triggered",
+    "testFailed": "Test failed, please try again",
+    "history": "Execution History",
+    "noHistory": "No execution records"
+  },
   "apiKeys": {
     "title": "Personal API Keys",
     "description": "Create long-lived tokens for scripts or third-party tools to access the JARVIS API.",
