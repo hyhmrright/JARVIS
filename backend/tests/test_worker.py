@@ -65,3 +65,27 @@ async def test_execute_cron_job_lock_contention_returns_early():
         await execute_cron_job(
             ctx, job_id=str(uuid.uuid4()), run_group_id=str(uuid.uuid4())
         )
+
+
+@pytest.mark.asyncio
+async def test_cleanup_old_executions_deletes_old_rows():
+    """cleanup_old_executions deletes rows older than retention days."""
+    from app.worker import cleanup_old_executions
+
+    mock_result = MagicMock()
+    mock_result.rowcount = 5
+
+    mock_db = AsyncMock()
+    mock_db.execute = AsyncMock(return_value=mock_result)
+
+    with patch(
+        "app.worker.AsyncSessionLocal",
+        return_value=MagicMock(
+            __aenter__=AsyncMock(return_value=mock_db),
+            __aexit__=AsyncMock(return_value=None),
+        ),
+    ):
+        await cleanup_old_executions({})
+
+    mock_db.execute.assert_called_once()
+    mock_db.commit.assert_called_once()

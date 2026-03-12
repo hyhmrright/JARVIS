@@ -2,10 +2,13 @@
 
 import time
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import structlog
 from arq.connections import RedisSettings
+from arq.cron import cron
+from sqlalchemy import delete
+from sqlalchemy.engine import CursorResult
 
 from app.core.config import settings
 from app.db.models import CronJob, JobExecution
@@ -115,8 +118,28 @@ async def execute_cron_job(ctx: dict, *, job_id: str, run_group_id: str) -> None
         await redis.delete(lock_key)
 
 
+async def cleanup_old_executions(ctx: dict) -> None:
+    """ARQ periodic task: delete job_executions older than retention window."""
+    cutoff = datetime.now(tz=UTC) - timedelta(
+        days=settings.cron_execution_retention_days
+    )
+    async with AsyncSessionLocal() as db:
+        result: CursorResult = await db.execute(  # type: ignore[assignment]
+            delete(JobExecution).where(JobExecution.fired_at < cutoff)
+        )
+        await db.commit()
+    logger.info(
+        "job_executions_cleanup",
+        deleted=result.rowcount,
+        retention_days=settings.cron_execution_retention_days,
+    )
+
+
 class WorkerSettings:
     functions = [execute_cron_job]
+    cron_jobs = [
+        cron(cleanup_old_executions, hour=3, minute=0)  # Daily 03:00 UTC
+    ]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     max_jobs = 10
     job_timeout = 300
