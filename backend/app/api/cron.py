@@ -226,6 +226,7 @@ async def test_trigger(
         agent_result = await run_agent_for_user(
             user_id=str(job.user_id),
             task=job.task,
+            trigger_ctx=result.trigger_ctx,
         )
         is_error = (agent_result or "").startswith("[Error")
         return True, result.trigger_ctx, agent_result, is_error

@@ -20,7 +20,34 @@ from app.db.session import AsyncSessionLocal
 logger = structlog.get_logger(__name__)
 
 
-async def run_agent_for_user(user_id: str, task: str) -> str:
+def format_trigger_context(trigger_ctx: dict | None) -> str:
+    """Format trigger context as a human-readable block for injection into task."""
+    if not trigger_ctx:
+        return ""
+    lines = ["[触发上下文]"]
+    trigger_type = trigger_ctx.get("trigger_type", "")
+    if detected_at := trigger_ctx.get("detected_at"):
+        lines.append(f"检测时间：{detected_at}")
+    if trigger_type in ("semantic_watcher", "web_watcher"):
+        if target := trigger_ctx.get("target"):
+            lines.append(f"监控目标：{target}")
+        if summary := trigger_ctx.get("changed_summary"):
+            lines.append(f"检测到变化：{summary}")
+        if url := trigger_ctx.get("url"):
+            lines.append(f"原始页面：{url}")
+    elif trigger_type == "email":
+        count = trigger_ctx.get("new_email_count", 0)
+        lines.append(f"新邮件数量：{count}")
+        for i, em in enumerate(trigger_ctx.get("emails", [])[:3], 1):
+            lines.append(f"邮件{i}：{em.get('from', '')} — {em.get('subject', '')}")
+    return "\n".join(lines)
+
+
+async def run_agent_for_user(
+    user_id: str,
+    task: str,
+    trigger_ctx: dict | None = None,
+) -> str:
     """Execute the JARVIS agent for the given user and task text.
 
     Creates a new conversation, runs the agent, persists the response,
@@ -54,15 +81,21 @@ async def run_agent_for_user(user_id: str, task: str) -> str:
             db.add(conv)
             await db.flush()
 
+            # Build full task with optional trigger context prefix
+            ctx_block = format_trigger_context(trigger_ctx)
+            full_task = f"{ctx_block}\n\n[用户任务]\n{task}" if ctx_block else task
+
             # Persist human message BEFORE invoking agent so its timestamp
             # precedes the AI message in chronological ordering.
-            human_msg = Message(conversation_id=conv.id, role="human", content=task)
+            human_msg = Message(
+                conversation_id=conv.id, role="human", content=full_task
+            )
             db.add(human_msg)
             await db.flush()
 
             lc_messages = [
                 SystemMessage(content=build_system_prompt(persona)),
-                HumanMessage(content=task),
+                HumanMessage(content=full_task),
             ]
 
             mcp_tools: list = []

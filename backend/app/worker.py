@@ -58,6 +58,7 @@ async def execute_cron_job(ctx: dict, *, job_id: str, run_group_id: str) -> None
                 agent_result = await run_agent_for_user(
                     user_id=str(job.user_id),
                     task=job.task,
+                    trigger_ctx=result.trigger_ctx,
                 )
                 agent_result = (agent_result or "")[:2000]
             else:
