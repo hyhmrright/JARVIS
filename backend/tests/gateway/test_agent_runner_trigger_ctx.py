@@ -1,6 +1,3 @@
-import pytest
-
-
 def _make_trigger_ctx() -> dict:
     return {
         "trigger_type": "semantic_watcher",

@@ -29,11 +29,13 @@ async def test_execute_cron_job_fires_agent():
     ctx["redis"].delete = AsyncMock()
     ctx["job_try"] = 1
 
-    with patch("app.worker.AsyncSessionLocal") as mock_session_cls, patch(
-        "app.worker.evaluate_trigger", new=AsyncMock(return_value=fired_result)
-    ), patch(
-        "app.worker.run_agent_for_user", new=AsyncMock(return_value="done")
-    ) as mock_agent:
+    with (
+        patch("app.worker.AsyncSessionLocal") as mock_session_cls,
+        patch("app.worker.evaluate_trigger", new=AsyncMock(return_value=fired_result)),
+        patch(
+            "app.worker.run_agent_for_user", new=AsyncMock(return_value="done")
+        ) as mock_agent,
+    ):
         mock_session = AsyncMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)

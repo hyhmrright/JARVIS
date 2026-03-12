@@ -3,8 +3,8 @@ import pytest
 
 from app.scheduler.fetch import sanitize_http_headers, validate_fetch_url
 
-
 # --- validate_fetch_url ---
+
 
 def test_valid_public_url():
     validate_fetch_url("https://example.com/page")  # must not raise
@@ -36,6 +36,7 @@ def test_blocks_non_http_scheme():
 
 
 # --- sanitize_http_headers ---
+
 
 def test_strips_host_header():
     result = sanitize_http_headers({"Host": "evil.com", "Authorization": "Bearer x"})

@@ -1,6 +1,7 @@
 # backend/tests/test_job_execution_model.py
 """Smoke test: verify JobExecution model imports and has expected columns."""
-from app.db.models import JobExecution, CronJob
+
+from app.db.models import CronJob, JobExecution
 
 
 def test_job_execution_columns():

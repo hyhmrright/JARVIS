@@ -1,10 +1,10 @@
 """Tests for new cron API endpoints: history, test trigger, quota."""
+
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from httpx import AsyncClient
-
 
 # --- GET /api/cron/{job_id}/history ---
 
@@ -24,7 +24,9 @@ async def test_history_404_for_other_user_job(client: AsyncClient, auth_headers:
 
 
 @pytest.mark.asyncio
-async def test_test_endpoint_404_for_other_user_job(client: AsyncClient, auth_headers: dict):
+async def test_test_endpoint_404_for_other_user_job(
+    client: AsyncClient, auth_headers: dict
+):
     """Test endpoint returns 404 for unowned jobs."""
     other_job_id = str(uuid.uuid4())
     response = await client.post(

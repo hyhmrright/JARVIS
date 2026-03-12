@@ -20,7 +20,10 @@ async def test_first_run_fire_on_init_false(processor):
         "target": "产品价格",
         "fire_on_init": False,
     }
-    with patch("app.scheduler.triggers.fetch_page_content", new=AsyncMock(return_value="Price: $99")):
+    with patch(
+        "app.scheduler.triggers.fetch_page_content",
+        new=AsyncMock(return_value="Price: $99"),
+    ):
         result = await processor.should_fire(metadata)
     assert isinstance(result, TriggerResult)
     assert result.fired is False
@@ -37,7 +40,10 @@ async def test_first_run_fire_on_init_true(processor):
         "target": "产品价格",
         "fire_on_init": True,
     }
-    with patch("app.scheduler.triggers.fetch_page_content", new=AsyncMock(return_value="Price: $99")):
+    with patch(
+        "app.scheduler.triggers.fetch_page_content",
+        new=AsyncMock(return_value="Price: $99"),
+    ):
         result = await processor.should_fire(metadata)
     assert result.fired is True
     assert result.reason == "fired"
@@ -56,7 +62,10 @@ async def test_content_hash_unchanged_skips_llm(processor):
         "content_hash": content_hash,
         "last_semantic_summary": "价格为 $99",
     }
-    with patch("app.scheduler.triggers.fetch_page_content", new=AsyncMock(return_value=content)):
+    with patch(
+        "app.scheduler.triggers.fetch_page_content",
+        new=AsyncMock(return_value=content),
+    ):
         with patch("app.scheduler.triggers.get_llm_with_fallback") as mock_llm:
             result = await processor.should_fire(metadata)
     mock_llm.assert_not_called()
@@ -79,13 +88,20 @@ async def test_semantic_change_detected(processor):
 
     mock_structured = MagicMock()
     mock_structured.ainvoke = AsyncMock(
-        return_value=MagicMock(changed=True, summary="价格从 $99 降至 $49", confidence="high")
+        return_value=MagicMock(
+            changed=True, summary="价格从 $99 降至 $49", confidence="high"
+        )
     )
     mock_llm = MagicMock()
     mock_llm.with_structured_output = MagicMock(return_value=mock_structured)
 
-    with patch("app.scheduler.triggers.fetch_page_content", new=AsyncMock(return_value=new_content)):
-        with patch("app.scheduler.triggers.get_llm_with_fallback", return_value=mock_llm):
+    with patch(
+        "app.scheduler.triggers.fetch_page_content",
+        new=AsyncMock(return_value=new_content),
+    ):
+        with patch(
+            "app.scheduler.triggers.get_llm_with_fallback", return_value=mock_llm
+        ):
             result = await processor.should_fire(metadata)
 
     assert result.fired is True
@@ -112,8 +128,13 @@ async def test_semantic_no_change(processor):
     mock_llm = MagicMock()
     mock_llm.with_structured_output = MagicMock(return_value=mock_structured)
 
-    with patch("app.scheduler.triggers.fetch_page_content", new=AsyncMock(return_value="new content")):
-        with patch("app.scheduler.triggers.get_llm_with_fallback", return_value=mock_llm):
+    with patch(
+        "app.scheduler.triggers.fetch_page_content",
+        new=AsyncMock(return_value="new content"),
+    ):
+        with patch(
+            "app.scheduler.triggers.get_llm_with_fallback", return_value=mock_llm
+        ):
             result = await processor.should_fire(metadata)
 
     assert result.fired is False

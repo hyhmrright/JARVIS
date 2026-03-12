@@ -130,14 +130,14 @@ async def test_memory_markdown_sync(tmp_path: Path):
 
 @pytest.mark.asyncio
 async def test_proactive_triggers():
+    """Proactive web watcher trigger fires when content changes."""
     metadata = {"url": "https://example.com", "last_hash": "old"}
-    with patch("httpx.AsyncClient.get") as mock_get:
-        mock_resp = MagicMock()
-        mock_resp.text = "new"
-        mock_resp.raise_for_status = MagicMock()
-        mock_get.return_value = mock_resp
-        fired = await evaluate_trigger("web_watcher", metadata)
-        assert fired is True
+    with patch(
+        "app.scheduler.triggers.fetch_page_content",
+        new=AsyncMock(return_value="new page content"),
+    ):
+        result = await evaluate_trigger("web_watcher", metadata)
+    assert result.fired is True
 
 
 @pytest.mark.asyncio
