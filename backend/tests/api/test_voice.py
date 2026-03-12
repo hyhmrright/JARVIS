@@ -35,61 +35,50 @@ async def test_transcribe_audio_calls_whisper():
     mock_client.audio.transcriptions.create.assert_called_once()
 
 
-def test_voice_rejects_missing_token(db_session):
-    """WebSocket connection without token closes with an error (missing param)."""
+def test_voice_rejects_missing_token():
+    """WebSocket connection without token is rejected (missing required param)."""
     from starlette.testclient import TestClient
 
-    from app.db.session import get_db
     from app.main import app
 
-    async def _override_get_db():
-        yield db_session
-
-    app.dependency_overrides[get_db] = _override_get_db
-    try:
-        with TestClient(app) as tc:
-            with pytest.raises(Exception):  # noqa: B017
-                with tc.websocket_connect("/api/voice/stream"):
-                    pass  # Should fail: missing token query param
-    finally:
-        app.dependency_overrides.clear()
+    with TestClient(app) as tc:
+        with pytest.raises(Exception):  # noqa: B017
+            with tc.websocket_connect("/api/voice/stream"):
+                pass
 
 
-def test_voice_sends_error_on_stt_failure(db_session):
-    """When STT fails, server sends an error JSON message over the WebSocket."""
+def test_voice_sends_error_on_stt_failure():
+    """When STT fails, server sends an error JSON over the WebSocket."""
     import uuid
 
     from starlette.testclient import TestClient
 
+    from app.api.deps import get_current_user_query_token
     from app.db.session import get_db
     from app.main import app
 
-    async def _override_get_db():
-        yield db_session
+    mock_user = MagicMock()
+    mock_user.id = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
-    app.dependency_overrides[get_db] = _override_get_db
+    mock_db = AsyncMock()
+    mock_db.scalar = AsyncMock(return_value=None)  # No UserSettings
 
-    email = f"voice_{uuid.uuid4().hex[:8]}@example.com"
+    async def _override_db():
+        yield mock_db
+
+    app.dependency_overrides[get_current_user_query_token] = lambda: mock_user
+    app.dependency_overrides[get_db] = _override_db
     try:
-        with TestClient(app) as tc:
-            resp = tc.post(
-                "/api/auth/register",
-                json={"email": email, "password": "password123"},
-            )
-            assert resp.status_code == 201
-            token = resp.json()["access_token"]
-
-            with (
-                patch(
-                    "app.api.voice.transcribe_audio",
-                    new=AsyncMock(side_effect=Exception("STT failed")),
-                ),
-                patch(
-                    "app.api.voice.build_rag_context", new=AsyncMock(return_value="")
-                ),
-                patch("app.api.voice.create_graph"),
-            ):
-                with tc.websocket_connect(f"/api/voice/stream?token={token}") as ws:
+        with (
+            patch(
+                "app.api.voice.transcribe_audio",
+                new=AsyncMock(side_effect=Exception("STT failed")),
+            ),
+            patch("app.api.voice.build_rag_context", new=AsyncMock(return_value="")),
+            patch("app.api.voice.create_graph"),
+        ):
+            with TestClient(app) as tc:
+                with tc.websocket_connect("/api/voice/stream?token=fake") as ws:
                     ws.send_bytes(b"fake audio data")
                     msg = ws.receive_json()
         assert msg["type"] == "error"
