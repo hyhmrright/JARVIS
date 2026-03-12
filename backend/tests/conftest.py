@@ -124,15 +124,27 @@ async def client(db_session):
     app.dependency_overrides.clear()
 
 
-@pytest.fixture
-async def auth_client(client):
-    """已登录的测试客户端（自动注册并获取 token）。"""
+async def _register_test_user(client) -> str:
+    """Register a test user and return their access token."""
     email = f"test_{uuid.uuid4().hex[:8]}@example.com"
     resp = await client.post(
         "/api/auth/register",
         json={"email": email, "password": "password123"},
     )
     assert resp.status_code == 201
-    token = resp.json()["access_token"]
+    return resp.json()["access_token"]
+
+
+@pytest.fixture
+async def auth_client(client):
+    """已登录的测试客户端（自动注册并获取 token）。"""
+    token = await _register_test_user(client)
     client.headers["Authorization"] = f"Bearer {token}"
     return client
+
+
+@pytest.fixture
+async def auth_headers(client) -> dict:
+    """返回已认证用户的 Authorization 请求头。"""
+    token = await _register_test_user(client)
+    return {"Authorization": f"Bearer {token}"}

@@ -1,10 +1,10 @@
 import hashlib
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from app.scheduler.trigger_result import TriggerResult
-from app.scheduler.triggers import SemanticWatcherProcessor
+from app.scheduler.triggers import SemanticAnalysisResult, SemanticWatcherProcessor
 
 
 @pytest.fixture()
@@ -53,7 +53,7 @@ async def test_first_run_fire_on_init_true(processor):
 
 @pytest.mark.asyncio
 async def test_content_hash_unchanged_skips_llm(processor):
-    """If content hash matches, LLM is NOT called."""
+    """If content hash matches, _analyze is NOT called."""
     content = "Price: $99"
     content_hash = hashlib.md5(content.encode()).hexdigest()
     metadata = {
@@ -66,9 +66,9 @@ async def test_content_hash_unchanged_skips_llm(processor):
         "app.scheduler.triggers.fetch_page_content",
         new=AsyncMock(return_value=content),
     ):
-        with patch("app.scheduler.triggers.get_llm_with_fallback") as mock_llm:
+        with patch.object(processor, "_analyze", new=AsyncMock()) as mock_analyze:
             result = await processor.should_fire(metadata)
-    mock_llm.assert_not_called()
+    mock_analyze.assert_not_called()
     assert result.fired is False
     assert result.reason == "content_hash_unchanged"
 
@@ -85,23 +85,14 @@ async def test_semantic_change_detected(processor):
         "content_hash": old_hash,
         "last_semantic_summary": "价格为 $99",
     }
-
-    mock_structured = MagicMock()
-    mock_structured.ainvoke = AsyncMock(
-        return_value=MagicMock(
-            changed=True, summary="价格从 $99 降至 $49", confidence="high"
-        )
+    analysis = SemanticAnalysisResult(
+        changed=True, summary="价格从 $99 降至 $49", confidence="high"
     )
-    mock_llm = MagicMock()
-    mock_llm.with_structured_output = MagicMock(return_value=mock_structured)
-
     with patch(
         "app.scheduler.triggers.fetch_page_content",
         new=AsyncMock(return_value=new_content),
     ):
-        with patch(
-            "app.scheduler.triggers.get_llm_with_fallback", return_value=mock_llm
-        ):
+        with patch.object(processor, "_analyze", new=AsyncMock(return_value=analysis)):
             result = await processor.should_fire(metadata)
 
     assert result.fired is True
@@ -120,21 +111,14 @@ async def test_semantic_no_change(processor):
         "content_hash": "oldhash",
         "last_semantic_summary": "价格为 $99",
     }
-
-    mock_structured = MagicMock()
-    mock_structured.ainvoke = AsyncMock(
-        return_value=MagicMock(changed=False, summary="仅格式变动", confidence="high")
+    analysis = SemanticAnalysisResult(
+        changed=False, summary="仅格式变动", confidence="high"
     )
-    mock_llm = MagicMock()
-    mock_llm.with_structured_output = MagicMock(return_value=mock_structured)
-
     with patch(
         "app.scheduler.triggers.fetch_page_content",
         new=AsyncMock(return_value="new content"),
     ):
-        with patch(
-            "app.scheduler.triggers.get_llm_with_fallback", return_value=mock_llm
-        ):
+        with patch.object(processor, "_analyze", new=AsyncMock(return_value=analysis)):
             result = await processor.should_fire(metadata)
 
     assert result.fired is False
