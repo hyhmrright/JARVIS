@@ -60,7 +60,7 @@ def create_cron_tools(user_id: str) -> tuple[BaseTool, BaseTool, BaseTool]:
             await db.refresh(job)
         from app.scheduler.runner import register_cron_job
 
-        register_cron_job(str(job.id), user_id, schedule, task)
+        register_cron_job(str(job.id), schedule)
         logger.info(
             "cron_job_created",
             user_id=user_id,
