@@ -40,11 +40,12 @@ JARVIS is an AI assistant platform with RAG knowledge base, multi-LLM support, s
 - LLM: read user's `user_settings` for provider/model instead of hardcoded Deepseek
 - TTS language: derive from user's i18n locale setting (zh→`zh-CN-XiaoxiaoNeural`, en→`en-US-JennyNeural`, ja→`ja-JP-NanamiNeural`, etc.)
 - Error handling: STT failure, LLM failure, disconnection all handled gracefully with error messages sent before close
-- Frontend: enable Voice entry point (currently hidden), show connection state
+- Frontend: update `VoiceOverlay.vue` and `useVoiceStream.ts` to handle new JSON message protocol (`transcription` / `ai_text` / `done` / `error` events) and display live connection/transcription state (entry button already exists in `ChatPage.vue`)
 
 **Files**:
 - Modify: `backend/app/api/voice.py`
-- Modify: `frontend/src/pages/` (Voice UI entry)
+- Modify: `frontend/src/components/VoiceOverlay.vue`
+- Modify: `frontend/src/composables/useVoiceStream.ts`
 - Test: `backend/tests/api/test_voice.py`
 
 ### Task 1.2 — RAG Integration in Background Agent Tasks
@@ -53,15 +54,18 @@ JARVIS is an AI assistant platform with RAG knowledge base, multi-LLM support, s
 
 **Solution**:
 - Extract `inject_rag_context(user_id: str, task_text: str, db: AsyncSession) -> str` as a shared utility in `backend/app/rag/context.py`
-- `chat.py` refactored to use this shared function (replacing inline `maybe_inject_rag_context`)
-- `gateway/agent_runner.py::run_agent_for_user()` calls `inject_rag_context()` before building messages
-- Voice WebSocket also calls it
-- Returns enriched task string; empty string if no relevant chunks found
+- The existing `maybe_inject_rag_context` in `gateway/router.py` is replaced by this shared function; its existing tests in `tests/gateway/test_gateway_rag.py` must be updated to match the new signature
+- `gateway/router.py` updated to call the new shared function
+- `gateway/agent_runner.py::run_agent_for_user()` gets RAG injection for the first time via `inject_rag_context()`
+- Voice WebSocket also calls it after STT produces a transcript
+- Returns enriched task string with retrieved context prepended; returns original string unchanged if no relevant chunks found or Qdrant unavailable
 
 **Files**:
 - Create: `backend/app/rag/context.py`
-- Modify: `backend/app/api/chat.py`
+- Modify: `backend/app/gateway/router.py`
 - Modify: `backend/app/gateway/agent_runner.py`
+- Modify: `backend/app/api/chat.py`
+- Modify: `backend/tests/gateway/test_gateway_rag.py` (update for new signature)
 - Test: `backend/tests/rag/test_context.py`
 
 ### Task 1.3 — Multi-tenant DB Predesign
@@ -114,7 +118,7 @@ Migration: single Alembic revision `013_multi_tenant_predesign`.
 
 1. **`next_run_at`**: After registering/updating a job in APScheduler, call `scheduler.get_job(job_id).next_run_time` and write to `cron_jobs.next_run_at`. Frontend can display "Next run: in 2 hours".
 
-2. **`chunk_count`**: On document deletion, after Qdrant vector delete, set `document.chunk_count = 0` in DB.
+2. **`chunk_count`**: On document soft-deletion, after Qdrant vector delete, set `document.chunk_count = 0` in DB (ensures accurate count if the record is ever audited or undeleted in future).
 
 3. **Cron lock TTL**: Add `CRON_LOCK_TTL_SECONDS` to settings (default: `max(300, job_timeout * 2)`). Workers read this setting.
 
@@ -123,7 +127,8 @@ Migration: single Alembic revision `013_multi_tenant_predesign`.
    - `WebWatcherMetadata` — requires `url: HttpUrl`
    - `SemanticWatcherMetadata` — requires `url: HttpUrl`, `target: str`; optional `fire_on_init: bool`
    - `EmailWatcherMetadata` — requires `imap_host`, `email_address`; optional `imap_port`, `imap_folder`
-   - `POST /api/cron` and `PUT /api/cron/{id}` validate against the relevant schema, return 422 on violation
+   - `POST /api/cron` validates against the relevant schema on creation, returns 422 on violation
+   - Also add `PUT /api/cron/{id}` update endpoint (currently missing); validates same schema
 
 **Files**:
 - Modify: `backend/app/scheduler/runner.py`
@@ -138,7 +143,7 @@ Migration: single Alembic revision `013_multi_tenant_predesign`.
 
 **Solution**:
 - Add `CRON_EXECUTION_RETENTION_DAYS` to settings (default: 90)
-- New ARQ periodic function `cleanup_old_executions()`: runs daily at 03:00 UTC, deletes records where `started_at < now() - retention_days`
+- New ARQ periodic function `cleanup_old_executions()`: runs daily at 03:00 UTC, deletes records where `fired_at < now() - retention_days` (column is named `fired_at` in the `JobExecution` model)
 - Register as an ARQ `cron` task in `WorkerSettings`
 - Log count of deleted rows
 
@@ -223,16 +228,15 @@ Migration: single Alembic revision `013_multi_tenant_predesign`.
 **Problem**: `AgentSession.context_summary` and `metadata_json` are never written, losing observability.
 
 **Solution**:
-- After each agent execution in `agent_runner.py`, write to `metadata_json`:
-  ```json
-  { "model": "deepseek-chat", "tools_used": ["search", "code_exec"], "input_tokens": 1200, "output_tokens": 340 }
-  ```
-- When context compression triggers in `chat.py`, write compressed summary to `context_summary`
-- This data powers future analytics and debugging
+- `AgentSession` is currently only created and managed in `api/chat.py`; background runs (`agent_runner.py`) do not create sessions at all
+- Task 3.1 does two things:
+  1. In `chat.py`: after context compression fires, write the compressed summary to `AgentSession.context_summary`; after each LLM response, append model/tool/token data to `AgentSession.metadata_json`
+  2. In `agent_runner.py`: introduce `AgentSession` tracking for background runs (cron/webhook) — create a session record at run start, write `metadata_json` at completion
+- Data written: `{ "model": "deepseek-chat", "tools_used": ["search"], "input_tokens": 1200, "output_tokens": 340, "trigger_type": "cron" }`
 
 **Files**:
-- Modify: `backend/app/gateway/agent_runner.py`
 - Modify: `backend/app/api/chat.py`
+- Modify: `backend/app/gateway/agent_runner.py` (new AgentSession creation for background runs)
 
 ### Task 3.2 — Webhook Async Delivery + Retry
 
@@ -271,7 +275,7 @@ Migration: single Alembic revision `013_multi_tenant_predesign`.
 **Files**:
 - Modify: `backend/app/main.py`
 - Create: `backend/app/core/metrics.py`
-- Modify: `monitoring/grafana/provisioning/alerting/`
+- Create: `monitoring/grafana/provisioning/alerting/` (directory does not currently exist)
 - Modify: `monitoring/prometheus.yml`
 
 ---
@@ -301,7 +305,7 @@ Migration: single Alembic revision `013_multi_tenant_predesign`.
 
 ### Task 4.2 — Membership + Invitation System
 
-**New tables** (added in migration 015):
+**New tables** (added in migration `016_workspace_members_invitations`, separate from Task 4.1's migration `015`):
 ```
 workspace_members (workspace_id, user_id, role: owner|admin|member, joined_at)
 invitations (id, workspace_id, inviter_id, email, token UUID, role, expires_at, accepted_at)
@@ -318,6 +322,7 @@ invitations (id, workspace_id, inviter_id, email, token UUID, role, expires_at, 
 - Create: `backend/app/api/invitations.py`
 - Modify: `backend/app/api/workspaces.py`
 - Modify: `backend/app/db/models.py`
+- Create: `backend/alembic/versions/016_workspace_members_invitations.py`
 
 ### Task 4.3 — Shared Resources (Documents, Cron Jobs)
 
@@ -344,8 +349,10 @@ invitations (id, workspace_id, inviter_id, email, token UUID, role, expires_at, 
 
 **Problem**: Each user must configure their own API keys. Teams want shared keys.
 
+**Note**: Depends on Task 4.1 (workspaces table must exist before this task).
+
 **Solution**:
-- New table: `workspace_settings (workspace_id PK, settings_json JSONB)` — same Fernet-encrypted structure as `user_settings`
+- New table: `workspace_settings (workspace_id UUID PK FK workspaces.id, settings_json JSONB, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ)` — same Fernet-encrypted structure as `user_settings`
 - LLM resolution priority: personal API key → workspace API key → system default (env var)
 - `GET/PUT /api/workspaces/{id}/settings` — workspace admin only
 - Frontend: Settings page adds "Workspace Settings" tab when user is workspace admin
