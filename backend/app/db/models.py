@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -288,6 +289,37 @@ class CronJob(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+    executions: Mapped[list["JobExecution"]] = relationship(
+        "JobExecution", back_populates="job", cascade="all, delete-orphan"
+    )
+
+
+class JobExecution(Base):
+    __tablename__ = "job_executions"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("cron_jobs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    run_group_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    fired_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    # fired | skipped | error
+    trigger_ctx: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    agent_result: Mapped[str | None] = mapped_column(Text, nullable=True)
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error_msg: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attempt: Mapped[int] = mapped_column(SmallInteger, default=1, server_default="1")
+
+    job: Mapped["CronJob"] = relationship("CronJob", back_populates="executions")
 
 
 class Webhook(Base):
