@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     # MCP server configurations (JSON array of MCPServerConfig dicts)
     mcp_servers_json: str = ""
 
+    # Rate limiting and job quotas
+    max_cron_jobs_per_user: int = 20
+
     # Sandbox settings
     sandbox_enabled: bool = False
     sandbox_image: str = "jarvis-sandbox:latest"
