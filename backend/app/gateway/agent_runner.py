@@ -16,6 +16,7 @@ from app.core.permissions import DEFAULT_ENABLED_TOOLS
 from app.core.security import resolve_api_key, resolve_api_keys
 from app.db.models import Conversation, Message, UserSettings
 from app.db.session import AsyncSessionLocal
+from app.rag.context import build_rag_context
 
 logger = structlog.get_logger(__name__)
 
@@ -84,6 +85,12 @@ async def run_agent_for_user(
             # Build full task with optional trigger context prefix
             ctx_block = format_trigger_context(trigger_ctx)
             full_task = f"{ctx_block}\n\n[用户任务]\n{task}" if ctx_block else task
+
+            # RAG: inject relevant knowledge-base context
+            openai_key = resolve_api_key("openai", raw_keys)
+            rag_context = await build_rag_context(user_id, full_task, openai_key)
+            if rag_context:
+                full_task = f"{rag_context}\n\n{full_task}"
 
             # Persist human message BEFORE invoking agent so its timestamp
             # precedes the AI message in chronological ordering.

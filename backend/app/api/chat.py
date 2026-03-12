@@ -27,7 +27,7 @@ from app.core.security import resolve_api_key
 from app.db.models import AgentSession, Conversation, Message, User
 from app.db.session import AsyncSessionLocal, get_db
 from app.plugins import plugin_registry
-from app.rag.retriever import maybe_inject_rag_context
+from app.rag.context import build_rag_context
 from app.services.memory_sync import sync_conversation_to_markdown
 
 logger = structlog.get_logger(__name__)
@@ -268,9 +268,13 @@ async def chat_stream(  # noqa: C901
     rag_query = (
         f"{user_content}\n{last_ai_content[:200]}" if last_ai_content else user_content
     )
-    lc_messages = await maybe_inject_rag_context(
-        lc_messages, rag_query, str(user.id), openai_key
-    )
+    rag_ctx = await build_rag_context(str(user.id), rag_query, openai_key)
+    if rag_ctx:
+        lc_messages = [
+            lc_messages[0],
+            SystemMessage(content=rag_ctx),
+            *lc_messages[1:],
+        ]
 
     conv_id = conv.id
 

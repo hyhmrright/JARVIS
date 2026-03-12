@@ -29,7 +29,7 @@ from app.gateway.security import (
     PairingManager,
 )
 from app.gateway.session_manager import SessionManager
-from app.rag.retriever import maybe_inject_rag_context
+from app.rag.context import build_rag_context
 
 logger = structlog.get_logger(__name__)
 
@@ -352,9 +352,13 @@ class GatewayRouter:
             "",
         )
         if last_human:
-            lc_messages = await maybe_inject_rag_context(
-                lc_messages, str(last_human), user_id, openai_key
-            )
+            rag_context = await build_rag_context(user_id, str(last_human), openai_key)
+            if rag_context:
+                lc_messages = [
+                    lc_messages[0],
+                    SystemMessage(content=rag_context),
+                    *lc_messages[1:],
+                ]
 
         mcp_tools: list = []
         if enabled_tools is None or "mcp" in enabled_tools:
