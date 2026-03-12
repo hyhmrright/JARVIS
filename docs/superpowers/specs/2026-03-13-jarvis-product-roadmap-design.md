@@ -136,6 +136,8 @@ Migration: single Alembic revision `013_multi_tenant_predesign`.
 - Modify: `backend/app/api/documents.py`
 - Create: `backend/app/scheduler/trigger_schemas.py`
 - Modify: `backend/app/core/config.py`
+- Test: `backend/tests/scheduler/test_trigger_schemas.py`
+- Test: `backend/tests/api/test_cron.py` (new PUT endpoint + next_run_at)
 
 ### Task 1.5 — JobExecution Data Retention
 
@@ -362,6 +364,7 @@ invitations (id, workspace_id, inviter_id, email, token UUID, role, expires_at, 
 - Modify: `backend/app/api/settings.py` (or new `workspaces.py`)
 - Modify: `backend/app/agent/llm.py` (resolution logic)
 - Modify: `frontend/src/pages/SettingsPage.vue`
+- Create: `backend/alembic/versions/017_workspace_settings.py`
 
 ### Task 4.5 — Frontend Multi-tenant UI
 
