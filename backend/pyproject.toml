@@ -44,6 +44,7 @@ dependencies = [
     "docker>=7.1.0",
     "twilio>=9.10.2",
     "langchain-ollama>=1.0.1",
+    "arq>=0.25",
 ]
 
 [dependency-groups]
