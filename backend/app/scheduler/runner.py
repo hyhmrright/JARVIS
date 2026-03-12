@@ -38,8 +38,13 @@ async def _execute_cron_job(job_id: str, user_id: str, task: str) -> None:
 
         # NEW: Evaluate proactive trigger condition (e.g. web watcher)
         metadata = dict(job.trigger_metadata or {})
-        if not await evaluate_trigger(job.trigger_type, metadata):
-            logger.info("proactive_trigger_skipped_no_change", job_id=job_id)
+        result = await evaluate_trigger(job.trigger_type, metadata)
+        if not result.fired:
+            logger.info(
+                "proactive_trigger_skipped_no_change",
+                job_id=job_id,
+                reason=result.reason,
+            )
             return
 
         # Update metadata (e.g. last_hash) and execution time

@@ -189,8 +189,8 @@ class SemanticWatcherProcessor(TriggerProcessor):
         try:
             structured_llm = llm.with_structured_output(SemanticAnalysisResult)
             return await structured_llm.ainvoke(messages)
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as e:  # noqa: BLE001
+            logger.debug("semantic_watcher_structured_output_failed", error=str(e))
 
         try:
             import json
@@ -276,7 +276,9 @@ class IMAPEmailProcessor(TriggerProcessor):
         if not new_uids:
             return TriggerResult(fired=False, reason="no_new_emails")
 
-        metadata["last_uid"] = max(int(uid) for uid in new_uids)
+        metadata["last_uid"] = max(
+            int(uid.decode() if isinstance(uid, bytes) else uid) for uid in new_uids
+        )
 
         parsed_emails = [
             {

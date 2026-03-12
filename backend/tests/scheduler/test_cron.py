@@ -16,7 +16,10 @@ async def test_execute_cron_job_flow():
     with (
         patch("app.db.session.AsyncSessionLocal") as mock_session_factory,
         patch("app.gateway.agent_runner.run_agent_for_user") as mock_run_agent,
-        patch("app.scheduler.triggers.evaluate_trigger", return_value=True),
+        patch(
+            "app.scheduler.triggers.evaluate_trigger",
+            new=AsyncMock(return_value=MagicMock(fired=True, reason="fired")),
+        ),
     ):
         mock_db = AsyncMock()
         mock_session_factory.return_value.__aenter__.return_value = mock_db
