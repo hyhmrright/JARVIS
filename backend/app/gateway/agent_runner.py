@@ -89,8 +89,6 @@ async def run_agent_for_user(
             # RAG: inject relevant knowledge-base context
             openai_key = resolve_api_key("openai", raw_keys)
             rag_context = await build_rag_context(user_id, full_task, openai_key)
-            if rag_context:
-                full_task = f"{rag_context}\n\n{full_task}"
 
             # Persist human message BEFORE invoking agent so its timestamp
             # precedes the AI message in chronological ordering.
@@ -100,8 +98,10 @@ async def run_agent_for_user(
             db.add(human_msg)
             await db.flush()
 
+            system_content = build_system_prompt(persona)
             lc_messages = [
-                SystemMessage(content=build_system_prompt(persona)),
+                SystemMessage(content=system_content),
+                *([SystemMessage(content=rag_context)] if rag_context else []),
                 HumanMessage(content=full_task),
             ]
 
