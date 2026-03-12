@@ -17,6 +17,7 @@ from app.db.models import CronJob, JobExecution, User
 from app.db.session import get_db
 from app.gateway.agent_runner import run_agent_for_user
 from app.scheduler.runner import register_cron_job, unregister_cron_job
+from app.scheduler.trigger_schemas import validate_trigger_metadata
 from app.scheduler.triggers import evaluate_trigger
 
 router = APIRouter(prefix="/api/cron", tags=["cron"])
@@ -28,6 +29,12 @@ class CronJobCreate(BaseModel):
     schedule: str = Field(min_length=1, max_length=100)
     task: str = Field(min_length=1, max_length=4000)
     trigger_type: str = Field(default="cron", max_length=50)
+    trigger_metadata: dict[str, Any] | None = None
+
+
+class CronJobUpdate(BaseModel):
+    schedule: str | None = Field(default=None, min_length=1, max_length=100)
+    task: str | None = Field(default=None, min_length=1, max_length=4000)
     trigger_metadata: dict[str, Any] | None = None
 
 
@@ -70,6 +77,7 @@ async def list_cron_jobs(
             "trigger_metadata": j.trigger_metadata,
             "is_active": j.is_active,
             "last_run_at": j.last_run_at.isoformat() if j.last_run_at else None,
+            "next_run_at": j.next_run_at.isoformat() if j.next_run_at else None,
         }
         for j in jobs
     ]
@@ -104,6 +112,15 @@ async def create_cron_job(
             ),
         )
 
+    # Validate trigger metadata
+    try:
+        validate_trigger_metadata(data.trigger_type, data.trigger_metadata or {})
+    except Exception as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid trigger_metadata: {exc}",
+        ) from exc
+
     # Encrypt sensitive fields in trigger_metadata before storage
     trigger_metadata = dict(data.trigger_metadata) if data.trigger_metadata else None
     if trigger_metadata and data.trigger_type == "email":
@@ -125,7 +142,10 @@ async def create_cron_job(
 
     # Register with live scheduler
     if job.is_active:
-        register_cron_job(str(job.id), job.schedule)
+        next_run_time = register_cron_job(str(job.id), job.schedule)
+        if next_run_time:
+            job.next_run_at = next_run_time
+            await db.commit()
 
     return {"status": "ok", "id": str(job.id)}
 
@@ -162,11 +182,61 @@ async def toggle_cron_job(
     await db.commit()
 
     if job.is_active:
-        register_cron_job(str(job.id), job.schedule)
+        next_run_time = register_cron_job(str(job.id), job.schedule)
+        if next_run_time:
+            job.next_run_at = next_run_time
+            await db.commit()
     else:
         unregister_cron_job(str(job.id))
+        job.next_run_at = None
+        await db.commit()
 
     return {"status": "ok", "is_active": job.is_active}
+
+
+@router.put("/{job_id}")
+async def update_cron_job(
+    job_id: uuid.UUID,
+    data: CronJobUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Update schedule, task, or trigger_metadata of an existing job."""
+    job = await db.get(CronJob, job_id)
+    if not job or job.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if data.trigger_metadata is not None:
+        try:
+            validate_trigger_metadata(job.trigger_type, data.trigger_metadata)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid trigger_metadata: {exc}",
+            ) from exc
+
+    if data.schedule is not None:
+        job.schedule = data.schedule
+    if data.task is not None:
+        job.task = data.task
+    if data.trigger_metadata is not None:
+        trigger_metadata = dict(data.trigger_metadata)
+        if job.trigger_type == "email" and "imap_password" in trigger_metadata:
+            trigger_metadata["imap_password"] = fernet_encrypt(
+                str(trigger_metadata["imap_password"])
+            )
+        job.trigger_metadata = trigger_metadata
+
+    await db.commit()
+
+    if job.is_active:
+        unregister_cron_job(str(job.id))
+        next_run_time = register_cron_job(str(job.id), job.schedule)
+        if next_run_time:
+            job.next_run_at = next_run_time
+            await db.commit()
+
+    return {"status": "ok", "id": str(job.id)}
 
 
 @router.get("/{job_id}/history", response_model=list[JobExecutionSchema])

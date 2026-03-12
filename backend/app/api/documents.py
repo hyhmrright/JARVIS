@@ -79,6 +79,7 @@ async def delete_document(
         raise HTTPException(status_code=404, detail="Document not found")
 
     doc.is_deleted = True
+    doc.chunk_count = 0
     await db.commit()
 
     # Try to delete from Qdrant

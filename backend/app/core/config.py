@@ -57,6 +57,7 @@ class Settings(BaseSettings):
 
     # Rate limiting and job quotas
     max_cron_jobs_per_user: int = 20
+    cron_lock_ttl_seconds: int = 300
 
     # Sandbox settings
     sandbox_enabled: bool = False

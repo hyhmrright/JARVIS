@@ -15,8 +15,6 @@ from app.scheduler.triggers import evaluate_trigger
 
 logger = structlog.get_logger(__name__)
 
-_LOCK_TTL_SECONDS = 300  # 5 minutes
-
 
 async def execute_cron_job(ctx: dict, *, job_id: str, run_group_id: str) -> None:
     """
@@ -30,7 +28,7 @@ async def execute_cron_job(ctx: dict, *, job_id: str, run_group_id: str) -> None
     attempt: int = ctx.get("job_try", 1)
 
     # Acquire distributed lock (NX = only set if not exists)
-    acquired = await redis.set(lock_key, 1, nx=True, ex=_LOCK_TTL_SECONDS)
+    acquired = await redis.set(lock_key, 1, nx=True, ex=settings.cron_lock_ttl_seconds)
     if not acquired:
         logger.info("cron_job_lock_contention", job_id=job_id)
         return

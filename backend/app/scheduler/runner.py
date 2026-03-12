@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
 import structlog
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -42,13 +43,13 @@ async def _execute_cron_job(job_id: str) -> None:
     logger.info("cron_job_enqueued", job_id=job_id, run_group_id=run_group_id)
 
 
-def register_cron_job(job_id: str, schedule: str) -> None:
-    """Register a single cron job with the scheduler (idempotent)."""
+def register_cron_job(job_id: str, schedule: str) -> datetime | None:
+    """Register a single cron job with the scheduler. Returns next run time."""
     scheduler = get_scheduler()
     job_key = f"cron_{job_id}"
     if scheduler.get_job(job_key):
         scheduler.remove_job(job_key)
-    scheduler.add_job(
+    apscheduler_job = scheduler.add_job(
         _execute_cron_job,
         trigger=CronTrigger.from_crontab(schedule),
         id=job_key,
@@ -56,6 +57,7 @@ def register_cron_job(job_id: str, schedule: str) -> None:
         misfire_grace_time=60,
         coalesce=True,
     )
+    return apscheduler_job.next_run_time
 
 
 def unregister_cron_job(job_id: str) -> None:
