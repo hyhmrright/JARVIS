@@ -124,6 +124,12 @@ async def upload_document(
     if len(content) > MAX_SIZE:
         raise HTTPException(status_code=400, detail="File exceeds 50MB limit")
 
+    # Validate workspace before touching MinIO to avoid orphaned objects.
+    if workspace_id is not None:
+        ws = await db.get(Workspace, workspace_id)
+        if not ws or ws.is_deleted or ws.organization_id != user.organization_id:
+            raise HTTPException(status_code=404, detail="Workspace not found")
+
     safe_name = Path(file.filename or "upload").name
     object_key = f"{user.id}/{uuid.uuid4()}_{safe_name}"
 
@@ -146,9 +152,6 @@ async def upload_document(
         minio_object_key=object_key,
     )
     if workspace_id is not None:
-        ws = await db.get(Workspace, workspace_id)
-        if not ws or ws.is_deleted or ws.organization_id != user.organization_id:
-            raise HTTPException(status_code=404, detail="Workspace not found")
         doc.workspace_id = workspace_id
     db.add(doc)
     await db.flush()
