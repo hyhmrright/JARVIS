@@ -1,8 +1,29 @@
 """Tests for voice WebSocket endpoint."""
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+
+@contextmanager
+def _mock_app_lifespan() -> Iterator[None]:
+    """Context manager for mocking app lifespan infrastructure."""
+    mock_qdrant = AsyncMock()
+    mock_qdrant.get_collections = AsyncMock()
+
+    with (
+        patch("app.main.get_qdrant_client", AsyncMock(return_value=mock_qdrant)),
+        patch("app.main.get_minio_client", return_value=MagicMock()),
+        patch("app.main.start_scheduler", AsyncMock()),
+        patch("app.main.load_all_plugins", AsyncMock()),
+        patch("app.main.activate_all_plugins", AsyncMock()),
+        patch("app.main.stop_scheduler", AsyncMock()),
+        patch("app.main.close_qdrant_client", AsyncMock()),
+        patch("app.main.deactivate_all_plugins", AsyncMock()),
+    ):
+        yield
 
 
 @pytest.mark.asyncio
@@ -41,10 +62,11 @@ def test_voice_rejects_missing_token():
 
     from app.main import app
 
-    with TestClient(app) as tc:
-        with pytest.raises(Exception):  # noqa: B017
-            with tc.websocket_connect("/api/voice/stream"):
-                pass
+    with _mock_app_lifespan():
+        with TestClient(app) as tc:
+            with pytest.raises(Exception):  # noqa: B017
+                with tc.websocket_connect("/api/voice/stream"):
+                    pass
 
 
 def test_voice_sends_error_on_stt_failure():
@@ -68,8 +90,10 @@ def test_voice_sends_error_on_stt_failure():
 
     app.dependency_overrides[get_current_user_query_token] = lambda: mock_user
     app.dependency_overrides[get_db] = _override_db
+
     try:
         with (
+            _mock_app_lifespan(),
             patch(
                 "app.api.voice.transcribe_audio",
                 new=AsyncMock(side_effect=Exception("STT failed")),
@@ -81,6 +105,6 @@ def test_voice_sends_error_on_stt_failure():
                 with tc.websocket_connect("/api/voice/stream?token=fake") as ws:
                     ws.send_bytes(b"fake audio data")
                     msg = ws.receive_json()
-        assert msg["type"] == "error"
+            assert msg["type"] == "error"
     finally:
         app.dependency_overrides.clear()

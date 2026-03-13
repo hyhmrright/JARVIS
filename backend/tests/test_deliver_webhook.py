@@ -25,16 +25,22 @@ def _create_mock_db() -> AsyncMock:
     return mock_db
 
 
+def _create_fake_webhook() -> MagicMock:
+    """Create a fake webhook object for testing."""
+    webhook = MagicMock()
+    webhook.id = uuid.uuid4()
+    webhook.is_active = True
+    webhook.task_template = "Handle: {payload}"
+    webhook.user_id = uuid.uuid4()
+    return webhook
+
+
 @pytest.mark.asyncio
 async def test_deliver_webhook_success():
     """deliver_webhook marks delivery success when agent returns a non-error reply."""
     webhook_id = str(uuid.uuid4())
-
-    fake_webhook = MagicMock()
+    fake_webhook = _create_fake_webhook()
     fake_webhook.id = uuid.UUID(webhook_id)
-    fake_webhook.is_active = True
-    fake_webhook.task_template = "Handle: {payload}"
-    fake_webhook.user_id = uuid.uuid4()
 
     mock_db = _create_mock_db()
     mock_db.get = AsyncMock(return_value=fake_webhook)
@@ -62,16 +68,8 @@ async def test_deliver_webhook_success():
 async def test_deliver_webhook_retries_on_failure():
     """deliver_webhook raises RuntimeError on failure when retries remain."""
     webhook_id = str(uuid.uuid4())
-    delivery_id = uuid.uuid4()
-
-    fake_webhook = MagicMock()
+    fake_webhook = _create_fake_webhook()
     fake_webhook.id = uuid.UUID(webhook_id)
-    fake_webhook.is_active = True
-    fake_webhook.task_template = "Handle: {payload}"
-    fake_webhook.user_id = uuid.uuid4()
-
-    fake_delivery = MagicMock()
-    fake_delivery.id = delivery_id
 
     mock_db = _create_mock_db()
     mock_db.get = AsyncMock(return_value=fake_webhook)
@@ -84,7 +82,6 @@ async def test_deliver_webhook_retries_on_failure():
             "app.worker.run_agent_for_user",
             AsyncMock(side_effect=RuntimeError("agent crashed")),
         ),
-        patch("app.worker.WebhookDelivery", return_value=fake_delivery),
     ):
         from app.worker import deliver_webhook
 
@@ -96,16 +93,8 @@ async def test_deliver_webhook_retries_on_failure():
 async def test_deliver_webhook_no_retry_on_last_attempt():
     """deliver_webhook does NOT raise on the final attempt — just marks failed."""
     webhook_id = str(uuid.uuid4())
-    delivery_id = uuid.uuid4()
-
-    fake_webhook = MagicMock()
+    fake_webhook = _create_fake_webhook()
     fake_webhook.id = uuid.UUID(webhook_id)
-    fake_webhook.is_active = True
-    fake_webhook.task_template = "Handle: {payload}"
-    fake_webhook.user_id = uuid.uuid4()
-
-    fake_delivery = MagicMock()
-    fake_delivery.id = delivery_id
 
     mock_db = _create_mock_db()
     mock_db.get = AsyncMock(return_value=fake_webhook)
@@ -119,7 +108,6 @@ async def test_deliver_webhook_no_retry_on_last_attempt():
             "app.worker.run_agent_for_user",
             AsyncMock(side_effect=RuntimeError("agent crashed")),
         ),
-        patch("app.worker.WebhookDelivery", return_value=fake_delivery),
     ):
         from app.worker import deliver_webhook
 
