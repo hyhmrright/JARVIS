@@ -13,6 +13,8 @@ const router = createRouter({
     { path: "/admin", component: () => import("@/pages/AdminPage.vue"), meta: { requiresAuth: true, requiresAdmin: true } },
     { path: "/proactive", component: () => import("@/pages/ProactivePage.vue"), meta: { requiresAuth: true } },
     { path: "/plugins", name: "Plugins", component: () => import("@/pages/PluginsPage.vue"), meta: { requiresAuth: true } },
+    { path: "/workspace/members", component: () => import("@/pages/WorkspaceMembersPage.vue"), meta: { requiresAuth: true } },
+    { path: "/invite/:token", component: () => import("@/pages/InviteAcceptPage.vue") },
     { path: "/:pathMatch(.*)*", redirect: "/" },
   ],
 });

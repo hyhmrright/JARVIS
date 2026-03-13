@@ -3,6 +3,20 @@
     <PageHeader :title="$t('documents.title')" />
 
     <div class="page-content custom-scrollbar">
+      <div class="flex items-center gap-3 mb-4">
+        <label class="text-xs text-zinc-500">{{ $t("workspace.scope") }}:</label>
+        <select
+          v-model="selectedWorkspaceId"
+          class="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm text-zinc-200 outline-none"
+          @change="fetchDocuments"
+        >
+          <option :value="null">{{ $t("workspace.personal") }}</option>
+          <option v-for="ws in workspace.workspaces" :key="ws.id" :value="ws.id">
+            {{ ws.name }}
+          </option>
+        </select>
+      </div>
+
       <section class="glass-card upload-section animate-fade-in">
         <label
           class="upload-zone"
@@ -73,6 +87,7 @@ import { Trash2 } from "lucide-vue-next";
 import client from "@/api/client";
 import PageHeader from "@/components/PageHeader.vue";
 import { useToast } from "@/composables/useToast";
+import { useWorkspaceStore } from "@/stores/workspace";
 
 interface DocumentItem {
   id: string;
@@ -85,9 +100,11 @@ interface DocumentItem {
 
 const { t } = useI18n();
 const { success, error: toastError } = useToast();
+const workspace = useWorkspaceStore();
 const uploading = ref(false);
 const uploadProgress = ref(0);
 const documents = ref<DocumentItem[]>([]);
+const selectedWorkspaceId = ref<string | null>(null);
 
 function formatBytes(bytes: number) {
   if (bytes === 0) return '0 B';
@@ -99,7 +116,10 @@ function formatBytes(bytes: number) {
 
 async function fetchDocuments() {
   try {
-    const { data } = await client.get("/documents");
+    const url = selectedWorkspaceId.value
+      ? `/documents?workspace_id=${selectedWorkspaceId.value}`
+      : "/documents";
+    const { data } = await client.get(url);
     documents.value = data.documents;
   } catch (error) {
     console.error("Failed to fetch documents", error);
@@ -137,7 +157,10 @@ async function processFile(file: File) {
   const form = new FormData();
   form.append("file", file);
   try {
-    const { data } = await client.post("/documents", form, {
+    const uploadUrl = selectedWorkspaceId.value
+      ? `/documents?workspace_id=${selectedWorkspaceId.value}`
+      : "/documents";
+    const { data } = await client.post(uploadUrl, form, {
       onUploadProgress(e) {
         if (e.total) uploadProgress.value = Math.round((e.loaded / e.total) * 100);
       },
@@ -153,6 +176,7 @@ async function processFile(file: File) {
 }
 
 onMounted(() => {
+  workspace.fetchWorkspaces();
   fetchDocuments();
 });
 </script>

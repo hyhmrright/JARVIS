@@ -11,6 +11,10 @@
     <div class="flex-1 overflow-y-auto custom-scrollbar p-8">
       <div class="max-w-6xl mx-auto pb-20">
 
+        <div class="flex items-center gap-3 mb-6">
+          <WorkspaceSwitcher />
+        </div>
+
         <div v-if="jobs.length === 0" class="flex flex-col items-center justify-center py-32 text-zinc-500 animate-in fade-in duration-500">
           <div class="text-6xl mb-6 opacity-30">🔔</div>
           <p class="text-sm font-medium">{{ $t('proactive.noTasks') }}</p>
@@ -246,9 +250,12 @@ import { useI18n } from 'vue-i18n'
 import client from '@/api/client'
 import PageHeader from '@/components/PageHeader.vue'
 import { useToast } from '@/composables/useToast'
+import WorkspaceSwitcher from '@/components/WorkspaceSwitcher.vue'
+import { useWorkspaceStore } from '@/stores/workspace'
 
 const { t } = useI18n()
 const { error: toastError } = useToast()
+const workspace = useWorkspaceStore()
 
 interface CronJob {
   id: string
@@ -373,7 +380,10 @@ const loadingHistory = ref<Record<string, boolean>>({})
 
 const fetchJobs = async () => {
   try {
-    const { data } = await client.get('/cron')
+    const params = workspace.currentWorkspaceId
+      ? { workspace_id: workspace.currentWorkspaceId }
+      : {}
+    const { data } = await client.get('/cron', { params })
     jobs.value = data
   } catch {
     // silently fail - jobs list stays as-is
@@ -402,7 +412,11 @@ const deleteJob = async (id: string) => {
 const saveJob = async () => {
   if (!validateForm()) return
   try {
-    await client.post('/cron', newJob.value)
+    const payload = {
+      ...newJob.value,
+      ...(workspace.currentWorkspaceId ? { workspace_id: workspace.currentWorkspaceId } : {}),
+    }
+    await client.post('/cron', payload)
     closeModal()
     await fetchJobs()
   } catch (err: unknown) {
@@ -465,4 +479,5 @@ function formatDate(iso: string): string {
 }
 
 onMounted(fetchJobs)
+watch(() => workspace.currentWorkspaceId, fetchJobs)
 </script>
