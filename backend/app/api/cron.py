@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.core.config import settings
 from app.core.security import fernet_encrypt
-from app.db.models import CronJob, JobExecution, User
+from app.db.models import CronJob, JobExecution, User, Workspace
 from app.db.session import get_db
 from app.gateway.agent_runner import run_agent_for_user
 from app.scheduler.runner import register_cron_job, unregister_cron_job
@@ -30,6 +30,7 @@ class CronJobCreate(BaseModel):
     task: str = Field(min_length=1, max_length=4000)
     trigger_type: str = Field(default="cron", max_length=50)
     trigger_metadata: dict[str, Any] | None = None
+    workspace_id: uuid.UUID | None = None
 
 
 class CronJobUpdate(BaseModel):
@@ -62,11 +63,15 @@ class TestTriggerResponse(BaseModel):
 
 @router.get("")
 async def list_cron_jobs(
+    workspace_id: uuid.UUID | None = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict[str, Any]]:
     """List all proactive monitoring jobs for the current user."""
-    result = await db.scalars(select(CronJob).where(CronJob.user_id == user.id))
+    query = select(CronJob).where(CronJob.user_id == user.id)
+    if workspace_id is not None:
+        query = query.where(CronJob.workspace_id == workspace_id)
+    result = await db.scalars(query)
     jobs = result.all()
     return [
         {
@@ -78,6 +83,7 @@ async def list_cron_jobs(
             "is_active": j.is_active,
             "last_run_at": j.last_run_at.isoformat() if j.last_run_at else None,
             "next_run_at": j.next_run_at.isoformat() if j.next_run_at else None,
+            "workspace_id": str(j.workspace_id) if j.workspace_id else None,
         }
         for j in jobs
     ]
@@ -136,6 +142,11 @@ async def create_cron_job(
         trigger_type=data.trigger_type,
         trigger_metadata=trigger_metadata,
     )
+    if data.workspace_id is not None:
+        ws = await db.get(Workspace, data.workspace_id)
+        if not ws or ws.is_deleted or ws.organization_id != user.organization_id:
+            raise HTTPException(status_code=404, detail="Workspace not found")
+        job.workspace_id = data.workspace_id
     db.add(job)
     await db.commit()
     await db.refresh(job)

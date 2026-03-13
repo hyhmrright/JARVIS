@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import ResolvedLLMConfig, get_current_user, get_llm_config
 from app.core.config import settings
 from app.core.security import resolve_api_key
-from app.db.models import Document, User
+from app.db.models import Document, User, Workspace
 from app.db.session import get_db
 from app.infra.minio import get_minio_client
 from app.infra.qdrant import get_qdrant_client, user_collection_name
@@ -44,14 +44,18 @@ def extract_text(content: bytes, file_type: str) -> str:
 
 @router.get("")
 async def list_documents(
+    workspace_id: uuid.UUID | None = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, list[dict]]:
-    rows = await db.scalars(
+    query = (
         select(Document)
         .where(Document.user_id == user.id, Document.is_deleted.is_(False))
         .order_by(Document.created_at.desc())
     )
+    if workspace_id is not None:
+        query = query.where(Document.workspace_id == workspace_id)
+    rows = await db.scalars(query)
     docs = rows.all()
     return {
         "documents": [
@@ -62,6 +66,7 @@ async def list_documents(
                 "file_size_bytes": d.file_size_bytes,
                 "chunk_count": d.chunk_count,
                 "created_at": d.created_at.isoformat(),
+                "workspace_id": str(d.workspace_id) if d.workspace_id else None,
             }
             for d in docs
         ]
@@ -106,6 +111,7 @@ async def delete_document(
 @router.post("", status_code=201)
 async def upload_document(
     file: UploadFile = File(...),
+    workspace_id: uuid.UUID | None = None,
     user: User = Depends(get_current_user),
     llm: ResolvedLLMConfig = Depends(get_llm_config),
     db: AsyncSession = Depends(get_db),
@@ -139,6 +145,11 @@ async def upload_document(
         qdrant_collection=user_collection_name(str(user.id)),
         minio_object_key=object_key,
     )
+    if workspace_id is not None:
+        ws = await db.get(Workspace, workspace_id)
+        if not ws or ws.is_deleted or ws.organization_id != user.organization_id:
+            raise HTTPException(status_code=404, detail="Workspace not found")
+        doc.workspace_id = workspace_id
     db.add(doc)
     await db.flush()
     # Embeddings always use OpenAI (text-embedding-3-small), resolve the

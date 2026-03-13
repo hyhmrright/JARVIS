@@ -61,6 +61,67 @@ async def retrieve_context(
     ]
 
 
+async def retrieve_context_multi(
+    query: str,
+    user_id: str,
+    workspace_ids: list[str],
+    openai_api_key: str,
+    top_k: int = _DEFAULT_TOP_K,
+    score_threshold: float = _DEFAULT_SCORE_THRESHOLD,
+) -> list[RetrievedChunk]:
+    """Search user personal collection plus workspace collections.
+
+    Returns merged results sorted by score descending.
+    Returns empty list (never raises) on any error.
+    """
+    collection_names = [user_collection_name(user_id)]
+    for ws_id in workspace_ids:
+        collection_names.append(f"workspace_{ws_id}")
+
+    try:
+        client = await get_qdrant_client()
+        embedder = get_embedder(openai_api_key)
+        query_vec = await embedder.aembed_query(query)
+        all_chunks: list[RetrievedChunk] = []
+        for collection_name in collection_names:
+            try:
+                hits = await client.search(  # type: ignore[attr-defined]
+                    collection_name=collection_name,
+                    query_vector=query_vec,
+                    limit=top_k,
+                    score_threshold=score_threshold,
+                )
+                all_chunks.extend(
+                    RetrievedChunk(
+                        document_name=hit.payload.get("doc_name", "Unknown document"),
+                        content=hit.payload.get("text", ""),
+                        score=hit.score,
+                    )
+                    for hit in hits
+                    if hit.payload
+                )
+            except UnexpectedResponse as exc:
+                if exc.status_code != 404:
+                    logger.warning(
+                        "retriever_qdrant_error",
+                        collection=collection_name,
+                        error=str(exc),
+                    )
+            except Exception:
+                logger.warning(
+                    "retriever_collection_error",
+                    collection=collection_name,
+                    exc_info=True,
+                )
+        all_chunks.sort(key=lambda c: c.score, reverse=True)
+        return all_chunks[:top_k]
+    except Exception:
+        logger.warning(
+            "retriever_multi_unexpected_error", user_id=user_id, exc_info=True
+        )
+        return []
+
+
 async def maybe_inject_rag_context(
     messages: list[BaseMessage],
     query: str,
