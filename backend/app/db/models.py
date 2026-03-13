@@ -235,6 +235,12 @@ class Message(Base):
         UUID(as_uuid=True),
         ForeignKey("agent_sessions.id", ondelete="SET NULL"),
     )
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("messages.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     tool_calls: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
