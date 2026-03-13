@@ -98,3 +98,23 @@ async def test_chat_stream_sets_parent_id(auth_client, db_session):
     }
     resp2 = await auth_client.post("/api/chat/stream", json=second_payload)
     assert resp2.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_chat_regenerate(auth_client, db_session):
+    from app.db.models import Message
+    from sqlalchemy import select
+    
+    resp_conv = await auth_client.post("/api/conversations", json={"title": "Test Reg"})
+    conv_id = resp_conv.json()["id"]
+
+    # We mock out the actual stream or manually insert a message because background tasks 
+    # might not commit fast enough for tests without sleeps
+    
+    msg_ai = Message(conversation_id=conv_id, role="ai", content="Blah")
+    db_session.add(msg_ai)
+    await db_session.commit()
+    await db_session.refresh(msg_ai)
+
+    resp2 = await auth_client.post("/api/chat/regenerate", json={"conversation_id": conv_id, "message_id": str(msg_ai.id)})
+    assert resp2.status_code == 200

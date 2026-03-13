@@ -548,3 +548,172 @@ async def chat_stream(  # noqa: C901
                 yield _format_sse({"type": "title_updated", "title": new_title})
 
     return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+class RegenerateRequest(BaseModel):
+    conversation_id: uuid.UUID
+    message_id: uuid.UUID
+    workspace_id: uuid.UUID | None = None
+
+@router.post("/regenerate")
+@limiter.limit("30/minute")
+async def chat_regenerate(
+    request: Request,
+    body: RegenerateRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    llm = await get_llm_config(user=user, db=db, workspace_id=body.workspace_id)
+    
+    conv = await db.scalar(
+        select(Conversation).where(
+            Conversation.id == body.conversation_id,
+            Conversation.user_id == user.id,
+        )
+    )
+    if not conv:
+        raise HTTPException(status_code=404)
+
+    # The message we want to regenerate
+    target_msg = await db.scalar(
+        select(Message).where(Message.id == body.message_id, Message.conversation_id == conv.id)
+    )
+    if not target_msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    history_rows = await db.scalars(
+        select(Message)
+        .where(Message.conversation_id == conv.id)
+        .order_by(Message.created_at)
+    )
+    all_conv_messages = history_rows.all()
+    
+    msg_dict = {msg.id: msg for msg in all_conv_messages}
+    all_history = []
+    
+    # Trace back from target_msg parent (which should be the user message)
+    current_id = target_msg.parent_id
+    while current_id and current_id in msg_dict:
+        all_history.append(msg_dict[current_id])
+        current_id = msg_dict[current_id].parent_id
+        
+    all_history.reverse()
+    
+    lc_messages = []
+    for msg in all_history:
+        message_class = _ROLE_TO_MESSAGE.get(msg.role)
+        if message_class:
+            lc_messages.append(message_class(content=msg.content))
+            
+    system_msg = SystemMessage(content=build_system_prompt(llm.persona_override))
+    lc_messages = [system_msg, *lc_messages]
+
+    user_content = all_history[-1].content if all_history else ""
+    openai_key = resolve_api_key("openai", llm.raw_keys)
+    last_ai_content = next(
+        (msg.content for msg in reversed(lc_messages[:-1]) if isinstance(msg, AIMessage)),
+        "",
+    )
+    rag_query = f"{user_content}\n{last_ai_content[:200]}" if last_ai_content else user_content
+    workspace_ids = [str(body.workspace_id)] if body.workspace_id else None
+    rag_ctx = await build_rag_context(
+        str(user.id), rag_query, openai_key, workspace_ids=workspace_ids
+    )
+    if rag_ctx:
+        lc_messages = [lc_messages[0], SystemMessage(content=rag_ctx), *lc_messages[1:]]
+
+    conv_id = conv.id
+    tavily_key = settings.tavily_api_key
+
+    async def generate() -> AsyncGenerator[str, None]:
+        nonlocal lc_messages
+        compressed_summary = None
+        try:
+            lc_messages = await compact_messages(
+                lc_messages,
+                provider=llm.provider,
+                model=llm.model_name,
+                api_key=llm.api_key,
+                base_url=llm.base_url,
+            )
+        except Exception:
+            pass
+        
+        agent_session_id = None
+        tools_used = []
+        try:
+            async with AsyncSessionLocal() as _init_sess:
+                async with _init_sess.begin():
+                    ag_sess = AgentSession(
+                        conversation_id=conv_id,
+                        agent_type="main",
+                        status="active",
+                    )
+                    _init_sess.add(ag_sess)
+                    await _init_sess.flush()
+                    agent_session_id = ag_sess.id
+        except Exception:
+            pass
+
+        mcp_tools, plugin_tools = await _load_tools(llm.enabled_tools)
+        route = await classify_task(
+            user_content,
+            provider=llm.provider,
+            model=llm.model_name,
+            api_key=llm.api_key,
+            base_url=llm.base_url,
+        )
+        yield _format_sse({"type": "routing", "agent": route})
+
+        full_content = ""
+        last_ai_msg = None
+        stream_error = False
+
+        try:
+            graph = _build_expert_graph(
+                route,
+                provider=llm.provider,
+                model=llm.model_name,
+                api_key=llm.api_key,
+                api_keys=llm.api_keys,
+                user_id=str(user.id),
+                openai_api_key=openai_key,
+                tavily_api_key=tavily_key,
+                enabled_tools=llm.enabled_tools,
+                mcp_tools=mcp_tools,
+                plugin_tools=plugin_tools,
+                conversation_id=str(conv_id),
+                base_url=llm.base_url,
+            )
+            state = AgentState(messages=lc_messages, approved=None)
+            async for chunk in graph.astream(state):
+                if "llm" in chunk:
+                    last_ai_msg = chunk["llm"]["messages"][-1]
+                events, full_content = _sse_events_from_chunk(chunk, full_content)
+                for event in events:
+                    yield event
+        except Exception:
+            stream_error = True
+            raise
+        finally:
+            if full_content:
+                try:
+                    tokens_in, tokens_out = _extract_token_counts(last_ai_msg)
+                    async with AsyncSessionLocal() as session:
+                        async with session.begin():
+                            session.add(
+                                Message(
+                                    conversation_id=conv_id,
+                                    role="ai",
+                                    content=full_content,
+                                    model_provider=llm.provider,
+                                    model_name=llm.model_name,
+                                    tokens_input=tokens_in,
+                                    tokens_output=tokens_out,
+                                    parent_id=target_msg.parent_id
+                                )
+                            )
+                except Exception:
+                    pass
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
