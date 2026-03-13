@@ -6,6 +6,9 @@
     "networkError": "Network error, please check your connection",
     "rateLimitError": "Too many requests, please try again later",
     "cancel": "Cancel",
+    "confirm": "Confirm",
+    "prev": "Previous",
+    "next": "Next",
     "copy": "Copy",
     "copied": "Copied!"
   },
@@ -66,7 +69,13 @@
     "uploading": "Uploading...",
     "fileTooLarge": "File size cannot exceed 50MB",
     "uploadSuccess": "Upload successful, split into {count} chunks",
-    "uploadError": "Upload failed, please check the file format"
+    "uploadError": "Upload failed, please check the file format",
+    "uploadZoneText": "Drop files here or click to upload",
+    "uploadZoneHint": "Supports PDF, TXT, MD, DOCX (max 50MB)",
+    "uploadedTitle": "Uploaded Documents",
+    "deleteConfirm": "Delete this document?",
+    "deleteSuccess": "Document deleted",
+    "deleteError": "Delete failed, please try again"
   },
   "settings": {
     "title": "Settings",
@@ -136,7 +145,15 @@
     "triggered": "Triggered",
     "testFailed": "Test failed, please try again",
     "history": "Execution History",
-    "noHistory": "No execution records"
+    "noHistory": "No execution records",
+    "deleteConfirm": "Delete this monitoring task?",
+    "neverRun": "Never run",
+    "duration": "Duration",
+    "triggeredYes": "Yes",
+    "triggeredNo": "No (not triggered)",
+    "changeSummary": "Change Summary",
+    "agentReply": "Agent Reply",
+    "saveError": "Failed to create task, please try again"
   },
   "apiKeys": {
     "title": "Personal API Keys",

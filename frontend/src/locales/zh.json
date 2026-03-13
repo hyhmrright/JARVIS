@@ -69,7 +69,13 @@
     "uploading": "上传中...",
     "fileTooLarge": "文件不能超过 50MB",
     "uploadSuccess": "上传成功，共切分 {count} 个片段",
-    "uploadError": "上传失败，请检查文件格式"
+    "uploadError": "上传失败，请检查文件格式",
+    "uploadZoneText": "将文件拖到此处或点击上传",
+    "uploadZoneHint": "支持 PDF、TXT、MD、DOCX（最大 50MB）",
+    "uploadedTitle": "已上传文档",
+    "deleteConfirm": "确定要删除此文档？",
+    "deleteSuccess": "文档已删除",
+    "deleteError": "删除失败，请重试"
   },
   "settings": {
     "title": "设置",
@@ -170,7 +176,15 @@
     "triggered": "是否触发",
     "testFailed": "测试失败，请稍后重试",
     "history": "执行历史",
-    "noHistory": "暂无执行记录"
+    "noHistory": "暂无执行记录",
+    "deleteConfirm": "删除此监控任务？",
+    "neverRun": "从未运行",
+    "duration": "耗时",
+    "triggeredYes": "是",
+    "triggeredNo": "否（未触发）",
+    "changeSummary": "变化摘要",
+    "agentReply": "Agent 回复",
+    "saveError": "创建失败，请稍后重试"
   },
   "apiKeys": {
     "title": "个人 API 密钥",

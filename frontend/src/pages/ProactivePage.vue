@@ -86,7 +86,7 @@
             <div class="flex items-center justify-between mt-auto pt-4 border-t border-zinc-800/50">
               <div class="text-[10px] text-zinc-500 flex items-center gap-1.5 font-medium">
                 <span>🕒</span>
-                {{ job.last_run_at ? new Date(job.last_run_at).toLocaleString() : 'Never run' }}
+                {{ job.last_run_at ? new Date(job.last_run_at).toLocaleString() : $t('proactive.neverRun') }}
               </div>
 
               <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
@@ -207,19 +207,19 @@
         <div class="p-6 space-y-4 text-sm">
           <div class="flex items-center gap-3">
             <span class="text-zinc-500 text-xs">{{ $t('proactive.triggered') }}</span>
-            <span>{{ testResultModal.triggered ? '✅ 是' : '⏭ 否（未触发）' }}</span>
+            <span>{{ testResultModal.triggered ? `✅ ${$t('proactive.triggeredYes')}` : `⏭ ${$t('proactive.triggeredNo')}` }}</span>
           </div>
           <div v-if="testResultModal.durationMs" class="flex items-center gap-3">
-            <span class="text-zinc-500 text-xs">耗时</span>
+            <span class="text-zinc-500 text-xs">{{ $t('proactive.duration') }}</span>
             <span>{{ (testResultModal.durationMs / 1000).toFixed(1) }}s</span>
           </div>
           <template v-if="testResultModal.triggered">
             <div v-if="testResultModal.triggerCtx?.changed_summary" class="flex items-start gap-3">
-              <span class="text-zinc-500 text-xs shrink-0">变化摘要</span>
+              <span class="text-zinc-500 text-xs shrink-0">{{ $t('proactive.changeSummary') }}</span>
               <span class="text-zinc-200">{{ testResultModal.triggerCtx.changed_summary }}</span>
             </div>
             <div v-if="testResultModal.agentResult" class="flex flex-col gap-2">
-              <span class="text-zinc-500 text-xs">Agent 回复</span>
+              <span class="text-zinc-500 text-xs">{{ $t('proactive.agentReply') }}</span>
               <div :class="['bg-zinc-950 rounded-lg p-3 text-xs text-zinc-300 whitespace-pre-wrap', testResultModal.isError && 'text-red-400']">
                 {{ testResultModal.agentResult }}
               </div>
@@ -239,8 +239,10 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import client from '@/api/client'
 import PageHeader from '@/components/PageHeader.vue'
+import { useToast } from '@/composables/useToast'
 
 const { t } = useI18n()
+const { error: toastError } = useToast()
 
 interface CronJob {
   id: string
@@ -297,27 +299,49 @@ const historyMap = ref<Record<string, JobExecution[]>>({})
 const loadingHistory = ref<Record<string, boolean>>({})
 
 const fetchJobs = async () => {
-  const { data } = await client.get('/cron')
-  jobs.value = data
+  try {
+    const { data } = await client.get('/cron')
+    jobs.value = data
+  } catch {
+    // silently fail - jobs list stays as-is
+  }
 }
 
 const toggleJob = async (id: string) => {
-  await client.patch(`/cron/${id}/toggle`)
-  await fetchJobs()
+  try {
+    await client.patch(`/cron/${id}/toggle`)
+    await fetchJobs()
+  } catch {
+    toastError(t('proactive.saveError'))
+  }
 }
 
 const deleteJob = async (id: string) => {
-  if (confirm('Delete this monitoring task?')) {
+  if (!confirm(t('proactive.deleteConfirm'))) return
+  try {
     await client.delete(`/cron/${id}`)
     await fetchJobs()
+  } catch {
+    toastError(t('proactive.saveError'))
   }
 }
 
 const saveJob = async () => {
-  await client.post('/cron', newJob.value)
-  showAddModal.value = false
-  newJob.value = { task: '', schedule: '*/30 * * * *', trigger_type: 'cron', trigger_metadata: {} }
-  await fetchJobs()
+  try {
+    await client.post('/cron', newJob.value)
+    showAddModal.value = false
+    newJob.value = { task: '', schedule: '*/30 * * * *', trigger_type: 'cron', trigger_metadata: {} }
+    await fetchJobs()
+  } catch (err: unknown) {
+    const status = (err as { response?: { status?: number } })?.response?.status
+    if (status === 422) {
+      const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+      const msg = typeof detail === 'string' ? detail.split('\n')[0] : t('proactive.saveError')
+      toastError(msg)
+    } else {
+      toastError(t('proactive.saveError'))
+    }
+  }
 }
 
 async function testTrigger(job: CronJob) {
@@ -333,7 +357,7 @@ async function testTrigger(job: CronJob) {
       durationMs: res.data.duration_ms,
     }
   } catch {
-    alert(t('proactive.testFailed'))
+    toastError(t('proactive.testFailed'))
   } finally {
     testing.value[job.id] = false
   }

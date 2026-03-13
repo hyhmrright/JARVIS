@@ -148,6 +148,7 @@
 import { ref, onMounted, watch } from 'vue';
 import adminApi, { AdminUser, SystemStats } from '@/api/admin';
 import PageHeader from '@/components/PageHeader.vue';
+import { useToast } from '@/composables/useToast';
 
 const tabs = [
   { id: 'users', label: 'Users' },
@@ -155,6 +156,7 @@ const tabs = [
   { id: 'stats', label: 'Stats' },
 ];
 
+const { error: toastError } = useToast();
 const currentTab = ref('users');
 const users = ref<AdminUser[]>([]);
 const totalUsers = ref(0);
@@ -198,7 +200,7 @@ const handleInstall = async () => {
     showAddModal.value = false;
     installUrl.value = '';
     await fetchPlugins();
-  } catch { alert('Failed to install plugin'); }
+  } catch { toastError('Failed to install plugin'); }
 };
 
 watch(currentTab, (newTab) => {
