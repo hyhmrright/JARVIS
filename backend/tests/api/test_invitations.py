@@ -1,26 +1,20 @@
 """Tests for workspace membership and invitation endpoints."""
 
+import base64
+import json
+import uuid
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Invitation
-from app.db.session import AsyncSessionLocal
-
-
-@pytest.fixture(autouse=True)
-def _suppress_audit():
-    with patch("app.api.auth.log_action", AsyncMock(return_value=None)):
-        yield
 
 
 async def _setup_workspace(client: AsyncClient, auth_headers: dict) -> dict:
     """Helper: create org + workspace."""
-    import uuid as _uuid
-
-    slug = f"inv-org-{_uuid.uuid4().hex[:8]}"
+    slug = f"inv-org-{uuid.uuid4().hex[:8]}"
     await client.post(
         "/api/organizations",
         json={"name": "Inv Org", "slug": slug},
@@ -34,22 +28,33 @@ async def _setup_workspace(client: AsyncClient, auth_headers: dict) -> dict:
     return ws_resp.json()
 
 
-@pytest.mark.anyio
-async def test_get_expired_invitation(client: AsyncClient) -> None:
-    """Expired invitations should return 410."""
-    import uuid as _uuid
+def _extract_user_id_from_token(auth_headers: dict) -> uuid.UUID:
+    """Extract the authenticated user's UUID from the JWT token."""
+    token_str = auth_headers["Authorization"].split(" ")[1]
+    payload_b64 = token_str.split(".")[1]
+    payload_b64 += "=" * (4 - len(payload_b64) % 4)
+    return uuid.UUID(json.loads(base64.urlsafe_b64decode(payload_b64))["sub"])
 
-    async with AsyncSessionLocal() as s:
-        inv = Invitation(
-            workspace_id=_uuid.uuid4(),
-            inviter_id=_uuid.uuid4(),
-            email="x@x.com",
-            role="member",
-            expires_at=datetime.now(UTC) - timedelta(hours=1),
-        )
-        s.add(inv)
-        await s.commit()
-        token = str(inv.token)
+
+@pytest.mark.anyio
+async def test_get_expired_invitation(
+    client: AsyncClient, auth_headers: dict, db_session: AsyncSession
+) -> None:
+    """Expired invitations should return 410."""
+    ws_data = await _setup_workspace(client, auth_headers)
+    workspace_id = uuid.UUID(ws_data["id"])
+    inviter_id = _extract_user_id_from_token(auth_headers)
+
+    inv = Invitation(
+        workspace_id=workspace_id,
+        inviter_id=inviter_id,
+        email="x@x.com",
+        role="member",
+        expires_at=datetime.now(UTC) - timedelta(hours=1),
+    )
+    db_session.add(inv)
+    await db_session.flush()
+    token = str(inv.token)
 
     resp = await client.get(f"/api/invitations/{token}")
     assert resp.status_code == 410

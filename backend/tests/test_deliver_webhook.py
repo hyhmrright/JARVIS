@@ -6,11 +6,29 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
+def _create_mock_db() -> AsyncMock:
+    """Create a mock AsyncSession with context manager support."""
+    mock_db = AsyncMock()
+    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db.__aexit__ = AsyncMock(return_value=None)
+    mock_db.get = AsyncMock()
+    mock_db.add = MagicMock()
+    mock_db.flush = AsyncMock()
+    mock_db.commit = AsyncMock()
+    mock_db.execute = AsyncMock()
+    mock_db.begin = MagicMock(
+        return_value=AsyncMock(
+            __aenter__=AsyncMock(),
+            __aexit__=AsyncMock(return_value=False),
+        )
+    )
+    return mock_db
+
+
 @pytest.mark.asyncio
 async def test_deliver_webhook_success():
     """deliver_webhook marks delivery success when agent returns a non-error reply."""
     webhook_id = str(uuid.uuid4())
-    delivery_id = uuid.uuid4()
 
     fake_webhook = MagicMock()
     fake_webhook.id = uuid.UUID(webhook_id)
@@ -18,20 +36,8 @@ async def test_deliver_webhook_success():
     fake_webhook.task_template = "Handle: {payload}"
     fake_webhook.user_id = uuid.uuid4()
 
-    fake_delivery = MagicMock()
-    fake_delivery.id = delivery_id
-
-    mock_db = AsyncMock()
-    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
-    mock_db.__aexit__ = AsyncMock(return_value=None)
+    mock_db = _create_mock_db()
     mock_db.get = AsyncMock(return_value=fake_webhook)
-    mock_db.add = MagicMock()
-    mock_db.flush = AsyncMock()
-    mock_db.commit = AsyncMock()
-    mock_db.execute = AsyncMock()
-    mock_db.begin = MagicMock(
-        return_value=AsyncMock(__aenter__=AsyncMock(), __aexit__=AsyncMock())
-    )
 
     ctx = {"job_try": 1}
 
@@ -41,16 +47,15 @@ async def test_deliver_webhook_success():
             "app.worker.run_agent_for_user",
             AsyncMock(return_value="Done successfully"),
         ),
-        patch("app.worker.WebhookDelivery", return_value=fake_delivery),
     ):
         from app.worker import deliver_webhook
 
         await deliver_webhook(ctx, webhook_id=webhook_id, payload={"key": "val"})
 
     assert mock_db.execute.called
-    call_kwargs = mock_db.execute.call_args_list[-1][0][0]
-    # The UPDATE statement should include status="success"
-    assert "success" in str(call_kwargs)
+    # Verify the UPDATE was called with a status="success" value
+    stmt = mock_db.execute.call_args_list[-1][0][0]
+    assert "success" in str(stmt.compile(compile_kwargs={"literal_binds": True}))
 
 
 @pytest.mark.asyncio
@@ -68,17 +73,8 @@ async def test_deliver_webhook_retries_on_failure():
     fake_delivery = MagicMock()
     fake_delivery.id = delivery_id
 
-    mock_db = AsyncMock()
-    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
-    mock_db.__aexit__ = AsyncMock(return_value=None)
+    mock_db = _create_mock_db()
     mock_db.get = AsyncMock(return_value=fake_webhook)
-    mock_db.add = MagicMock()
-    mock_db.flush = AsyncMock()
-    mock_db.commit = AsyncMock()
-    mock_db.execute = AsyncMock()
-    mock_db.begin = MagicMock(
-        return_value=AsyncMock(__aenter__=AsyncMock(), __aexit__=AsyncMock())
-    )
 
     ctx = {"job_try": 1}
 
@@ -111,17 +107,8 @@ async def test_deliver_webhook_no_retry_on_last_attempt():
     fake_delivery = MagicMock()
     fake_delivery.id = delivery_id
 
-    mock_db = AsyncMock()
-    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
-    mock_db.__aexit__ = AsyncMock(return_value=None)
+    mock_db = _create_mock_db()
     mock_db.get = AsyncMock(return_value=fake_webhook)
-    mock_db.add = MagicMock()
-    mock_db.flush = AsyncMock()
-    mock_db.commit = AsyncMock()
-    mock_db.execute = AsyncMock()
-    mock_db.begin = MagicMock(
-        return_value=AsyncMock(__aenter__=AsyncMock(), __aexit__=AsyncMock())
-    )
 
     # attempt=3 is the final attempt (max_tries=3 in WorkerSettings)
     ctx = {"job_try": 3}

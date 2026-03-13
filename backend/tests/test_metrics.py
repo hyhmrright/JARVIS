@@ -6,9 +6,11 @@ from prometheus_client import REGISTRY
 def test_metrics_singletons_registered():
     """All custom metric names are registered in the Prometheus default registry."""
     names = {m.name for m in REGISTRY.collect()}
-    assert "jarvis_cron_executions_total" in names
+    # prometheus_client strips the _total suffix from Counter names internally;
+    # the _total suffix only appears in the scraped /metrics output, not in REGISTRY.
+    assert "jarvis_cron_executions" in names
     assert "jarvis_rag_retrieval_duration_seconds" in names
-    assert "jarvis_llm_requests_total" in names
+    assert "jarvis_llm_requests" in names
     assert "jarvis_arq_queue_depth" in names
 
 

@@ -52,9 +52,16 @@ class User(Base):
         nullable=False,
     )
     # FK constraint added by migration 015 (column pre-existed without it)
+    # use_alter=True breaks the users ↔ organizations circular FK dependency
+    # so SQLAlchemy can resolve the DROP TABLE order.
     organization_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("organizations.id", ondelete="SET NULL"),
+        ForeignKey(
+            "organizations.id",
+            ondelete="SET NULL",
+            use_alter=True,
+            name="fk_users_organization_id",
+        ),
         nullable=True,
         index=True,
     )

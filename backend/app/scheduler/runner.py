@@ -57,7 +57,7 @@ def register_cron_job(job_id: str, schedule: str) -> datetime | None:
         misfire_grace_time=60,
         coalesce=True,
     )
-    return apscheduler_job.next_run_time
+    return getattr(apscheduler_job, "next_run_time", None)
 
 
 def unregister_cron_job(job_id: str) -> None:
