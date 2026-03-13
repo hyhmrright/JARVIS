@@ -46,6 +46,7 @@ dependencies = [
     "langchain-ollama>=1.0.1",
     "arq>=0.25",
     "prometheus-client>=0.24.1",
+    "wechatpy>=1.8.18",
 ]
 
 [dependency-groups]

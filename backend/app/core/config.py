@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     discord_bot_token: str = ""
     slack_bot_token: str = ""
     slack_app_token: str = ""
+
+    wechat_app_id: str = ""
+    wechat_app_secret: str = ""
+    wechat_token: str = ""
+    wechat_encoding_aes_key: str = ""
     whatsapp_account_sid: str = ""
     whatsapp_auth_token: str = ""
     whatsapp_from_number: str = "whatsapp:+14155238886"  # Twilio sandbox default

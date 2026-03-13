@@ -33,6 +33,7 @@ from app.channels.feishu import FeishuChannel
 from app.channels.slack import SlackChannel
 from app.channels.telegram import TelegramChannel
 from app.channels.webhook import WebhookChannel
+from app.channels.wechat import WeChatChannel
 from app.channels.whatsapp import WhatsAppChannel
 from app.core.config import settings
 from app.core.limiter import limiter
@@ -91,6 +92,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
         channel_registry.register(ws_adapter)
         app.include_router(ws_adapter.router, prefix="/api/channels/whatsapp")
+
+    if settings.wechat_app_id and settings.wechat_app_secret and settings.wechat_token:
+        wechat_adapter = WeChatChannel(
+            settings.wechat_app_id,
+            settings.wechat_app_secret,
+            settings.wechat_token,
+            settings.wechat_encoding_aes_key,
+        )
+        channel_registry.register(wechat_adapter)
+        app.include_router(wechat_adapter.router, prefix="/api/channels/wechat")
 
     # Always register generic webhook for extensibility
     wh_adapter = WebhookChannel()
