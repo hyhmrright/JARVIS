@@ -112,7 +112,10 @@
     "no_config": "No config entries",
     "load_error": "Failed to load config, please try again",
     "save_error": "Failed to save config, please try again",
-    "delete_error": "Failed to delete config, please try again"
+    "delete_error": "Failed to delete config, please try again",
+    "reload": "Reload Plugins",
+    "reload_error": "Failed to reload plugins, check backend logs",
+    "requires": "Requires"
   },
   "validation": {
     "emailRequired": "Please enter your email address",

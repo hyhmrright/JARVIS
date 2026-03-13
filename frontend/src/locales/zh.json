@@ -149,7 +149,10 @@
     "no_config": "暂无配置项",
     "load_error": "加载配置失败，请重试",
     "save_error": "保存配置失败，请重试",
-    "delete_error": "删除配置失败，请重试"
+    "delete_error": "删除配置失败，请重试",
+    "reload": "重载插件",
+    "reload_error": "重载插件失败，请检查后端日志",
+    "requires": "依赖"
   },
   "proactive": {
     "title": "主动监控",

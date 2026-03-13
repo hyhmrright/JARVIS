@@ -19,6 +19,30 @@ logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/plugins", tags=["plugins"])
 
 
+@router.post("/reload")
+async def reload_plugins(
+    admin: User = Depends(get_admin_user),
+) -> dict[str, str]:
+    """Hot-reload all plugins (Admin only)."""
+    from app.plugins.loader import deactivate_all_plugins, load_all_plugins
+    import sys
+    
+    await deactivate_all_plugins(plugin_registry)
+    
+    # Clear current registry entries
+    plugin_registry._entries.clear()
+    
+    # Clear user plugins from sys.modules to force reload
+    for mod_name in list(sys.modules.keys()):
+        if mod_name.startswith("jarvis_user_plugins."):
+            sys.modules.pop(mod_name, None)
+            
+    await load_all_plugins(plugin_registry)
+    await activate_all_plugins(plugin_registry)
+    
+    return {"status": "ok"}
+
+
 # ── Install ────────────────────────────────────────────────────────────────────
 
 
@@ -50,6 +74,8 @@ class PluginInfo(BaseModel):
     description: str
     tools: list[str]
     channels: list[str]
+    config_schema: dict[str, Any] | None = None
+    requires: list[str] = []
 
 
 @router.get("", response_model=list[PluginInfo])
