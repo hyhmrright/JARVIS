@@ -10,6 +10,8 @@ interface ToolCall {
 }
 
 interface Message {
+  id?: string;
+  parent_id?: string;
   role: "human" | "ai";
   content: string;
   toolCalls?: ToolCall[];
@@ -26,8 +28,37 @@ export const useChatStore = defineStore("chat", {
     streaming: false,
     routingAgent: null as string | null,
     abortController: null as AbortController | null,
+    activeLeafId: null as string | null,
   }),
+  getters: {
+    activeMessages: (state) => {
+      if (!state.messages.length) return [];
+      const msgDict = new Map<string, Message>();
+      let latestMsg = state.messages[state.messages.length - 1];
+      
+      for (const msg of state.messages) {
+        if (msg.id) msgDict.set(msg.id, msg);
+      }
+      
+      let currentId = state.activeLeafId || latestMsg.id;
+      if (!currentId || !msgDict.has(currentId)) {
+        return state.messages; // fallback for unpersisted messages
+      }
+      
+      const thread = [];
+      while (currentId && msgDict.has(currentId)) {
+        const m: Message = msgDict.get(currentId)!;
+        thread.unshift(m);
+        currentId = m.parent_id;
+      }
+      return thread;
+    }
+  },
   actions: {
+    switchBranch(messageId: string) {
+      this.activeLeafId = messageId;
+    },
+
     async loadConversations() {
       const { data } = await client.get("/conversations");
       this.conversations = data;
@@ -36,6 +67,7 @@ export const useChatStore = defineStore("chat", {
       this.currentConvId = convId;
       this.messages = [];
       this.routingAgent = null;
+      this.activeLeafId = null;
       try {
         const { data } = await client.get<Message[]>(`/conversations/${convId}/messages`);
         this.messages = data;
@@ -48,6 +80,7 @@ export const useChatStore = defineStore("chat", {
       this.currentConvId = null;
       this.messages = [];
       this.routingAgent = null;
+      this.activeLeafId = null;
     },
     async deleteConversation(convId: string) {
       try {
@@ -57,6 +90,7 @@ export const useChatStore = defineStore("chat", {
           this.currentConvId = null;
           this.messages = [];
           this.routingAgent = null;
+      this.activeLeafId = null;
         }
       } catch (err) {
         console.error("[chat] deleteConversation failed", err);
@@ -150,6 +184,7 @@ export const useChatStore = defineStore("chat", {
                   aiMsg.pending_tool_call = { name: data.tool, args: data.args };
                   this.streaming = false;
                   this.routingAgent = null;
+      this.activeLeafId = null;
                   return;
                 }
 
@@ -195,6 +230,7 @@ export const useChatStore = defineStore("chat", {
         this.abortController = null;
         this.streaming = false;
         this.routingAgent = null;
+      this.activeLeafId = null;
       }
     },
   },
