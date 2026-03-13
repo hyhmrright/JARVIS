@@ -290,6 +290,7 @@ async def chat_stream(  # noqa: C901
 
     async def generate() -> AsyncGenerator[str]:  # noqa: C901
         nonlocal lc_messages
+        compressed_summary: str | None = None
         try:
             lc_messages = await compact_messages(
                 lc_messages,
@@ -298,9 +299,19 @@ async def chat_stream(  # noqa: C901
                 api_key=llm.api_key,
                 base_url=llm.base_url,
             )
+            # Capture compressed context summary if compression occurred
+            compressed_summary = next(
+                (
+                    getattr(m, "content", "")
+                    for m in lc_messages[:2]
+                    if getattr(m, "content", "").startswith("[Context Summary")
+                ),
+                None,
+            )
         except Exception:
             logger.warning("context_compression_failed", exc_info=True)
         agent_session_id: uuid.UUID | None = None
+        tools_used: list[str] = []
         try:
             async with AsyncSessionLocal() as _init_sess:
                 async with _init_sess.begin():
@@ -399,6 +410,10 @@ async def chat_stream(  # noqa: C901
                 async for chunk in graph.astream(state):
                     if "llm" in chunk:
                         last_ai_msg = chunk["llm"]["messages"][-1]
+                    if "tools" in chunk:
+                        for tm in chunk["tools"]["messages"]:
+                            if tm.name and tm.name not in tools_used:
+                                tools_used.append(tm.name)
                     events, full_content = _sse_events_from_chunk(chunk, full_content)
                     for event in events:
                         yield event
@@ -461,15 +476,28 @@ async def chat_stream(  # noqa: C901
             if agent_session_id:
                 try:
                     session_status = "error" if stream_error else "completed"
+                    tokens_meta_in, tokens_meta_out = _extract_token_counts(last_ai_msg)
+                    metadata: dict = {
+                        "model": llm.model_name,
+                        "provider": llm.provider,
+                        "tools_used": tools_used,
+                    }
+                    if tokens_meta_in or tokens_meta_out:
+                        metadata["input_tokens"] = tokens_meta_in
+                        metadata["output_tokens"] = tokens_meta_out
+                    update_values: dict = {
+                        "status": session_status,
+                        "completed_at": datetime.now(UTC),
+                        "metadata_json": metadata,
+                    }
+                    if compressed_summary:
+                        update_values["context_summary"] = compressed_summary
                     async with AsyncSessionLocal() as status_sess:
                         async with status_sess.begin():
                             await status_sess.execute(
                                 update(AgentSession)
                                 .where(AgentSession.id == agent_session_id)
-                                .values(
-                                    status=session_status,
-                                    completed_at=datetime.now(UTC),
-                                )
+                                .values(**update_values)
                             )
                 except Exception:
                     logger.warning("agent_session_update_failed", exc_info=True)

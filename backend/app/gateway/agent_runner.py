@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 
 import structlog
 from langchain_core.messages import HumanMessage, SystemMessage
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.agent.graph import create_graph
 from app.agent.persona import build_system_prompt
@@ -14,7 +15,7 @@ from app.agent.state import AgentState
 from app.core.config import settings
 from app.core.permissions import DEFAULT_ENABLED_TOOLS
 from app.core.security import resolve_api_key, resolve_api_keys
-from app.db.models import Conversation, Message, UserSettings
+from app.db.models import AgentSession, Conversation, Message, UserSettings
 from app.db.session import AsyncSessionLocal
 from app.rag.context import build_rag_context
 
@@ -129,7 +130,55 @@ async def run_agent_for_user(
                 conversation_id=str(conv.id),
             )
 
-            result = await graph.ainvoke(AgentState(messages=lc_messages))
+            # Create AgentSession for this background run
+            agent_session_id: uuid.UUID | None = None
+            try:
+                ag = AgentSession(
+                    conversation_id=conv.id,
+                    agent_type="main",
+                    status="active",
+                )
+                db.add(ag)
+                await db.flush()
+                agent_session_id = ag.id
+            except Exception:
+                logger.warning("agent_session_create_failed", exc_info=True)
+
+            run_error = False
+            result = None
+            try:
+                result = await graph.ainvoke(AgentState(messages=lc_messages))
+            except Exception:
+                run_error = True
+                raise
+            finally:
+                if agent_session_id:
+                    try:
+                        trigger_type = (
+                            trigger_ctx.get("trigger_type", "unknown")
+                            if trigger_ctx
+                            else "unknown"
+                        )
+                        metadata: dict[str, object] = {
+                            "model": model_name,
+                            "provider": provider,
+                            "tools_used": [],
+                            "trigger_type": trigger_type,
+                        }
+                        async with AsyncSessionLocal() as sess:
+                            async with sess.begin():
+                                await sess.execute(
+                                    update(AgentSession)
+                                    .where(AgentSession.id == agent_session_id)
+                                    .values(
+                                        status="error" if run_error else "completed",
+                                        completed_at=datetime.now(UTC),
+                                        metadata_json=metadata,
+                                    )
+                                )
+                    except Exception:
+                        logger.warning("agent_session_update_failed", exc_info=True)
+
             ai_content = str(result["messages"][-1].content)
 
             db.add(
