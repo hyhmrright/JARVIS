@@ -111,17 +111,18 @@
     </div>
 
     <!-- Add Task Modal -->
-    <div v-if="showAddModal" class="fixed inset-0 bg-zinc-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in" @click.self="showAddModal = false">
+    <div v-if="showAddModal" class="fixed inset-0 bg-zinc-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in" @click.self="closeModal()">
       <div class="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
           <h3 class="text-sm font-bold text-zinc-100 tracking-wide">{{ $t('proactive.addTask') }}</h3>
-          <button class="text-zinc-500 hover:text-zinc-300 transition-colors" @click="showAddModal = false">✕</button>
+          <button class="text-zinc-500 hover:text-zinc-300 transition-colors" @click="closeModal()">✕</button>
         </div>
 
         <div class="p-6 space-y-5">
           <div class="flex flex-col gap-2">
             <label class="text-xs font-semibold text-zinc-400">{{ $t('proactive.taskPrompt') }}</label>
             <textarea v-model="newJob.task" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-sm outline-none focus:border-zinc-600 transition-colors resize-none h-24" placeholder="e.g. Check for new Apple news and summarize"></textarea>
+            <span v-if="formErrors.task" class="text-red-400 text-xs mt-1 block">{{ formErrors.task }}</span>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
@@ -145,6 +146,7 @@
           <div v-if="newJob.trigger_type === 'web_watcher'" class="flex flex-col gap-2 animate-in fade-in slide-in-from-top-2">
             <label class="text-xs font-semibold text-zinc-400">URL to watch</label>
             <input v-model="newJob.trigger_metadata.url" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" placeholder="https://..." />
+            <span v-if="formErrors.url" class="text-red-400 text-xs mt-1 block">{{ formErrors.url }}</span>
           </div>
 
           <!-- semantic_watcher fields -->
@@ -152,10 +154,12 @@
             <div class="flex flex-col gap-2">
               <label class="text-xs font-semibold text-zinc-400">URL to watch</label>
               <input v-model="newJob.trigger_metadata.url" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" placeholder="https://..." />
+              <span v-if="formErrors.url" class="text-red-400 text-xs mt-1 block">{{ formErrors.url }}</span>
             </div>
             <div class="flex flex-col gap-2">
               <label class="text-xs font-semibold text-zinc-400">{{ $t('proactive.targetLabel') }}</label>
               <input v-model="newJob.trigger_metadata.target" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" :placeholder="$t('proactive.targetPlaceholder')" />
+              <span v-if="formErrors.target" class="text-red-400 text-xs mt-1 block">{{ formErrors.target }}</span>
             </div>
             <label class="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
               <input v-model="newJob.trigger_metadata.fire_on_init" type="checkbox" class="rounded" />
@@ -168,6 +172,7 @@
             <div class="flex flex-col gap-2">
               <label class="text-xs font-semibold text-zinc-400">IMAP Host</label>
               <input v-model="newJob.trigger_metadata.imap_host" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" placeholder="imap.gmail.com" />
+              <span v-if="formErrors.imap_host" class="text-red-400 text-xs mt-1 block">{{ formErrors.imap_host }}</span>
             </div>
             <div class="grid grid-cols-2 gap-4">
               <div class="flex flex-col gap-2">
@@ -182,6 +187,7 @@
             <div class="flex flex-col gap-2">
               <label class="text-xs font-semibold text-zinc-400">Email User</label>
               <input v-model="newJob.trigger_metadata.imap_user" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" placeholder="user@example.com" />
+              <span v-if="formErrors.imap_user" class="text-red-400 text-xs mt-1 block">{{ formErrors.imap_user }}</span>
             </div>
             <div class="flex flex-col gap-2">
               <label class="text-xs font-semibold text-zinc-400">App Password</label>
@@ -191,8 +197,8 @@
         </div>
 
         <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-zinc-800 bg-zinc-950/50">
-          <button class="px-5 py-2.5 text-xs font-bold text-zinc-400 hover:text-zinc-200 transition-colors" @click="showAddModal = false">{{ $t('common.cancel') }}</button>
-          <button class="px-5 py-2.5 bg-white text-black text-xs font-bold rounded-lg hover:bg-zinc-200 transition-colors disabled:opacity-50" :disabled="!newJob.task" @click="saveJob">{{ $t('common.confirm') }}</button>
+          <button class="px-5 py-2.5 text-xs font-bold text-zinc-400 hover:text-zinc-200 transition-colors" @click="closeModal()">{{ $t('common.cancel') }}</button>
+          <button class="px-5 py-2.5 bg-white text-black text-xs font-bold rounded-lg hover:bg-zinc-200 transition-colors" @click="saveJob">{{ $t('common.confirm') }}</button>
         </div>
       </div>
     </div>
@@ -235,7 +241,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import client from '@/api/client'
 import PageHeader from '@/components/PageHeader.vue'
@@ -274,6 +280,73 @@ const newJob = ref({
   trigger_type: 'cron',
   trigger_metadata: {} as Record<string, unknown>,
 })
+
+interface FormErrors {
+  task?: string
+  url?: string
+  target?: string
+  imap_host?: string
+  imap_user?: string
+}
+const formErrors = ref<FormErrors>({})
+
+watch(() => newJob.value.trigger_type, () => {
+  formErrors.value = {}
+})
+
+function validateForm(): boolean {
+  const errors: FormErrors = {}
+  const meta = newJob.value.trigger_metadata
+
+  if (!newJob.value.task.trim()) {
+    errors.task = t('proactive.validation.taskRequired')
+  }
+
+  if (newJob.value.trigger_type === 'web_watcher') {
+    if (!meta.url) {
+      errors.url = t('proactive.validation.urlRequired')
+    } else {
+      try {
+        new URL(meta.url as string)
+      } catch {
+        errors.url = t('proactive.validation.urlInvalid')
+      }
+    }
+  }
+
+  if (newJob.value.trigger_type === 'semantic_watcher') {
+    if (!meta.url) {
+      errors.url = t('proactive.validation.urlRequired')
+    } else {
+      try {
+        new URL(meta.url as string)
+      } catch {
+        errors.url = t('proactive.validation.urlInvalid')
+      }
+    }
+    if (!meta.target) {
+      errors.target = t('proactive.validation.targetRequired')
+    }
+  }
+
+  if (newJob.value.trigger_type === 'email') {
+    if (!meta.imap_host) {
+      errors.imap_host = t('proactive.validation.imapHostRequired')
+    }
+    if (!meta.imap_user) {
+      errors.imap_user = t('proactive.validation.emailAddressRequired')
+    }
+  }
+
+  formErrors.value = errors
+  return Object.keys(errors).length === 0
+}
+
+function closeModal() {
+  showAddModal.value = false
+  formErrors.value = {}
+  newJob.value = { task: '', schedule: '*/30 * * * *', trigger_type: 'cron', trigger_metadata: {} }
+}
 
 // Test trigger state
 const testing = ref<Record<string, boolean>>({})
@@ -327,10 +400,10 @@ const deleteJob = async (id: string) => {
 }
 
 const saveJob = async () => {
+  if (!validateForm()) return
   try {
     await client.post('/cron', newJob.value)
-    showAddModal.value = false
-    newJob.value = { task: '', schedule: '*/30 * * * *', trigger_type: 'cron', trigger_metadata: {} }
+    closeModal()
     await fetchJobs()
   } catch (err: unknown) {
     const status = (err as { response?: { status?: number } })?.response?.status

@@ -184,7 +184,15 @@
     "triggeredNo": "아니오 (트리거되지 않음)",
     "changeSummary": "변경 요약",
     "agentReply": "에이전트 응답",
-    "saveError": "작업 생성에 실패했습니다. 잠시 후 다시 시도해 주세요"
+    "saveError": "작업 생성에 실패했습니다. 잠시 후 다시 시도해 주세요",
+    "validation": {
+      "taskRequired": "작업 지시를 입력해 주세요",
+      "urlRequired": "URL을 입력해 주세요",
+      "urlInvalid": "유효한 URL을 입력해 주세요",
+      "targetRequired": "모니터링 대상을 입력해 주세요",
+      "imapHostRequired": "IMAP 호스트를 입력해 주세요",
+      "emailAddressRequired": "이메일 주소를 입력해 주세요"
+    }
   },
   "apiKeys": {
     "title": "개인 API 키",

@@ -184,7 +184,15 @@
     "triggeredNo": "否（未触发）",
     "changeSummary": "变化摘要",
     "agentReply": "Agent 回复",
-    "saveError": "创建失败，请稍后重试"
+    "saveError": "创建失败，请稍后重试",
+    "validation": {
+      "taskRequired": "请输入任务指令",
+      "urlRequired": "请输入监控 URL",
+      "urlInvalid": "请输入有效的 URL",
+      "targetRequired": "请输入监控目标",
+      "imapHostRequired": "请输入 IMAP 主机地址",
+      "emailAddressRequired": "请输入邮件地址"
+    }
   },
   "apiKeys": {
     "title": "个人 API 密钥",

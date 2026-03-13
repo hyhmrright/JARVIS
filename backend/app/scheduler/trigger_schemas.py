@@ -18,7 +18,7 @@ class SemanticWatcherMetadata(BaseModel):
 
 class EmailWatcherMetadata(BaseModel):
     imap_host: str
-    email_address: str
+    imap_user: str
     imap_password: str | None = None
     imap_port: int = 993
     imap_folder: str = "INBOX"

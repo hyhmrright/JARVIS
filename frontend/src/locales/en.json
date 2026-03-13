@@ -153,7 +153,15 @@
     "triggeredNo": "No (not triggered)",
     "changeSummary": "Change Summary",
     "agentReply": "Agent Reply",
-    "saveError": "Failed to create task, please try again"
+    "saveError": "Failed to create task, please try again",
+    "validation": {
+      "taskRequired": "Task prompt is required",
+      "urlRequired": "URL is required",
+      "urlInvalid": "Please enter a valid URL",
+      "targetRequired": "Monitor target is required",
+      "imapHostRequired": "IMAP host is required",
+      "emailAddressRequired": "Email address is required"
+    }
   },
   "admin": {
     "title": "Admin Panel",

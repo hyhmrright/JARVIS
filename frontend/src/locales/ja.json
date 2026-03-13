@@ -184,7 +184,15 @@
     "triggeredNo": "いいえ（未トリガー）",
     "changeSummary": "変更サマリー",
     "agentReply": "エージェント応答",
-    "saveError": "作成に失敗しました。しばらくしてから再試行してください"
+    "saveError": "作成に失敗しました。しばらくしてから再試行してください",
+    "validation": {
+      "taskRequired": "タスク指示を入力してください",
+      "urlRequired": "URLを入力してください",
+      "urlInvalid": "有効なURLを入力してください",
+      "targetRequired": "監視対象を入力してください",
+      "imapHostRequired": "IMAPホストを入力してください",
+      "emailAddressRequired": "メールアドレスを入力してください"
+    }
   },
   "apiKeys": {
     "title": "個人APIキー",

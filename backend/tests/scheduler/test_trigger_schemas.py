@@ -28,7 +28,7 @@ def test_semantic_watcher_requires_url_and_target():
 
 def test_email_watcher_requires_host_and_address():
     with pytest.raises(ValidationError):
-        EmailWatcherMetadata(imap_host="imap.gmail.com")  # missing email_address
+        EmailWatcherMetadata(imap_host="imap.gmail.com")  # missing imap_user
 
 
 def test_validate_trigger_metadata_unknown_type_passes():

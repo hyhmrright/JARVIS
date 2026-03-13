@@ -184,7 +184,15 @@
     "triggeredNo": "Nein (nicht ausgelöst)",
     "changeSummary": "Änderungszusammenfassung",
     "agentReply": "Agent-Antwort",
-    "saveError": "Erstellung fehlgeschlagen, bitte später erneut versuchen"
+    "saveError": "Erstellung fehlgeschlagen, bitte später erneut versuchen",
+    "validation": {
+      "taskRequired": "Aufgabenanweisung ist erforderlich",
+      "urlRequired": "URL ist erforderlich",
+      "urlInvalid": "Bitte geben Sie eine gültige URL ein",
+      "targetRequired": "Überwachungsziel ist erforderlich",
+      "imapHostRequired": "IMAP-Host ist erforderlich",
+      "emailAddressRequired": "E-Mail-Adresse ist erforderlich"
+    }
   },
   "apiKeys": {
     "title": "Persönliche API-Schlüssel",

@@ -184,7 +184,15 @@
     "triggeredNo": "Non (non déclenché)",
     "changeSummary": "Résumé des modifications",
     "agentReply": "Réponse de l'agent",
-    "saveError": "Échec de la création, veuillez réessayer"
+    "saveError": "Échec de la création, veuillez réessayer",
+    "validation": {
+      "taskRequired": "L'instruction de tâche est requise",
+      "urlRequired": "L'URL est requise",
+      "urlInvalid": "Veuillez saisir une URL valide",
+      "targetRequired": "La cible de surveillance est requise",
+      "imapHostRequired": "L'hôte IMAP est requis",
+      "emailAddressRequired": "L'adresse e-mail est requise"
+    }
   },
   "apiKeys": {
     "title": "Clés API personnelles",
