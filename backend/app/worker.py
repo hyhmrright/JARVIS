@@ -7,11 +7,11 @@ from datetime import UTC, datetime, timedelta
 import structlog
 from arq.connections import RedisSettings
 from arq.cron import cron
-from sqlalchemy import delete
+from sqlalchemy import delete, update
 from sqlalchemy.engine import CursorResult
 
 from app.core.config import settings
-from app.db.models import CronJob, JobExecution
+from app.db.models import CronJob, JobExecution, Webhook, WebhookDelivery
 from app.db.session import AsyncSessionLocal
 from app.gateway.agent_runner import run_agent_for_user
 from app.scheduler.triggers import evaluate_trigger
@@ -118,6 +118,85 @@ async def execute_cron_job(ctx: dict, *, job_id: str, run_group_id: str) -> None
         await redis.delete(lock_key)
 
 
+# Delays (seconds) before each retry: attempt 1→2 waits 1s, attempt 2→3 waits 10s
+_WEBHOOK_RETRY_DELAYS = [1, 10]
+
+
+async def deliver_webhook(ctx: dict, *, webhook_id: str, payload: dict) -> None:
+    """ARQ task: deliver webhook payload to the JARVIS agent and record delivery."""
+    attempt: int = ctx.get("job_try", 1)
+
+    async with AsyncSessionLocal() as db:
+        webhook: Webhook | None = await db.get(Webhook, uuid.UUID(webhook_id))
+        if webhook is None or not webhook.is_active:
+            logger.info("deliver_webhook_skipped_inactive", webhook_id=webhook_id)
+            return
+
+        delivery = WebhookDelivery(
+            webhook_id=uuid.UUID(webhook_id),
+            status="pending",
+            attempt=attempt,
+        )
+        db.add(delivery)
+        await db.flush()
+        delivery_id = delivery.id
+
+        task_str = webhook.task_template.replace("{payload}", str(payload)[:2000])
+        user_id = str(webhook.user_id)
+        await db.commit()
+
+    # Run the agent outside DB session
+    final_status = "failed"
+    response_body: str | None = None
+
+    try:
+        agent_result = await run_agent_for_user(user_id=user_id, task=task_str)
+        if agent_result and not agent_result.startswith("抱歉"):
+            final_status = "success"
+        response_body = (agent_result or "")[:4000]
+    except Exception as exc:
+        response_body = str(exc)[:4000]
+        logger.exception(
+            "deliver_webhook_agent_failed",
+            webhook_id=webhook_id,
+            attempt=attempt,
+        )
+
+    async with AsyncSessionLocal() as db:
+        async with db.begin():
+            update_vals: dict = {
+                "status": final_status,
+                "response_body": response_body,
+            }
+            if final_status == "failed" and attempt < len(_WEBHOOK_RETRY_DELAYS):
+                delay_s = _WEBHOOK_RETRY_DELAYS[attempt - 1]
+                update_vals["next_retry_at"] = datetime.now(tz=UTC) + timedelta(
+                    seconds=delay_s
+                )
+            await db.execute(
+                update(WebhookDelivery)
+                .where(WebhookDelivery.id == delivery_id)
+                .values(**update_vals)
+            )
+
+    if final_status == "failed" and attempt < len(_WEBHOOK_RETRY_DELAYS):
+        delay_s = _WEBHOOK_RETRY_DELAYS[attempt - 1]
+        logger.warning(
+            "deliver_webhook_will_retry",
+            webhook_id=webhook_id,
+            attempt=attempt,
+            delay_s=delay_s,
+        )
+        raise RuntimeError(f"Webhook delivery failed (attempt {attempt}), will retry")
+
+    logger.info(
+        "deliver_webhook_done",
+        webhook_id=webhook_id,
+        status=final_status,
+        attempt=attempt,
+    )
+
+
 async def cleanup_old_executions(ctx: dict) -> None:
     """ARQ periodic task: delete job_executions older than retention window."""
     cutoff = datetime.now(tz=UTC) - timedelta(
@@ -136,7 +215,7 @@ async def cleanup_old_executions(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions = [execute_cron_job]
+    functions = [execute_cron_job, deliver_webhook]
     cron_jobs = [
         cron(cleanup_old_executions, hour=3, minute=0)  # Daily 03:00 UTC
     ]

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import hmac
 import json
 import secrets
@@ -10,20 +9,20 @@ import uuid
 from datetime import UTC, datetime
 
 import structlog
+from arq import create_pool
+from arq.connections import RedisSettings
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
+from app.core.config import settings
 from app.core.limiter import limiter
-from app.db.models import User, Webhook
+from app.db.models import User, Webhook, WebhookDelivery
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/webhooks", tags=["webhooks"])
-
-# Strong references to background tasks so they aren't GC'd before completion.
-_background_tasks: set[asyncio.Task] = set()
 
 
 class WebhookCreate(BaseModel):
@@ -134,6 +133,16 @@ async def trigger_webhook(
     payload_str = json.dumps(payload, ensure_ascii=False)[:2000]
     task = webhook.task_template.replace("{payload}", payload_str)
 
+    arq_pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+    try:
+        await arq_pool.enqueue_job(
+            "deliver_webhook",
+            webhook_id=str(webhook_id),
+            payload=payload,
+        )
+    finally:
+        await arq_pool.aclose()
+
     webhook.trigger_count += 1
     webhook.last_triggered_at = datetime.now(UTC)
     await db.commit()
@@ -144,12 +153,44 @@ async def trigger_webhook(
         user_id=str(webhook.user_id),
         trigger_count=webhook.trigger_count,
     )
-
-    from app.gateway.agent_runner import run_agent_for_user
-
-    bg = asyncio.create_task(run_agent_for_user(str(webhook.user_id), task))
-    _background_tasks.add(bg)
-    bg.add_done_callback(_background_tasks.discard)
-    logger.info("webhook_task_queued", task_preview=task[:200])
+    logger.info("webhook_delivery_enqueued", webhook_id=str(webhook_id))
 
     return {"status": "accepted", "task_preview": task[:200]}
+
+
+class WebhookDeliveryOut(BaseModel):
+    id: uuid.UUID
+    webhook_id: uuid.UUID
+    triggered_at: datetime
+    status: str
+    response_code: int | None
+    response_body: str | None
+    attempt: int
+    next_retry_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
+@router.get("/{webhook_id}/deliveries", response_model=list[WebhookDeliveryOut])
+async def list_webhook_deliveries(
+    webhook_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[WebhookDeliveryOut]:
+    """Return the last 20 delivery records for a webhook owned by the current user."""
+    webhook = await db.scalar(
+        select(Webhook).where(
+            Webhook.id == webhook_id,
+            Webhook.user_id == user.id,
+        )
+    )
+    if webhook is None:
+        raise HTTPException(status_code=404)
+
+    rows = await db.scalars(
+        select(WebhookDelivery)
+        .where(WebhookDelivery.webhook_id == webhook_id)
+        .order_by(WebhookDelivery.triggered_at.desc())
+        .limit(20)
+    )
+    return [WebhookDeliveryOut.model_validate(r) for r in rows.all()]
