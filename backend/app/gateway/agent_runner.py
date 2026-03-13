@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime
 
 import structlog
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from sqlalchemy import select, update
 
 from app.agent.graph import create_graph
@@ -146,8 +146,14 @@ async def run_agent_for_user(
 
             run_error = False
             result = None
+            tools_used: list[str] = []
             try:
                 result = await graph.ainvoke(AgentState(messages=lc_messages))
+                _seen: set[str] = set()
+                for m in result.get("messages", []):
+                    if isinstance(m, ToolMessage) and m.name and m.name not in _seen:
+                        tools_used.append(m.name)
+                        _seen.add(m.name)
             except Exception:
                 run_error = True
                 raise
@@ -162,7 +168,7 @@ async def run_agent_for_user(
                         metadata: dict[str, object] = {
                             "model": model_name,
                             "provider": provider,
-                            "tools_used": [],
+                            "tools_used": tools_used,
                             "trigger_type": trigger_type,
                         }
                         async with AsyncSessionLocal() as sess:
@@ -179,6 +185,7 @@ async def run_agent_for_user(
                     except Exception:
                         logger.warning("agent_session_update_failed", exc_info=True)
 
+            # result is non-None here: if ainvoke raised, the except above re-raised
             ai_content = str(result["messages"][-1].content)
 
             db.add(

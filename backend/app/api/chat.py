@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
 from sqlalchemy import select, update
@@ -303,8 +303,8 @@ async def chat_stream(  # noqa: C901
             compressed_summary = next(
                 (
                     getattr(m, "content", "")
-                    for m in lc_messages[:2]
-                    if getattr(m, "content", "").startswith("[Context Summary")
+                    for m in lc_messages
+                    if getattr(m, "content", "").startswith("[Conversation summary]")
                 ),
                 None,
             )
@@ -361,6 +361,7 @@ async def chat_stream(  # noqa: C901
                     enabled_tools=llm.enabled_tools,
                     base_url=llm.base_url,
                 )
+                tools_used = ["supervisor"]
                 final_state = await supervisor.ainvoke(
                     SupervisorState(messages=lc_messages)
                 )
@@ -412,7 +413,11 @@ async def chat_stream(  # noqa: C901
                         last_ai_msg = chunk["llm"]["messages"][-1]
                     if "tools" in chunk:
                         for tm in chunk["tools"]["messages"]:
-                            if tm.name and tm.name not in tools_used:
+                            if (
+                                isinstance(tm, ToolMessage)
+                                and tm.name
+                                and (tm.name not in tools_used)
+                            ):
                                 tools_used.append(tm.name)
                     events, full_content = _sse_events_from_chunk(chunk, full_content)
                     for event in events:
@@ -481,10 +486,10 @@ async def chat_stream(  # noqa: C901
                         "model": llm.model_name,
                         "provider": llm.provider,
                         "tools_used": tools_used,
+                        "input_tokens": tokens_meta_in or 0,
+                        "output_tokens": tokens_meta_out or 0,
+                        "trigger_type": "chat",
                     }
-                    if tokens_meta_in or tokens_meta_out:
-                        metadata["input_tokens"] = tokens_meta_in
-                        metadata["output_tokens"] = tokens_meta_out
                     update_values: dict = {
                         "status": session_status,
                         "completed_at": datetime.now(UTC),
