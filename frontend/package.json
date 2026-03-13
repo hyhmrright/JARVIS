@@ -11,7 +11,8 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "format": "prettier --write src",
-    "type-check": "vue-tsc --noEmit"
+    "type-check": "vue-tsc --noEmit",
+    "i18n:check": "bun scripts/check-i18n.ts"
   },
   "dependencies": {
     "@types/marked": "^6.0.0",
