@@ -17,6 +17,7 @@ from app.api.conversations import router as conversations_router
 from app.api.cron import router as cron_router
 from app.api.documents import router as documents_router
 from app.api.gateway import router as gateway_router
+from app.api.invitations import router as invitations_router
 from app.api.keys import router as keys_router
 from app.api.logs import router as logs_router
 from app.api.organizations import router as organizations_router
@@ -167,6 +168,7 @@ app.include_router(webhooks_router)
 app.include_router(keys_router)
 app.include_router(organizations_router)
 app.include_router(workspaces_router)
+app.include_router(invitations_router)
 
 
 @app.get("/health")

@@ -5,9 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
-from app.db.models import Organization, User, Workspace
+from app.db.models import Organization, User, Workspace, WorkspaceMember
 from app.db.session import get_db
 
 logger = structlog.get_logger(__name__)
@@ -115,3 +116,30 @@ async def delete_workspace(
         )
     ws.is_deleted = True
     await db.commit()
+
+
+@router.get("/{ws_id}/members")
+async def list_members(
+    ws_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """List all members of a workspace."""
+    ws = await db.get(Workspace, ws_id)
+    if not ws or ws.is_deleted or ws.organization_id != user.organization_id:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    rows = await db.scalars(
+        select(WorkspaceMember)
+        .where(WorkspaceMember.workspace_id == ws_id)
+        .options(selectinload(WorkspaceMember.user))
+    )
+    return [
+        {
+            "user_id": str(m.user_id),
+            "email": m.user.email if m.user else None,
+            "display_name": m.user.display_name if m.user else None,
+            "role": m.role,
+            "joined_at": m.joined_at.isoformat(),
+        }
+        for m in rows.all()
+    ]

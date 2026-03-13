@@ -553,3 +553,79 @@ class Workspace(Base):
     )
 
     organization: Mapped["Organization"] = relationship(back_populates="workspaces")
+    members: Mapped[list["WorkspaceMember"]] = relationship(
+        "WorkspaceMember",
+        primaryjoin="Workspace.id == WorkspaceMember.workspace_id",
+        cascade="all, delete-orphan",
+    )
+
+
+class WorkspaceMember(Base):
+    __tablename__ = "workspace_members"
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('owner', 'admin', 'member')",
+            name="ck_workspace_members_role",
+        ),
+    )
+
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    role: Mapped[str] = mapped_column(String(20), nullable=False, default="member")
+    joined_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    workspace: Mapped["Workspace"] = relationship("Workspace")
+    user: Mapped["User"] = relationship("User")
+
+
+class Invitation(Base):
+    __tablename__ = "invitations"
+    __table_args__ = (
+        # Invitations only allow admin/member; owner is a separate operation.
+        CheckConstraint(
+            "role IN ('admin', 'member')",
+            name="ck_invitations_role",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    inviter_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    token: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4
+    )
+    role: Mapped[str] = mapped_column(String(20), nullable=False, default="member")
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    workspace: Mapped["Workspace"] = relationship("Workspace")
+    inviter: Mapped["User"] = relationship("User", foreign_keys=[inviter_id])
