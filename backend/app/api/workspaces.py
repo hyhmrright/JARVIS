@@ -8,7 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
-from app.db.models import Organization, User, Workspace, WorkspaceMember
+from app.core.security import decrypt_api_keys, encrypt_api_keys
+from app.db.models import (
+    Organization,
+    User,
+    Workspace,
+    WorkspaceMember,
+    WorkspaceSettings,
+)
 from app.db.session import get_db
 
 logger = structlog.get_logger(__name__)
@@ -143,3 +150,87 @@ async def list_members(
         }
         for m in rows.all()
     ]
+
+
+class WorkspaceSettingsUpdate(BaseModel):
+    model_provider: str | None = Field(default=None, max_length=50)
+    model_name: str | None = Field(default=None, max_length=100)
+    api_keys: dict[str, str | list[str]] | None = None
+
+
+@router.get("/{ws_id}/settings")
+async def get_workspace_settings(
+    ws_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Get LLM settings for a workspace. Membership required."""
+    ws = await db.get(Workspace, ws_id)
+    if not ws or ws.is_deleted or ws.organization_id != user.organization_id:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    membership = await db.scalar(
+        select(WorkspaceMember).where(
+            WorkspaceMember.workspace_id == ws_id,
+            WorkspaceMember.user_id == user.id,
+        )
+    )
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not a member")
+    ws_settings = await db.scalar(
+        select(WorkspaceSettings).where(WorkspaceSettings.workspace_id == ws_id)
+    )
+    if not ws_settings:
+        return {"model_provider": None, "model_name": None, "has_api_key": {}}
+    sj = ws_settings.settings_json
+    raw_keys = decrypt_api_keys(sj.get("api_keys", {}))
+    has_key = {
+        provider: bool(v)
+        for provider, v in raw_keys.items()
+        if v and not provider.startswith("__")
+    }
+    return {
+        "model_provider": sj.get("model_provider"),
+        "model_name": sj.get("model_name"),
+        "has_api_key": has_key,
+    }
+
+
+@router.put("/{ws_id}/settings")
+async def update_workspace_settings(
+    ws_id: uuid.UUID,
+    body: WorkspaceSettingsUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Update LLM settings for a workspace. Admin+ only."""
+    ws = await db.get(Workspace, ws_id)
+    if not ws or ws.is_deleted or ws.organization_id != user.organization_id:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    membership = await db.scalar(
+        select(WorkspaceMember).where(
+            WorkspaceMember.workspace_id == ws_id,
+            WorkspaceMember.user_id == user.id,
+        )
+    )
+    if not membership or membership.role not in ("owner", "admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    ws_settings = await db.scalar(
+        select(WorkspaceSettings).where(WorkspaceSettings.workspace_id == ws_id)
+    )
+    if not ws_settings:
+        ws_settings = WorkspaceSettings(workspace_id=ws_id, settings_json={})
+        db.add(ws_settings)
+
+    sj = dict(ws_settings.settings_json)
+    if body.model_provider is not None:
+        sj["model_provider"] = body.model_provider
+    if body.model_name is not None:
+        sj["model_name"] = body.model_name
+    if body.api_keys is not None:
+        existing = decrypt_api_keys(sj.get("api_keys", {}))
+        existing.update(body.api_keys)
+        sj["api_keys"] = encrypt_api_keys(existing)
+    ws_settings.settings_json = sj
+    await db.commit()
+    return {"status": "ok"}

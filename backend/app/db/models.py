@@ -558,6 +558,11 @@ class Workspace(Base):
         primaryjoin="Workspace.id == WorkspaceMember.workspace_id",
         cascade="all, delete-orphan",
     )
+    settings: Mapped["WorkspaceSettings | None"] = relationship(
+        "WorkspaceSettings",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
 
 class WorkspaceMember(Base):
@@ -629,3 +634,27 @@ class Invitation(Base):
 
     workspace: Mapped["Workspace"] = relationship("Workspace")
     inviter: Mapped["User"] = relationship("User", foreign_keys=[inviter_id])
+
+
+class WorkspaceSettings(Base):
+    __tablename__ = "workspace_settings"
+
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    settings_json: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    workspace: Mapped["Workspace"] = relationship("Workspace")
