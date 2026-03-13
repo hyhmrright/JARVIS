@@ -79,43 +79,44 @@ async def retrieve_context_multi(
     for ws_id in workspace_ids:
         collection_names.append(f"workspace_{ws_id}")
 
-    async def _search_one(collection_name: str) -> list[RetrievedChunk]:
-        try:
-            hits = await client.search(  # type: ignore[attr-defined]
-                collection_name=collection_name,
-                query_vector=query_vec,
-                limit=top_k,
-                score_threshold=score_threshold,
-            )
-            return [
-                RetrievedChunk(
-                    document_name=hit.payload.get("doc_name", "Unknown document"),
-                    content=hit.payload.get("text", ""),
-                    score=hit.score,
-                )
-                for hit in hits
-                if hit.payload
-            ]
-        except UnexpectedResponse as exc:
-            if exc.status_code != 404:
-                logger.warning(
-                    "retriever_qdrant_error",
-                    collection=collection_name,
-                    error=str(exc),
-                )
-            return []
-        except Exception:
-            logger.warning(
-                "retriever_collection_error",
-                collection=collection_name,
-                exc_info=True,
-            )
-            return []
-
     try:
         client = await get_qdrant_client()
         embedder = get_embedder(openai_api_key)
         query_vec = await embedder.aembed_query(query)
+
+        async def _search_one(collection_name: str) -> list[RetrievedChunk]:
+            try:
+                hits = await client.search(  # type: ignore[attr-defined]
+                    collection_name=collection_name,
+                    query_vector=query_vec,
+                    limit=top_k,
+                    score_threshold=score_threshold,
+                )
+                return [
+                    RetrievedChunk(
+                        document_name=hit.payload.get("doc_name", "Unknown document"),
+                        content=hit.payload.get("text", ""),
+                        score=hit.score,
+                    )
+                    for hit in hits
+                    if hit.payload
+                ]
+            except UnexpectedResponse as exc:
+                if exc.status_code != 404:
+                    logger.warning(
+                        "retriever_qdrant_error",
+                        collection=collection_name,
+                        error=str(exc),
+                    )
+                return []
+            except Exception:
+                logger.warning(
+                    "retriever_collection_error",
+                    collection=collection_name,
+                    exc_info=True,
+                )
+                return []
+
         results = await asyncio.gather(*(_search_one(c) for c in collection_names))
         all_chunks: list[RetrievedChunk] = [
             chunk for per_col in results for chunk in per_col

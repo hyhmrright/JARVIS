@@ -19,7 +19,7 @@ from app.agent.persona import build_system_prompt
 from app.agent.router import classify_task
 from app.agent.state import AgentState
 from app.agent.supervisor import SupervisorState, create_supervisor_graph
-from app.api.deps import ResolvedLLMConfig, get_current_user, get_llm_config
+from app.api.deps import get_current_user, get_llm_config
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.metrics import llm_requests_total
@@ -208,6 +208,7 @@ async def _load_tools(enabled_tools: list[str] | None) -> tuple[list, list | Non
 class ChatRequest(BaseModel):
     conversation_id: uuid.UUID
     content: str = Field(max_length=50000)
+    workspace_id: uuid.UUID | None = None
 
 
 @router.post("/stream")
@@ -216,9 +217,9 @@ async def chat_stream(  # noqa: C901
     request: Request,
     body: ChatRequest,
     user: User = Depends(get_current_user),
-    llm: ResolvedLLMConfig = Depends(get_llm_config),
     db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
+    llm = await get_llm_config(user=user, db=db, workspace_id=body.workspace_id)
     user_content = sanitize_user_input(body.content)
     is_consent = user_content.startswith("[CONSENT:")
     approved: bool | None = None
@@ -269,7 +270,10 @@ async def chat_stream(  # noqa: C901
     rag_query = (
         f"{user_content}\n{last_ai_content[:200]}" if last_ai_content else user_content
     )
-    rag_ctx = await build_rag_context(str(user.id), rag_query, openai_key)
+    workspace_ids = [str(body.workspace_id)] if body.workspace_id else None
+    rag_ctx = await build_rag_context(
+        str(user.id), rag_query, openai_key, workspace_ids=workspace_ids
+    )
     if rag_ctx:
         lc_messages = [
             lc_messages[0],

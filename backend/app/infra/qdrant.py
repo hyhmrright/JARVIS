@@ -59,13 +59,11 @@ async def close_qdrant_client() -> None:
         _client = None
 
 
-async def ensure_user_collection(user_id: str) -> None:
-    """确保用户的 Qdrant Collection 存在（幂等、并发安全）。"""
-    collection_name = user_collection_name(user_id)
+async def ensure_collection(collection_name: str) -> None:
+    """确保指定 Qdrant Collection 存在（幂等、并发安全）。"""
     if collection_name in _created_collections:
         return
     async with _collection_lock:
-        # Double-check after acquiring lock
         if collection_name in _created_collections:
             return
         client = await get_qdrant_client()
@@ -79,3 +77,8 @@ async def ensure_user_collection(user_id: str) -> None:
             vectors_config=VectorParams(size=vec_cfg["size"], distance=distance),
         )
         _created_collections.add(collection_name)
+
+
+async def ensure_user_collection(user_id: str) -> None:
+    """确保用户的 Qdrant Collection 存在（幂等、并发安全）。"""
+    await ensure_collection(user_collection_name(user_id))

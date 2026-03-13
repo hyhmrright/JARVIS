@@ -51,9 +51,12 @@ class User(Base):
         onupdate=func.now(),
         nullable=False,
     )
-    # FK added by migration 015 (column pre-exists without FK constraint)
+    # FK constraint added by migration 015 (column pre-existed without it)
     organization_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), nullable=True, index=True
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
 
     settings: Mapped["UserSettings"] = relationship(

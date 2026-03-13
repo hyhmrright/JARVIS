@@ -206,7 +206,9 @@ async function invite() {
       inviteEmail.value,
       inviteRole.value
     );
-    inviteLink.value = result.invite_url ?? null;
+    inviteLink.value = result.token
+      ? `${window.location.origin}/invite/${result.token}`
+      : null;
     inviteEmail.value = "";
     inviteRole.value = "member";
     await loadMembers(selectedWsId.value);

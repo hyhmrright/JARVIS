@@ -3,7 +3,7 @@ import uuid
 from qdrant_client.models import PointStruct
 
 from app.infra.qdrant import (
-    ensure_user_collection,
+    ensure_collection,
     get_qdrant_client,
     user_collection_name,
 )
@@ -12,12 +12,20 @@ from app.rag.embedder import get_embedder
 
 
 async def index_document(
-    user_id: str, doc_id: str, text: str, api_key: str, doc_name: str = ""
+    user_id: str,
+    doc_id: str,
+    text: str,
+    api_key: str,
+    doc_name: str = "",
+    collection_name: str | None = None,
 ) -> int:
-    """将文档切片、向量化并写入 Qdrant。返回切片数量。"""
-    await ensure_user_collection(user_id)
+    """将文档切片、向量化并写入 Qdrant。返回切片数量。
+
+    collection_name 为 None 时写入用户个人 collection。
+    """
+    collection = collection_name or user_collection_name(user_id)
+    await ensure_collection(collection)
     client = await get_qdrant_client()
-    collection = user_collection_name(user_id)
 
     chunks = chunk_text(text)
     embedder = get_embedder(api_key)

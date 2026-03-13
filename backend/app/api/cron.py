@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.core.config import settings
 from app.core.security import fernet_encrypt
-from app.db.models import CronJob, JobExecution, User, Workspace
+from app.db.models import CronJob, JobExecution, User, Workspace, WorkspaceMember
 from app.db.session import get_db
 from app.gateway.agent_runner import run_agent_for_user
 from app.scheduler.runner import register_cron_job, unregister_cron_job
@@ -90,7 +90,7 @@ async def list_cron_jobs(
 
 
 @router.post("")
-async def create_cron_job(
+async def create_cron_job(  # noqa: C901
     data: CronJobCreate,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -146,6 +146,14 @@ async def create_cron_job(
         ws = await db.get(Workspace, data.workspace_id)
         if not ws or ws.is_deleted or ws.organization_id != user.organization_id:
             raise HTTPException(status_code=404, detail="Workspace not found")
+        membership = await db.scalar(
+            select(WorkspaceMember).where(
+                WorkspaceMember.workspace_id == data.workspace_id,
+                WorkspaceMember.user_id == user.id,
+            )
+        )
+        if not membership:
+            raise HTTPException(status_code=403, detail="Not a workspace member")
         job.workspace_id = data.workspace_id
     db.add(job)
     await db.commit()
