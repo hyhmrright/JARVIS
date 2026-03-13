@@ -227,8 +227,19 @@
                 @keydown.enter="handleEnter"
               ></textarea>
               
+              <!-- Stop button during streaming -->
               <button
-                :disabled="!input.trim() || chat.streaming"
+                v-if="chat.streaming"
+                class="p-2.5 bg-zinc-800 text-white rounded-lg transition-all active:scale-95 hover:bg-zinc-700"
+                :title="$t('chat.stopGenerating')"
+                @click="chat.cancelStream()"
+              >
+                <Square class="w-4 h-4" />
+              </button>
+              <!-- Send button otherwise -->
+              <button
+                v-else
+                :disabled="!input.trim()"
                 class="p-2.5 bg-white text-black rounded-lg disabled:opacity-10 transition-all active:scale-95"
                 @click="handleSend"
               >
@@ -267,10 +278,10 @@ import { marked } from "marked";
 import hljs from "highlight.js";
 import "highlight.js/styles/github-dark.css";
 
-import { 
-  Trash2, Zap, Settings, LogOut, 
+import {
+  Trash2, Zap, Settings, LogOut,
   PanelLeft, SquarePen, Copy, RotateCcw,
-  Mic, ArrowUp, ShieldAlert, Share2, MessageSquare,
+  Mic, ArrowUp, Square, ShieldAlert, Share2, MessageSquare,
   Volume2, Layout
 } from "lucide-vue-next";
 

@@ -48,7 +48,8 @@
     "streamError": "Failed to send message, please try again",
     "toolResult": "Tool Result",
     "toolRunning": "Running...",
-    "usage": "Usage"
+    "usage": "Usage",
+    "stopGenerating": "Stop generating"
   },
   "usage": {
     "title": "Usage Statistics",

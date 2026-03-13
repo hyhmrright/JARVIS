@@ -333,6 +333,7 @@ async def chat_stream(  # noqa: C901
         last_ai_msg = None
         stream_completed = False
         stream_error = False
+        disconnected = False
 
         try:
             if route == "complex":
@@ -372,6 +373,9 @@ async def chat_stream(  # noqa: C901
                             if is_last:
                                 sse_event["content"] = full_content
                             yield _format_sse(sse_event)
+                            if await request.is_disconnected():
+                                disconnected = True
+                                break
                             if not is_last:
                                 await asyncio.sleep(0)
             else:
@@ -398,7 +402,10 @@ async def chat_stream(  # noqa: C901
                     events, full_content = _sse_events_from_chunk(chunk, full_content)
                     for event in events:
                         yield event
-            stream_completed = True
+                    if await request.is_disconnected():
+                        disconnected = True
+                        break
+            stream_completed = not disconnected
         except Exception:
             stream_error = True
             logger.exception("chat_stream_error", conv_id=str(conv_id))

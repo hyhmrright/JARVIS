@@ -25,6 +25,7 @@ export const useChatStore = defineStore("chat", {
     messages: [] as Message[],
     streaming: false,
     routingAgent: null as string | null,
+    abortController: null as AbortController | null,
   }),
   actions: {
     async loadConversations() {
@@ -62,6 +63,12 @@ export const useChatStore = defineStore("chat", {
       }
     },
 
+    cancelStream() {
+      if (this.abortController) {
+        this.abortController.abort();
+      }
+    },
+
     async handleConsent(approved: boolean) {
       const lastAiMsg = this.messages[this.messages.length - 1];
       if (!lastAiMsg || !lastAiMsg.pending_tool_call) return;
@@ -90,10 +97,13 @@ export const useChatStore = defineStore("chat", {
       try {
         const auth = useAuthStore();
         const token = auth.token;
+        const controller = new AbortController();
+        this.abortController = controller;
         const resp = await fetch("/api/chat/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ conversation_id: this.currentConvId, content }),
+          signal: controller.signal,
         });
 
         if (!resp.ok) {
@@ -174,12 +184,17 @@ export const useChatStore = defineStore("chat", {
           }
         }
       } catch (err: any) {
+        if (err.name === "AbortError") {
+          // User intentionally cancelled — do not show error toast
+          return;
+        }
         const aiMsg = this.messages[this.messages.length - 1];
         if (aiMsg?.role === "ai") {
           aiMsg.content = `> **System Warning**: Failed to communicate with the model.\n> \`${err.message}\`\n\nPlease check your configuration in **Settings** (e.g., ensure API keys are correctly filled) and try again.`;
         }
         console.error("[chat] streaming error:", err);
       } finally {
+        this.abortController = null;
         this.streaming = false;
         this.routingAgent = null;
       }
