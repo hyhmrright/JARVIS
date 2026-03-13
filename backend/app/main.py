@@ -99,7 +99,33 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await load_all_plugins(plugin_registry)
     await activate_all_plugins(plugin_registry)
     await start_scheduler()
+
+    from app.core.metrics import arq_queue_depth as _arq_queue_depth
+
+    async def _poll_arq_queue_depth() -> None:
+        """Background task: update ARQ queue depth gauge every 30s."""
+        from arq import create_pool
+        from arq.connections import RedisSettings as _RedisSettings
+
+        pool = await create_pool(_RedisSettings.from_dsn(settings.redis_url))
+        try:
+            while True:
+                try:
+                    depth = await pool.zcard("arq:queue")
+                    _arq_queue_depth.set(depth)
+                except Exception:
+                    logger.warning("arq_queue_depth_poll_failed", exc_info=True)
+                await asyncio.sleep(30)
+        finally:
+            await pool.aclose()
+
+    _poller_task = asyncio.create_task(_poll_arq_queue_depth())
     yield
+    _poller_task.cancel()
+    try:
+        await _poller_task
+    except asyncio.CancelledError:
+        pass
     await stop_scheduler()
     await channel_registry.stop_all()
     await deactivate_all_plugins(plugin_registry)

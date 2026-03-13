@@ -45,6 +45,7 @@ dependencies = [
     "twilio>=9.10.2",
     "langchain-ollama>=1.0.1",
     "arq>=0.25",
+    "prometheus-client>=0.24.1",
 ]
 
 [dependency-groups]

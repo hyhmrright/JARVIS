@@ -22,6 +22,7 @@ from app.agent.supervisor import SupervisorState, create_supervisor_graph
 from app.api.deps import ResolvedLLMConfig, get_current_user, get_llm_config
 from app.core.config import settings
 from app.core.limiter import limiter
+from app.core.metrics import llm_requests_total
 from app.core.sanitizer import sanitize_user_input
 from app.core.security import resolve_api_key
 from app.db.models import AgentSession, Conversation, Message, User
@@ -506,6 +507,10 @@ async def chat_stream(  # noqa: C901
                             )
                 except Exception:
                     logger.warning("agent_session_update_failed", exc_info=True)
+            llm_status = "error" if stream_error else "success"
+            llm_requests_total.labels(
+                provider=llm.provider, model=llm.model_name, status=llm_status
+            ).inc()
             if new_title:
                 yield _format_sse({"type": "title_updated", "title": new_title})
 

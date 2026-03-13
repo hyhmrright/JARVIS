@@ -11,6 +11,7 @@ from sqlalchemy import delete, update
 from sqlalchemy.engine import CursorResult
 
 from app.core.config import settings
+from app.core.metrics import cron_executions_total
 from app.db.models import CronJob, JobExecution, Webhook, WebhookDelivery
 from app.db.session import AsyncSessionLocal
 from app.gateway.agent_runner import run_agent_for_user
@@ -62,8 +63,10 @@ async def execute_cron_job(ctx: dict, *, job_id: str, run_group_id: str) -> None
                     trigger_ctx=result.trigger_ctx,
                 )
                 agent_result = (agent_result or "")[:2000]
+                cron_executions_total.labels(status="fired").inc()
             else:
                 status = "skipped"
+                cron_executions_total.labels(status="skipped").inc()
 
             # Capture duration AFTER agent call so it includes agent execution time
             duration_ms = int((time.monotonic() - start_ms) * 1000)
@@ -95,6 +98,7 @@ async def execute_cron_job(ctx: dict, *, job_id: str, run_group_id: str) -> None
         duration_ms = int((time.monotonic() - start_ms) * 1000)
         error_msg = str(exc)
         logger.exception("cron_job_execution_failed", job_id=job_id, error=error_msg)
+        cron_executions_total.labels(status="error").inc()
 
         # Write error record
         try:

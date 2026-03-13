@@ -1,7 +1,10 @@
 """Shared RAG context helper for use in any agent execution path."""
 
+import time
+
 import structlog
 
+from app.core.metrics import rag_retrieval_duration_seconds
 from app.rag import retriever as _retriever
 from app.rag.retriever import RetrievedChunk
 
@@ -20,6 +23,7 @@ async def build_rag_context(
     """
     if not openai_key:
         return ""
+    _t0 = time.monotonic()
     try:
         chunks = await _retriever.retrieve_context(query, user_id, openai_key)
         if not chunks:
@@ -33,6 +37,8 @@ async def build_rag_context(
     except Exception:
         logger.warning("rag_context_build_failed", exc_info=True)
         return ""
+    finally:
+        rag_retrieval_duration_seconds.observe(time.monotonic() - _t0)
 
 
 def _format_chunks(chunks: list[RetrievedChunk]) -> str:

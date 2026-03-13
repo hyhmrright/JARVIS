@@ -1,0 +1,127 @@
+# Grafana provisioning — alerting rules for JARVIS
+# Grafana 10+ unified alerting format
+apiVersion: 1
+
+groups:
+  - name: jarvis
+    folder: JARVIS Alerts
+    interval: 1m
+    rules:
+
+      - uid: jarvis-arq-queue-depth-high
+        title: ARQ Queue Depth High
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            model:
+              expr: jarvis_arq_queue_depth
+              intervalMs: 60000
+              maxDataPoints: 43200
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              conditions:
+                - evaluator:
+                    params: [50]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+        noDataState: NoData
+        execErrState: Alerting
+        for: 5m
+        annotations:
+          summary: "ARQ job queue depth is {{ $value }} (threshold: 50)"
+          description: "The ARQ Redis queue has been above 50 jobs for 5+ minutes. Check worker health and Redis connectivity."
+        labels:
+          severity: warning
+          team: jarvis
+
+      - uid: jarvis-cron-failure-rate-high
+        title: Cron Job Failure Rate High
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            model:
+              expr: >
+                rate(jarvis_cron_executions_total{status="error"}[1h])
+                /
+                (rate(jarvis_cron_executions_total[1h]) + 1e-9)
+              intervalMs: 60000
+              maxDataPoints: 43200
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              conditions:
+                - evaluator:
+                    params: [0.2]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+        noDataState: NoData
+        execErrState: Alerting
+        for: 0s
+        annotations:
+          summary: "Cron failure rate is {{ $value | humanizePercentage }} over the last hour"
+          description: "More than 20% of cron job executions are failing. Check worker logs and trigger configurations."
+        labels:
+          severity: critical
+          team: jarvis
+
+      - uid: jarvis-api-p99-latency-high
+        title: API P99 Latency High
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            model:
+              expr: >
+                histogram_quantile(
+                  0.99,
+                  rate(http_request_duration_seconds_bucket{job="backend"}[5m])
+                )
+              intervalMs: 60000
+              maxDataPoints: 43200
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              conditions:
+                - evaluator:
+                    params: [5.0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    params: []
+                    type: last
+        noDataState: NoData
+        execErrState: Alerting
+        for: 5m
+        annotations:
+          summary: "API P99 latency is {{ $value }}s (threshold: 5s)"
+          description: "The 99th percentile API response time has been above 5 seconds for 5+ minutes."
+        labels:
+          severity: warning
+          team: jarvis
