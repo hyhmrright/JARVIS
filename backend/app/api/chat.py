@@ -209,6 +209,7 @@ class ChatRequest(BaseModel):
     conversation_id: uuid.UUID
     content: str = Field(max_length=50000)
     workspace_id: uuid.UUID | None = None
+    parent_message_id: uuid.UUID | None = None
 
 
 @router.post("/stream")
@@ -235,16 +236,42 @@ async def chat_stream(  # noqa: C901
     if not conv:
         raise HTTPException(status_code=404)
 
+    human_msg_id = None
     if not is_consent:
-        db.add(Message(conversation_id=conv.id, role="human", content=user_content))
+        human_msg = Message(
+            conversation_id=conv.id, 
+            role="human", 
+            content=user_content,
+            parent_id=body.parent_message_id
+        )
+        db.add(human_msg)
         await db.commit()
+        await db.refresh(human_msg)
+        human_msg_id = human_msg.id
 
     history_rows = await db.scalars(
         select(Message)
         .where(Message.conversation_id == conv.id)
         .order_by(Message.created_at)
     )
-    all_history = history_rows.all()
+    all_conv_messages = history_rows.all()
+    
+    # Build tree
+    msg_dict = {msg.id: msg for msg in all_conv_messages}
+    all_history = []
+    
+    current_id = human_msg_id if not is_consent else body.parent_message_id
+    # If this is the first message and parent_id is not provided, current_id might be None if consent? 
+    # Actually if consent, we rely on parent_message_id or just find the latest.
+    if not current_id and all_conv_messages:
+        # Fallback to the latest message if parent_id is missing
+        current_id = all_conv_messages[-1].id
+        
+    while current_id and current_id in msg_dict:
+        all_history.append(msg_dict[current_id])
+        current_id = msg_dict[current_id].parent_id
+        
+    all_history.reverse()
     lc_messages = []
     for msg in all_history:
         message_class = _ROLE_TO_MESSAGE.get(msg.role)
@@ -464,6 +491,7 @@ async def chat_stream(  # noqa: C901
                                     model_name=llm.model_name,
                                     tokens_input=tokens_in,
                                     tokens_output=tokens_out,
+                                    parent_id=human_msg_id if not is_consent else body.parent_message_id
                                 )
                             )
                             if new_title:

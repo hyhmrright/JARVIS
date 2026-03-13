@@ -76,3 +76,25 @@ async def test_load_tools_neither_when_no_relevant_tool():
     assert mcp_tools == []
     assert plugin_tools is None
     mock_registry.get_all_tools.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_sets_parent_id(auth_client, db_session):
+    resp_conv = await auth_client.post("/api/conversations", json={"title": "Test"})
+    assert resp_conv.status_code == 201
+    conv_id = resp_conv.json()["id"]
+
+    first_payload = {
+        "conversation_id": conv_id,
+        "content": "First message"
+    }
+    resp1 = await auth_client.post("/api/chat/stream", json=first_payload)
+    assert resp1.status_code == 200
+
+    second_payload = {
+        "conversation_id": conv_id,
+        "content": "Second message",
+        "parent_message_id": None
+    }
+    resp2 = await auth_client.post("/api/chat/stream", json=second_payload)
+    assert resp2.status_code == 200
