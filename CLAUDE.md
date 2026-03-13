@@ -350,7 +350,7 @@ Were files modified in this session?
 
 | Tool | Type | Invocation | Model | Timing |
 |------|------|-----------|-------|--------|
-| code-simplifier | Task agent | `Task` tool, `subagent_type: "code-simplifier:code-simplifier"`, `model: "haiku"` | **haiku** | Before commit |
+| simplify | Skill | `/simplify` | haiku (3 parallel agents) | Before commit |
 | Pre-push code review | Task agent | `Task` tool, `subagent_type: "superpowers:code-reviewer"`, `model: "sonnet"` | **sonnet** | After commit, before push |
 | PR code review | Skill | `Skill: code-review:code-review --comment` | session default | After push (optional, user request) |
 
@@ -381,9 +381,10 @@ Write code / Modify files
 ╔══════════════════ Quality Loop (repeat until no issues) ═════════════════╗
 ║ 质量循环（重复直到无问题）                                                ║
 ║                                                                          ║
-║  A. [REQUIRED] Task: code-simplifier (model: "haiku")                    ║
-║     【必须】Task: code-simplifier（model: "haiku"）                       ║
-║     (Task agent, directly modifies files / Task agent，会直接修改文件)   ║
+║  A. [REQUIRED] Skill: /simplify                                          ║
+║     【必须】Skill: /simplify                                              ║
+║     (3 parallel agents: reuse / quality / efficiency, fixes in place)    ║
+║     （3 个并发 agent：复用/质量/效率，直接修改文件）                      ║
 ║          ↓                                                               ║
 ║  B. git add + commit                                                     ║
 ║     First entry → git commit                                             ║
@@ -453,7 +454,7 @@ The following reasons **must not** be used to skip the workflow:
 
 | Step / 步骤 | Completion Indicator / 完成标志 |
 |------------|-------------------------------|
-| A. code-simplifier | Task agent has run, files organized / Task agent 已运行，文件已整理 |
+| A. /simplify | Skill has run, 3-agent review complete, files fixed / Skill 已运行，三项审查完成，文件已修复 |
 | B. git add + commit/amend | All changes (including simplifier modifications) committed / 所有改动（含 simplifier 修改）已提交 |
 | C. superpowers:code-reviewer | Review found no issues, or all issues fixed in next iteration / review 无问题，或所有问题已在下一圈修复 |
 
