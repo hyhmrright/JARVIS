@@ -99,31 +99,31 @@ export const useChatStore = defineStore("chat", {
         const token = auth.token;
         const controller = new AbortController();
         this.abortController = controller;
-        const resp = await fetch("/api/chat/stream", {
+        const response = await fetch("/api/chat/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ conversation_id: this.currentConvId, content }),
           signal: controller.signal,
         });
 
-        if (!resp.ok) {
-          let detail = `HTTP ${resp.status}`;
-          const errorText = await resp.text().catch(() => "");
+        if (!response.ok) {
+          let errorDetail = `HTTP ${response.status}`;
+          const errorText = await response.text().catch(() => "");
           if (errorText) {
             try {
               const parsed = JSON.parse(errorText);
-              detail = typeof parsed.detail === "string"
+              errorDetail = typeof parsed.detail === "string"
                 ? parsed.detail
                 : JSON.stringify(parsed.detail);
             } catch {
-              detail = errorText;
+              errorDetail = errorText;
             }
           }
-          throw new Error(detail);
+          throw new Error(errorDetail);
         }
-        if (!resp.body) throw new Error("No response body");
+        if (!response.body) throw new Error("No response body");
 
-        const reader = resp.body.getReader();
+        const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
 
@@ -163,19 +163,17 @@ export const useChatStore = defineStore("chat", {
                     status: "running",
                   });
                 } else if (data.type === "tool_end") {
-                  const tc = aiMsg.toolCalls?.find(
+                  const toolCall = aiMsg.toolCalls?.find(
                     (t: ToolCall) => t.name === data.tool && t.status === "running"
                   );
-                  if (tc) {
-                    tc.status = "done";
-                    tc.result = data.result_preview;
+                  if (toolCall) {
+                    toolCall.status = "done";
+                    toolCall.result = data.result_preview;
                   }
-                } else {
-                  if (data.delta) {
-                    aiMsg.content += data.delta;
-                  } else if (data.content) {
-                    aiMsg.content = data.content;
-                  }
+                } else if (data.delta) {
+                  aiMsg.content += data.delta;
+                } else if (data.content) {
+                  aiMsg.content = data.content;
                 }
               } catch {
                 // Ignore SSE parse errors

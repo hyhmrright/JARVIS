@@ -198,7 +198,7 @@
 
         <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-zinc-800 bg-zinc-950/50">
           <button class="px-5 py-2.5 text-xs font-bold text-zinc-400 hover:text-zinc-200 transition-colors" @click="closeModal()">{{ $t('common.cancel') }}</button>
-          <button class="px-5 py-2.5 bg-white text-black text-xs font-bold rounded-lg hover:bg-zinc-200 transition-colors" @click="saveJob">{{ $t('common.confirm') }}</button>
+          <button :disabled="!newJob.task.trim()" class="px-5 py-2.5 bg-white text-black text-xs font-bold rounded-lg hover:bg-zinc-200 transition-colors disabled:opacity-40" @click="saveJob">{{ $t('common.confirm') }}</button>
         </div>
       </div>
     </div>

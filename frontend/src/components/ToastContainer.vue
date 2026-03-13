@@ -6,9 +6,7 @@
         :key="toast.id"
         :class="[
           'px-4 py-3 rounded-lg text-sm font-medium shadow-lg pointer-events-auto max-w-xs',
-          toast.type === 'success' ? 'bg-emerald-900/90 text-emerald-200 border border-emerald-800' :
-          toast.type === 'error' ? 'bg-red-900/90 text-red-200 border border-red-800' :
-          'bg-zinc-800/90 text-zinc-200 border border-zinc-700'
+          getToastClass(toast.type)
         ]"
       >
         {{ toast.message }}
@@ -18,8 +16,19 @@
 </template>
 
 <script setup lang="ts">
-import { useToast } from '@/composables/useToast'
-const { toasts } = useToast()
+import { useToast, type Toast } from '@/composables/useToast';
+
+const { toasts } = useToast();
+
+function getToastClass(type: Toast['type']): string {
+  if (type === 'success') {
+    return 'bg-emerald-900/90 text-emerald-200 border border-emerald-800';
+  }
+  if (type === 'error') {
+    return 'bg-red-900/90 text-red-200 border border-red-800';
+  }
+  return 'bg-zinc-800/90 text-zinc-200 border border-zinc-700';
+}
 </script>
 
 <style scoped>

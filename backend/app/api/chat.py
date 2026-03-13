@@ -333,7 +333,7 @@ async def chat_stream(  # noqa: C901
         last_ai_msg = None
         stream_completed = False
         stream_error = False
-        disconnected = False
+        is_disconnected = False
 
         try:
             if route == "complex":
@@ -368,15 +368,15 @@ async def chat_stream(  # noqa: C901
                         total = len(full_content)
                         for i in range(0, total, chunk_size):
                             piece = full_content[i : i + chunk_size]
-                            is_last = i + chunk_size >= total
+                            is_last_chunk = i + chunk_size >= total
                             sse_event: dict = {"type": "delta", "delta": piece}
-                            if is_last:
+                            if is_last_chunk:
                                 sse_event["content"] = full_content
                             yield _format_sse(sse_event)
                             if await request.is_disconnected():
-                                disconnected = True
+                                is_disconnected = True
                                 break
-                            if not is_last:
+                            if not is_last_chunk:
                                 await asyncio.sleep(0)
             else:
                 # Expert or standard ReAct — all use streaming AgentState graphs
@@ -403,9 +403,9 @@ async def chat_stream(  # noqa: C901
                     for event in events:
                         yield event
                     if await request.is_disconnected():
-                        disconnected = True
+                        is_disconnected = True
                         break
-            stream_completed = not disconnected
+            stream_completed = not is_disconnected
         except Exception:
             stream_error = True
             logger.exception("chat_stream_error", conv_id=str(conv_id))

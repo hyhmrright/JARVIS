@@ -322,19 +322,25 @@ const handleCanvasSubmit = async (values: any) => {
 const currentAudio = ref<HTMLAudioElement | null>(null);
 const isPlayingTTS = ref<string | null>(null);
 
-const playTTS = async (text: string) => {
+const playTTS = async function(text: string): Promise<void> {
+  // If the same text is already playing, toggle pause
   if (isPlayingTTS.value === text && currentAudio.value) {
     currentAudio.value.pause();
     isPlayingTTS.value = null;
     return;
-  } else if (currentAudio.value) {
+  }
+
+  // Stop currently playing audio
+  if (currentAudio.value) {
     currentAudio.value.pause();
   }
-  
+
   try {
     isPlayingTTS.value = text;
-    // Strip markdown formatting approximately
-    const cleanText = text.replace(/<[^>]*>?/gm, '').replace(/[*#_`~[\]()]/g, '');
+    const cleanText = text
+      .replace(/<[^>]*>?/gm, '')
+      .replace(/[*#_`~[\]()]/g, '');
+
     const response = await client.post('/tts/synthesize', {
       text: cleanText.substring(0, 5000),
       voice: "zh-CN-XiaoxiaoNeural",
@@ -342,16 +348,16 @@ const playTTS = async (text: string) => {
     }, {
       responseType: 'blob'
     });
-    
+
     const audioUrl = URL.createObjectURL(response.data);
     const audio = new Audio(audioUrl);
     currentAudio.value = audio;
-    
+
     audio.onended = () => {
       isPlayingTTS.value = null;
       URL.revokeObjectURL(audioUrl);
     };
-    
+
     await audio.play();
   } catch (error) {
     console.error("TTS failed", error);
@@ -395,36 +401,48 @@ const hasCanvasData = (text: string) => {
 };
 const currentConvTitle = computed(() => chat.conversations.find((conv) => conv.id === chat.currentConvId)?.title || "Intelligence Terminal");
 
-const handleSend = async () => {
+const handleSend = async function(): Promise<void> {
   if (!input.value.trim() || chat.streaming) return;
   const msg = input.value;
   input.value = "";
   await chat.sendMessage(msg);
 };
 
-const handleEnter = (e: KeyboardEvent) => {
-  // If IME is composing (e.g. typing Chinese), do nothing
-  if (e.isComposing) return;
-  
-  // If Shift is pressed, let it act as a newline
-  if (e.shiftKey) return;
-  
-  // Otherwise, prevent default newline and send
+const handleEnter = function(e: KeyboardEvent): void {
+  // IME composition or Shift+Enter → allow newline
+  if (e.isComposing || e.shiftKey) return;
+
+  // Otherwise, send the message
   e.preventDefault();
   handleSend();
 };
 
-const copyText = (text: string) => { navigator.clipboard.writeText(text); };
-const regenerate = async (idx: number) => {
-  const prevHuman = chat.messages.slice(0, idx).reverse().find(m => m.role === 'human');
-  if (prevHuman) await chat.sendMessage(prevHuman.content);
+const copyText = function(text: string): void {
+  navigator.clipboard.writeText(text);
 };
 
-const handleLogout = () => { auth.logout(); router.push("/login"); };
+const regenerate = async function(idx: number): Promise<void> {
+  const prevHuman = chat.messages.slice(0, idx)
+    .reverse()
+    .find(m => m.role === 'human');
+  if (prevHuman) {
+    await chat.sendMessage(prevHuman.content);
+  }
+};
 
-const scrollToBottom = async () => {
+const handleLogout = function(): void {
+  auth.logout();
+  router.push("/login");
+};
+
+const scrollToBottom = async function(): Promise<void> {
   await nextTick();
-  if (messagesEl.value) messagesEl.value.scrollTo({ top: messagesEl.value.scrollHeight, behavior: "smooth" });
+  if (messagesEl.value) {
+    messagesEl.value.scrollTo({
+      top: messagesEl.value.scrollHeight,
+      behavior: "smooth"
+    });
+  }
 };
 
 watch(() => chat.messages.length, scrollToBottom);

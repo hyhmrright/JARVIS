@@ -34,8 +34,15 @@ _SCHEMA_MAP: dict[str, type[BaseModel]] = {
 def validate_trigger_metadata(trigger_type: str, metadata: dict) -> BaseModel | None:
     """Validate metadata dict against the schema for trigger_type.
 
-    Returns the validated model, or None for types with no schema.
-    Raises ValidationError on invalid metadata.
+    Args:
+        trigger_type: The trigger type identifier (e.g., 'web_watcher', 'email').
+        metadata: Dictionary containing trigger metadata to validate.
+
+    Returns:
+        The validated Pydantic model, or None if trigger_type has no schema.
+
+    Raises:
+        ValidationError: If metadata does not match the schema.
     """
     schema = _SCHEMA_MAP.get(trigger_type)
     if schema is None:
