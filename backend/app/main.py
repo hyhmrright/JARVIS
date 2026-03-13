@@ -19,12 +19,14 @@ from app.api.documents import router as documents_router
 from app.api.gateway import router as gateway_router
 from app.api.keys import router as keys_router
 from app.api.logs import router as logs_router
+from app.api.organizations import router as organizations_router
 from app.api.plugins import router as plugins_router
 from app.api.settings import router as settings_router
 from app.api.tts import router as tts_router
 from app.api.usage import router as usage_router
 from app.api.voice import router as voice_router
 from app.api.webhooks import router as webhooks_router
+from app.api.workspaces import router as workspaces_router
 from app.channels.discord import DiscordChannel
 from app.channels.feishu import FeishuChannel
 from app.channels.slack import SlackChannel
@@ -163,6 +165,8 @@ app.include_router(voice_router)
 app.include_router(usage_router)
 app.include_router(webhooks_router)
 app.include_router(keys_router)
+app.include_router(organizations_router)
+app.include_router(workspaces_router)
 
 
 @app.get("/health")

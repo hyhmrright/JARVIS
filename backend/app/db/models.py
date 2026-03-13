@@ -51,6 +51,7 @@ class User(Base):
         onupdate=func.now(),
         nullable=False,
     )
+    # FK added by migration 015 (column pre-exists without FK constraint)
     organization_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True, index=True
     )
@@ -66,6 +67,12 @@ class User(Base):
     )
     api_keys: Mapped[list["ApiKey"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
+    )
+    organization: Mapped["Organization | None"] = relationship(
+        "Organization",
+        primaryjoin="User.organization_id == Organization.id",
+        foreign_keys="User.organization_id",
+        uselist=False,
     )
 
 
@@ -515,6 +522,11 @@ class Organization(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
+    owner: Mapped["User"] = relationship("User", foreign_keys=[owner_id])
+    workspaces: Mapped[list["Workspace"]] = relationship(
+        back_populates="organization", cascade="all, delete-orphan"
+    )
+
 
 class Workspace(Base):
     __tablename__ = "workspaces"
@@ -529,6 +541,15 @@ class Workspace(Base):
         nullable=False,
         index=True,
     )
+    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+    organization: Mapped["Organization"] = relationship(back_populates="workspaces")
