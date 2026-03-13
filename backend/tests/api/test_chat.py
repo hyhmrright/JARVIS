@@ -90,6 +90,8 @@ async def test_chat_stream_sets_parent_id(auth_client, db_session):
     }
     resp1 = await auth_client.post("/api/chat/stream", json=first_payload)
     assert resp1.status_code == 200
+    async for _ in resp1.aiter_text():
+        pass
 
     second_payload = {
         "conversation_id": conv_id,
@@ -98,6 +100,8 @@ async def test_chat_stream_sets_parent_id(auth_client, db_session):
     }
     resp2 = await auth_client.post("/api/chat/stream", json=second_payload)
     assert resp2.status_code == 200
+    async for _ in resp2.aiter_text():
+        pass
 
 
 @pytest.mark.asyncio
@@ -118,6 +122,8 @@ async def test_chat_regenerate(auth_client, db_session):
 
     resp2 = await auth_client.post("/api/chat/regenerate", json={"conversation_id": conv_id, "message_id": str(msg_ai.id)})
     assert resp2.status_code == 200
+    async for _ in resp2.aiter_text():
+        pass
 
 
 def test_websocket_chat():

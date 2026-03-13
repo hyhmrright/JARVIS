@@ -42,7 +42,7 @@ def disable_rate_limiting():
 
 
 @pytest.fixture(autouse=True)
-def _suppress_auth_audit_logging():
+async def _suppress_auth_audit_logging():
     """Mock audit logging in auth endpoints to prevent cross-event-loop pool issues.
 
     Each async test gets its own event loop. log_action() acquires connections from
@@ -56,7 +56,7 @@ def _suppress_auth_audit_logging():
 
 
 @pytest.fixture(autouse=True)
-def _suppress_pat_last_used_update():
+async def _suppress_pat_last_used_update():
     """Mock AsyncSessionLocal in deps to prevent cross-event-loop pool contamination.
 
     _resolve_pat() uses AsyncSessionLocal (now imported at module level in deps.py)
@@ -148,3 +148,16 @@ async def auth_headers(client) -> dict:
     """返回已认证用户的 Authorization 请求头。"""
     token = await _register_test_user(client)
     return {"Authorization": f"Bearer {token}"}
+
+@pytest.fixture(autouse=True)
+async def _suppress_chat_async_session():
+    mock_session = MagicMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+    mock_session.begin = MagicMock(return_value=mock_session)
+    mock_session.scalar = AsyncMock(return_value=None)
+    mock_session.execute = AsyncMock(return_value=None)
+    mock_session.add = MagicMock()
+    mock_session.flush = AsyncMock()
+    with patch("app.api.chat.AsyncSessionLocal", return_value=mock_session):
+        yield
