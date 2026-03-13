@@ -168,7 +168,7 @@ const inviteEmail = ref("");
 const inviteRole = ref("member");
 const inviteLink = ref<string | null>(null);
 
-async function createOrg() {
+async function createOrg(): Promise<void> {
   try {
     await workspace.createOrganization(orgName.value, orgSlug.value);
     orgName.value = "";
@@ -179,7 +179,7 @@ async function createOrg() {
   }
 }
 
-async function createWs() {
+async function createWs(): Promise<void> {
   if (!newWsName.value.trim()) return;
   try {
     await workspace.createWorkspace(newWsName.value.trim());
@@ -190,7 +190,7 @@ async function createWs() {
   }
 }
 
-async function loadMembers(wsId: string) {
+async function loadMembers(wsId: string): Promise<void> {
   try {
     await workspace.fetchMembers(wsId);
   } catch (err: unknown) {
@@ -198,7 +198,7 @@ async function loadMembers(wsId: string) {
   }
 }
 
-async function invite() {
+async function invite(): Promise<void> {
   if (!selectedWsId.value) return;
   try {
     const result = await workspace.inviteMember(
@@ -217,7 +217,7 @@ async function invite() {
   }
 }
 
-async function changeRole(userId: string, role: string) {
+async function changeRole(userId: string, role: string): Promise<void> {
   if (!selectedWsId.value) return;
   try {
     await workspace.updateMemberRole(selectedWsId.value, userId, role);
@@ -226,7 +226,7 @@ async function changeRole(userId: string, role: string) {
   }
 }
 
-async function removeMember(userId: string) {
+async function removeMember(userId: string): Promise<void> {
   if (!selectedWsId.value) return;
   if (!confirm(t("workspace.removeConfirm"))) return;
   try {

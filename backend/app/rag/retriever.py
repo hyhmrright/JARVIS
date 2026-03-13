@@ -76,8 +76,7 @@ async def retrieve_context_multi(
     Returns empty list (never raises) on any error.
     """
     collection_names = [user_collection_name(user_id)]
-    for ws_id in workspace_ids:
-        collection_names.append(f"workspace_{ws_id}")
+    collection_names.extend(f"workspace_{ws_id}" for ws_id in workspace_ids)
 
     try:
         client = await get_qdrant_client()

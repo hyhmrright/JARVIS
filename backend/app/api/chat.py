@@ -247,8 +247,9 @@ async def chat_stream(  # noqa: C901
     all_history = history_rows.all()
     lc_messages = []
     for msg in all_history:
-        if msg.role in _ROLE_TO_MESSAGE:
-            lc_messages.append(_ROLE_TO_MESSAGE[msg.role](content=msg.content))
+        message_class = _ROLE_TO_MESSAGE.get(msg.role)
+        if message_class:
+            lc_messages.append(message_class(content=msg.content))
         else:
             logger.debug(
                 "chat_history_message_skipped",

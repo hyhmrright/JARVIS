@@ -129,11 +129,14 @@ async def create_cron_job(  # noqa: C901
 
     # Encrypt sensitive fields in trigger_metadata before storage
     trigger_metadata = dict(data.trigger_metadata) if data.trigger_metadata else None
-    if trigger_metadata and data.trigger_type == "email":
-        if "imap_password" in trigger_metadata:
-            trigger_metadata["imap_password"] = fernet_encrypt(
-                str(trigger_metadata["imap_password"])
-            )
+    if (
+        trigger_metadata
+        and data.trigger_type == "email"
+        and "imap_password" in trigger_metadata
+    ):
+        trigger_metadata["imap_password"] = fernet_encrypt(
+            str(trigger_metadata["imap_password"])
+        )
 
     job = CronJob(
         user_id=user.id,

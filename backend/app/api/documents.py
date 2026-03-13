@@ -27,19 +27,21 @@ MAX_SIZE = 50 * 1024 * 1024
 
 
 def extract_text(content: bytes, file_type: str) -> str:
-    if file_type in ("txt", "md"):
-        return content.decode("utf-8", errors="ignore")
-    if file_type == "pdf":
-        import pypdf
+    match file_type:
+        case "txt" | "md":
+            return content.decode("utf-8", errors="ignore")
+        case "pdf":
+            import pypdf
 
-        reader = pypdf.PdfReader(io.BytesIO(content))
-        return "\n".join(p.extract_text() or "" for p in reader.pages)
-    if file_type == "docx":
-        import docx
+            reader = pypdf.PdfReader(io.BytesIO(content))
+            return "\n".join(p.extract_text() or "" for p in reader.pages)
+        case "docx":
+            import docx
 
-        doc = docx.Document(io.BytesIO(content))
-        return "\n".join(p.text for p in doc.paragraphs)
-    return ""
+            doc = docx.Document(io.BytesIO(content))
+            return "\n".join(p.text for p in doc.paragraphs)
+        case _:
+            return ""
 
 
 @router.get("")

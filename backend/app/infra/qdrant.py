@@ -46,8 +46,9 @@ async def get_qdrant_client() -> AsyncQdrantClient:
     if _client is not None:
         return _client
     async with _client_lock:
-        if _client is None:
-            _client = AsyncQdrantClient(url=settings.qdrant_url)
+        if _client is not None:
+            return _client
+        _client = AsyncQdrantClient(url=settings.qdrant_url)
         return _client
 
 
@@ -64,12 +65,15 @@ async def ensure_collection(collection_name: str) -> None:
     if collection_name in _created_collections:
         return
     async with _collection_lock:
+        # Double-check after acquiring lock
         if collection_name in _created_collections:
             return
         client = await get_qdrant_client()
+        # Collection may already exist from another process
         if await client.collection_exists(collection_name):
             _created_collections.add(collection_name)
             return
+        # Create collection with configured vector settings
         vec_cfg = _load_vector_config()
         distance = getattr(Distance, vec_cfg["distance"].upper(), Distance.COSINE)
         await client.create_collection(
