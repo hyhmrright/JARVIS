@@ -717,3 +717,26 @@ async def chat_regenerate(
                     pass
 
     return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+from fastapi import WebSocket, WebSocketDisconnect
+
+@router.websocket("/ws")
+async def chat_websocket(
+    websocket: WebSocket,
+    token: str = None,
+):
+    await websocket.accept()
+    if not token:
+        await websocket.close(code=1008)
+        return
+        
+    try:
+        while True:
+            data = await websocket.receive_json()
+            if data.get("type") == "chat":
+                await websocket.send_json({"type": "token", "value": token})
+            elif data.get("type") == "cancel":
+                pass
+    except WebSocketDisconnect:
+        pass

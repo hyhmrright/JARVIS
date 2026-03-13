@@ -118,3 +118,13 @@ async def test_chat_regenerate(auth_client, db_session):
 
     resp2 = await auth_client.post("/api/chat/regenerate", json={"conversation_id": conv_id, "message_id": str(msg_ai.id)})
     assert resp2.status_code == 200
+
+
+def test_websocket_chat():
+    from fastapi.testclient import TestClient
+    from app.main import app
+    client = TestClient(app)
+    with client.websocket_connect("/api/chat/ws?token=test_token") as websocket:
+        websocket.send_json({"type": "chat", "content": "Hello"})
+        data = websocket.receive_json()
+        assert data["type"] == "token"
