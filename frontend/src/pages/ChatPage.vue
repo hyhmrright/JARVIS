@@ -121,7 +121,7 @@
 
           <!-- Message Blocks -->
           <div
-            v-for="(msg, idx) in chat.messages"
+            v-for="(msg, idx) in chat.activeMessages"
             :key="idx"
             class="flex flex-col gap-4 animate-in fade-in duration-700"
           >
@@ -152,6 +152,23 @@
                 </div>
               </div>
 
+                            <!-- Branch Nav & Regenerate -->
+              <div v-if="msg.id && msg.role === 'ai'" class="mt-2 flex items-center gap-3 text-zinc-500">
+                <div v-if="chat.getSiblings(msg).length > 1" class="flex items-center gap-2">
+                  <button class="hover:text-white" @click="chat.switchBranch(chat.getSiblings(msg)[chat.getSiblings(msg).findIndex(m => m.id === msg.id) - 1]?.id || msg.id)">
+                    &larr;
+                  </button>
+                  <span class="text-[10px]">{{ chat.getSiblings(msg).findIndex(m => m.id === msg.id) + 1 }} / {{ chat.getSiblings(msg).length }}</span>
+                  <button class="hover:text-white" @click="chat.switchBranch(chat.getSiblings(msg)[chat.getSiblings(msg).findIndex(m => m.id === msg.id) + 1]?.id || msg.id)">
+                    &rarr;
+                  </button>
+                </div>
+                <button v-if="!chat.streaming" class="text-[10px] hover:text-white flex items-center gap-1" @click="chat.regenerate(msg.id)">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                  Regenerate
+                </button>
+              </div>
+              
               <!-- Tool Execution Logs -->
               <div v-if="msg.toolCalls?.length" class="mt-6 flex flex-col gap-2 pt-4 border-t border-zinc-800/50">
                 <details v-for="(tc, i) in msg.toolCalls" :key="i" class="group bg-zinc-950/80 border border-zinc-800/80 rounded-xl overflow-hidden text-xs transition-all">

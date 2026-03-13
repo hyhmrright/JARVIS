@@ -34,7 +34,7 @@ export const useChatStore = defineStore("chat", {
     activeMessages: (state) => {
       if (!state.messages.length) return [];
       const msgDict = new Map<string, Message>();
-      let latestMsg = state.messages[state.messages.length - 1];
+      const latestMsg = state.messages[state.messages.length - 1];
       
       for (const msg of state.messages) {
         if (msg.id) msgDict.set(msg.id, msg);
@@ -52,6 +52,10 @@ export const useChatStore = defineStore("chat", {
         currentId = m.parent_id;
       }
       return thread;
+    },
+    getSiblings: (state) => (msg: Message) => {
+      if (!msg.id) return [];
+      return state.messages.filter(m => m.parent_id === msg.parent_id);
     }
   },
   actions: {
@@ -97,6 +101,54 @@ export const useChatStore = defineStore("chat", {
       }
     },
 
+
+    async regenerate(messageId: string) {
+      if (!this.currentConvId || !messageId) return;
+      this.streaming = true;
+      try {
+        const auth = useAuthStore();
+        const response = await fetch("/api/chat/regenerate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+          body: JSON.stringify({ conversation_id: this.currentConvId, message_id: messageId })
+        });
+        if (!response.ok) throw new Error("Regenerate failed");
+        
+        // We push a temporary empty AI message that will be populated by the stream
+        const activeThread = this.activeMessages;
+        const msg = activeThread.find(m => m.id === messageId);
+        if (msg) {
+            this.messages.push({ role: "ai", content: "", parent_id: msg.parent_id });
+            this.activeLeafId = null; // Will attach to latest in UI
+        }
+        
+        const reader = response.body!.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                const aiMsg = this.messages[this.messages.length - 1];
+                if (data.delta) aiMsg.content += data.delta;
+                else if (data.content) aiMsg.content = data.content;
+              } catch { /* empty */ }
+            }
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        this.streaming = false;
+      }
+    },
     cancelStream() {
       if (this.abortController) {
         this.abortController.abort();
