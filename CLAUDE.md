@@ -111,11 +111,11 @@ bun run dev --port 3100
 
 JARVIS is an AI assistant platform with RAG knowledge base, multi-LLM support, and streaming conversations, using a monorepo structure.
 
-**Completed features (Phase 1-6)**: RAG knowledge base, LangGraph ReAct agent tools (search/code_exec/datetime/file/shell/browser), Gateway (Traefik), Cron jobs, Webhooks, Canvas rendering, Voice (TTS/STT), monitoring stack (Grafana/Loki/Prometheus).
+**Completed features (Phase 1-12)**: RAG knowledge base, LangGraph ReAct agent tools (search/code_exec/datetime/file/shell/browser/rag), Gateway (Traefik), Cron jobs + trigger system (web/semantic/email watchers), Webhooks, Canvas rendering, Voice (TTS/STT), monitoring stack (Grafana/Loki/Prometheus), Plugin SDK, multi-agent supervisor, per-user rate limiting + input sanitization, audit log system, multi-tenant (Organizations / Workspaces / Invitations), Personal Access Tokens.
 
 JARVIS 是具备 RAG 知识库、多 LLM 支持、流式对话的 AI 助手平台，采用 monorepo 结构。
 
-**已完成功能（Phase 1-6）**：RAG 知识库、LangGraph ReAct agent 工具集（search/code_exec/datetime/file/shell/browser）、Gateway（Traefik）、Cron 定时任务、Webhooks、Canvas 渲染、Voice（TTS/STT）、监控栈（Grafana/Loki/Prometheus）。
+**已完成功能（Phase 1-12）**：RAG 知识库、LangGraph ReAct agent 工具集（search/code_exec/datetime/file/shell/browser/rag）、Gateway（Traefik）、Cron 定时任务 + 触发器体系（web/semantic/email watcher）、Webhooks、Canvas 渲染、Voice（TTS/STT）、监控栈（Grafana/Loki/Prometheus）、Plugin SDK、多 agent supervisor、per-user 限速 + 输入过滤、审计日志、多租户（Organizations / Workspaces / Invitations）、Personal Access Tokens。
 
 ## Core Architecture / 核心架构
 
@@ -125,21 +125,31 @@ JARVIS/
 │   ├── app/
 │   │   ├── main.py    # FastAPI entry point, lifespan manages infra connections
 │   │   ├── agent/     # LangGraph ReAct agent (graph/llm/state/persona)
-│   │   ├── api/       # HTTP routes (auth/chat/conversations/documents/settings/logs)
-│   │   ├── core/      # Config (Pydantic Settings), security (JWT/bcrypt/Fernet), rate limiting, logging (structlog), logging middleware
-│   │   ├── db/        # SQLAlchemy async models and sessions
+│   │   ├── api/       # HTTP routes (auth/chat/conversations/documents/settings/
+│   │   │              #   cron/webhooks/voice/tts/canvas/organizations/workspaces/
+│   │   │              #   invitations/plugins/keys/admin/logs/usage/gateway)
+│   │   ├── channels/  # Multi-channel adapters (Slack/Discord/Telegram/Feishu/WhatsApp/webhook)
+│   │   ├── core/      # Config, security (JWT/bcrypt/Fernet), rate limiting, audit log, metrics
+│   │   ├── db/        # SQLAlchemy async models (18 tables) and sessions
+│   │   ├── gateway/   # Agent runner, session manager, channel router, security
 │   │   ├── infra/     # Infrastructure client singletons (Qdrant/MinIO/Redis)
-│   │   ├── rag/       # RAG pipeline (chunker/embedder/indexer)
-│   │   └── tools/     # LangGraph tools (search/code_exec/datetime/file/shell/browser)
-│   ├── alembic/       # Database migrations
+│   │   ├── plugins/   # Plugin SDK loader
+│   │   ├── rag/       # RAG pipeline (chunker/embedder/indexer/retriever/context)
+│   │   ├── sandbox/   # Code execution sandbox manager
+│   │   ├── scheduler/ # APScheduler + ARQ trigger system (runner/triggers/schemas)
+│   │   ├── services/  # Shared services (memory_sync)
+│   │   ├── tools/     # LangGraph tools (search/code_exec/datetime/file/shell/browser/rag)
+│   │   └── worker.py  # ARQ worker (cron execution, webhook delivery, cleanup)
+│   ├── alembic/       # Database migrations (017 versions)
 │   └── tests/         # pytest test suite
 ├── frontend/          # Vue 3 + TypeScript + Vite + Pinia
 │   └── src/
 │       ├── api/       # Axios singleton + auth interceptor
-│       ├── stores/    # Pinia stores (auth + chat)
-│       ├── pages/     # Page components (Login/Register/Chat/Documents/Settings)
+│       ├── stores/    # Pinia stores (auth / chat / workspace)
+│       ├── pages/     # Chat, Documents, Settings, Proactive, Plugins, Admin,
+│       │              #   Usage, WorkspaceMembers, InviteAccept, Login, Register
 │       ├── locales/   # i18n (zh/en/ja/ko/fr/de)
-│       └── router/    # Vue Router + auth guard
+│       └── router/    # Vue Router + auth guard (11 routes)
 ├── database/          # Docker init scripts (postgres/redis/qdrant)
 ├── monitoring/        # Observability stack (Grafana/Loki/Prometheus configs)
 ├── docker-compose.yml # Full-stack orchestration
@@ -156,27 +166,31 @@ JARVIS/
 
 **流式对话**：`api/chat.py` 的 `POST /api/chat/stream` 返回 SSE `StreamingResponse`。注意：流式 generator 内部使用独立的 `AsyncSessionLocal` 会话（不能复用请求级会话，因为请求已返回）。
 
-**RAG Pipeline**: Upload document → `extract_text()` → `chunk_text()` (sliding window, 500 words / 50-word overlap) → `OpenAIEmbeddings` (text-embedding-3-small, 1536 dims) → Qdrant upsert. One collection per user (`user_{id}`). Note: RAG retrieval is not yet wired into the agent conversation flow.
+**RAG Pipeline**: Upload document → `extract_text()` → `chunk_text()` (sliding window, 500 words / 50-word overlap) → `OpenAIEmbeddings` (text-embedding-3-small, 1536 dims) → Qdrant upsert. One collection per user (`user_{id}`), one per workspace (`workspace_{id}`). RAG is exposed as an explicit agent tool (`tools/rag_tool.py`) and via `rag/context.py` for multi-collection search.
 
-**RAG 管线**：上传文档 → `extract_text()` → `chunk_text()`（滑窗分词，500词/50词重叠）→ `OpenAIEmbeddings`（text-embedding-3-small，1536维）→ Qdrant upsert。每用户一个 collection（`user_{id}`）。注意：RAG 检索尚未接入 agent 对话流。
+**RAG 管线**：上传文档 → `extract_text()` → `chunk_text()`（滑窗分词，500词/50词重叠）→ `OpenAIEmbeddings`（text-embedding-3-small，1536维）→ Qdrant upsert。每用户一个 collection（`user_{id}`），每 workspace 一个（`workspace_{id}`）。RAG 以 agent 工具形式暴露（`tools/rag_tool.py`），同时 `rag/context.py` 支持跨 collection 检索。
 
-**Database Models**: 5 tables — `users`, `user_settings` (JSONB stores Fernet-encrypted API keys), `conversations`, `messages` (immutable), `documents` (soft delete). All use UUID primary keys.
+**Database Models**: 18 model classes — `users`, `user_settings` (Fernet-encrypted API keys), `conversations`, `agent_sessions`, `messages` (immutable), `documents` (soft delete), `cron_jobs`, `job_executions`, `webhooks`, `webhook_deliveries`, `plugin_configs`, `audit_logs`, `api_keys`, `organizations`, `workspaces`, `workspace_members`, `workspace_settings`, `invitations`. All use UUID primary keys.
 
-**数据库模型**：5 张表 — `users`、`user_settings`（JSONB 存 Fernet 加密的 API keys）、`conversations`、`messages`（不可变）、`documents`（软删除）。全部使用 UUID 主键。
+**数据库模型**：18 个模型类 — `users`、`user_settings`（Fernet 加密 API keys）、`conversations`、`agent_sessions`、`messages`（不可变）、`documents`（软删除）、`cron_jobs`、`job_executions`、`webhooks`、`webhook_deliveries`、`plugin_configs`、`audit_logs`、`api_keys`、`organizations`、`workspaces`、`workspace_members`、`workspace_settings`、`invitations`。全部使用 UUID 主键。
 
 **Infrastructure Singletons**: Qdrant uses lazy async init with `asyncio.Lock` (client + collection creation each have their own lock); MinIO uses `@lru_cache` + `asyncio.to_thread()` (sync SDK); PostgreSQL uses module-level engine + sessionmaker.
 
 **基础设施单例**：Qdrant 用 lazy 异步初始化 + `asyncio.Lock`（客户端和 collection 创建各有独立锁）；MinIO 用 `@lru_cache` + `asyncio.to_thread()`（同步 SDK）；PostgreSQL 用模块级 engine + sessionmaker。
 
+**Test Gotcha — asyncpg cross-event-loop contamination**: Each async test runs in its own event loop. Any code path that uses the module-level `AsyncSessionLocal` (e.g., `log_action`, `_resolve_pat`) will bind a connection to the current loop; the next test's loop cannot reuse it, causing `"Future attached to a different loop"`. Fix: add `autouse` fixtures in `conftest.py` that mock those call sites (see existing `_suppress_auth_audit_logging` and `_suppress_pat_last_used_update` fixtures).
+
+**测试陷阱 — asyncpg 跨 event loop 连接池污染**：每个 async 测试有独立 event loop。使用模块级 `AsyncSessionLocal` 的代码路径（如 `log_action`、`_resolve_pat`）会将连接绑定到当前 loop；下一个测试的 loop 无法复用该连接，报 `"Future attached to a different loop"`。修复：在 `conftest.py` 中为这些调用点加 `autouse` mock（参考已有的 `_suppress_auth_audit_logging` 和 `_suppress_pat_last_used_update` fixture）。
+
 ### Frontend Architecture Highlights / 前端架构要点
 
-**State Management**: Two Pinia stores — `auth.ts` (JWT token persisted to localStorage) and `chat.ts` (conversation list + SSE streaming messages). SSE uses native `fetch` + `ReadableStream` instead of Axios (Axios doesn't support streaming response bodies).
+**State Management**: Three Pinia stores — `auth.ts` (JWT token persisted to localStorage), `chat.ts` (conversation list + SSE streaming messages), `workspace.ts` (organization/workspace context). SSE uses native `fetch` + `ReadableStream` instead of Axios (Axios doesn't support streaming response bodies).
 
-**状态管理**：两个 Pinia store — `auth.ts`（JWT token 持久化到 localStorage）和 `chat.ts`（会话列表 + SSE 流式消息）。SSE 使用原生 `fetch` + `ReadableStream` 而非 Axios（Axios 不支持流式响应体）。
+**状态管理**：三个 Pinia store — `auth.ts`（JWT token 持久化到 localStorage）、`chat.ts`（会话列表 + SSE 流式消息）、`workspace.ts`（组织/工作区上下文）。SSE 使用原生 `fetch` + `ReadableStream` 而非 Axios（Axios 不支持流式响应体）。
 
-**Routing**: 5 routes, all page components are lazy-loaded. `beforeEach` guard checks `auth.isLoggedIn`.
+**Routing**: 11 routes, all page components are lazy-loaded. `beforeEach` guard checks `auth.isLoggedIn`; admin routes also check `requiresAdmin`.
 
-**路由**：5 条路由，页面组件全部 lazy-loaded。`beforeEach` 守卫检查 `auth.isLoggedIn`。
+**路由**：11 条路由，页面组件全部 lazy-loaded。`beforeEach` 守卫检查 `auth.isLoggedIn`；admin 路由还检查 `requiresAdmin`。
 
 **API Client**: Axios instance with `baseURL: "/api"`, request interceptor reads token from localStorage, response interceptor handles 401 → auto logout. Dev server proxies `/api` → `http://localhost:8000` (Docker: `http://backend:8000`).
 
@@ -241,6 +255,9 @@ bun run type-check           # vue-tsc
 ```
 
 ### Testing / 测试
+
+**Tests require `POSTGRES_PASSWORD` env var** (set automatically by `init-env.sh`) and a running `jarvis_test` database.
+**测试需要 `POSTGRES_PASSWORD` 环境变量**（由 `init-env.sh` 自动设置），以及运行中的 `jarvis_test` 数据库。
 
 **When local tests cannot run (e.g., missing database), read the test files manually before pushing.**
 **本地无法运行测试时（如缺少数据库），推送前必须手动阅读相关测试文件。**
