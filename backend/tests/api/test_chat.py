@@ -1,19 +1,17 @@
 """Unit tests for chat.py helper functions: _load_tools, _sse_events_from_chunk, etc."""
 
-import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.testclient import TestClient
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage
 
 from app.api.chat import (
     _format_sse,
     _load_tools,
     _sse_events_from_chunk,
 )
-from app.db.models import Conversation, Message, User, UserRole
+from app.db.models import Conversation, Message, User
 from app.main import app
 
 

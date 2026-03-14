@@ -3,6 +3,7 @@ import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import sqlalchemy as sa
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine as sync_create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -79,11 +80,15 @@ def setup_tables():
     """使用同步 psycopg2 驱动建表/删表，避免 session 与 function 事件循环交叉引用。"""
     engine = sync_create_engine(_SYNC_DATABASE_URL, echo=False)
     with engine.begin() as conn:
-        conn.execute(sa.text("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"))
+        conn.execute(
+            sa.text("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;")
+        )  # noqa: E501
     Base.metadata.create_all(engine)
     yield
     with engine.begin() as conn:
-        conn.execute(sa.text("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"))
+        conn.execute(
+            sa.text("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;")
+        )  # noqa: E501
     engine.dispose()
 
 
