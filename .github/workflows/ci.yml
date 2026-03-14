@@ -83,6 +83,10 @@ jobs:
           python-version: "3.13.12"
       - run: uv sync --frozen
         working-directory: backend
+      - run: uv run alembic upgrade head
+        working-directory: backend
+        env:
+          DATABASE_URL: "postgresql+asyncpg://jarvis:testpass@localhost:5432/jarvis_test"
       - run: uv run pytest tests/ -v --tb=short
         working-directory: backend
         env:
@@ -161,6 +165,10 @@ jobs:
           cd ../frontend && npm install -g bun && bun install
       - name: Install Playwright Browsers
         run: cd frontend && bun x playwright install --with-deps chromium
+      - name: Run DB Migrations
+        run: cd backend && uv run alembic upgrade head
+        env:
+          DATABASE_URL: "postgresql+asyncpg://jarvis:testpass@localhost:5432/jarvis_test"
       - name: Run Playwright tests
         run: cd frontend && bun x playwright test
         env:
