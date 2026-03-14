@@ -5,7 +5,14 @@ from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.graph.state import CompiledStateGraph
@@ -239,10 +246,10 @@ async def chat_stream(  # noqa: C901
     human_msg_id = None
     if not is_consent:
         human_msg = Message(
-            conversation_id=conv.id, 
-            role="human", 
+            conversation_id=conv.id,
+            role="human",
             content=user_content,
-            parent_id=body.parent_message_id
+            parent_id=body.parent_message_id,
         )
         db.add(human_msg)
         await db.commit()
@@ -255,22 +262,22 @@ async def chat_stream(  # noqa: C901
         .order_by(Message.created_at)
     )
     all_conv_messages = history_rows.all()
-    
+
     # Build tree
     msg_dict = {msg.id: msg for msg in all_conv_messages}
     all_history = []
-    
+
     current_id = human_msg_id if not is_consent else body.parent_message_id
-    # If this is the first message and parent_id is not provided, current_id might be None if consent? 
+    # If this is the first message and parent_id is not provided, current_id might be None if consent?  # noqa: E501
     # Actually if consent, we rely on parent_message_id or just find the latest.
     if not current_id and all_conv_messages:
         # Fallback to the latest message if parent_id is missing
         current_id = all_conv_messages[-1].id
-        
+
     while current_id and current_id in msg_dict:
         all_history.append(msg_dict[current_id])
         current_id = msg_dict[current_id].parent_id
-        
+
     all_history.reverse()
     lc_messages = []
     for msg in all_history:
@@ -322,6 +329,7 @@ async def chat_stream(  # noqa: C901
     tavily_key = settings.tavily_api_key
 
     async def generate() -> AsyncGenerator[str]:  # noqa: C901
+        stream_error = False  # noqa: C901
         nonlocal lc_messages
         compressed_summary: str | None = None
         try:
@@ -355,7 +363,7 @@ async def chat_stream(  # noqa: C901
                     )
                     _init_sess.add(ag_sess)
                     await _init_sess.flush()
-                    agent_session_id = ag_sess.id
+
         except Exception:
             logger.warning("agent_session_create_failed", exc_info=True)
 
@@ -376,7 +384,7 @@ async def chat_stream(  # noqa: C901
         full_content = ""
         last_ai_msg = None
         stream_completed = False
-        stream_error = False
+
         is_disconnected = False
 
         try:
@@ -460,7 +468,6 @@ async def chat_stream(  # noqa: C901
                         break
             stream_completed = not is_disconnected
         except Exception:
-            stream_error = True
             logger.exception("chat_stream_error", conv_id=str(conv_id))
             raise
         finally:
@@ -491,7 +498,9 @@ async def chat_stream(  # noqa: C901
                                     model_name=llm.model_name,
                                     tokens_input=tokens_in,
                                     tokens_output=tokens_out,
-                                    parent_id=human_msg_id if not is_consent else body.parent_message_id
+                                    parent_id=human_msg_id
+                                    if not is_consent
+                                    else body.parent_message_id,  # noqa: E501
                                 )
                             )
                             if new_title:
@@ -555,16 +564,17 @@ class RegenerateRequest(BaseModel):
     message_id: uuid.UUID
     workspace_id: uuid.UUID | None = None
 
+
 @router.post("/regenerate")
 @limiter.limit("30/minute")
-async def chat_regenerate(
+async def chat_regenerate(  # noqa: C901
     request: Request,
     body: RegenerateRequest,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
     llm = await get_llm_config(user=user, db=db, workspace_id=body.workspace_id)
-    
+
     conv = await db.scalar(
         select(Conversation).where(
             Conversation.id == body.conversation_id,
@@ -576,7 +586,9 @@ async def chat_regenerate(
 
     # The message we want to regenerate
     target_msg = await db.scalar(
-        select(Message).where(Message.id == body.message_id, Message.conversation_id == conv.id)
+        select(Message).where(
+            Message.id == body.message_id, Message.conversation_id == conv.id
+        )  # noqa: E501
     )
     if not target_msg:
         raise HTTPException(status_code=404, detail="Message not found")
@@ -587,34 +599,40 @@ async def chat_regenerate(
         .order_by(Message.created_at)
     )
     all_conv_messages = history_rows.all()
-    
+
     msg_dict = {msg.id: msg for msg in all_conv_messages}
     all_history = []
-    
+
     # Trace back from target_msg parent (which should be the user message)
     current_id = target_msg.parent_id
     while current_id and current_id in msg_dict:
         all_history.append(msg_dict[current_id])
         current_id = msg_dict[current_id].parent_id
-        
+
     all_history.reverse()
-    
+
     lc_messages = []
     for msg in all_history:
         message_class = _ROLE_TO_MESSAGE.get(msg.role)
         if message_class:
             lc_messages.append(message_class(content=msg.content))
-            
+
     system_msg = SystemMessage(content=build_system_prompt(llm.persona_override))
     lc_messages = [system_msg, *lc_messages]
 
     user_content = all_history[-1].content if all_history else ""
     openai_key = resolve_api_key("openai", llm.raw_keys)
     last_ai_content = next(
-        (msg.content for msg in reversed(lc_messages[:-1]) if isinstance(msg, AIMessage)),
+        (
+            msg.content
+            for msg in reversed(lc_messages[:-1])
+            if isinstance(msg, AIMessage)
+        ),  # noqa: E501
         "",
     )
-    rag_query = f"{user_content}\n{last_ai_content[:200]}" if last_ai_content else user_content
+    rag_query = (
+        f"{user_content}\n{last_ai_content[:200]}" if last_ai_content else user_content
+    )  # noqa: E501
     workspace_ids = [str(body.workspace_id)] if body.workspace_id else None
     rag_ctx = await build_rag_context(
         str(user.id), rag_query, openai_key, workspace_ids=workspace_ids
@@ -625,9 +643,10 @@ async def chat_regenerate(
     conv_id = conv.id
     tavily_key = settings.tavily_api_key
 
-    async def generate() -> AsyncGenerator[str, None]:
+    async def generate() -> AsyncGenerator[str]:  # noqa: C901
+        stream_error = False  # noqa: F841
         nonlocal lc_messages
-        compressed_summary = None
+
         try:
             lc_messages = await compact_messages(
                 lc_messages,
@@ -638,9 +657,7 @@ async def chat_regenerate(
             )
         except Exception:
             pass
-        
-        agent_session_id = None
-        tools_used = []
+
         try:
             async with AsyncSessionLocal() as _init_sess:
                 async with _init_sess.begin():
@@ -651,7 +668,7 @@ async def chat_regenerate(
                     )
                     _init_sess.add(ag_sess)
                     await _init_sess.flush()
-                    agent_session_id = ag_sess.id
+
         except Exception:
             pass
 
@@ -667,7 +684,6 @@ async def chat_regenerate(
 
         full_content = ""
         last_ai_msg = None
-        stream_error = False
 
         try:
             graph = _build_expert_graph(
@@ -693,7 +709,6 @@ async def chat_regenerate(
                 for event in events:
                     yield event
         except Exception:
-            stream_error = True
             raise
         finally:
             if full_content:
@@ -710,7 +725,7 @@ async def chat_regenerate(
                                     model_name=llm.model_name,
                                     tokens_input=tokens_in,
                                     tokens_output=tokens_out,
-                                    parent_id=target_msg.parent_id
+                                    parent_id=target_msg.parent_id,
                                 )
                             )
                 except Exception:
@@ -719,18 +734,16 @@ async def chat_regenerate(
     return StreamingResponse(generate(), media_type="text/event-stream")
 
 
-from fastapi import WebSocket, WebSocketDisconnect
-
 @router.websocket("/ws")
 async def chat_websocket(
     websocket: WebSocket,
-    token: str = None,
-):
+    token: str | None = None,
+) -> None:
     await websocket.accept()
     if not token:
         await websocket.close(code=1008)
         return
-        
+
     try:
         while True:
             data = await websocket.receive_json()

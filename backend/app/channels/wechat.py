@@ -2,19 +2,18 @@ import asyncio
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, Request, Response, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Response
 from wechatpy import WeChatClient, parse_message
 from wechatpy.crypto import WeChatCrypto
-from wechatpy.exceptions import InvalidSignatureException, InvalidAppIdException
-from wechatpy.replies import EmptyReply
+from wechatpy.exceptions import InvalidAppIdException, InvalidSignatureException
 
 from app.channels.base import BaseChannelAdapter, GatewayMessage, chunk_text
-from app.core.config import settings
 
 logger = structlog.get_logger(__name__)
 
 # WeChat limits text length, safe to break at 2000 chars like discord
 _WECHAT_MAX_MESSAGE_LEN = 2000
+
 
 class WeChatChannel(BaseChannelAdapter):
     """WeChat Official Account channel adapter using wechatpy."""
@@ -35,8 +34,12 @@ class WeChatChannel(BaseChannelAdapter):
         self._encoding_aes_key = encoding_aes_key
 
         self.client = WeChatClient(self._app_id, self._app_secret)
-        self.crypto = WeChatCrypto(self._token, self._encoding_aes_key, self._app_id) if self._encoding_aes_key else None
-        
+        self.crypto = (
+            WeChatCrypto(self._token, self._encoding_aes_key, self._app_id)
+            if self._encoding_aes_key
+            else None
+        )
+
         self.router = APIRouter()
         self._setup_routes()
 
@@ -47,13 +50,16 @@ class WeChatChannel(BaseChannelAdapter):
             timestamp: str = "",
             nonce: str = "",
             echostr: str = "",
-        ):
+        ) -> Response:
             """Verify WeChat server."""
             from wechatpy.utils import check_signature
+
             try:
                 check_signature(self._token, signature, timestamp, nonce)
             except InvalidSignatureException:
-                raise HTTPException(status_code=403, detail="Invalid signature")
+                raise HTTPException(
+                    status_code=403, detail="Invalid signature"
+                ) from None  # noqa: E501
             return Response(content=echostr)
 
         @self.router.post("/")
@@ -64,10 +70,10 @@ class WeChatChannel(BaseChannelAdapter):
             nonce: str = "",
             msg_signature: str = "",
             encrypt_type: str = "raw",
-        ):
+        ) -> Response:
             """Receive messages from WeChat."""
             body = await request.body()
-            
+
             try:
                 if encrypt_type == "aes" and self.crypto:
                     decrypted_xml = self.crypto.decrypt_message(
@@ -76,32 +82,35 @@ class WeChatChannel(BaseChannelAdapter):
                     msg = parse_message(decrypted_xml)
                 else:
                     from wechatpy.utils import check_signature
+
                     check_signature(self._token, signature, timestamp, nonce)
                     msg = parse_message(body)
             except (InvalidSignatureException, InvalidAppIdException):
-                raise HTTPException(status_code=403, detail="Invalid signature or app id")
+                raise HTTPException(
+                    status_code=403, detail="Invalid signature or app id"
+                ) from None  # noqa: E501
             except Exception as e:
                 logger.error("wechat_parse_error", error=str(e))
                 return Response(content="success")
-            
+
             if msg.type == "text":
                 gw_msg = GatewayMessage(
                     sender_id=msg.source,
                     channel="wechat",
-                    channel_id=msg.target, # Usually the official account ID
+                    channel_id=msg.target,  # Usually the official account ID
                     content=msg.content,
                 )
                 if self._message_handler:
                     # Run background task, return EmptyReply immediately (success)
                     asyncio.create_task(self._process_message(gw_msg))
-            
+
             # For now, immediately return an empty response so wechat doesn't timeout
             return Response(content="success")
 
     async def _process_message(self, gw_msg: GatewayMessage) -> None:
         if not self._message_handler:
             return
-            
+
         try:
             response = await self._message_handler(gw_msg)
         except Exception:
@@ -128,9 +137,7 @@ class WeChatChannel(BaseChannelAdapter):
             for chunk in chunk_text(content, _WECHAT_MAX_MESSAGE_LEN):
                 # Using asyncio.to_thread because wechatpy client is synchronous
                 await asyncio.to_thread(
-                    self.client.message.send_text,
-                    user_id=channel_id,
-                    content=chunk
+                    self.client.message.send_text, user_id=channel_id, content=chunk
                 )
         except Exception:
             logger.exception("wechat_send_failed", channel_id=channel_id)

@@ -24,22 +24,23 @@ async def reload_plugins(
     admin: User = Depends(get_admin_user),
 ) -> dict[str, str]:
     """Hot-reload all plugins (Admin only)."""
-    from app.plugins.loader import deactivate_all_plugins, load_all_plugins
     import sys
-    
+
+    from app.plugins.loader import deactivate_all_plugins, load_all_plugins
+
     await deactivate_all_plugins(plugin_registry)
-    
+
     # Clear current registry entries
     plugin_registry._entries.clear()
-    
+
     # Clear user plugins from sys.modules to force reload
     for mod_name in list(sys.modules.keys()):
         if mod_name.startswith("jarvis_user_plugins."):
             sys.modules.pop(mod_name, None)
-            
+
     await load_all_plugins(plugin_registry)
     await activate_all_plugins(plugin_registry)
-    
+
     return {"status": "ok"}
 
 

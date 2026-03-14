@@ -149,6 +149,7 @@ async def auth_headers(client) -> dict:
     token = await _register_test_user(client)
     return {"Authorization": f"Bearer {token}"}
 
+
 @pytest.fixture(autouse=True)
 async def _suppress_chat_async_session():
     mock_session = MagicMock()

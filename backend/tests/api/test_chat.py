@@ -84,10 +84,7 @@ async def test_chat_stream_sets_parent_id(auth_client, db_session):
     assert resp_conv.status_code == 201
     conv_id = resp_conv.json()["id"]
 
-    first_payload = {
-        "conversation_id": conv_id,
-        "content": "First message"
-    }
+    first_payload = {"conversation_id": conv_id, "content": "First message"}
     resp1 = await auth_client.post("/api/chat/stream", json=first_payload)
     assert resp1.status_code == 200
     async for _ in resp1.aiter_text():
@@ -96,7 +93,7 @@ async def test_chat_stream_sets_parent_id(auth_client, db_session):
     second_payload = {
         "conversation_id": conv_id,
         "content": "Second message",
-        "parent_message_id": None
+        "parent_message_id": None,
     }
     resp2 = await auth_client.post("/api/chat/stream", json=second_payload)
     assert resp2.status_code == 200
@@ -106,21 +103,24 @@ async def test_chat_stream_sets_parent_id(auth_client, db_session):
 
 @pytest.mark.asyncio
 async def test_chat_regenerate(auth_client, db_session):
+
     from app.db.models import Message
-    from sqlalchemy import select
-    
+
     resp_conv = await auth_client.post("/api/conversations", json={"title": "Test Reg"})
     conv_id = resp_conv.json()["id"]
 
-    # We mock out the actual stream or manually insert a message because background tasks 
+    # We mock out the actual stream or manually insert a message because background tasks  # noqa: E501
     # might not commit fast enough for tests without sleeps
-    
+
     msg_ai = Message(conversation_id=conv_id, role="ai", content="Blah")
     db_session.add(msg_ai)
     await db_session.commit()
     await db_session.refresh(msg_ai)
 
-    resp2 = await auth_client.post("/api/chat/regenerate", json={"conversation_id": conv_id, "message_id": str(msg_ai.id)})
+    resp2 = await auth_client.post(
+        "/api/chat/regenerate",
+        json={"conversation_id": conv_id, "message_id": str(msg_ai.id)},
+    )  # noqa: E501
     assert resp2.status_code == 200
     async for _ in resp2.aiter_text():
         pass
@@ -128,7 +128,9 @@ async def test_chat_regenerate(auth_client, db_session):
 
 def test_websocket_chat():
     from fastapi.testclient import TestClient
+
     from app.main import app
+
     client = TestClient(app)
     with client.websocket_connect("/api/chat/ws?token=test_token") as websocket:
         websocket.send_json({"type": "chat", "content": "Hello"})

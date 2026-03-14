@@ -10,17 +10,48 @@ jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
     
-    - name: Set up Python 3.13
-      uses: actions/setup-python@v5
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: jarvis
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: jarvis
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      minio:
+        image: minio/minio:RELEASE.2024-01-28T22-35-53Z
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        ports:
+          - 9000:9000
+          - 9001:9001
+        command: server /data --console-address ":9001"
+
+    steps:
+    - uses: actions/checkout@v6
+    
+    - uses: astral-sh/setup-uv@v7
       with:
-        python-version: '3.13'
+        version: "latest"
+        python-version: "3.13.12"
         
-    - name: Install uv
-      run: curl -LsSf https://astral.sh/uv/install.sh | sh
-      
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
@@ -38,8 +69,9 @@ jobs:
       run: cd frontend && bun x playwright test
       env:
         CI: true
-        DATABASE_URL: postgresql+asyncpg://jarvis:jarvis@localhost:5432/jarvis
+        DATABASE_URL: postgresql+asyncpg://jarvis:testpass@localhost:5432/jarvis
         REDIS_URL: redis://localhost:6379
         MINIO_ACCESS_KEY: minioadmin
         MINIO_SECRET_KEY: minioadmin
         JWT_SECRET: test_secret_key_change_me
+        POSTGRES_PASSWORD: testpass

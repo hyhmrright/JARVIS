@@ -58,7 +58,7 @@ channel_registry = ChannelRegistry()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: C901
     """Startup/shutdown lifecycle: verify infrastructure and initialize plugins."""
     logger.info("Checking infrastructure connections...")
     qdrant = await get_qdrant_client()
