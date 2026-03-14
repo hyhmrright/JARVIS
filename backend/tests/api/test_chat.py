@@ -1,7 +1,7 @@
 """Unit tests for chat.py helper functions: _load_tools, _sse_events_from_chunk, etc."""
 
 import uuid
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from langchain_core.messages import AIMessage
@@ -62,7 +62,6 @@ def test_sse_events_from_chunk_with_existing_content():
 async def test_chat_stream_sets_parent_id(auth_client, db_session):
     from app.core.security import decode_access_token
 
-    # Extract user from token
     token = auth_client.headers.get("Authorization").split(" ")[1]
     user_id_str = decode_access_token(token)
     user_id = uuid.UUID(user_id_str)
@@ -85,12 +84,24 @@ async def test_chat_stream_sets_parent_id(auth_client, db_session):
         base_url=None,
     )
 
+    async def mock_astream(*args, **kwargs):
+        yield {"llm": {"messages": [AIMessage(content="Mocked response")]}}
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+
     with (
         patch("app.api.chat.get_llm_config", new_callable=AsyncMock) as mock_get_llm,
         patch("app.api.chat.classify_task", new_callable=AsyncMock) as mock_classify,
+        patch("app.api.chat._build_expert_graph") as mock_build_graph,
+        patch("app.api.chat.compact_messages", new_callable=AsyncMock) as mock_compact,
+        patch("app.api.chat.build_rag_context", new_callable=AsyncMock) as mock_rag,
     ):
         mock_get_llm.return_value = mock_llm
         mock_classify.return_value = "main"
+        mock_build_graph.return_value = mock_graph
+        mock_compact.side_effect = lambda msgs, **kwargs: msgs
+        mock_rag.return_value = ""
 
         resp = await auth_client.post("/api/chat/stream", json=payload)
         assert resp.status_code == 200
@@ -127,12 +138,24 @@ async def test_chat_regenerate(auth_client, db_session):
         base_url=None,
     )
 
+    async def mock_astream(*args, **kwargs):
+        yield {"llm": {"messages": [AIMessage(content="Mocked response")]}}
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+
     with (
         patch("app.api.chat.get_llm_config", new_callable=AsyncMock) as mock_get_llm,
         patch("app.api.chat.classify_task", new_callable=AsyncMock) as mock_classify,
+        patch("app.api.chat._build_expert_graph") as mock_build_graph,
+        patch("app.api.chat.compact_messages", new_callable=AsyncMock) as mock_compact,
+        patch("app.api.chat.build_rag_context", new_callable=AsyncMock) as mock_rag,
     ):
         mock_get_llm.return_value = mock_llm
         mock_classify.return_value = "main"
+        mock_build_graph.return_value = mock_graph
+        mock_compact.side_effect = lambda msgs, **kwargs: msgs
+        mock_rag.return_value = ""
 
         resp = await auth_client.post(
             "/api/chat/regenerate",
