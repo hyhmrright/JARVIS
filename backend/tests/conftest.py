@@ -78,9 +78,12 @@ async def _suppress_pat_last_used_update():
 def setup_tables():
     """使用同步 psycopg2 驱动建表/删表，避免 session 与 function 事件循环交叉引用。"""
     engine = sync_create_engine(_SYNC_DATABASE_URL, echo=False)
+    with engine.begin() as conn:
+        conn.execute(sa.text("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"))
     Base.metadata.create_all(engine)
     yield
-    Base.metadata.drop_all(engine)
+    with engine.begin() as conn:
+        conn.execute(sa.text("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"))
     engine.dispose()
 
 

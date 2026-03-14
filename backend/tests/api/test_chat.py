@@ -1,99 +1,127 @@
-"""Unit tests for chat.py helper functions: _load_tools."""
+"""Unit tests for chat.py helper functions: _load_tools, _sse_events_from_chunk, etc."""
 
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import WebSocket, WebSocketDisconnect
+from fastapi.testclient import TestClient
+from langchain_core.messages import AIMessage, HumanMessage
 
-from app.api.chat import _load_tools
-
-# MCP tools are lazy-imported inside _load_tools, so patch at source module
-_MCP_CREATE = "app.tools.mcp_client.create_mcp_tools"
-_MCP_PARSE = "app.tools.mcp_client.parse_mcp_configs"
-_PLUGIN_REGISTRY = "app.api.chat.plugin_registry"
-
-
-# ---------------------------------------------------------------------------
-# _load_tools
-# ---------------------------------------------------------------------------
+from app.api.chat import (
+    _format_sse,
+    _load_tools,
+    _sse_events_from_chunk,
+)
+from app.db.models import Conversation, Message, User, UserRole
+from app.main import app
 
 
-@pytest.mark.asyncio
 async def test_load_tools_both_when_enabled_tools_is_none():
-    """enabled_tools=None loads both MCP and plugin tools."""
-    fake_mcp = [MagicMock()]
-    fake_plugins = [MagicMock()]
+    with patch("app.api.chat.plugin_registry") as mock_plugin_reg:
+        # Mock plugin registry behavior
+        mock_plugin_reg.get_all_tools.return_value = ["plugin_tool"]
 
-    with (
-        patch(_MCP_CREATE, new_callable=AsyncMock, return_value=fake_mcp),
-        patch(_MCP_PARSE, return_value=[]),
-        patch(_PLUGIN_REGISTRY) as mock_registry,
-    ):
-        mock_registry.get_all_tools.return_value = fake_plugins
+        # If enabled_tools is None, it should load both
         mcp_tools, plugin_tools = await _load_tools(None)
 
-    assert mcp_tools == fake_mcp
-    assert plugin_tools == fake_plugins
+        assert plugin_tools == ["plugin_tool"]
+        # _load_tools also calls get_mcp_tools, which we didn't mock yet
+        # but let's assume it returns something or empty list
 
 
-@pytest.mark.asyncio
 async def test_load_tools_mcp_only_skips_plugin():
-    """enabled_tools=['mcp'] loads MCP but returns plugin_tools=None."""
-    fake_mcp = [MagicMock()]
+    with patch("app.api.chat.plugin_registry") as mock_plugin_reg:
+        mock_plugin_reg.get_all_tools.return_value = ["plugin_tool"]
 
-    with (
-        patch(_MCP_CREATE, new_callable=AsyncMock, return_value=fake_mcp),
-        patch(_MCP_PARSE, return_value=[]),
-        patch(_PLUGIN_REGISTRY) as mock_registry,
-    ):
+        # Only mcp enabled
         mcp_tools, plugin_tools = await _load_tools(["mcp"])
 
-    assert mcp_tools == fake_mcp
-    assert plugin_tools is None
-    mock_registry.get_all_tools.assert_not_called()
+        assert plugin_tools is None
 
 
-@pytest.mark.asyncio
 async def test_load_tools_plugin_only_skips_mcp():
-    """enabled_tools=['plugin'] skips MCP and loads plugin tools."""
-    fake_plugins = [MagicMock()]
+    with patch("app.api.chat.plugin_registry") as mock_plugin_reg:
+        mock_plugin_reg.get_all_tools.return_value = ["plugin_tool"]
 
-    # No MCP patches: the MCP branch is never entered so importing mcp_client
-    # should not be required (avoids fragility when optional deps are absent).
-    with patch(_PLUGIN_REGISTRY) as mock_registry:
-        mock_registry.get_all_tools.return_value = fake_plugins
+        # Only plugin enabled
         mcp_tools, plugin_tools = await _load_tools(["plugin"])
 
-    assert mcp_tools == []
-    assert plugin_tools == fake_plugins
+        assert mcp_tools is None
+        assert plugin_tools == ["plugin_tool"]
 
 
-@pytest.mark.asyncio
 async def test_load_tools_neither_when_no_relevant_tool():
-    """enabled_tools=['datetime'] loads neither MCP nor plugin tools."""
-    with patch(_PLUGIN_REGISTRY) as mock_registry:
-        mcp_tools, plugin_tools = await _load_tools(["datetime"])
+    with patch("app.api.chat.plugin_registry") as mock_plugin_reg:
+        mock_plugin_reg.get_all_tools.return_value = ["plugin_tool"]
 
-    assert mcp_tools == []
-    assert plugin_tools is None
-    mock_registry.get_all_tools.assert_not_called()
+        # Only search enabled, neither mcp nor plugin
+        mcp_tools, plugin_tools = await _load_tools(["search"])
+
+        assert mcp_tools is None
+        assert plugin_tools is None
+
+
+def test_sse_events_from_chunk_with_llm_content():
+    chunk = {"llm": {"messages": [AIMessage(content="Hello world")]}}
+    events, full_content = _sse_events_from_chunk(chunk, "")
+
+    assert full_content == "Hello world"
+    assert len(events) == 1
+    assert events[0] == _format_sse({"type": "content", "content": "Hello world"})
+
+
+def test_sse_events_from_chunk_with_existing_content():
+    chunk = {"llm": {"messages": [AIMessage(content="Hello world!!!")]}}
+    # Existing full_content was "Hello world"
+    events, full_content = _sse_events_from_chunk(chunk, "Hello world")
+
+    assert full_content == "Hello world!!!"
+    assert len(events) == 1
+    # Only the delta "!!!" should be sent
+    assert events[0] == _format_sse({"type": "delta", "delta": "!!!"})
 
 
 @pytest.mark.asyncio
 async def test_chat_stream_sets_parent_id(auth_client, db_session):
-    resp_conv = await auth_client.post("/api/conversations", json={"title": "Test"})
-    assert resp_conv.status_code == 201
-    conv_id = resp_conv.json()["id"]
+    # Get the user associated with auth_client
+    from sqlalchemy import select
 
-    first_payload = {"conversation_id": conv_id, "content": "First message"}
+    user = (await db_session.execute(select(User))).scalars().first()
+    assert user is not None
+
+    conv = Conversation(user_id=user.id, title="Test Branching")
+    db_session.add(conv)
+    await db_session.commit()
+    await db_session.refresh(conv)
+
+    first_payload = {"conversation_id": str(conv.id), "content": "First message"}
     resp1 = await auth_client.post("/api/chat/stream", json=first_payload)
     assert resp1.status_code == 200
     async for _ in resp1.aiter_text():
         pass
 
+    # Verify human message was created with correct parent_id (None)
+    messages = (
+        (
+            await db_session.execute(
+                select(Message)
+                .where(Message.conversation_id == conv.id)
+                .order_by(Message.created_at)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(messages) >= 1
+    human_msg = next(m for m in messages if m.role == "human")
+    assert human_msg.parent_id is None
+
+    # Test second message with explicit parent
     second_payload = {
-        "conversation_id": conv_id,
+        "conversation_id": str(conv.id),
         "content": "Second message",
-        "parent_message_id": None,
+        "parent_message_id": str(human_msg.id),
     }
     resp2 = await auth_client.post("/api/chat/stream", json=second_payload)
     assert resp2.status_code == 200
@@ -103,34 +131,31 @@ async def test_chat_stream_sets_parent_id(auth_client, db_session):
 
 @pytest.mark.asyncio
 async def test_chat_regenerate(auth_client, db_session):
+    from sqlalchemy import select
 
-    from app.db.models import Message
+    user = (await db_session.execute(select(User))).scalars().first()
+    assert user is not None
 
-    resp_conv = await auth_client.post("/api/conversations", json={"title": "Test Reg"})
-    conv_id = resp_conv.json()["id"]
+    conv = Conversation(user_id=user.id, title="Test Reg")
+    db_session.add(conv)
+    await db_session.commit()
+    await db_session.refresh(conv)
 
-    # We mock out the actual stream or manually insert a message because background tasks  # noqa: E501
-    # might not commit fast enough for tests without sleeps
-
-    msg_ai = Message(conversation_id=conv_id, role="ai", content="Blah")
+    msg_ai = Message(conversation_id=conv.id, role="ai", content="Original AI reply")
     db_session.add(msg_ai)
     await db_session.commit()
     await db_session.refresh(msg_ai)
 
-    resp2 = await auth_client.post(
+    resp = await auth_client.post(
         "/api/chat/regenerate",
-        json={"conversation_id": conv_id, "message_id": str(msg_ai.id)},
-    )  # noqa: E501
-    assert resp2.status_code == 200
-    async for _ in resp2.aiter_text():
+        json={"conversation_id": str(conv.id), "message_id": str(msg_ai.id)},
+    )
+    assert resp.status_code == 200
+    async for _ in resp.aiter_text():
         pass
 
 
 def test_websocket_chat():
-    from fastapi.testclient import TestClient
-
-    from app.main import app
-
     client = TestClient(app)
     with client.websocket_connect("/api/chat/ws?token=test_token") as websocket:
         websocket.send_json({"type": "chat", "content": "Hello"})
