@@ -1,10 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Chat Functionality', () => {
-  // We skip complex flows that require real LLM keys or use mock users if available
   test('should allow creating a new conversation', async ({ page }) => {
-    // Note: This assumes we have a way to bypass login or use a test account
-    // For now, we test the UI elements existence
     await page.goto('/login');
     const emailInput = page.locator('input[type="email"]');
     const passwordInput = page.locator('input[type="password"]');
@@ -12,9 +9,10 @@ test.describe('Chat Functionality', () => {
     await expect(passwordInput).toBeVisible();
   });
 
-  test('should display chat input placeholder', async ({ page }) => {
-    // Just a placeholder test since full flow needs auth
+  test('should display login button', async ({ page }) => {
     await page.goto('/login');
-    await expect(page.locator('text=Login')).toBeVisible();
+    // Use getByRole to avoid ambiguity with text "Login to JARVIS"
+    const loginButton = page.getByRole('button', { name: /login|登录/i });
+    await expect(loginButton).toBeVisible();
   });
 });
