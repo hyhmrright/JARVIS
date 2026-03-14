@@ -151,6 +151,13 @@ jobs:
           cd ../frontend && npm install -g bun && bun install
       - name: Install Playwright Browsers
         run: cd frontend && bun x playwright install --with-deps chromium
+      - name: Wait for infrastructure
+        run: |
+          for i in {1..10}; do
+            nc -zv localhost 5432 && nc -zv localhost 6379 && nc -zv localhost 9000 && nc -zv localhost 6333 && break
+            echo "Waiting for infra..."
+            sleep 3
+          done
       - name: Run DB Migrations
         run: cd backend && uv run alembic upgrade head
         env:
