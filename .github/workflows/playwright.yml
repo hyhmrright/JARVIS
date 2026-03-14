@@ -1,4 +1,4 @@
-name: E2E
+name: CI
 
 on:
   push:
@@ -11,11 +11,47 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  e2e-run:
-    name: "Playwright E2E"
+  backend-lint:
+    name: "Backend Lint"
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+          python-version: "3.13.12"
+      - run: uv sync --frozen
+        working-directory: backend
+      - run: uv run ruff check .
+        working-directory: backend
+      - run: uv run ruff format --check .
+        working-directory: backend
+
+  backend-type:
+    name: "Backend Type Check"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+          python-version: "3.13.12"
+      - uses: actions/cache@v5
+        with:
+          path: backend/.mypy_cache
+          key: mypy-${{ runner.os }}-${{ runner.arch }}-py3.13-${{ hashFiles('backend/uv.lock') }}
+          restore-keys: mypy-${{ runner.os }}-${{ runner.arch }}-py3.13-
+      - run: uv sync --frozen
+        working-directory: backend
+      - run: uv run mypy app --cache-dir .mypy_cache
+        working-directory: backend
+
+  backend-test:
+    name: "Backend Test"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:16
@@ -39,39 +75,45 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      minio:
-        image: minio/minio:RELEASE.2024-01-28T22-35-53Z
-        env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
-        ports:
-          - 9000:9000
-          - 9001:9001
-        command: server /data --console-address ":9001"
-
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
           python-version: "3.13.12"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Install dependencies
-        run: |
-          cd backend && uv sync
-          cd ../frontend && npm install -g bun && bun install
-      - name: Install Playwright Browsers
-        run: cd frontend && bun x playwright install --with-deps chromium
-      - name: Run Playwright tests
-        run: cd frontend && bun x playwright test
+      - run: uv sync --frozen
+        working-directory: backend
+      - run: uv run pytest tests/ -v --tb=short
+        working-directory: backend
         env:
-          CI: true
           DATABASE_URL: "postgresql+asyncpg://jarvis:testpass@localhost:5432/jarvis_test"
           REDIS_URL: "redis://localhost:6379/0"
           JWT_SECRET: "ci-test-jwt-secret-not-for-production"
           ENCRYPTION_KEY: "Y2ktdGVzdC1mZXJuZXQta2V5LXBhZGRpbmctamFydmk="
-          MINIO_ACCESS_KEY: "minioadmin"
-          MINIO_SECRET_KEY: "minioadmin"
+          MINIO_ACCESS_KEY: "ci-test-minio-access"
+          MINIO_SECRET_KEY: "ci-test-minio-secret"
           POSTGRES_PASSWORD: "testpass"
+
+  frontend-lint:
+    name: "Frontend Lint"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+        working-directory: frontend
+      - run: bun run lint
+        working-directory: frontend
+
+  frontend-type:
+    name: "Frontend Type Check"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+        working-directory: frontend
+      - run: bun run type-check
+        working-directory: frontend
