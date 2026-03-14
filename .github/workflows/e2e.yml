@@ -1,0 +1,45 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+        
+    - name: Install uv
+      run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        
+    - name: Install dependencies
+      run: |
+        cd backend && uv sync
+        cd ../frontend && npm install -g bun && bun install
+        
+    - name: Install Playwright Browsers
+      run: cd frontend && bun x playwright install --with-deps chromium
+      
+    - name: Run Playwright tests
+      run: cd frontend && bun x playwright test
+      env:
+        CI: true
+        DATABASE_URL: postgresql+asyncpg://jarvis:jarvis@localhost:5432/jarvis
+        REDIS_URL: redis://localhost:6379
+        MINIO_ACCESS_KEY: minioadmin
+        MINIO_SECRET_KEY: minioadmin
+        JWT_SECRET: test_secret_key_change_me
