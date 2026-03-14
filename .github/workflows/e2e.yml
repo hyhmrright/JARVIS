@@ -74,4 +74,5 @@ jobs:
         MINIO_ACCESS_KEY: minioadmin
         MINIO_SECRET_KEY: minioadmin
         JWT_SECRET: test_secret_key_change_me
+        ENCRYPTION_KEY: "Y2ktdGVzdC1mZXJuZXQta2V5LXBhZGRpbmctamFydmk="
         POSTGRES_PASSWORD: testpass
