@@ -10,6 +10,7 @@ from app.api.chat import (
     _load_tools,
     _sse_events_from_chunk,
 )
+from app.api.deps import ResolvedLLMConfig
 from app.db.models import Conversation, Message
 
 
@@ -61,7 +62,7 @@ def test_sse_events_from_chunk_with_existing_content():
 async def test_chat_stream_sets_parent_id(auth_client, db_session):
     from app.core.security import decode_access_token
 
-    # Extract user from token to ensure we own the conversation
+    # Extract user from token
     token = auth_client.headers.get("Authorization").split(" ")[1]
     user_id_str = decode_access_token(token)
     user_id = uuid.UUID(user_id_str)
@@ -73,8 +74,24 @@ async def test_chat_stream_sets_parent_id(auth_client, db_session):
 
     payload = {"conversation_id": str(conv.id), "content": "Test Message"}
 
-    with patch("app.api.chat.classify_task", new_callable=AsyncMock) as mock_classify:
+    mock_llm = ResolvedLLMConfig(
+        provider="openai",
+        model_name="gpt-4o",
+        api_key="sk-test",
+        api_keys=["sk-test"],
+        enabled_tools=None,
+        persona_override=None,
+        raw_keys={},
+        base_url=None,
+    )
+
+    with (
+        patch("app.api.chat.get_llm_config", new_callable=AsyncMock) as mock_get_llm,
+        patch("app.api.chat.classify_task", new_callable=AsyncMock) as mock_classify,
+    ):
+        mock_get_llm.return_value = mock_llm
         mock_classify.return_value = "main"
+
         resp = await auth_client.post("/api/chat/stream", json=payload)
         assert resp.status_code == 200
         async for _ in resp.aiter_text():
@@ -99,8 +116,24 @@ async def test_chat_regenerate(auth_client, db_session):
     await db_session.commit()
     await db_session.refresh(msg_ai)
 
-    with patch("app.api.chat.classify_task", new_callable=AsyncMock) as mock_classify:
+    mock_llm = ResolvedLLMConfig(
+        provider="openai",
+        model_name="gpt-4o",
+        api_key="sk-test",
+        api_keys=["sk-test"],
+        enabled_tools=None,
+        persona_override=None,
+        raw_keys={},
+        base_url=None,
+    )
+
+    with (
+        patch("app.api.chat.get_llm_config", new_callable=AsyncMock) as mock_get_llm,
+        patch("app.api.chat.classify_task", new_callable=AsyncMock) as mock_classify,
+    ):
+        mock_get_llm.return_value = mock_llm
         mock_classify.return_value = "main"
+
         resp = await auth_client.post(
             "/api/chat/regenerate",
             json={"conversation_id": str(conv.id), "message_id": str(msg_ai.id)},
