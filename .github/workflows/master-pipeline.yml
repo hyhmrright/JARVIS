@@ -1,4 +1,4 @@
-name: DEBUG
+name: CI
 
 on:
   push:
@@ -6,8 +6,59 @@ on:
   pull_request:
     branches: [main, dev]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  debug-job:
+  backend-lint:
+    name: Backend Lint
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Parsing test"
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: latest
+          python-version: "3.13.12"
+      - run: uv sync --frozen
+        working-directory: backend
+      - run: uv run ruff check .
+        working-directory: backend
+      - run: uv run ruff format --check .
+        working-directory: backend
+
+  backend-type:
+    name: Backend Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: latest
+          python-version: "3.13.12"
+      - run: uv sync --frozen
+        working-directory: backend
+      - run: uv run mypy app
+        working-directory: backend
+
+  frontend-lint:
+    name: Frontend Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+        working-directory: frontend
+      - run: bun run lint
+        working-directory: frontend
+
+  frontend-type:
+    name: Frontend Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+        working-directory: frontend
+      - run: bun run type-check
+        working-directory: frontend
