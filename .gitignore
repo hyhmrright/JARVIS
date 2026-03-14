@@ -47,3 +47,6 @@ frontend/.vite/
 
 # Docker
 *.log
+
+.gemini/
+gha-creds-*.json
