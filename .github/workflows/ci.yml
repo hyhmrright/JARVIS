@@ -150,6 +150,19 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      qdrant:
+        image: qdrant/qdrant:v1.7.4
+        ports:
+          - 6333:6333
+      minio:
+        image: minio/minio:RELEASE.2024-01-28T22-35-53Z
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        ports:
+          - 9000:9000
+          - 9001:9001
+        command: server /data --console-address ":9001"
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
