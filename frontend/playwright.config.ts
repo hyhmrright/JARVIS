@@ -22,11 +22,13 @@ export default defineConfig({
       command: 'cd ../backend && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000',
       url: 'http://localhost:8000/health',
       reuseExistingServer: !process.env.CI,
+      timeout: 120000,
     },
     {
       command: 'bun run dev --port 3000',
       url: 'http://localhost:3000',
       reuseExistingServer: !process.env.CI,
+      timeout: 120000,
     },
   ],
 });
