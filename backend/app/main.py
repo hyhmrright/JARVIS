@@ -62,9 +62,40 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: C901
     """Startup/shutdown lifecycle: verify infrastructure and initialize plugins."""
     logger.info("Checking infrastructure connections...")
     qdrant = await get_qdrant_client()
-    await qdrant.get_collections()
     minio = get_minio_client()
-    await asyncio.to_thread(minio.bucket_exists, settings.minio_bucket)
+
+    # Initialize infrastructure with retries for environment robustness
+    max_retries = 10
+    retry_delay = 2
+
+    # Check Qdrant
+    for i in range(max_retries):
+        try:
+            await qdrant.get_collections()
+            logger.info("Qdrant connection verified.")
+            break
+        except Exception as e:
+            if i == max_retries - 1:
+                logger.error("qdrant_connection_failed_after_retries", error=str(e))
+            else:
+                logger.warning(f"qdrant_not_ready_retrying_{i + 1}/{max_retries}")
+                await asyncio.sleep(retry_delay)
+
+    # Check MinIO
+    for i in range(max_retries):
+        try:
+            exists = await asyncio.to_thread(minio.bucket_exists, settings.minio_bucket)
+            if not exists:
+                await asyncio.to_thread(minio.make_bucket, settings.minio_bucket)
+            logger.info("MinIO connection verified and bucket ensures.")
+            break
+        except Exception as e:
+            if i == max_retries - 1:
+                logger.error("minio_connection_failed_after_retries", error=str(e))
+            else:
+                logger.warning(f"minio_not_ready_retrying_{i + 1}/{max_retries}")
+                await asyncio.sleep(retry_delay)
+
     logger.info("Infrastructure ready.")
 
     # Initialize and start messaging channels
