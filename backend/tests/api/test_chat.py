@@ -1,5 +1,6 @@
 """Unit tests for chat.py helper functions: _load_tools, _sse_events_from_chunk, etc."""
 
+import uuid
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -9,7 +10,7 @@ from app.api.chat import (
     _load_tools,
     _sse_events_from_chunk,
 )
-from app.db.models import Conversation, Message, User
+from app.db.models import Conversation, Message
 
 
 async def test_load_tools_both_when_enabled_tools_is_none():
@@ -58,17 +59,18 @@ def test_sse_events_from_chunk_with_existing_content():
 
 @pytest.mark.asyncio
 async def test_chat_stream_sets_parent_id(auth_client, db_session):
-    from sqlalchemy import select
+    from app.core.security import decode_access_token
 
-    user = (await db_session.execute(select(User))).scalars().first()
-    assert user is not None
+    # Extract user from token to ensure we own the conversation
+    token = auth_client.headers.get("Authorization").split(" ")[1]
+    user_id_str = decode_access_token(token)
+    user_id = uuid.UUID(user_id_str)
 
-    conv = Conversation(user_id=user.id, title="Test Branching")
+    conv = Conversation(user_id=user_id, title="Test Branching")
     db_session.add(conv)
     await db_session.commit()
     await db_session.refresh(conv)
 
-    # Simplified payload - only send required fields
     payload = {"conversation_id": str(conv.id), "content": "Test Message"}
 
     with patch("app.api.chat.classify_task", new_callable=AsyncMock) as mock_classify:
@@ -81,12 +83,13 @@ async def test_chat_stream_sets_parent_id(auth_client, db_session):
 
 @pytest.mark.asyncio
 async def test_chat_regenerate(auth_client, db_session):
-    from sqlalchemy import select
+    from app.core.security import decode_access_token
 
-    user = (await db_session.execute(select(User))).scalars().first()
-    assert user is not None
+    token = auth_client.headers.get("Authorization").split(" ")[1]
+    user_id_str = decode_access_token(token)
+    user_id = uuid.UUID(user_id_str)
 
-    conv = Conversation(user_id=user.id, title="Test Reg")
+    conv = Conversation(user_id=user_id, title="Test Reg")
     db_session.add(conv)
     await db_session.commit()
     await db_session.refresh(conv)
