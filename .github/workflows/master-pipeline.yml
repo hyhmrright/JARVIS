@@ -166,6 +166,7 @@ jobs:
         run: cd frontend && bun x playwright test
         env:
           CI: true
+          CI_E2E: true
           DATABASE_URL: postgresql+asyncpg://jarvis:testpass@localhost:5432/jarvis_test
           REDIS_URL: redis://localhost:6379/0
           MINIO_URL: http://localhost:9000

@@ -1,4 +1,5 @@
 import asyncio
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -65,41 +66,45 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: C901
     minio = get_minio_client()
 
     # Initialize infrastructure with retries and timeouts
-    max_retries = 5
-    retry_delay = 2
-    step_timeout = 5.0
+    if not os.getenv("CI_E2E"):
+        # Initialize infrastructure with retries and timeouts
+        max_retries = 5
+        retry_delay = 2
+        step_timeout = 5.0
 
-    # Check Qdrant
-    for i in range(max_retries):
-        try:
-            await asyncio.wait_for(qdrant.get_collections(), timeout=step_timeout)
-            logger.info("Qdrant connection verified.")
-            break
-        except Exception as e:
-            if i == max_retries - 1:
-                logger.error("qdrant_connection_failed_after_retries", error=str(e))
-            else:
-                logger.warning(f"qdrant_not_ready_retrying_{i + 1}/{max_retries}")
-                await asyncio.sleep(retry_delay)
+        # Check Qdrant
+        for i in range(max_retries):
+            try:
+                await asyncio.wait_for(qdrant.get_collections(), timeout=step_timeout)
+                logger.info("Qdrant connection verified.")
+                break
+            except Exception as e:
+                if i == max_retries - 1:
+                    logger.error("qdrant_connection_failed_after_retries", error=str(e))
+                else:
+                    logger.warning(f"qdrant_not_ready_retrying_{i + 1}/{max_retries}")
+                    await asyncio.sleep(retry_delay)
 
-    # Check MinIO
-    for i in range(max_retries):
-        try:
-            exists = await asyncio.wait_for(
-                asyncio.to_thread(minio.bucket_exists, settings.minio_bucket),
-                timeout=step_timeout,
-            )
-            if not exists:
-                await asyncio.to_thread(minio.make_bucket, settings.minio_bucket)
-            logger.info("MinIO connection verified and bucket ensured.")
-            break
-        except Exception as e:
-            if i == max_retries - 1:
-                logger.error("minio_connection_failed_after_retries", error=str(e))
-            else:
-                logger.warning(f"minio_not_ready_retrying_{i + 1}/{max_retries}")
-                await asyncio.sleep(retry_delay)
+        # Check MinIO
+        for i in range(max_retries):
+            try:
+                exists = await asyncio.wait_for(
+                    asyncio.to_thread(minio.bucket_exists, settings.minio_bucket),
+                    timeout=step_timeout,
+                )
+                if not exists:
+                    await asyncio.to_thread(minio.make_bucket, settings.minio_bucket)
+                logger.info("MinIO connection verified and bucket ensured.")
+                break
+            except Exception as e:
+                if i == max_retries - 1:
+                    logger.error("minio_connection_failed_after_retries", error=str(e))
+                else:
+                    logger.warning(f"minio_not_ready_retrying_{i + 1}/{max_retries}")
+                    await asyncio.sleep(retry_delay)
 
+    else:
+        logger.info("CI_E2E mode: skipping infrastructure verification")
     logger.info("Infrastructure ready.")
 
     # Initialize and start messaging channels
