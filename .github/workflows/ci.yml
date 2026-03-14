@@ -61,20 +61,12 @@ jobs:
           POSTGRES_DB: jarvis_test
         ports:
           - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
       redis:
         image: redis:7
         ports:
           - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+        options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
@@ -108,7 +100,6 @@ jobs:
       - run: bun install --frozen-lockfile
         working-directory: frontend
       - run: bun run lint
-        working-directory: frontend
 
   frontend-type:
     name: "Frontend Type Check"
@@ -120,7 +111,6 @@ jobs:
       - run: bun install --frozen-lockfile
         working-directory: frontend
       - run: bun run type-check
-        working-directory: frontend
 
   frontend-e2e:
     name: "Frontend E2E"
@@ -136,20 +126,12 @@ jobs:
           POSTGRES_DB: jarvis_test
         ports:
           - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
       redis:
         image: redis:7
         ports:
           - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+        options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
       qdrant:
         image: qdrant/qdrant:v1.7.4
         ports:
