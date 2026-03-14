@@ -161,6 +161,8 @@ jobs:
           CI: true
           DATABASE_URL: postgresql+asyncpg://jarvis:testpass@localhost:5432/jarvis_test
           REDIS_URL: redis://localhost:6379/0
+          MINIO_URL: http://localhost:9000
+          QDRANT_URL: http://localhost:6333
           JWT_SECRET: ci-test-jwt-secret-not-for-production
           ENCRYPTION_KEY: Y2ktdGVzdC1mZXJuZXQta2V5LXBhZGRpbmctamFydmk=
           MINIO_ACCESS_KEY: minioadmin
