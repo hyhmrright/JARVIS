@@ -673,15 +673,20 @@ async def chat_regenerate(  # noqa: C901
             pass
 
         mcp_tools, plugin_tools = await _load_tools(llm.enabled_tools)
-        route = await classify_task(
-            user_content,
-            provider=llm.provider,
-            model=llm.model_name,
-            api_key=llm.api_key,
-            base_url=llm.base_url,
-        )
-        yield _format_sse({"type": "routing", "agent": route})
 
+        try:
+            route = await classify_task(
+                user_content,
+                provider=llm.provider,
+                model=llm.model_name,
+                api_key=llm.api_key,
+                base_url=llm.base_url,
+            )
+        except Exception as e:
+            logger.error("classify_task_failed_falling_back", error=str(e))
+            route = "main"
+
+        yield _format_sse({"type": "routing", "agent": route})
         full_content = ""
         last_ai_msg = None
 

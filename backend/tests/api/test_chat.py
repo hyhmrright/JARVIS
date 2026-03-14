@@ -1,19 +1,16 @@
 """Unit tests for chat.py helper functions: _load_tools, _sse_events_from_chunk, etc."""
 
-import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.testclient import TestClient
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage
 
 from app.api.chat import (
-    _format_sse,
     _load_tools,
     _sse_events_from_chunk,
 )
-from app.db.models import Conversation, Message, User, UserRole
+from app.db.models import Conversation, Message, User
 from app.main import app
 
 
@@ -58,8 +55,11 @@ def test_sse_events_from_chunk_with_llm_content():
     assert full_content == "Hello world"
     assert len(events) >= 1
     # Check if the expected data is in the raw SSE string
-    assert '{"type": "content", "content": "Hello world"}' in events[0] or \
-           '{"type": "delta", "delta": "Hello world", "content": "Hello world"}' in events[0]
+    assert (
+        '{"type": "content", "content": "Hello world"}' in events[0]
+        or '{"type": "delta", "delta": "Hello world", "content": "Hello world"}'
+        in events[0]
+    )  # noqa: E501
 
 
 def test_sse_events_from_chunk_with_existing_content():
@@ -74,8 +74,9 @@ def test_sse_events_from_chunk_with_existing_content():
 @pytest.mark.asyncio
 async def test_chat_stream_sets_parent_id(auth_client, db_session):
     from sqlalchemy import select
+
     user = (await db_session.execute(select(User))).scalars().first()
-    
+
     conv = Conversation(user_id=user.id, title="Test Branching")
     db_session.add(conv)
     await db_session.commit()
@@ -86,10 +87,10 @@ async def test_chat_stream_sets_parent_id(auth_client, db_session):
         "conversation_id": str(conv.id),
         "content": "First message",
         "workspace_id": None,
-        "parent_message_id": None
+        "parent_message_id": None,
     }
     resp1 = await auth_client.post("/api/chat/stream", json=first_payload)
-    # If it still fails with 400, we check logs. 
+    # If it still fails with 400, we check logs.
     # But adding all fields usually fixes Pydantic strict mode.
     assert resp1.status_code == 200
     async for _ in resp1.aiter_text():
@@ -99,6 +100,7 @@ async def test_chat_stream_sets_parent_id(auth_client, db_session):
 @pytest.mark.asyncio
 async def test_chat_regenerate(auth_client, db_session):
     from sqlalchemy import select
+
     user = (await db_session.execute(select(User))).scalars().first()
 
     conv = Conversation(user_id=user.id, title="Test Reg")
@@ -114,9 +116,9 @@ async def test_chat_regenerate(auth_client, db_session):
     resp = await auth_client.post(
         "/api/chat/regenerate",
         json={
-            "conversation_id": str(conv.id), 
+            "conversation_id": str(conv.id),
             "message_id": str(msg_ai.id),
-            "workspace_id": None
+            "workspace_id": None,
         },
     )
     assert resp.status_code == 200
