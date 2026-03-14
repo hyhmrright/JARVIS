@@ -8,6 +8,7 @@ on:
 
 jobs:
   test:
+    name: "Playwright E2E"
     timeout-minutes: 60
     runs-on: ubuntu-latest
     
@@ -45,34 +46,29 @@ jobs:
         command: server /data --console-address ":9001"
 
     steps:
-      - uses: actions/checkout@v6
-      
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
           python-version: "3.13.12"
-          
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          
       - name: Install dependencies
         run: |
           cd backend && uv sync
           cd ../frontend && npm install -g bun && bun install
-          
       - name: Install Playwright Browsers
         run: cd frontend && bun x playwright install --with-deps chromium
-        
       - name: Run Playwright tests
         run: cd frontend && bun x playwright test
         env:
           CI: true
-          DATABASE_URL: "postgresql+asyncpg://jarvis:testpass@localhost:5432/jarvis_test"
-          REDIS_URL: "redis://localhost:6379/0"
-          JWT_SECRET: "ci-test-jwt-secret-not-for-production"
-          ENCRYPTION_KEY: "Y2ktdGVzdC1mZXJuZXQta2V5LXBhZGRpbmctamFydmk="
-          MINIO_ACCESS_KEY: "minioadmin"
-          MINIO_SECRET_KEY: "minioadmin"
-          POSTGRES_PASSWORD: "testpass"
+          DATABASE_URL: postgresql+asyncpg://jarvis:testpass@localhost:5432/jarvis_test
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET: ci-test-jwt-secret-not-for-production
+          ENCRYPTION_KEY: Y2ktdGVzdC1mZXJuZXQta2V5LXBhZGRpbmctamFydmk=
+          MINIO_ACCESS_KEY: minioadmin
+          MINIO_SECRET_KEY: minioadmin
+          POSTGRES_PASSWORD: testpass
