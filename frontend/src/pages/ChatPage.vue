@@ -93,8 +93,23 @@
           >
             <Layout class="w-4 h-4" />
           </button>
-          <button class="text-zinc-500 hover:text-zinc-300 transition-colors">
-            <Share2 class="w-4 h-4" />
+          <button 
+            class="text-zinc-500 hover:text-zinc-300 transition-colors relative"
+            :disabled="sharing"
+            @click="handleShare"
+          >
+            <Share2 class="w-4 h-4" :class="{'animate-pulse': sharing}" />
+            
+            <!-- Share Link Popover -->
+            <div v-if="shareUrl" class="absolute top-10 right-0 w-64 bg-zinc-950 border border-zinc-800 p-3 rounded-lg shadow-2xl z-50 animate-in fade-in zoom-in duration-200">
+              <p class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Share Conversation</p>
+              <div class="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded px-2 py-1.5 mb-2">
+                <input type="text" readonly :value="shareUrl" class="bg-transparent border-none outline-none text-[10px] text-zinc-300 flex-1 truncate" />
+              </div>
+              <button class="w-full py-1.5 bg-white text-black text-[10px] font-bold rounded hover:bg-zinc-200 transition-all" @click="copyShareUrl">
+                COPY LINK
+              </button>
+            </div>
           </button>
         </div>
       </header>
@@ -429,6 +444,34 @@ const removeImage = (idx: number) => {
 
 const messagesEl = ref<HTMLElement>();
 const voiceOverlay = ref<InstanceType<typeof VoiceOverlay>>();
+
+// Share State
+const shareUrl = ref<string | null>(null);
+const sharing = ref(false);
+
+const handleShare = async () => {
+  if (!chat.currentConvId || sharing.value) return;
+  sharing.value = true;
+  try {
+    const { data } = await client.post(`/conversations/${chat.currentConvId}/share`);
+    const baseUrl = window.location.origin;
+    shareUrl.value = `${baseUrl}/share/${data.token}`;
+  } catch (err) {
+    console.error("Failed to share:", err);
+  } finally {
+    sharing.value = false;
+  }
+};
+
+const copyShareUrl = () => {
+  if (shareUrl.value) {
+    navigator.clipboard.writeText(shareUrl.value);
+    // Could add a toast here
+    setTimeout(() => {
+      shareUrl.value = null;
+    }, 3000);
+  }
+};
 
 // Canvas State
 const canvasVisible = ref(false);
