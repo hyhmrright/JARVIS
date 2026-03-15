@@ -137,6 +137,9 @@
 
             <!-- Content Column -->
             <div class="pl-8 group relative min-h-[20px]">
+              <div v-if="msg.image_urls && msg.image_urls.length > 0" class="flex flex-wrap gap-2 mb-2">
+                <img v-for="(img, imgIdx) in msg.image_urls" :key="imgIdx" :src="img" class="max-w-[300px] max-h-[300px] object-contain rounded-md border border-zinc-700/50" />
+              </div>
               <div class="markdown-body text-zinc-200 leading-[1.7] text-[14px]" v-html="renderMarkdown(msg.content)"></div>
               
               <!-- HITL Security Box -->
@@ -231,7 +234,31 @@
       <div class="w-full bg-zinc-900 pt-2">
         <div class="max-w-3xl mx-auto px-6 pb-10">
           <div class="relative bg-zinc-950 border border-zinc-800 rounded-xl transition-all focus-within:border-zinc-700">
+            <!-- Image Previews -->
+            <div v-if="selectedImages.length > 0" class="flex flex-wrap gap-2 px-4 pt-3 pb-1">
+              <div v-for="(img, idx) in selectedImages" :key="idx" class="relative group">
+                <img :src="img" class="w-14 h-14 object-cover rounded-md border border-zinc-800" />
+                <button 
+                  class="absolute -top-1.5 -right-1.5 bg-zinc-900 text-zinc-400 rounded-full p-0.5 border border-zinc-800 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all"
+                  @click="removeImage(idx)"
+                >
+                  <X class="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+
             <div class="flex items-end p-2 gap-1">
+              <input 
+                ref="fileInput" 
+                type="file" 
+                class="hidden" 
+                multiple 
+                accept="image/*" 
+                @change="handleImageSelect" 
+              />
+              <button class="p-2.5 text-zinc-500 hover:text-white transition-colors" title="Attach Image" @click="fileInput?.click()">
+                <Image class="w-4 h-4" />
+              </button>
               <button class="p-2.5 text-zinc-500 hover:text-white transition-colors" @click="voiceOverlay?.start()">
                 <Mic class="w-4 h-4" />
               </button>
@@ -299,7 +326,7 @@ import {
   Trash2, Zap, Settings, LogOut,
   PanelLeft, SquarePen, Copy, RotateCcw,
   Mic, ArrowUp, Square, ShieldAlert, Share2, MessageSquare,
-  Volume2, Layout
+  Volume2, Layout, Image, X
 } from "lucide-vue-next";
 
 import LiveCanvas from "@/components/LiveCanvas.vue";
@@ -311,7 +338,30 @@ const auth = useAuthStore();
 const router = useRouter();
 
 const input = ref("");
+const fileInput = ref<HTMLInputElement>();
+const selectedImages = ref<string[]>([]);
 const sidebarCollapsed = ref(false);
+
+const handleImageSelect = (e: Event) => {
+  const files = (e.target as HTMLInputElement).files;
+  if (!files) return;
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      if (ev.target?.result) {
+        selectedImages.value.push(ev.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+  // Reset input
+  if (fileInput.value) fileInput.value.value = '';
+};
+
+const removeImage = (idx: number) => {
+  selectedImages.value.splice(idx, 1);
+};
+
 const messagesEl = ref<HTMLElement>();
 const voiceOverlay = ref<InstanceType<typeof VoiceOverlay>>();
 
@@ -419,10 +469,12 @@ const hasCanvasData = (text: string) => {
 const currentConvTitle = computed(() => chat.conversations.find((conv) => conv.id === chat.currentConvId)?.title || "Intelligence Terminal");
 
 const handleSend = async function(): Promise<void> {
-  if (!input.value.trim() || chat.streaming) return;
+  if ((!input.value.trim() && selectedImages.value.length === 0) || chat.streaming) return;
   const msg = input.value;
+  const images = [...selectedImages.value];
   input.value = "";
-  await chat.sendMessage(msg);
+  selectedImages.value = [];
+  await chat.sendMessage(msg, images.length > 0 ? images : undefined);
 };
 
 const handleEnter = function(e: KeyboardEvent): void {

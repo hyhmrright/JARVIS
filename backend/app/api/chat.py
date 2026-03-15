@@ -290,7 +290,7 @@ async def chat_stream(  # noqa: C901
                 content_blocks: list[dict[str, Any]] = [
                     {"type": "text", "text": msg.content}
                 ]
-                for url in msg.image_urls:
+                for url in msg.image_urls or []:
                     content_blocks.append(
                         {"type": "image_url", "image_url": {"url": url}}
                     )
@@ -632,7 +632,7 @@ async def chat_regenerate(  # noqa: C901
                 content_blocks: list[dict[str, Any]] = [
                     {"type": "text", "text": msg.content}
                 ]
-                for url in msg.image_urls:
+                for url in msg.image_urls or []:
                     content_blocks.append(
                         {"type": "image_url", "image_url": {"url": url}}
                     )
