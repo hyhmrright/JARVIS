@@ -140,7 +140,25 @@
               <div v-if="msg.image_urls && msg.image_urls.length > 0" class="flex flex-wrap gap-2 mb-2">
                 <img v-for="(img, imgIdx) in msg.image_urls" :key="imgIdx" :src="img" class="max-w-[300px] max-h-[300px] object-contain rounded-md border border-zinc-700/50" />
               </div>
-              <div class="markdown-body text-zinc-200 leading-[1.7] text-[14px]" v-html="renderMarkdown(msg.content)"></div>
+              
+              <div v-if="editingMessageId === msg.id" class="space-y-2">
+                <textarea
+                  v-model="editInput"
+                  class="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-3 text-[14px] text-zinc-100 focus:ring-1 focus:ring-white/20 focus:border-zinc-600 outline-none min-h-[100px] resize-none"
+                ></textarea>
+                <div class="flex gap-2 justify-end">
+                  <button class="px-3 py-1.5 text-[11px] font-bold text-zinc-400 hover:text-zinc-200 transition-colors" @click="cancelEdit">CANCEL</button>
+                  <button class="px-3 py-1.5 text-[11px] font-bold bg-white text-black rounded hover:bg-zinc-200 transition-all" @click="handleEditSubmit(msg)">SUBMIT</button>
+                </div>
+              </div>
+              <div v-else class="markdown-body text-zinc-200 leading-[1.7] text-[14px]" v-html="renderMarkdown(msg.content)"></div>
+              
+              <!-- Message Actions (Human) -->
+              <div v-if="msg.role === 'human' && !editingMessageId" class="absolute -top-1 -right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Edit" @click="startEdit(msg)">
+                  <SquarePen class="w-3 h-3" />
+                </button>
+              </div>
               
               <!-- HITL Security Box -->
               <div v-if="msg.pending_tool_call" class="mt-8 p-6 bg-zinc-950 border border-white/10 rounded-lg space-y-5 max-w-md shadow-2xl">
@@ -338,9 +356,27 @@ const auth = useAuthStore();
 const router = useRouter();
 
 const input = ref("");
+const editingMessageId = ref<string | null>(null);
+const editInput = ref("");
 const fileInput = ref<HTMLInputElement>();
 const selectedImages = ref<string[]>([]);
 const sidebarCollapsed = ref(false);
+
+const startEdit = (msg: any) => {
+  editingMessageId.value = msg.id;
+  editInput.value = msg.content;
+};
+
+const cancelEdit = () => {
+  editingMessageId.value = null;
+  editInput.value = "";
+};
+
+const handleEditSubmit = async (msg: any) => {
+  const content = editInput.value;
+  cancelEdit();
+  await chat.sendMessage(content, undefined, msg.parent_id);
+};
 
 const handleImageSelect = (e: Event) => {
   const files = (e.target as HTMLInputElement).files;
