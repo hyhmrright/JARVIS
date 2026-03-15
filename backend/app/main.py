@@ -30,6 +30,7 @@ from app.api.tts import router as tts_router
 from app.api.usage import router as usage_router
 from app.api.voice import router as voice_router
 from app.api.webhooks import router as webhooks_router
+from app.api.workflows import router as workflows_router
 from app.api.workspaces import router as workspaces_router
 from app.channels.discord import DiscordChannel
 from app.channels.feishu import FeishuChannel
@@ -220,6 +221,7 @@ app.include_router(tts_router)
 app.include_router(voice_router)
 app.include_router(usage_router)
 app.include_router(webhooks_router)
+app.include_router(workflows_router)
 app.include_router(keys_router)
 app.include_router(organizations_router)
 app.include_router(workspaces_router)
