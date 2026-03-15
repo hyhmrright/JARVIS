@@ -271,6 +271,16 @@ async def deactivate_all_plugins(registry: PluginRegistry) -> None:
             logger.exception("plugin_unload_failed", plugin_id=plugin_id)
 
 
+async def reload_plugins(registry: PluginRegistry) -> None:
+    """Deactivate, reload and reactivate all plugins."""
+    await deactivate_all_plugins(registry)
+    # Clear registry except core? No, usually safer to just clear all and reload.
+    # But registry might have core tools.
+    # Let's see if we can just re-run load_all_plugins.
+    await load_all_plugins(registry)
+    await activate_all_plugins(registry)
+
+
 def _load_from_entry_points(registry: PluginRegistry) -> None:
     """Load plugins registered via Python package entry points."""
     try:

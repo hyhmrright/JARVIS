@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     minio_bucket: str = "jarvis-documents"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
+    skill_registry_url: str = (
+        "https://raw.githubusercontent.com/hyhmrright/JARVIS-skills/main/registry.json"
+    )
     cors_origins: list[str] = ["http://localhost:3000"]
     log_level: str = "INFO"
 
