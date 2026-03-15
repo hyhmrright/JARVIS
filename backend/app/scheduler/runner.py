@@ -8,6 +8,7 @@ from datetime import datetime
 
 import structlog
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.base import BaseTrigger
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from arq import create_pool
@@ -45,9 +46,9 @@ async def _execute_cron_job(job_id: str) -> None:
     logger.info("cron_job_enqueued", job_id=job_id, run_group_id=run_group_id)
 
 
-def parse_trigger(schedule_str: str, start_date: datetime | None = None):
+def parse_trigger(schedule_str: str, start_date: datetime | None = None) -> BaseTrigger:
     """将调度字符串解析为 APScheduler 触发器。
-    
+
     支持：
     - @every 30s (IntervalTrigger)
     - @every 5m
@@ -120,6 +121,7 @@ async def _load_cron_jobs() -> None:
         result = await db.execute(select(CronJob).where(CronJob.is_active.is_(True)))
         jobs = result.scalars().all()
     for job in jobs:
+        # 注意：这里暂不传递 start_date，因为数据库中尚未持久化该字段或逻辑
         register_cron_job(str(job.id), job.schedule)
     logger.info("cron_jobs_loaded", count=len(jobs))
 
