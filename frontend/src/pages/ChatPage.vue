@@ -617,7 +617,7 @@ const renderMarkdown = (text: string) => {
   const blocks: string[] = [];
   
   // Extract closed <think> blocks
-  processed = processed.replace(/<think>([\s\S]*?)<\/think>/g, (match, p1) => {
+  processed = processed.replace(/<think>([\s\S]*?)<\/think>/g, (_, p1) => {
     const placeholder = `__THINK_BLOCK_${blocks.length}__`;
     blocks.push(`<details class="my-3 group"><summary class="cursor-pointer text-xs font-semibold text-zinc-500 hover:text-zinc-300 transition-colors list-none flex items-center gap-2 select-none"><span class="w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px]">🧠</span> <span>Thought Process</span></summary><div class="mt-3 pl-4 border-l-2 border-zinc-800 text-zinc-400 text-[13px] leading-relaxed opacity-80">${marked.parse(p1)}</div></details>`);
     return placeholder;
