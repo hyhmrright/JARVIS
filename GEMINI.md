@@ -9,37 +9,41 @@ This document provides Gemini with comprehensive context and operational guideli
 **Architecture / 架构**: Multi-service monorepo (FastAPI backend + Vue 3 frontend)
 **Purpose / 目的**: AI assistant platform with RAG knowledge base, multi-LLM support, and streaming conversations.
 
-**Completed Features (Phase 1-12) / 已完成功能 (Phase 1-12)**:
+**Completed Features (Phase 1-12 + AI OS Epic)**:
+- **Vision & Multimodal**: Support for image upload and analysis in chat.
+- **Branching & Editing**: Tree-based conversation flow with historical message editing.
+- **Public Sharing**: Generate read-only public links for sharing conversations.
+- **Skill Market**: Dynamic skill discovery and 1-click installation from remote registries.
+- **Personas**: Custom system prompt management and selection.
+- **Workflow Engine**: Node-based visual studio for orchestrating complex AI logic (DSL -> LangGraph).
+- **LLMOps Dashboard**: Visual consumption and performance metrics via ECharts.
 - **RAG Knowledge Base**: Qdrant indexing, sliding window chunking, cross-collection search.
-- **RAG 知识库**：Qdrant 索引、滑动窗口分块、跨 collection 检索。
 - **Agent Intelligence**: LangGraph ReAct agents with tools: `search`, `code_exec`, `datetime`, `file`, `shell`, `browser`, `rag`.
-- **Agent 智能**：基于 LangGraph 的 ReAct agent，配备工具：`search`、`code_exec`、`datetime`、`file`、`shell`、`browser`、`rag`。
-- **Infrastructure**: Gateway (Traefik), Cron trigger system (web/semantic/email watchers), Webhooks, Canvas rendering.
-- **基础设施**：网关 (Traefik)、Cron 触发系统 (web/semantic/email watchers)、Webhooks、Canvas 渲染。
-- **Voice / 语音**: Integrated TTS/STT services / 集成 TTS/STT 服务。
-- **Observability / 可观测性**: Grafana/Loki/Prometheus monitoring stack / 监控栈。
-- **Advanced Ecosystem / 高级生态**: Plugin SDK, multi-agent supervisor, per-user rate limiting, audit log system.
-- **多租户系统**: Organizations, Workspaces, Invitations, Personal Access Tokens.
+- **Infrastructure**: Gateway (Traefik), Cron trigger system, Webhooks, Canvas rendering.
+- **Voice**: Integrated TTS/STT services.
+- **Observability**: Grafana/Loki/Prometheus monitoring stack.
+- **Advanced Ecosystem**: Plugin SDK, multi-agent supervisor, audit logs.
+- **Multitenancy**: Organizations, Workspaces, Invitations, PATs.
 
 ## Core Architecture / 核心架构
 
 ### Backend / 后端 (backend/)
 - **Framework**: FastAPI (Python 3.13) + Uvicorn.
-- **Agent Engine**: `agent/graph.py` uses LangGraph `StateGraph` for ReAct loops. LLM factory (`agent/llm.py`) supports DeepSeek, OpenAI, and Anthropic.
-- **Agent 引擎**：使用 LangGraph `StateGraph` 实现 ReAct 循环。LLM 工厂支持 DeepSeek、OpenAI 和 Anthropic。
-- **Streaming**: SSE (`StreamingResponse`) in `api/chat.py` with separate DB sessions for generators.
-- **流式对话**：SSE 处理，generator 内部使用独立数据库会话。
+- **Graph Engine**: `agent/compiler.py` dynamically compiles Studio JSON DSL into LangGraph `StateGraph`.
+- **Skill Registry**: `services/skill_market.py` handles remote skill fetching and dynamic installation.
+- **Agent Engine**: `agent/graph.py` supports multimodal inputs and persona-based system prompts.
+- **Streaming**: SSE handling in `api/chat.py` integrated with custom workflow execution.
 - **RAG Pipeline**: Sliding window chunking (500 words/50 overlap) -> `OpenAIEmbeddings` -> Qdrant.
-- **RAG 管线**：滑动窗口分块 (500词/50词重叠) -> `OpenAIEmbeddings` -> Qdrant。
-- **Infrastructure Clients**: Qdrant (lazy async init with locks), MinIO (thread-pool wrapped sync SDK), PostgreSQL (SQLAlchemy asyncpg).
-- **基础设施单例**：Qdrant (异步延迟初始化)、MinIO (线程池封装 SDK)、PostgreSQL (SQLAlchemy asyncpg)。
+- **Infrastructure Clients**: Qdrant (lazy async init), MinIO, PostgreSQL (SQLAlchemy asyncpg).
 
 ### Frontend / 前端 (frontend/)
 - **Framework / 框架**: Vue 3 + TypeScript + Vite.
+- **Workflow Studio**: Based on `VueFlow`, allows visual orchestration of nodes.
+- **Market & Personas**: Dedicated pages for ecosystem expansion.
+- **Dashboards**: `UsagePage.vue` enhanced with `vue-echarts` for real-time monitoring.
 - **State / 状态管理**: Pinia stores (`auth.ts`, `chat.ts`, `workspace.ts`).
 - **Streaming / 流式处理**: SSE handled via native `fetch` + `ReadableStream`.
 - **API Client**: Axios with `/api` base, JWT interceptors, and 401 auto-logout.
-- **API 客户端**：Axios 基础路径 `/api`，具备 JWT 拦截器和 401 自动登出。
 
 ## Gemini Enhanced Capabilities / Gemini 增强功能
 
