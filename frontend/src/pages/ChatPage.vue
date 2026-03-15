@@ -119,18 +119,47 @@
         <div class="max-w-3xl mx-auto px-6 py-12 space-y-16">
           
           <!-- New Session Welcome -->
-          <div v-if="chat.messages.length === 0" class="pt-20 text-center animate-in fade-in slide-in-from-bottom-4 duration-1000">
-            <div class="w-10 h-10 bg-white text-black rounded-lg flex items-center justify-center font-bold mx-auto mb-6">J</div>
-            <h1 class="text-2xl font-bold text-zinc-50 mb-12 tracking-tight">Intelligence at your service.</h1>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 w-full max-w-lg mx-auto">
-              <button 
-                v-for="s in suggestions" :key="s.text"
-                class="p-4 rounded-xl border border-zinc-800 bg-zinc-950/50 hover:bg-zinc-800 hover:border-zinc-700 transition-all text-left group"
-                @click="input = s.prompt"
-              >
-                <div class="text-[13px] font-semibold text-zinc-200 group-hover:text-white">{{ s.text }}</div>
-                <div class="text-[11px] text-zinc-500 mt-1">{{ s.sub }}</div>
-              </button>
+          <div v-if="chat.messages.length === 0" class="pt-20 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+            <div class="max-w-2xl mx-auto">
+              <div class="w-10 h-10 bg-white text-black rounded-lg flex items-center justify-center font-bold mx-auto mb-6">J</div>
+              <h1 class="text-center text-2xl font-bold text-zinc-50 mb-12 tracking-tight">Intelligence at your service.</h1>
+              
+              <!-- Persona Selector -->
+              <div v-if="personas.length > 0" class="mb-12">
+                <div class="flex items-center justify-between mb-4">
+                  <p class="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">Select Persona</p>
+                  <router-link to="/personas" class="text-[10px] font-bold text-zinc-500 hover:text-white transition-colors">MANAGE</router-link>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button 
+                    :class="['p-4 rounded-xl border text-left transition-all group', !selectedPersonaId ? 'bg-white border-white text-black shadow-xl shadow-white/5' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700']"
+                    @click="selectedPersonaId = null"
+                  >
+                    <div class="text-[13px] font-bold uppercase tracking-tight">Default Agent</div>
+                    <div :class="['text-[11px] mt-1', !selectedPersonaId ? 'text-black/60' : 'text-zinc-500 group-hover:text-zinc-400']">Standard autonomous assistant</div>
+                  </button>
+                  <button 
+                    v-for="p in personas" 
+                    :key="p.id"
+                    :class="['p-4 rounded-xl border text-left transition-all group', selectedPersonaId === p.id ? 'bg-white border-white text-black shadow-xl shadow-white/5' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700']"
+                    @click="selectedPersonaId = p.id"
+                  >
+                    <div class="text-[13px] font-bold uppercase tracking-tight truncate">{{ p.name }}</div>
+                    <div :class="['text-[11px] mt-1 truncate', selectedPersonaId === p.id ? 'text-black/60' : 'text-zinc-500 group-hover:text-zinc-400']">{{ p.description || 'Custom personality' }}</div>
+                  </button>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <button 
+                  v-for="s in suggestions" :key="s.text"
+                  class="p-4 rounded-xl border border-zinc-800 bg-zinc-950/50 hover:bg-zinc-800 hover:border-zinc-700 transition-all text-left group"
+                  @click="input = s.prompt"
+                >
+                  <div class="text-[13px] font-semibold text-zinc-200 group-hover:text-white">{{ s.text }}</div>
+                  <div class="text-[11px] text-zinc-500 mt-1">{{ s.sub }}</div>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -449,6 +478,19 @@ const voiceOverlay = ref<InstanceType<typeof VoiceOverlay>>();
 const shareUrl = ref<string | null>(null);
 const sharing = ref(false);
 
+// Personas State
+const personas = ref<any[]>([]);
+const selectedPersonaId = ref<string | null>(null);
+
+const fetchPersonas = async () => {
+  try {
+    const { data } = await client.get("/personas");
+    personas.value = data;
+  } catch (err) {
+    console.error("Failed to fetch personas:", err);
+  }
+};
+
 const handleShare = async () => {
   if (!chat.currentConvId || sharing.value) return;
   sharing.value = true;
@@ -580,9 +622,10 @@ const handleSend = async function(): Promise<void> {
   if ((!input.value.trim() && selectedImages.value.length === 0) || chat.streaming) return;
   const msg = input.value;
   const images = [...selectedImages.value];
+  const personaId = selectedPersonaId.value;
   input.value = "";
   selectedImages.value = [];
-  await chat.sendMessage(msg, images.length > 0 ? images : undefined);
+  await chat.sendMessage(msg, images.length > 0 ? images : undefined, undefined, personaId || undefined);
 };
 
 const handleEnter = function(e: KeyboardEvent): void {
@@ -624,7 +667,10 @@ const scrollToBottom = async function(): Promise<void> {
 
 watch(() => chat.messages.length, scrollToBottom);
 watch(() => chat.streaming, (isStreaming) => { if (isStreaming) scrollToBottom(); });
-onMounted(async () => { await chat.loadConversations(); });
+onMounted(async () => { 
+  await chat.loadConversations(); 
+  await fetchPersonas();
+});
 </script>
 
 <style scoped>
