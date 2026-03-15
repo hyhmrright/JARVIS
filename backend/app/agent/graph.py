@@ -176,8 +176,11 @@ def create_graph(  # noqa: C901
         # In a full implementation, this uses an LLM as a Critic.
         # Here we mock a basic check: if answer seems too short, append a
         # self-correction prompt.
-        is_ai = isinstance(last, AIMessage)
-        if is_ai and not last.tool_calls and len(last.content) < 10:
+        if (
+            isinstance(last, AIMessage)
+            and not getattr(last, "tool_calls", None)
+            and len(str(last.content)) < 10
+        ):
             # We don't actually trigger another LLM call in this mock to
             # save tokens/time, but this establishes the routing architecture.
             pass
