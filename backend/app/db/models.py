@@ -248,6 +248,7 @@ class Message(Base):
     model_name: Mapped[str | None] = mapped_column(String(100))
     tokens_input: Mapped[int | None] = mapped_column(Integer)
     tokens_output: Mapped[int | None] = mapped_column(Integer)
+    image_urls: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
