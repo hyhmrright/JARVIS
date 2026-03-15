@@ -166,7 +166,7 @@ export const useChatStore = defineStore("chat", {
       await this.sendMessage(`[CONSENT:${approved ? 'ALLOW' : 'DENY'}] ${callInfo.name}`);
     },
 
-    async sendMessage(content: string, imageUrls?: string[], parentId?: string) {
+    async sendMessage(content: string, imageUrls?: string[], parentId?: string, personaId?: string) {
       if (!this.currentConvId) {
         const title = content.slice(0, 30) + (content.length > 30 ? "..." : "");
         const { data } = await client.post("/conversations", { title });
@@ -196,6 +196,7 @@ export const useChatStore = defineStore("chat", {
             content,
             image_urls: imageUrls,
             parent_message_id: actualParentId,
+            persona_id: personaId,
           }),
           signal: controller.signal,
         });

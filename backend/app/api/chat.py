@@ -18,7 +18,7 @@ from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.compressor import compact_messages
@@ -219,6 +219,7 @@ class ChatRequest(BaseModel):
     image_urls: list[str] | None = None
     workspace_id: uuid.UUID | None = None
     parent_message_id: uuid.UUID | None = None
+    persona_id: uuid.UUID | None = None
 
 
 @router.post("/stream")
@@ -244,6 +245,23 @@ async def chat_stream(  # noqa: C901
     )
     if not conv:
         raise HTTPException(status_code=404)
+
+    # Apply persona if provided and conversation is new (no messages yet)
+    if body.persona_id and not is_consent:
+        message_count = await db.scalar(
+            select(func.count(Message.id)).where(Message.conversation_id == conv.id)
+        )
+        if message_count == 0:
+            from app.db.models import Persona
+
+            persona = await db.scalar(
+                select(Persona).where(
+                    Persona.id == body.persona_id, Persona.user_id == user.id
+                )
+            )
+            if persona:
+                conv.persona_override = persona.system_prompt
+                await db.commit()
 
     human_msg_id = None
     if not is_consent:
