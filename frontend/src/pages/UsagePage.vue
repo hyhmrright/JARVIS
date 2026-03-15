@@ -46,19 +46,8 @@
           <h2 class="chart-header">
             {{ $t("usage.chartTitle", { days }) }}
           </h2>
-          <div class="chart-container custom-scrollbar">
-            <div
-              v-for="day in chartData"
-              :key="day.day"
-              class="chart-bar-col"
-            >
-              <div
-                class="chart-bar"
-                :style="{ height: day.height + '%' }"
-                :title="`${day.day}: ${day.tokensOut.toLocaleString()} tokens`"
-              ></div>
-              <div class="chart-label">{{ day.label }}</div>
-            </div>
+          <div class="h-[400px] w-full">
+            <VChart :option="chartOptions" autoresize />
           </div>
         </div>
       </div>
@@ -70,6 +59,26 @@
 import { ref, computed, onMounted, watch } from "vue";
 import client from "@/api/client";
 import PageHeader from "@/components/PageHeader.vue";
+import { use } from "echarts/core";
+import { CanvasRenderer } from "echarts/renderers";
+import { LineChart, PieChart } from "echarts/charts";
+import {
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent,
+} from "echarts/components";
+import VChart from "vue-echarts";
+
+use([
+  CanvasRenderer,
+  LineChart,
+  PieChart,
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent,
+]);
 
 interface DayData {
   day: string;
@@ -86,16 +95,60 @@ const totalTokensIn = ref(0);
 const totalTokensOut = ref(0);
 
 const totalMessages = computed(() => dailyData.value.reduce((s, d) => s + d.messages, 0));
-const maxTokens = computed(() => Math.max(...dailyData.value.map((d) => d.tokens_out), 1));
 
-const chartData = computed(() =>
-  dailyData.value.map((d) => ({
-    day: d.day,
-    label: d.day.slice(5),
-    tokensOut: d.tokens_out,
-    height: Math.max(5, (d.tokens_out / maxTokens.value) * 100),
-  }))
-);
+const chartOptions = computed(() => {
+  const dates = [...new Set(dailyData.value.map(d => d.day))].sort();
+  const seriesData = dates.map(date => {
+    return dailyData.value
+      .filter(d => d.day === date)
+      .reduce((sum, d) => sum + d.tokens_out, 0);
+  });
+
+  return {
+    backgroundColor: "transparent",
+    tooltip: {
+      trigger: "axis",
+      backgroundColor: "#09090b",
+      borderColor: "#27272a",
+      textStyle: { color: "#d4d4d8" },
+    },
+    grid: {
+      left: "3%",
+      right: "4%",
+      bottom: "3%",
+      containLabel: true,
+    },
+    xAxis: {
+      type: "category",
+      data: dates.map(d => d.slice(5)),
+      axisLine: { lineStyle: { color: "#3f3f46" } },
+    },
+    yAxis: {
+      type: "value",
+      splitLine: { lineStyle: { color: "#18181b" } },
+      axisLine: { lineStyle: { color: "#3f3f46" } },
+    },
+    series: [
+      {
+        data: seriesData,
+        type: "line",
+        smooth: true,
+        symbol: "none",
+        lineStyle: { color: "#ffffff", width: 3 },
+        areaStyle: {
+          color: {
+            type: "linear",
+            x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: "rgba(255, 255, 255, 0.1)" },
+              { offset: 1, color: "rgba(255, 255, 255, 0)" },
+            ],
+          },
+        },
+      },
+    ],
+  };
+});
 
 const fetchUsage = async () => {
   isLoading.value = true;
