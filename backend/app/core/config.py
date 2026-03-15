@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     # Tool API keys — optional, used as server-level fallback
     tavily_api_key: str = ""
 
+    # LangSmith / Observability
+    langchain_tracing_v2: str = "false"
+    langchain_api_key: str = ""
+    langchain_project: str = "jarvis"
+
     # Channel bot tokens — optional, leave empty to disable the channel
     telegram_bot_token: str = ""
     telegram_webhook_url: str = ""
