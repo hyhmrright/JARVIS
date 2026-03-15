@@ -173,19 +173,34 @@
                 </div>
               </div>
 
-                            <!-- Branch Nav & Regenerate -->
-              <div v-if="msg.id && msg.role === 'ai'" class="mt-2 flex items-center gap-3 text-zinc-500">
-                <div v-if="chat.getSiblings(msg).length > 1" class="flex items-center gap-2">
-                  <button class="hover:text-white" @click="chat.switchBranch(chat.getSiblings(msg)[chat.getSiblings(msg).findIndex(m => m.id === msg.id) - 1]?.id || msg.id)">
-                    &larr;
+              <!-- Message Footer: Branch Nav & Actions -->
+              <div v-if="msg.id" class="mt-3 flex items-center gap-4 text-zinc-500">
+                <!-- Branch Switcher -->
+                <div v-if="chat.getSiblings(msg).length > 1" class="flex items-center gap-1.5 bg-zinc-900/50 rounded-full px-2 py-0.5 border border-zinc-800/50">
+                  <button 
+                    class="hover:text-zinc-200 disabled:opacity-30 disabled:hover:text-zinc-500 transition-colors" 
+                    :disabled="getBranchIndex(msg) === 0"
+                    @click="navigateBranch(msg, -1)"
+                  >
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                   </button>
-                  <span class="text-[10px]">{{ chat.getSiblings(msg).findIndex(m => m.id === msg.id) + 1 }} / {{ chat.getSiblings(msg).length }}</span>
-                  <button class="hover:text-white" @click="chat.switchBranch(chat.getSiblings(msg)[chat.getSiblings(msg).findIndex(m => m.id === msg.id) + 1]?.id || msg.id)">
-                    &rarr;
+                  <span class="text-[9px] font-medium tabular-nums text-zinc-400">{{ getBranchIndex(msg) + 1 }} / {{ chat.getSiblings(msg).length }}</span>
+                  <button 
+                    class="hover:text-zinc-200 disabled:opacity-30 disabled:hover:text-zinc-500 transition-colors" 
+                    :disabled="getBranchIndex(msg) === chat.getSiblings(msg).length - 1"
+                    @click="navigateBranch(msg, 1)"
+                  >
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                   </button>
                 </div>
-                <button v-if="!chat.streaming" class="text-[10px] hover:text-white flex items-center gap-1" @click="chat.regenerate(msg.id)">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+
+                <!-- AI Specific: Regenerate -->
+                <button 
+                  v-if="msg.role === 'ai' && !chat.streaming" 
+                  class="text-[10px] font-medium hover:text-zinc-300 flex items-center gap-1.5 transition-colors" 
+                  @click="chat.regenerate(msg.id)"
+                >
+                  <RotateCcw class="w-3 h-3" />
                   Regenerate
                 </button>
               </div>
@@ -376,6 +391,20 @@ const handleEditSubmit = async (msg: any) => {
   const content = editInput.value;
   cancelEdit();
   await chat.sendMessage(content, undefined, msg.parent_id);
+};
+
+const getBranchIndex = (msg: any) => {
+  const siblings = chat.getSiblings(msg);
+  return siblings.findIndex(m => m.id === msg.id);
+};
+
+const navigateBranch = (msg: any, direction: number) => {
+  const siblings = chat.getSiblings(msg);
+  const currentIndex = siblings.findIndex(m => m.id === msg.id);
+  const nextIndex = currentIndex + direction;
+  if (nextIndex >= 0 && nextIndex < siblings.length) {
+    chat.switchBranch(siblings[nextIndex].id!);
+  }
 };
 
 const handleImageSelect = (e: Event) => {
