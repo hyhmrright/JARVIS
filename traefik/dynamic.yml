@@ -1,11 +1,19 @@
 http:
   routers:
+    backend:
+      rule: "PathPrefix(`/api`) || PathPrefix(`/health`)"
+      service: backend
+      entryPoints: [web]
     frontend:
       rule: "PathPrefix(`/`)"
       service: frontend
       entryPoints: [web]
 
   services:
+    backend:
+      loadBalancer:
+        servers:
+          - url: "http://backend:8000"
     frontend:
       loadBalancer:
         servers:
