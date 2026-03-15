@@ -130,12 +130,27 @@ def _build_expert_graph(
     plugin_tools: list | None,
     conversation_id: str,
     base_url: str | None = None,
+    workflow_dsl: dict | None = None,
 ) -> CompiledStateGraph:
     """Return the appropriate compiled LangGraph for the given routing label.
 
     Expert agents (code/research/writing) each select a focused tool subset.
+    Workflow DSLs take precedence over default agents.
     Unknown labels fall back to the standard ReAct graph with all enabled tools.
     """
+    if workflow_dsl:
+        from app.agent.compiler import GraphCompiler, WorkflowDSL
+
+        compiler = GraphCompiler(
+            dsl=WorkflowDSL(**workflow_dsl),
+            llm_config={
+                "provider": provider,
+                "api_key": api_key,
+                "base_url": base_url,
+            },
+        )
+        return compiler.compile()
+
     from app.agent.experts import (
         create_code_agent_graph,
         create_research_agent_graph,
@@ -220,6 +235,7 @@ class ChatRequest(BaseModel):
     workspace_id: uuid.UUID | None = None
     parent_message_id: uuid.UUID | None = None
     persona_id: uuid.UUID | None = None
+    workflow_dsl: dict | None = None
 
 
 @router.post("/stream")
@@ -262,6 +278,15 @@ async def chat_stream(  # noqa: C901
             if persona:
                 conv.persona_override = persona.system_prompt
                 await db.commit()
+
+    # Store workflow DSL if provided for a new conversation
+    if body.workflow_dsl and not is_consent:
+        message_count = await db.scalar(
+            select(func.count(Message.id)).where(Message.conversation_id == conv.id)
+        )
+        if message_count == 0:
+            conv.workflow_dsl = body.workflow_dsl
+            await db.commit()
 
     human_msg_id = None
     if not is_consent:
@@ -476,8 +501,9 @@ async def chat_stream(  # noqa: C901
                     enabled_tools=llm.enabled_tools,
                     mcp_tools=mcp_tools,
                     plugin_tools=plugin_tools,
-                    conversation_id=str(conv_id),
+                    conversation_id=str(conv.id),
                     base_url=llm.base_url,
+                    workflow_dsl=conv.workflow_dsl,
                 )
                 state = AgentState(messages=lc_messages, approved=approved)
                 async for chunk in graph.astream(state):
@@ -750,8 +776,9 @@ async def chat_regenerate(  # noqa: C901
                 enabled_tools=llm.enabled_tools,
                 mcp_tools=mcp_tools,
                 plugin_tools=plugin_tools,
-                conversation_id=str(conv_id),
+                conversation_id=str(conv.id),
                 base_url=llm.base_url,
+                workflow_dsl=conv.workflow_dsl,
             )
             state = AgentState(messages=lc_messages, approved=None)
             async for chunk in graph.astream(state):
