@@ -2,9 +2,14 @@
   <div class="plugins-page">
     <div class="page-header">
       <h1>{{ t("plugins.title") }}</h1>
-      <button class="reload-btn" @click="handleReload">
-        {{ t("plugins.reload") }}
-      </button>
+      <div class="header-actions">
+        <router-link to="/market" class="market-btn">
+          {{ t("plugins.browseMarket") || 'Browse Market' }}
+        </router-link>
+        <button class="reload-btn" @click="handleReload">
+          {{ t("plugins.reload") }}
+        </button>
+      </div>
     </div>
 
     <div v-if="loading" class="loading">{{ t("common.loading") }}</div>
