@@ -19,7 +19,7 @@
       </header>
 
       <!-- Messages Area -->
-      <div class="flex-1 overflow-y-auto custom-scrollbar" ref="messagesEl">
+      <div ref="messagesEl" class="flex-1 overflow-y-auto custom-scrollbar">
         <div class="max-w-3xl mx-auto px-6 py-12 space-y-12">
           <div v-if="loading" class="flex flex-col items-center justify-center py-20 gap-4">
             <div class="w-5 h-5 border-2 border-white/10 border-t-white rounded-full animate-spin"></div>
@@ -82,21 +82,19 @@ const loading = ref(true);
 const error = ref<string | null>(null);
 const messagesEl = ref<HTMLElement>();
 
-const renderMarkdown = (text: string): string => {
-  if (!text) return "";
-  return marked(text) as string;
-};
+const renderMarkdown = (text: string) => (text ? marked.parse(text) : "");
 
 onMounted(async () => {
-  marked.setOptions({
-    highlight: (code, lang) => {
-      if (lang && hljs.getLanguage(lang)) {
-        return hljs.highlight(code, { language: lang }).value;
-      }
-      return hljs.highlightAuto(code).value;
-    },
+  marked.use({
     breaks: true,
-    gfm: true,
+    renderer: {
+      code({ text, lang }: { text: string; lang?: string }): string {
+        if (lang && hljs.getLanguage(lang)) {
+          return `<pre><code class="hljs language-${lang}">${hljs.highlight(text, { language: lang }).value}</code></pre>\n`;
+        }
+        return `<pre><code class="hljs">${hljs.highlightAuto(text).value}</code></pre>\n`;
+      },
+    },
   });
 
   const token = route.params.token;
