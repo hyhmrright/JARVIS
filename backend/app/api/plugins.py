@@ -14,9 +14,63 @@ from app.db.models import PluginConfig, User, UserSettings
 from app.db.session import get_db
 from app.plugins import plugin_registry
 from app.plugins.loader import activate_all_plugins, install_plugin_from_url
+from app.services.skill_market import MarketSkill, skill_market_manager
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/plugins", tags=["plugins"])
+
+
+@router.get("/market/skills", response_model=list[MarketSkill])
+async def list_market_skills(
+    user: User = Depends(get_current_user),
+) -> list[MarketSkill]:
+    """Fetch available skills from the remote registry."""
+    return await skill_market_manager.fetch_registry()
+
+
+@router.post("/market/install/{skill_id}")
+async def install_market_skill(
+    skill_id: str,
+    md_url: str,
+    admin: User = Depends(get_admin_user),
+) -> dict[str, str]:
+    """Download and install a skill from the market."""
+    success = await skill_market_manager.install_skill(skill_id, md_url)
+    if not success:
+        raise HTTPException(status_code=400, detail="Skill installation failed")
+
+    # Trigger hot-reload
+    from app.plugins.loader import deactivate_all_plugins, load_all_plugins
+
+    await deactivate_all_plugins(plugin_registry)
+    plugin_registry._entries.clear()
+    await load_all_plugins(plugin_registry)
+    await activate_all_plugins(plugin_registry)
+
+    return {"status": "ok"}
+
+
+@router.delete("/market/uninstall/{skill_id}")
+async def uninstall_market_skill(
+    skill_id: str,
+    admin: User = Depends(get_admin_user),
+) -> dict[str, str]:
+    """Remove an installed skill."""
+    success = skill_market_manager.uninstall_skill(skill_id)
+    if not success:
+        raise HTTPException(
+            status_code=404, detail="Skill not found or already uninstalled"
+        )
+
+    # Trigger hot-reload
+    from app.plugins.loader import deactivate_all_plugins, load_all_plugins
+
+    await deactivate_all_plugins(plugin_registry)
+    plugin_registry._entries.clear()
+    await load_all_plugins(plugin_registry)
+    await activate_all_plugins(plugin_registry)
+
+    return {"status": "ok"}
 
 
 @router.post("/reload")
