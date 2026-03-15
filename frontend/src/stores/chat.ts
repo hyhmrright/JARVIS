@@ -166,7 +166,7 @@ export const useChatStore = defineStore("chat", {
       await this.sendMessage(`[CONSENT:${approved ? 'ALLOW' : 'DENY'}] ${callInfo.name}`);
     },
 
-    async sendMessage(content: string, imageUrls?: string[]) {
+    async sendMessage(content: string, imageUrls?: string[], parentId?: string) {
       if (!this.currentConvId) {
         const title = content.slice(0, 30) + (content.length > 30 ? "..." : "");
         const { data } = await client.post("/conversations", { title });
@@ -174,9 +174,11 @@ export const useChatStore = defineStore("chat", {
         this.currentConvId = data.id;
       }
 
+      const actualParentId = parentId || (this.activeMessages.length > 0 ? this.activeMessages[this.activeMessages.length - 1].id : undefined);
+
       if (!content.startsWith("[CONSENT:")) {
-        this.messages.push({ role: "human", content, image_urls: imageUrls });
-        this.messages.push({ role: "ai", content: "" });
+        this.messages.push({ role: "human", content, image_urls: imageUrls, parent_id: actualParentId });
+        this.messages.push({ role: "ai", content: "", parent_id: undefined }); // Resulting AI msg will eventually get a parent_id from backend if we refresh, but for now we just link it optimistically
       }
 
       this.streaming = true;
@@ -193,6 +195,7 @@ export const useChatStore = defineStore("chat", {
             conversation_id: this.currentConvId,
             content,
             image_urls: imageUrls,
+            parent_message_id: actualParentId,
           }),
           signal: controller.signal,
         });
