@@ -1,0 +1,62 @@
+<h2>最终简化调度方案</h2>
+<p class="subtitle">彻底移除 Cron，回归直观的间隔设置</p>
+
+<div class="section">
+  <h3>极致简化的交互</h3>
+  <p>用户只需思考“多久运行一次”和“什么时候开始”。</p>
+  
+  <div class="mockup">
+    <div class="mockup-header">设置执行频率</div>
+    <div class="mockup-body" style="padding: 24px; background: #09090b;">
+      
+      <!-- 核心设置 -->
+      <div style="margin-bottom: 24px;">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #a1a1aa; margin-bottom: 12px;">执行频率</label>
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <span style="color: #d4d4d8; font-size: 15px;">每隔</span>
+          <input type="number" value="1" style="width: 70px; background: #000; border: 1px solid #27272a; border-radius: 8px; color: white; padding: 10px; font-family: sans-serif; font-size: 16px; text-align: center;">
+          <select style="flex: 1; background: #000; border: 1px solid #27272a; border-radius: 8px; color: white; padding: 10px; font-size: 15px;">
+            <option>秒</option>
+            <option selected>分钟</option>
+            <option>小时</option>
+            <option>天</option>
+          </select>
+          <span style="color: #d4d4d8; font-size: 15px;">运行一次</span>
+        </div>
+      </div>
+
+      <!-- 可选设置 -->
+      <div style="padding-top: 20px; border-top: 1px dashed #27272a;">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #a1a1aa; margin-bottom: 12px;">首次执行时间 (可选)</label>
+        <div style="display: flex; gap: 10px;">
+          <button style="padding: 8px 16px; background: #22c55e; color: black; border-radius: 6px; font-size: 13px; font-weight: 600;">立即开始</button>
+          <button style="padding: 8px 16px; background: #27272a; color: #a1a1aa; border-radius: 6px; font-size: 13px;">指定时间...</button>
+        </div>
+        <p style="margin-top: 12px; font-size: 12px; color: #71717a;">
+          💡 提示：如果您想在固定时间点运行（如每天 8:00），请在此设置。
+        </p>
+      </div>
+
+      <!-- 预览 -->
+      <div style="margin-top: 24px; padding: 16px; background: #18181b; border-radius: 10px; border: 1px solid #27272a;">
+        <div style="font-size: 12px; color: #71717a; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">执行计划预览</div>
+        <div style="font-size: 14px; color: #22c55e; font-family: monospace;">
+          ▶ 2026-03-15 14:00:00 (首次)<br>
+          ▶ 2026-03-15 14:01:00<br>
+          ▶ 2026-03-15 14:02:00
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="interval-only" onclick="toggleSelect(this)">
+    <div class="letter">✔</div>
+    <div class="content">
+      <h3>确认此方案</h3>
+      <p>完全移除所有 Cron 相关的术语和输入框。后端将使用 IntervalTrigger 重新实现。</p>
+    </div>
+  </div>
+</div>

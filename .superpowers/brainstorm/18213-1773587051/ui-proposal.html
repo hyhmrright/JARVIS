@@ -1,0 +1,59 @@
+<h2>优化调度设置 (Cron)</h2>
+<p class="subtitle">让任务执行频率更直观、易懂</p>
+
+<div class="section">
+  <h3>方案 A: 模式切换 (推荐)</h3>
+  <p>在现有界面增加一个切换器，默认为“简单”模式。</p>
+  
+  <div class="mockup">
+    <div class="mockup-header">新建/编辑调度任务</div>
+    <div class="mockup-body" style="padding: 20px; background: #09090b;">
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-size: 12px; font-weight: 600; color: #a1a1aa; margin-bottom: 8px;">调度模式</label>
+        <div style="display: flex; gap: 8px;">
+          <button style="flex: 1; padding: 8px; border: 1px solid #3f3f46; background: #27272a; color: white; border-radius: 6px; font-size: 13px;">简单 (间隔)</button>
+          <button style="flex: 1; padding: 8px; border: 1px solid #27272a; background: transparent; color: #71717a; border-radius: 6px; font-size: 13px;">高级 (Cron)</button>
+        </div>
+      </div>
+
+      <div id="simple-mode">
+        <label style="display: block; font-size: 12px; font-weight: 600; color: #a1a1aa; margin-bottom: 8px;">执行频率</label>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <span style="color: #d4d4d8; font-size: 14px;">每</span>
+          <input type="number" value="30" style="width: 80px; background: #000; border: 1px solid #27272a; border-radius: 6px; color: white; padding: 8px; font-family: monospace;">
+          <select style="flex: 1; background: #000; border: 1px solid #27272a; border-radius: 6px; color: white; padding: 8px;">
+            <option>秒</option>
+            <option selected>分钟</option>
+            <option>小时</option>
+            <option>天</option>
+          </select>
+          <span style="color: #d4d4d8; font-size: 14px;">运行一次</span>
+        </div>
+      </div>
+
+      <div style="margin-top: 20px; padding: 12px; background: #18181b; border-radius: 6px;">
+        <div style="font-size: 12px; color: #a1a1aa; display: flex; justify-content: space-between;">
+          <span>下次运行预计时间:</span>
+          <span style="color: #22c55e; font-family: monospace;">2026-03-15 14:30:00</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="simple-interval" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content">
+      <h3>简单间隔模式</h3>
+      <p>完全屏蔽 Cron 表达式，使用“数值 + 单位”的方式。后端自动转换或支持间隔触发器。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="natural-language" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content">
+      <h3>自然语言输入</h3>
+      <p>用户输入“每隔30分钟”，系统自动解析。类似 GitHub Actions 或 Vercel 的体验。</p>
+    </div>
+  </div>
+</div>

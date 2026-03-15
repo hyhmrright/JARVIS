@@ -610,7 +610,38 @@ marked.use({
   },
 });
 
-const renderMarkdown = (text: string) => text ? marked.parse(text) : '<span class="cursor-block"></span>';
+const renderMarkdown = (text: string) => {
+  if (!text) return '<span class="cursor-block"></span>';
+  
+  let processed = text;
+  const blocks: string[] = [];
+  
+  // Extract closed <think> blocks
+  processed = processed.replace(/<think>([\s\S]*?)<\/think>/g, (match, p1) => {
+    const placeholder = `__THINK_BLOCK_${blocks.length}__`;
+    blocks.push(`<details class="my-3 group"><summary class="cursor-pointer text-xs font-semibold text-zinc-500 hover:text-zinc-300 transition-colors list-none flex items-center gap-2 select-none"><span class="w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px]">🧠</span> <span>Thought Process</span></summary><div class="mt-3 pl-4 border-l-2 border-zinc-800 text-zinc-400 text-[13px] leading-relaxed opacity-80">${marked.parse(p1)}</div></details>`);
+    return placeholder;
+  });
+
+  // Extract unclosed <think> block (streaming)
+  const unclosedIndex = processed.indexOf('<think>');
+  if (unclosedIndex !== -1) {
+    const thinkingPart = processed.substring(unclosedIndex + 7);
+    processed = processed.substring(0, unclosedIndex);
+    const placeholder = `__THINK_BLOCK_${blocks.length}__`;
+    blocks.push(`<details open class="my-3 group"><summary class="cursor-pointer text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors list-none flex items-center gap-2 select-none"><span class="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center text-[10px] animate-pulse">🧠</span> <span>Thinking...</span></summary><div class="mt-3 pl-4 border-l-2 border-indigo-500/30 text-zinc-400 text-[13px] leading-relaxed opacity-80">${marked.parse(thinkingPart)}</div></details>`);
+    processed += placeholder;
+  }
+
+  let html = marked.parse(processed) as string;
+
+  blocks.forEach((blockHtml, i) => {
+    html = html.replace(`<p>__THINK_BLOCK_${i}__</p>`, blockHtml);
+    html = html.replace(`__THINK_BLOCK_${i}__`, blockHtml);
+  });
+  
+  return html;
+};
 const hasHtml = (text: string) => /<html>[\s\S]*?<\/html>/.test(text);
 const hasCanvasData = (text: string) => {
   if (text.includes('"type": "chart"') || text.includes('"type": "form"')) return true;
