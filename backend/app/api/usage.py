@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import date, timedelta
 
 import structlog
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
-from app.db.models import Conversation, Message, User
+from app.db.models import Conversation, Message, User, WorkspaceMember
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/usage", tags=["usage"])
@@ -19,6 +20,7 @@ router = APIRouter(prefix="/api/usage", tags=["usage"])
 @router.get("/summary")
 async def get_usage_summary(
     days: int = 30,
+    workspace_id: uuid.UUID | None = Query(None),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -28,23 +30,35 @@ async def get_usage_summary(
 
     since = date.today() - timedelta(days=days)
 
-    rows = await db.execute(
-        select(
-            func.date(Message.created_at).label("day"),
-            Message.model_provider,
-            func.coalesce(func.sum(Message.tokens_input), 0).label("tokens_in"),
-            func.coalesce(func.sum(Message.tokens_output), 0).label("tokens_out"),
-            func.count().label("message_count"),
+    stmt = select(
+        func.date(Message.created_at).label("day"),
+        Message.model_provider,
+        func.coalesce(func.sum(Message.tokens_input), 0).label("tokens_in"),
+        func.coalesce(func.sum(Message.tokens_output), 0).label("tokens_out"),
+        func.count().label("message_count"),
+    ).join(Conversation, Message.conversation_id == Conversation.id)
+
+    if workspace_id:
+        # Verify membership
+        membership = await db.scalar(
+            select(WorkspaceMember).where(
+                WorkspaceMember.workspace_id == workspace_id,
+                WorkspaceMember.user_id == user.id,
+            )
         )
-        .join(Conversation, Message.conversation_id == Conversation.id)
-        .where(
-            Conversation.user_id == user.id,
-            Message.role == "ai",
-            Message.created_at >= since,
-        )
-        .group_by(func.date(Message.created_at), Message.model_provider)
-        .order_by(func.date(Message.created_at))
-    )
+        if not membership:
+            return {"error": "Not a workspace member"}
+        stmt = stmt.where(Conversation.workspace_id == workspace_id)
+    else:
+        stmt = stmt.where(Conversation.user_id == user.id)
+
+    stmt = stmt.where(
+        Message.role == "ai",
+        Message.created_at >= since,
+    ).group_by(func.date(Message.created_at), Message.model_provider)
+    stmt = stmt.order_by(func.date(Message.created_at))
+
+    rows = await db.execute(stmt)
     daily = [
         {
             "day": str(r.day),
