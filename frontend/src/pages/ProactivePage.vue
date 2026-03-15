@@ -35,7 +35,9 @@
                 ]">
                   {{ $t(`proactive.triggerTypes.${job.trigger_type}`) || job.trigger_type }}
                 </span>
-                <span class="text-[10px] font-mono text-zinc-500 bg-zinc-950 px-1.5 py-0.5 rounded">{{ job.schedule }}</span>
+                <span class="text-[10px] font-mono text-zinc-500 bg-zinc-950 px-1.5 py-0.5 rounded">
+                  {{ formatSchedule(job.schedule) }}
+                </span>
               </div>
 
               <label class="relative inline-flex items-center cursor-pointer">
@@ -129,10 +131,28 @@
             <span v-if="formErrors.task" class="text-red-400 text-xs mt-1 block">{{ formErrors.task }}</span>
           </div>
 
-          <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-4">
             <div class="flex flex-col gap-2">
-              <label class="text-xs font-semibold text-zinc-400">{{ $t('proactive.schedule') }} (Cron)</label>
-              <input v-model="newJob.schedule" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm font-mono outline-none focus:border-zinc-600 transition-colors" placeholder="*/30 * * * *" />
+              <label class="text-xs font-semibold text-zinc-400">执行频率</label>
+              <div class="flex items-center gap-3">
+                <span class="text-sm text-zinc-500">每隔</span>
+                <input
+                  v-model.number="intervalValue"
+                  type="number"
+                  min="1"
+                  class="w-20 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-600 transition-colors text-center"
+                />
+                <select
+                  v-model="intervalUnit"
+                  class="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-600 transition-colors"
+                >
+                  <option value="s">秒</option>
+                  <option value="m">分钟</option>
+                  <option value="h">小时</option>
+                  <option value="d">天</option>
+                </select>
+                <span class="text-sm text-zinc-500">运行一次</span>
+              </div>
             </div>
 
             <div class="flex flex-col gap-2">
@@ -281,12 +301,34 @@ interface JobExecution {
 
 const jobs = ref<CronJob[]>([])
 const showAddModal = ref(false)
+
+const intervalValue = ref(30)
+const intervalUnit = ref('m')
+
 const newJob = ref({
   task: '',
-  schedule: '*/30 * * * *',
+  schedule: '',
   trigger_type: 'cron',
   trigger_metadata: {} as Record<string, unknown>,
 })
+
+// UI 状态与 @every 协议字符串的转换
+watch([intervalValue, intervalUnit], () => {
+  newJob.value.schedule = `@every ${intervalValue.value}${intervalUnit.value}`
+}, { immediate: true })
+
+function formatSchedule(schedule: string): string {
+  if (schedule.startsWith('@every ')) {
+    const match = schedule.match(/@every (\d+)([smhd])/)
+    if (match) {
+      const value = match[1]
+      const unit = match[2]
+      const unitMap: Record<string, string> = { s: '秒', m: '分', h: '时', d: '天' }
+      return `每 ${value} ${unitMap[unit]}`
+    }
+  }
+  return schedule // 如果是标准 Cron 则原样显示
+}
 
 interface FormErrors {
   task?: string
@@ -352,7 +394,9 @@ function validateForm(): boolean {
 function closeModal() {
   showAddModal.value = false
   formErrors.value = {}
-  newJob.value = { task: '', schedule: '*/30 * * * *', trigger_type: 'cron', trigger_metadata: {} }
+  intervalValue.value = 30
+  intervalUnit.value = 'm'
+  newJob.value = { task: '', schedule: '@every 30m', trigger_type: 'cron', trigger_metadata: {} }
 }
 
 // Test trigger state

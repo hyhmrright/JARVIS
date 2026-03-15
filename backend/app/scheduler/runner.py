@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime
 
 import structlog
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from arq import create_pool
 from arq.connections import ArqRedis, RedisSettings
 from sqlalchemy import select
@@ -43,15 +45,59 @@ async def _execute_cron_job(job_id: str) -> None:
     logger.info("cron_job_enqueued", job_id=job_id, run_group_id=run_group_id)
 
 
-def register_cron_job(job_id: str, schedule: str) -> datetime | None:
-    """Register a single cron job with the scheduler. Returns next run time."""
+def parse_trigger(schedule_str: str, start_date: datetime | None = None):
+    """将调度字符串解析为 APScheduler 触发器。
+    
+    支持：
+    - @every 30s (IntervalTrigger)
+    - @every 5m
+    - @every 2h
+    - @every 1d
+    - 标准 crontab 格式 (CronTrigger)
+    """
+    if schedule_str.startswith("@every "):
+        match = re.match(r"@every (\d+)([smhd])", schedule_str)
+        if not match:
+            raise ValueError(
+                f"Invalid interval format: {schedule_str}. Expected e.g. @every 30s"
+            )
+
+        value = int(match.group(1))
+        unit = match.group(2)
+        mapping = {"s": "seconds", "m": "minutes", "h": "hours", "d": "days"}
+        return IntervalTrigger(**{mapping[unit]: value}, start_date=start_date)
+
+    # CronTrigger.from_crontab 返回实例，但不支持传递 start_date
+    # 我们可以直接使用 CronTrigger 构造函数，或者在创建后修改
+    trigger = CronTrigger.from_crontab(schedule_str)
+    if start_date:
+        trigger.start_date = start_date
+    return trigger
+
+
+def register_cron_job(
+    job_id: str, schedule: str, start_date: datetime | None = None
+) -> datetime | None:
+    """在调度器中注册单个任务。返回下次运行时间。"""
     scheduler = get_scheduler()
     job_key = f"cron_{job_id}"
     if scheduler.get_job(job_key):
         scheduler.remove_job(job_key)
+
+    try:
+        trigger = parse_trigger(schedule, start_date=start_date)
+    except Exception as exc:
+        logger.error(
+            "trigger_parsing_failed",
+            job_id=job_id,
+            schedule=schedule,
+            error=str(exc),
+        )
+        return None
+
     apscheduler_job = scheduler.add_job(
         _execute_cron_job,
-        trigger=CronTrigger.from_crontab(schedule),
+        trigger=trigger,
         id=job_key,
         kwargs={"job_id": job_id},
         misfire_grace_time=60,
@@ -61,7 +107,7 @@ def register_cron_job(job_id: str, schedule: str) -> datetime | None:
 
 
 def unregister_cron_job(job_id: str) -> None:
-    """Remove a cron job from the scheduler (no-op if not found)."""
+    """从调度器中移除任务。"""
     scheduler = get_scheduler()
     job_key = f"cron_{job_id}"
     if scheduler.get_job(job_key):
@@ -69,7 +115,7 @@ def unregister_cron_job(job_id: str) -> None:
 
 
 async def _load_cron_jobs() -> None:
-    """Load all active CronJob records from DB and register them with APScheduler."""
+    """从数据库加载所有激活的任务并注册到 APScheduler。"""
     async with AsyncSessionLocal() as db:
         result = await db.execute(select(CronJob).where(CronJob.is_active.is_(True)))
         jobs = result.scalars().all()
