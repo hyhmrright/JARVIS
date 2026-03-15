@@ -15,6 +15,7 @@ const router = createRouter({
     { path: "/plugins", name: "Plugins", component: () => import("@/pages/PluginsPage.vue"), meta: { requiresAuth: true } },
     { path: "/workspace/members", component: () => import("@/pages/WorkspaceMembersPage.vue"), meta: { requiresAuth: true } },
     { path: "/invite/:token", component: () => import("@/pages/InviteAcceptPage.vue") },
+    { path: "/share/:token", component: () => import("@/pages/SharedChatPage.vue") },
     { path: "/:pathMatch(.*)*", redirect: "/" },
   ],
 });
