@@ -3,6 +3,7 @@ import json
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 from fastapi import (
@@ -215,6 +216,7 @@ async def _load_tools(enabled_tools: list[str] | None) -> tuple[list, list | Non
 class ChatRequest(BaseModel):
     conversation_id: uuid.UUID
     content: str = Field(max_length=50000)
+    image_urls: list[str] | None = None
     workspace_id: uuid.UUID | None = None
     parent_message_id: uuid.UUID | None = None
 
@@ -249,6 +251,7 @@ async def chat_stream(  # noqa: C901
             conversation_id=conv.id,
             role="human",
             content=user_content,
+            image_urls=body.image_urls,
             parent_id=body.parent_message_id,
         )
         db.add(human_msg)
@@ -283,7 +286,17 @@ async def chat_stream(  # noqa: C901
     for msg in all_history:
         message_class = _ROLE_TO_MESSAGE.get(msg.role)
         if message_class:
-            lc_messages.append(message_class(content=msg.content))
+            if msg.role == "human" and getattr(msg, "image_urls", None):
+                content_blocks: list[dict[str, Any]] = [
+                    {"type": "text", "text": msg.content}
+                ]
+                for url in msg.image_urls or []:
+                    content_blocks.append(
+                        {"type": "image_url", "image_url": {"url": url}}
+                    )
+                lc_messages.append(message_class(content=content_blocks))
+            else:
+                lc_messages.append(message_class(content=msg.content))
         else:
             logger.debug(
                 "chat_history_message_skipped",
@@ -615,7 +628,23 @@ async def chat_regenerate(  # noqa: C901
     for msg in all_history:
         message_class = _ROLE_TO_MESSAGE.get(msg.role)
         if message_class:
-            lc_messages.append(message_class(content=msg.content))
+            if msg.role == "human" and getattr(msg, "image_urls", None):
+                content_blocks: list[dict[str, Any]] = [
+                    {"type": "text", "text": msg.content}
+                ]
+                for url in msg.image_urls or []:
+                    content_blocks.append(
+                        {"type": "image_url", "image_url": {"url": url}}
+                    )
+                lc_messages.append(message_class(content=content_blocks))
+            else:
+                lc_messages.append(message_class(content=msg.content))
+        else:
+            logger.debug(
+                "chat_history_message_skipped",
+                role=msg.role,
+                msg_id=str(msg.id),
+            )
 
     system_msg = SystemMessage(content=build_system_prompt(llm.persona_override))
     lc_messages = [system_msg, *lc_messages]

@@ -62,6 +62,7 @@ class MessageOut(BaseModel):
     id: uuid.UUID
     role: str
     content: str
+    image_urls: list[str] | None = None
     created_at: datetime
     model_config = {"from_attributes": True}
 

@@ -14,6 +14,7 @@ interface Message {
   parent_id?: string;
   role: "human" | "ai";
   content: string;
+  image_urls?: string[];
   toolCalls?: ToolCall[];
   pending_tool_call?: { name: string; args: any };
 }
@@ -165,7 +166,7 @@ export const useChatStore = defineStore("chat", {
       await this.sendMessage(`[CONSENT:${approved ? 'ALLOW' : 'DENY'}] ${callInfo.name}`);
     },
 
-    async sendMessage(content: string) {
+    async sendMessage(content: string, imageUrls?: string[]) {
       if (!this.currentConvId) {
         const title = content.slice(0, 30) + (content.length > 30 ? "..." : "");
         const { data } = await client.post("/conversations", { title });
@@ -174,7 +175,7 @@ export const useChatStore = defineStore("chat", {
       }
 
       if (!content.startsWith("[CONSENT:")) {
-        this.messages.push({ role: "human", content });
+        this.messages.push({ role: "human", content, image_urls: imageUrls });
         this.messages.push({ role: "ai", content: "" });
       }
 
@@ -188,7 +189,11 @@ export const useChatStore = defineStore("chat", {
         const response = await fetch("/api/chat/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ conversation_id: this.currentConvId, content }),
+          body: JSON.stringify({
+            conversation_id: this.currentConvId,
+            content,
+            image_urls: imageUrls,
+          }),
           signal: controller.signal,
         });
 
