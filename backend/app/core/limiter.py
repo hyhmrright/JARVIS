@@ -1,8 +1,41 @@
+import functools
 import hashlib
+import ipaddress
 
 from fastapi import Request
 from slowapi import Limiter
-from slowapi.util import get_remote_address
+
+
+@functools.lru_cache(maxsize=256)
+def _is_private_ip(ip: str) -> bool:
+    """Return True if *ip* is a private, loopback, or link-local address."""
+    try:
+        return ipaddress.ip_address(ip).is_private
+    except ValueError:
+        return False
+
+
+def get_trusted_client_ip(request: Request) -> str | None:
+    """Return the real client IP, trusting proxy headers only for private-IP peers.
+
+    When deployed behind Traefik in Docker, the TCP peer is a private
+    network address.  In that case X-Real-IP (set by Traefik) is authoritative.
+    When a client connects directly from a public IP, proxy headers are ignored
+    to prevent audit-log IP spoofing.
+
+    Note: CGNAT addresses (100.64.0.0/10) are NOT treated as private by Python's
+    ipaddress.is_private, so carrier-grade NAT peers will not have their proxy
+    headers trusted. This is intentional — CGNAT peers are not internal proxies.
+    """
+    direct_ip = request.client.host if request.client else None
+    if direct_ip and _is_private_ip(direct_ip):
+        fwd = request.headers.get("x-forwarded-for")
+        proxy_ip = request.headers.get("x-real-ip") or (
+            fwd.split(",")[0].strip() if fwd else None
+        )
+        if proxy_ip:
+            return proxy_ip
+    return direct_ip
 
 
 def _get_user_or_ip(request: Request) -> str:
@@ -26,7 +59,7 @@ def _get_user_or_ip(request: Request) -> str:
             return f"user:{user_id}"
         except Exception:
             pass
-    return get_remote_address(request)
+    return get_trusted_client_ip(request) or "unknown"
 
 
 limiter = Limiter(key_func=_get_user_or_ip)
