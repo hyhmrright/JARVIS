@@ -10,10 +10,10 @@ from sqlalchemy import func as sql_func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_workspace_member
 from app.core.config import settings
 from app.core.security import fernet_encrypt
-from app.db.models import CronJob, JobExecution, User, Workspace, WorkspaceMember
+from app.db.models import CronJob, JobExecution, User
 from app.db.session import get_db
 from app.gateway.agent_runner import run_agent_for_user
 from app.scheduler.runner import register_cron_job, unregister_cron_job
@@ -70,6 +70,7 @@ async def list_cron_jobs(
     """List all proactive monitoring jobs for the current user."""
     query = select(CronJob).where(CronJob.user_id == user.id)
     if workspace_id is not None:
+        await require_workspace_member(workspace_id, user, db)
         query = query.where(CronJob.workspace_id == workspace_id)
     result = await db.scalars(query)
     jobs = result.all()
@@ -146,17 +147,7 @@ async def create_cron_job(  # noqa: C901
         trigger_metadata=trigger_metadata,
     )
     if data.workspace_id is not None:
-        ws = await db.get(Workspace, data.workspace_id)
-        if not ws or ws.is_deleted or ws.organization_id != user.organization_id:
-            raise HTTPException(status_code=404, detail="Workspace not found")
-        membership = await db.scalar(
-            select(WorkspaceMember).where(
-                WorkspaceMember.workspace_id == data.workspace_id,
-                WorkspaceMember.user_id == user.id,
-            )
-        )
-        if not membership:
-            raise HTTPException(status_code=403, detail="Not a workspace member")
+        await require_workspace_member(data.workspace_id, user, db)
         job.workspace_id = data.workspace_id
     db.add(job)
     await db.commit()
