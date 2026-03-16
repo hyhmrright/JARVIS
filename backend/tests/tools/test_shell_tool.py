@@ -42,11 +42,31 @@ async def test_shell_exec_blocked_pattern_fork_bomb() -> None:
 
 @pytest.mark.asyncio
 async def test_shell_exec_requires_sandbox() -> None:
-    """When sandbox is disabled, shell_exec refuses to run commands."""
+    """When sandbox is disabled, shell_exec refuses to run (never executes locally)."""
     with patch("app.tools.shell_tool.settings") as mock_settings:
         mock_settings.sandbox_enabled = False
         result = await shell_exec.ainvoke({"command": "echo hello"})
-    assert "sandbox" in result.lower()
+    # Must refuse — must NOT execute the command
+    assert "disabled" in result.lower() or "not available" in result.lower()
+    assert "hello" not in result
+
+
+@pytest.mark.asyncio
+async def test_shell_exec_blocked_pattern_uppercase_bypass() -> None:
+    """Uppercase variants of blocked patterns must also be blocked."""
+    with patch("app.tools.shell_tool.settings") as mock_settings:
+        mock_settings.sandbox_enabled = True
+        result = await shell_exec.ainvoke({"command": "RM -RF /"})
+    assert "blocked" in result.lower()
+
+
+@pytest.mark.asyncio
+async def test_shell_exec_blocked_pattern_mixed_case_bypass() -> None:
+    """Mixed-case variants of blocked patterns must also be blocked."""
+    with patch("app.tools.shell_tool.settings") as mock_settings:
+        mock_settings.sandbox_enabled = True
+        result = await shell_exec.ainvoke({"command": "MkFs /dev/sda1"})
+    assert "blocked" in result.lower()
 
 
 # --- Sandbox enabled → routes through SandboxManager ---

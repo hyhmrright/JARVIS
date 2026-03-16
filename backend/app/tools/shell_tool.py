@@ -8,9 +8,8 @@ from app.sandbox.manager import SandboxError, SandboxManager
 
 logger = structlog.get_logger(__name__)
 
-# Best-effort filter — the Docker sandbox is the primary security boundary.
-# When sandbox_enabled=False (local exec inside backend container), these
-# patterns reduce accidental damage. They are NOT a substitute for sandboxing.
+# Best-effort pre-filter — the Docker sandbox is the primary security boundary.
+# These patterns block the most dangerous commands before they reach the sandbox.
 _BLOCKED_PATTERNS: set[str] = {
     "rm -rf /",
     "rm -rf /*",
@@ -54,28 +53,6 @@ async def _exec_sandbox(command: str, timeout_seconds: int) -> str:
             await manager.destroy_sandbox(container_id)
 
 
-async def _exec_local(command: str, timeout_seconds: int) -> str:
-    """Execute a command directly in the current container (DANGEROUS)."""
-    import asyncio
-
-    try:
-        proc = await asyncio.create_subprocess_shell(
-            command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        try:
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=timeout_seconds
-            )
-            return (stdout.decode() + "\n" + stderr.decode()).strip()
-        except TimeoutError:
-            proc.kill()
-            return f"Command timed out after {timeout_seconds} seconds"
-    except Exception as exc:
-        return f"Execution error: {exc}"
-
-
 @tool
 async def shell_exec(command: str, timeout_seconds: int = 30) -> str:
     """Run a shell command and return combined stdout/stderr output.
@@ -96,15 +73,11 @@ async def shell_exec(command: str, timeout_seconds: int = 30) -> str:
         if pattern in cmd_lower:
             return f"Blocked: command contains forbidden pattern '{pattern}'"
 
-    if settings.sandbox_enabled:
-        output = await _exec_sandbox(command, timeout_seconds)
-    else:
-        # Fallback to local execution (e.g. inside the backend container)
-        output = await _exec_local(command, timeout_seconds)
-        output = (
-            "[WARNING: Sandboxing disabled. Command executed in backend container.]\n"
-            + output
-        )
+    if not settings.sandbox_enabled:
+        logger.warning("shell_exec_sandbox_disabled_refused", command=command[:100])
+        return "Shell execution is not available: sandbox is disabled."
+
+    output = await _exec_sandbox(command, timeout_seconds)
 
     if not output.strip():
         return "(no output)"
