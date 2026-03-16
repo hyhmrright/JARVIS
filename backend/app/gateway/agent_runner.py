@@ -53,8 +53,9 @@ async def run_agent_for_user(
     """Execute the JARVIS agent for the given user and task text.
 
     Creates a new conversation, runs the agent, persists the response,
-    and returns the AI reply string.  Returns a descriptive error string
-    (never raises) so callers can fire-and-forget safely.
+    and returns the AI reply string.  Raises on failure so callers can
+    detect errors reliably.  Special case: returns a descriptive string
+    (without raising) when no API key is configured.
     """
     try:
         async with AsyncSessionLocal() as db:
@@ -207,4 +208,4 @@ async def run_agent_for_user(
             return ai_content
     except Exception:
         logger.exception("agent_runner_error", user_id=user_id)
-        return "抱歉，处理请求时出现错误，请稍后重试。"
+        raise
