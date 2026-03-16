@@ -1,6 +1,7 @@
 """Tests for webhook trigger endpoints."""
 
 import uuid
+from unittest.mock import AsyncMock, patch
 
 
 async def test_create_webhook(auth_client):
@@ -170,3 +171,48 @@ async def test_trigger_webhook_wrong_user_cannot_delete(client):
     client.headers["Authorization"] = f"Bearer {token_b}"
     resp = await client.delete(f"/api/webhooks/{webhook_id}")
     assert resp.status_code == 404
+
+
+async def test_trigger_webhook_malformed_json_logs_debug(auth_client):
+    """Malformed JSON body must be logged at debug level, not silently discarded.
+
+    FAILS before fix: except Exception swallows the parse error without logging.
+    PASSES after fix: logger.debug("webhook_json_parse_failed", error=...) is called.
+    """
+    create = await auth_client.post(
+        "/api/webhooks",
+        json={"name": "JSON Test Hook", "task_template": "Task: {payload}"},
+    )
+    webhook_id = create.json()["id"]
+    secret = create.json()["secret_token"]
+    auth_client.headers.pop("Authorization", None)
+
+    mock_pool = AsyncMock()
+    mock_pool.enqueue_job = AsyncMock()
+    mock_pool.aclose = AsyncMock()
+
+    with patch("app.api.webhooks.create_pool", return_value=mock_pool):
+        with patch("app.api.webhooks.logger") as mock_logger:
+            resp = await auth_client.post(
+                f"/api/webhooks/{webhook_id}/trigger",
+                content=b"not-valid-json!!!",
+                headers={
+                    "X-Webhook-Secret": secret,
+                    "Content-Type": "application/json",
+                },
+            )
+
+    assert resp.status_code == 202
+    # Verify debug log was called for JSON parse failure
+    debug_calls = [
+        call
+        for call in mock_logger.debug.call_args_list
+        if call.args and call.args[0] == "webhook_json_parse_failed"
+    ]
+    assert len(debug_calls) == 1, (
+        f"Expected exactly one 'webhook_json_parse_failed' debug log; "
+        f"all debug calls: {mock_logger.debug.call_args_list}"
+    )
+    assert "error" in debug_calls[0].kwargs, (
+        "webhook_json_parse_failed log must include error= kwarg"
+    )

@@ -1,8 +1,11 @@
 import hashlib
 
+import structlog
 from fastapi import Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+
+logger = structlog.get_logger(__name__)
 
 
 def _get_user_or_ip(request: Request) -> str:
@@ -24,8 +27,8 @@ def _get_user_or_ip(request: Request) -> str:
 
             user_id = decode_access_token(token)
             return f"user:{user_id}"
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("jwt_decode_failed_using_ip_fallback", error=str(exc))
     return get_remote_address(request)
 
 

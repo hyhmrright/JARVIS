@@ -127,7 +127,8 @@ async def trigger_webhook(
 
     try:
         payload = await request.json()
-    except Exception:
+    except Exception as exc:
+        logger.debug("webhook_json_parse_failed", error=str(exc))
         payload = {}
 
     payload_str = json.dumps(payload, ensure_ascii=False)[:2000]
