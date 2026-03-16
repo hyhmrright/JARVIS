@@ -1,11 +1,14 @@
 {
   "common": {
+    "prev": "이전",
+    "next": "다음",
     "close": "닫기",
     "loading": "로딩 중...",
     "backToChat": "← 채팅으로 돌아가기",
     "networkError": "네트워크 오류입니다. 연결을 확인해 주세요",
     "rateLimitError": "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요",
     "cancel": "취소",
+    "confirm": "확인",
     "copy": "복사",
     "copied": "복사됨!"
   },
@@ -48,7 +51,8 @@
     "streamError": "메시지 전송에 실패했습니다. 다시 시도해 주세요",
     "toolResult": "도구 결과",
     "toolRunning": "실행 중...",
-    "usage": "사용량 통계"
+    "usage": "사용량 통계",
+    "stopGenerating": "생성 중지"
   },
   "usage": {
     "title": "사용량 통계",
@@ -65,7 +69,13 @@
     "uploading": "업로드 중...",
     "fileTooLarge": "파일 크기는 50MB를 초과할 수 없습니다",
     "uploadSuccess": "업로드 성공, {count}개 청크로 분할되었습니다",
-    "uploadError": "업로드에 실패했습니다. 파일 형식을 확인해 주세요"
+    "uploadError": "업로드에 실패했습니다. 파일 형식을 확인해 주세요",
+    "uploadZoneText": "파일을 여기에 드롭하거나 클릭하여 업로드",
+    "uploadZoneHint": "PDF, TXT, MD, DOCX 지원 (최대 50MB)",
+    "uploadedTitle": "업로드된 문서",
+    "deleteConfirm": "이 문서를 삭제하시겠습니까?",
+    "deleteSuccess": "문서가 삭제되었습니다",
+    "deleteError": "삭제에 실패했습니다. 다시 시도해 주세요"
   },
   "settings": {
     "title": "설정",
@@ -109,6 +119,111 @@
     "emailInvalid": "유효한 이메일 주소를 입력해 주세요",
     "passwordRequired": "비밀번호를 입력해 주세요",
     "passwordMinLength": "비밀번호는 8자 이상이어야 합니다"
+  },
+  "admin": {
+    "title": "관리자 패널",
+    "tabs": {
+      "users": "사용자 관리",
+      "plugins": "플러그인 관리",
+      "stats": "통계"
+    },
+    "users": {
+      "email": "이메일",
+      "name": "이름",
+      "role": "역할",
+      "status": "상태",
+      "actions": "작업",
+      "active": "활성",
+      "disabled": "비활성",
+      "enable": "활성화",
+      "disable": "비활성화"
+    },
+    "plugins": {
+      "tools": "도구 수",
+      "install": "플러그인 설치",
+      "installTitle": "플러그인 설치",
+      "installDesc": "플러그인 Python 파일의 원본 URL을 입력하세요 (예: GitHub에서)"
+    },
+    "stats": {
+      "users": "총 사용자 수",
+      "conversations": "총 대화 수",
+      "messages": "총 메시지 수",
+      "tokens": "총 토큰 사용량"
+    }
+  },
+  "proactive": {
+    "title": "프로액티브 모니터링",
+    "addTask": "작업 추가",
+    "noTasks": "모니터링 작업이 없습니다",
+    "lastRun": "마지막 트리거",
+    "schedule": "스케줄",
+    "triggerType": "트리거 유형",
+    "taskPrompt": "AI 작업 지시",
+    "targetLabel": "모니터링 대상",
+    "targetPlaceholder": "제품 가격, 뉴스 헤드라인, 키워드…",
+    "useBrowser": "브라우저 렌더링 사용 (SPA 지원)",
+    "fireOnInit": "생성 후 즉시 한 번 트리거",
+    "imapFolder": "IMAP 폴더",
+    "imapPort": "IMAP 포트",
+    "triggerTypes": {
+      "cron": "정기 실행",
+      "web_watcher": "웹 감시 (해시)",
+      "semantic_watcher": "웹 감시 (시맨틱)",
+      "email": "이메일 트리거"
+    },
+    "testTrigger": "트리거 테스트",
+    "testResult": "테스트 결과",
+    "triggered": "트리거됨",
+    "testFailed": "테스트에 실패했습니다. 다시 시도해 주세요",
+    "history": "실행 기록",
+    "noHistory": "실행 기록이 없습니다",
+    "deleteConfirm": "이 모니터링 작업을 삭제하시겠습니까?",
+    "neverRun": "실행 없음",
+    "duration": "소요 시간",
+    "triggeredYes": "예",
+    "triggeredNo": "아니오 (트리거되지 않음)",
+    "changeSummary": "변경 요약",
+    "agentReply": "에이전트 응답",
+    "saveError": "작업 생성에 실패했습니다. 잠시 후 다시 시도해 주세요",
+    "validation": {
+      "taskRequired": "작업 지시를 입력해 주세요",
+      "urlRequired": "URL을 입력해 주세요",
+      "urlInvalid": "유효한 URL을 입력해 주세요",
+      "targetRequired": "모니터링 대상을 입력해 주세요",
+      "imapHostRequired": "IMAP 호스트를 입력해 주세요",
+      "emailAddressRequired": "이메일 주소를 입력해 주세요"
+    }
+  },
+  "workspace": {
+    "title": "워크스페이스",
+    "personal": "개인",
+    "noOrgDesc": "팀원을 초대하려면 조직을 만드세요",
+    "orgName": "조직 이름",
+    "orgSlug": "슬러그 (소문자와 하이픈)",
+    "createOrg": "조직 만들기",
+    "createWorkspace": "새 워크스페이스",
+    "workspaceName": "워크스페이스 이름",
+    "members": "멤버 관리",
+    "membersList": "멤버 목록",
+    "manageMembers": "멤버 관리",
+    "inviteEmail": "초대할 이메일",
+    "invite": "초대 보내기",
+    "inviteLink": "초대 링크",
+    "roleMember": "멤버",
+    "roleAdmin": "관리자",
+    "roleOwner": "소유자",
+    "remove": "제거",
+    "removeConfirm": "이 멤버를 제거하시겠습니까?",
+    "scope": "범위",
+    "inviteTitle": "워크스페이스 참여",
+    "inviteDesc": "\"{workspace}\"에 {role}로 초대받으셨습니다",
+    "inviteLoginRequired": "초대를 수락하려면 로그인하세요",
+    "acceptInvite": "초대 수락",
+    "inviteInvalid": "초대 링크가 유효하지 않거나 만료되었습니다",
+    "inviteAcceptError": "초대 수락에 실패했습니다. 다시 시도해주세요.",
+    "settingsTitle": "워크스페이스 설정 — {name}",
+    "saveSettings": "워크스페이스 설정 저장",
+    "usePersonal": "개인 설정 사용"
   },
   "apiKeys": {
     "title": "개인 API 키",

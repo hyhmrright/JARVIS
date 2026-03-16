@@ -52,9 +52,10 @@ def create_supervisor_graph(
     tavily_api_key: str | None = None,
     enabled_tools: list[str] | None = None,
     depth: int = 0,
+    base_url: str | None = None,
 ) -> CompiledStateGraph:
     """Build a supervisor LangGraph that plans, executes, and aggregates."""
-    llm = get_llm(provider, model, api_key)
+    llm = get_llm(provider, model, api_key, base_url=base_url)
 
     subagent = create_subagent_tool(
         provider=provider,
@@ -66,6 +67,7 @@ def create_supervisor_graph(
         openai_api_key=openai_api_key,
         tavily_api_key=tavily_api_key,
         enabled_tools=enabled_tools,
+        base_url=base_url,
     )
 
     async def plan_node(state: SupervisorState) -> dict:

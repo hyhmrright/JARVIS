@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.db.models import Conversation, Message, User
+from app.db.models import Conversation, Message, SharedConversation, User
 from app.db.session import get_db
 
 logger = structlog.get_logger(__name__)
@@ -62,6 +62,7 @@ class MessageOut(BaseModel):
     id: uuid.UUID
     role: str
     content: str
+    image_urls: list[str] | None = None
     created_at: datetime
     model_config = {"from_attributes": True}
 
@@ -103,3 +104,31 @@ async def delete_conversation(
     await db.delete(conv)
     await db.commit()
     logger.info("conversation_deleted", user_id=str(user.id), conv_id=str(conv_id))
+
+
+@router.post("/{conv_id}/share", response_model=dict)
+async def share_conversation(
+    conv_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    conv = await db.scalar(
+        select(Conversation).where(
+            Conversation.id == conv_id, Conversation.user_id == user.id
+        )
+    )
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    # Check if already shared
+    existing = await db.scalar(
+        select(SharedConversation).where(SharedConversation.conversation_id == conv_id)
+    )
+    if existing:
+        return {"token": str(existing.id)}
+
+    new_share = SharedConversation(conversation_id=conv_id)
+    db.add(new_share)
+    await db.commit()
+    await db.refresh(new_share)
+    return {"token": str(new_share.id)}

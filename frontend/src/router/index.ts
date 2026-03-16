@@ -13,13 +13,24 @@ const router = createRouter({
     { path: "/admin", component: () => import("@/pages/AdminPage.vue"), meta: { requiresAuth: true, requiresAdmin: true } },
     { path: "/proactive", component: () => import("@/pages/ProactivePage.vue"), meta: { requiresAuth: true } },
     { path: "/plugins", name: "Plugins", component: () => import("@/pages/PluginsPage.vue"), meta: { requiresAuth: true } },
+    { path: "/market", component: () => import("@/pages/SkillMarketPage.vue"), meta: { requiresAuth: true } },
+    { path: "/personas", component: () => import("@/pages/PersonasPage.vue"), meta: { requiresAuth: true } },
+    { path: "/studio", component: () => import("@/pages/WorkflowStudioPage.vue"), meta: { requiresAuth: true } },
+    { path: "/workspace/members", component: () => import("@/pages/WorkspaceMembersPage.vue"), meta: { requiresAuth: true } },
+    { path: "/invite/:token", component: () => import("@/pages/InviteAcceptPage.vue") },
+    { path: "/share/:token", component: () => import("@/pages/SharedChatPage.vue") },
+    { path: "/:pathMatch(.*)*", redirect: "/" },
   ],
 });
 
 router.beforeEach((to) => {
   const auth = useAuthStore();
-  if (to.meta.requiresAuth && !auth.isLoggedIn) return "/login";
-  if (to.meta.requiresAdmin && !auth.isAdmin) return "/";
+  if (to.meta.requiresAuth && !auth.isLoggedIn) {
+    return "/login";
+  }
+  if (to.meta.requiresAdmin && !auth.isAdmin) {
+    return "/";
+  }
 });
 
 export default router;

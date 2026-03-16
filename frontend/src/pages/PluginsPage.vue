@@ -1,6 +1,16 @@
 <template>
   <div class="plugins-page">
-    <h1>{{ t("plugins.title") }}</h1>
+    <div class="page-header">
+      <h1>{{ t("plugins.title") }}</h1>
+      <div class="header-actions">
+        <router-link to="/market" class="market-btn">
+          {{ t("plugins.browseMarket") || 'Browse Market' }}
+        </router-link>
+        <button class="reload-btn" @click="handleReload">
+          {{ t("plugins.reload") }}
+        </button>
+      </div>
+    </div>
 
     <div v-if="loading" class="loading">{{ t("common.loading") }}</div>
 
@@ -20,6 +30,11 @@
         </div>
 
         <p class="description">{{ plugin.description }}</p>
+
+        <div v-if="plugin.requires && plugin.requires.length" class="requires">
+          <span class="label">{{ t("plugins.requires") }}:</span>
+          <span v-for="req in plugin.requires" :key="req" class="tag req">{{ req }}</span>
+        </div>
 
         <div v-if="plugin.tools.length" class="tools">
           <span class="label">{{ t("plugins.tools") }}:</span>
@@ -48,6 +63,15 @@
 
           <template v-else>
             <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
+            
+            <!-- Schema-based hints -->
+            <div v-if="activePlugin.config_schema" class="schema-hints">
+              <div v-for="(schema, key) in activePlugin.config_schema.properties" :key="key" class="hint-item">
+                <code>{{ key }}</code>: {{ schema.description || 'No description' }}
+                <span v-if="activePlugin.config_schema.required?.includes(key)" class="required-mark">*</span>
+              </div>
+            </div>
+
             <div class="config-list">
               <div
                 v-for="(item, key) in currentConfig"
@@ -71,26 +95,36 @@
             </div>
 
             <div class="add-config-form">
-              <input
-                v-model="newKey"
-                :placeholder="t('plugins.key_placeholder')"
-              />
-              <input
-                v-model="newValue"
-                :type="newIsSecret ? 'password' : 'text'"
-                :placeholder="t('plugins.value_placeholder')"
-              />
-              <label class="secret-label">
-                <input v-model="newIsSecret" type="checkbox" />
-                {{ t("plugins.secret") }}
-              </label>
-              <button
-                class="add-btn"
-                :disabled="!newKey.trim() || !newValue.trim()"
-                @click="addConfig"
-              >
-                {{ t("plugins.add") }}
-              </button>
+              <div class="form-row">
+                <input
+                  v-model="newKey"
+                  :placeholder="t('plugins.key_placeholder')"
+                  list="schema-keys"
+                />
+                <datalist id="schema-keys">
+                  <option v-for="(_, key) in activePlugin.config_schema?.properties" :key="key" :value="key" />
+                </datalist>
+              </div>
+              <div class="form-row">
+                <input
+                  v-model="newValue"
+                  :type="newIsSecret ? 'password' : 'text'"
+                  :placeholder="t('plugins.value_placeholder')"
+                />
+              </div>
+              <div class="form-footer">
+                <label class="secret-label">
+                  <input v-model="newIsSecret" type="checkbox" />
+                  {{ t("plugins.secret") }}
+                </label>
+                <button
+                  class="add-btn"
+                  :disabled="!newKey.trim() || !newValue.trim()"
+                  @click="addConfig"
+                >
+                  {{ t("plugins.add") }}
+                </button>
+              </div>
             </div>
           </template>
 
@@ -120,7 +154,8 @@ const newValue = ref("");
 const newIsSecret = ref(false);
 const errorMsg = ref("");
 
-onMounted(async () => {
+async function loadPlugins() {
+  loading.value = true;
   try {
     const resp = await pluginsApi.list();
     plugins.value = resp.data;
@@ -129,7 +164,18 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-});
+}
+
+onMounted(loadPlugins);
+
+async function handleReload() {
+  try {
+    await pluginsApi.reload();
+    await loadPlugins();
+  } catch {
+    errorMsg.value = t("plugins.reload_error");
+  }
+}
 
 async function openConfig(plugin: PluginInfo) {
   activePlugin.value = plugin;
@@ -189,6 +235,24 @@ async function removeConfig(key: string) {
   max-width: 960px;
   margin: 0 auto;
 }
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+.reload-btn {
+  padding: 0.5rem 1rem;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+.reload-btn:hover {
+  background: #059669;
+}
 .plugin-list {
   display: grid;
   gap: 1rem;
@@ -197,6 +261,7 @@ async function removeConfig(key: string) {
   border: 1px solid var(--border-color, #e5e7eb);
   border-radius: 8px;
   padding: 1.5rem;
+  background: white;
 }
 .plugin-header {
   display: flex;
@@ -216,6 +281,9 @@ async function removeConfig(key: string) {
   color: #4b5563;
   margin: 0.25rem 0 0.75rem;
 }
+.requires {
+  margin-bottom: 0.5rem;
+}
 .tools {
   display: flex;
   flex-wrap: wrap;
@@ -233,6 +301,10 @@ async function removeConfig(key: string) {
   border-radius: 4px;
   padding: 0.125rem 0.5rem;
   font-size: 0.75rem;
+}
+.tag.req {
+  background: #fef3c7;
+  color: #92400e;
 }
 .configure-btn {
   padding: 0.375rem 1rem;
@@ -266,6 +338,27 @@ async function removeConfig(key: string) {
 .modal h2 {
   margin: 0 0 1.5rem;
   font-size: 1.1rem;
+}
+.schema-hints {
+  background: #f9fafb;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.8125rem;
+}
+.hint-item {
+  margin-bottom: 0.25rem;
+  color: #4b5563;
+}
+.hint-item code {
+  background: #e5e7eb;
+  padding: 0.125rem 0.25rem;
+  border-radius: 4px;
+  font-family: monospace;
+}
+.required-mark {
+  color: #ef4444;
+  margin-left: 0.125rem;
 }
 .config-list {
   border: 1px solid #f3f4f6;
@@ -305,19 +398,25 @@ async function removeConfig(key: string) {
   margin: 0;
 }
 .add-config-form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
 }
-.add-config-form input[type="text"],
-.add-config-form input[type="password"] {
-  flex: 1;
-  min-width: 100px;
-  padding: 0.375rem 0.75rem;
+.form-row {
+  margin-bottom: 0.75rem;
+}
+.form-row input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   font-size: 0.875rem;
+}
+.form-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 .secret-label {
   display: flex;

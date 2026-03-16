@@ -6,6 +6,9 @@
     "networkError": "Network error, please check your connection",
     "rateLimitError": "Too many requests, please try again later",
     "cancel": "Cancel",
+    "confirm": "Confirm",
+    "prev": "Previous",
+    "next": "Next",
     "copy": "Copy",
     "copied": "Copied!"
   },
@@ -48,7 +51,8 @@
     "streamError": "Failed to send message, please try again",
     "toolResult": "Tool Result",
     "toolRunning": "Running...",
-    "usage": "Usage"
+    "usage": "Usage",
+    "stopGenerating": "Stop generating"
   },
   "usage": {
     "title": "Usage Statistics",
@@ -65,7 +69,13 @@
     "uploading": "Uploading...",
     "fileTooLarge": "File size cannot exceed 50MB",
     "uploadSuccess": "Upload successful, split into {count} chunks",
-    "uploadError": "Upload failed, please check the file format"
+    "uploadError": "Upload failed, please check the file format",
+    "uploadZoneText": "Drop files here or click to upload",
+    "uploadZoneHint": "Supports PDF, TXT, MD, DOCX (max 50MB)",
+    "uploadedTitle": "Uploaded Documents",
+    "deleteConfirm": "Delete this document?",
+    "deleteSuccess": "Document deleted",
+    "deleteError": "Delete failed, please try again"
   },
   "settings": {
     "title": "Settings",
@@ -102,13 +112,121 @@
     "no_config": "No config entries",
     "load_error": "Failed to load config, please try again",
     "save_error": "Failed to save config, please try again",
-    "delete_error": "Failed to delete config, please try again"
+    "delete_error": "Failed to delete config, please try again",
+    "reload": "Reload Plugins",
+    "reload_error": "Failed to reload plugins, check backend logs",
+    "requires": "Requires"
   },
   "validation": {
     "emailRequired": "Please enter your email address",
     "emailInvalid": "Please enter a valid email address",
     "passwordRequired": "Please enter your password",
     "passwordMinLength": "Password must be at least 8 characters"
+  },
+  "proactive": {
+    "title": "Proactive Monitoring",
+    "addTask": "Add Task",
+    "noTasks": "No monitoring tasks",
+    "lastRun": "Last triggered",
+    "schedule": "Schedule",
+    "triggerType": "Trigger Type",
+    "taskPrompt": "AI Task Prompt",
+    "targetLabel": "Monitor Target",
+    "targetPlaceholder": "Product price, news headline, keyword…",
+    "useBrowser": "Use browser rendering (SPA support)",
+    "fireOnInit": "Fire once immediately after creation",
+    "imapFolder": "IMAP Folder",
+    "imapPort": "IMAP Port",
+    "triggerTypes": {
+      "cron": "Scheduled",
+      "web_watcher": "Web Watcher (hash)",
+      "semantic_watcher": "Web Watcher (semantic)",
+      "email": "Email Trigger"
+    },
+    "testTrigger": "Test Trigger",
+    "testResult": "Test Result",
+    "triggered": "Triggered",
+    "testFailed": "Test failed, please try again",
+    "history": "Execution History",
+    "noHistory": "No execution records",
+    "deleteConfirm": "Delete this monitoring task?",
+    "neverRun": "Never run",
+    "duration": "Duration",
+    "triggeredYes": "Yes",
+    "triggeredNo": "No (not triggered)",
+    "changeSummary": "Change Summary",
+    "agentReply": "Agent Reply",
+    "saveError": "Failed to create task, please try again",
+    "validation": {
+      "taskRequired": "Task prompt is required",
+      "urlRequired": "URL is required",
+      "urlInvalid": "Please enter a valid URL",
+      "targetRequired": "Monitor target is required",
+      "imapHostRequired": "IMAP host is required",
+      "emailAddressRequired": "Email address is required"
+    }
+  },
+  "admin": {
+    "title": "Admin Panel",
+    "tabs": {
+      "users": "Users",
+      "plugins": "Plugins",
+      "stats": "Statistics"
+    },
+    "users": {
+      "email": "Email",
+      "name": "Name",
+      "role": "Role",
+      "status": "Status",
+      "actions": "Actions",
+      "active": "Active",
+      "disabled": "Disabled",
+      "enable": "Enable",
+      "disable": "Disable"
+    },
+    "plugins": {
+      "tools": "Tools",
+      "install": "Install Plugin",
+      "installTitle": "Install Plugin",
+      "installDesc": "Enter the raw URL of the plugin Python file (e.g. from GitHub)"
+    },
+    "stats": {
+      "users": "Total Users",
+      "conversations": "Total Conversations",
+      "messages": "Total Messages",
+      "tokens": "Total Tokens Used"
+    }
+  },
+  "workspace": {
+    "title": "Workspace",
+    "personal": "Personal",
+    "noOrgDesc": "Create an organization to invite team members",
+    "orgName": "Organization name",
+    "orgSlug": "Slug (lowercase letters and hyphens)",
+    "createOrg": "Create organization",
+    "createWorkspace": "New workspace",
+    "workspaceName": "Workspace name",
+    "members": "Members",
+    "membersList": "Members list",
+    "manageMembers": "Manage members",
+    "inviteEmail": "Email to invite",
+    "invite": "Send invite",
+    "inviteLink": "Invite link",
+    "roleMember": "Member",
+    "roleAdmin": "Admin",
+    "roleOwner": "Owner",
+    "remove": "Remove",
+    "removeConfirm": "Remove this member?",
+    "scope": "Scope",
+    "inviteTitle": "Join workspace",
+    "inviteDesc": "You have been invited to join \"{workspace}\" as {role}",
+    "inviteLoginRequired": "Please log in to accept this invitation",
+    "acceptInvite": "Accept invite",
+    "inviteInvalid": "Invitation is invalid or has expired",
+    "inviteAcceptError": "Failed to accept invite. Please try again.",
+    "settingsTitle": "Workspace settings — {name}",
+    "saveSettings": "Save workspace settings",
+    "usePersonal": "Use personal config"
   },
   "apiKeys": {
     "title": "Personal API Keys",

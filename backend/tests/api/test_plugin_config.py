@@ -63,3 +63,25 @@ async def test_delete_plugin_config(auth_client: AsyncClient, setup_tables):
     # Verify it's gone
     cfg = await auth_client.get("/api/plugins/test_plugin/config")
     assert "to_delete" not in cfg.json()
+
+
+@pytest.mark.asyncio
+async def test_reload_plugins(auth_client, db_session):
+
+    from app.core.security import create_access_token
+    from app.db.models import User, UserRole
+
+    # Create an admin user
+    admin_user = User(
+        email="admin_reload@example.com", password_hash="x", role=UserRole.ADMIN.value
+    )
+    db_session.add(admin_user)
+    await db_session.commit()
+    await db_session.refresh(admin_user)
+
+    admin_token = create_access_token(str(admin_user.id))
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    resp = await auth_client.post("/api/plugins/reload", headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ok"

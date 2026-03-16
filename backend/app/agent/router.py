@@ -125,6 +125,7 @@ async def classify_task(
     provider: str,
     model: str,
     api_key: str,
+    base_url: str | None = None,
 ) -> str:
     """Classify a user message into an agent route.
 
@@ -138,7 +139,7 @@ async def classify_task(
         return rule_result
     # Slow path: LLM fallback
     try:
-        llm = get_llm(provider, model, api_key)
+        llm = get_llm(provider, model, api_key, base_url=base_url)
         response = await llm.ainvoke(
             [
                 SystemMessage(content=_ROUTER_PROMPT),

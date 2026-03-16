@@ -1,6 +1,8 @@
 import hashlib
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -9,7 +11,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import DEFAULT_ENABLED_TOOLS
 from app.core.security import decode_access_token, resolve_api_keys
-from app.db.models import ApiKey, User, UserRole, UserSettings
+from app.db.models import (
+    ApiKey,
+    User,
+    UserRole,
+    UserSettings,
+    WorkspaceMember,
+    WorkspaceSettings,
+)
 from app.db.session import AsyncSessionLocal, get_db
 
 security = HTTPBearer()
@@ -25,11 +34,14 @@ class ResolvedLLMConfig:
     api_keys: list[str]
     enabled_tools: list[str] | None
     persona_override: str | None
-    raw_keys: dict[str, str]
+    raw_keys: dict[str, Any]
+    base_url: str | None = None
 
 
 async def _resolve_user(
-    token: str, db: AsyncSession, request: Request | None = None
+    token: str,
+    db: AsyncSession,
+    request: Request = None,  # type: ignore[assignment]
 ) -> User:
     """Authenticate by JWT or PAT token and return the active user.
 
@@ -43,7 +55,9 @@ async def _resolve_user(
 
 
 async def _resolve_jwt(
-    token: str, db: AsyncSession, request: Request | None = None
+    token: str,
+    db: AsyncSession,
+    request: Request = None,  # type: ignore[assignment]
 ) -> User:
     try:
         user_id = decode_access_token(token)
@@ -64,7 +78,9 @@ async def _resolve_jwt(
 
 
 async def _resolve_pat(
-    token: str, db: AsyncSession, request: Request | None = None
+    token: str,
+    db: AsyncSession,
+    request: Request = None,  # type: ignore[assignment]
 ) -> User:
     key_hash = hashlib.sha256(token.encode()).hexdigest()
     api_key = await db.scalar(select(ApiKey).where(ApiKey.key_hash == key_hash))
@@ -128,21 +144,57 @@ async def get_admin_user(user: User = Depends(get_current_user)) -> User:
 async def get_llm_config(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    workspace_id: uuid.UUID | None = None,
 ) -> ResolvedLLMConfig:
     """Load user LLM settings and resolve a valid API key.
 
+    Resolution order (three-tier):
+      1. Personal user keys (user_settings)
+      2. Workspace keys (if workspace_id provided and user is a member)
+      3. System env-var fallback (handled inside resolve_api_keys)
+
     Raises ``HTTPException(400)`` when no API key can be found for the
-    configured provider (neither user-stored nor server-level).
+    configured provider across all tiers.
     """
-    settings = await db.scalar(
+    user_settings = await db.scalar(
         select(UserSettings).where(UserSettings.user_id == user.id)
     )
 
-    provider = settings.model_provider if settings else "deepseek"
-    model_name = settings.model_name if settings else "deepseek-chat"
-    raw_keys = settings.api_keys if settings else {}
+    provider = user_settings.model_provider if user_settings else "deepseek"
+    model_name = user_settings.model_name if user_settings else "deepseek-chat"
+    raw_keys = user_settings.api_keys if user_settings else {}
 
+    # Tier 1: try personal keys (system env-var included via resolve_api_keys)
     api_keys = resolve_api_keys(provider, raw_keys)
+
+    # Tier 2: workspace keys — only if workspace_id is provided, user is a
+    # member, and no personal key was found for the configured provider.
+    if not api_keys and workspace_id is not None:
+        membership = await db.scalar(
+            select(WorkspaceMember).where(
+                WorkspaceMember.workspace_id == workspace_id,
+                WorkspaceMember.user_id == user.id,
+            )
+        )
+        if membership:
+            ws_settings = await db.scalar(
+                select(WorkspaceSettings).where(
+                    WorkspaceSettings.workspace_id == workspace_id
+                )
+            )
+            if ws_settings:
+                sj = ws_settings.settings_json
+                ws_provider = sj.get("model_provider") or provider
+                ws_model = sj.get("model_name") or model_name
+                ws_raw_keys = sj.get("api_keys", {})
+                ws_api_keys = resolve_api_keys(ws_provider, ws_raw_keys)
+                if ws_api_keys:
+                    provider = ws_provider
+                    model_name = ws_model
+                    # Keep encrypted blob: consistent with user path.
+                    raw_keys = ws_raw_keys
+                    api_keys = ws_api_keys
+
     if not api_keys:
         raise HTTPException(
             status_code=400,
@@ -156,10 +208,13 @@ async def get_llm_config(
         api_key=api_keys[0],
         api_keys=api_keys,
         enabled_tools=(
-            settings.enabled_tools
-            if settings and settings.enabled_tools is not None
+            user_settings.enabled_tools
+            if user_settings and user_settings.enabled_tools is not None
             else DEFAULT_ENABLED_TOOLS
         ),
-        persona_override=settings.persona_override if settings else None,
+        persona_override=user_settings.persona_override if user_settings else None,
         raw_keys=raw_keys,
+        base_url=raw_keys.get(f"{provider}_base_url")
+        if isinstance(raw_keys.get(f"{provider}_base_url"), str)
+        else None,
     )

@@ -30,7 +30,7 @@
     </div>
 
     <!-- Content Area -->
-    <div class="flex-1 overflow-auto custom-scrollbar bg-white">
+    <div class="flex-1 overflow-auto custom-scrollbar bg-white relative">
       <!-- HTML Preview -->
       <iframe
         v-if="type === 'html'"
@@ -39,6 +39,17 @@
         sandbox="allow-scripts allow-forms allow-popups"
         class="w-full h-full border-none"
       ></iframe>
+
+      <!-- Code Viewer -->
+      <div v-else-if="type === 'code'" class="w-full h-full relative group bg-[#0d1117]">
+        <button 
+          class="absolute top-4 right-4 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold rounded-md opacity-0 group-hover:opacity-100 transition-opacity z-10" 
+          @click="copyCode"
+        >
+          Copy Code
+        </button>
+        <div class="h-full w-full" v-html="codeHtml"></div>
+      </div>
 
       <!-- Chart Container -->
       <div v-else-if="type === 'chart'" ref="chartRef" class="w-full h-full p-6"></div>
@@ -111,6 +122,11 @@ let chartInstance: echarts.ECharts | null = null;
 // Determine content type
 const type = computed(() => {
   if (props.content.includes('<html')) return 'html';
+  if (props.content.startsWith('```') || props.content.includes('def ') || props.content.includes('function ') || props.content.includes('const ') || props.content.includes('import ')) {
+    // If it looks like code and isn't JSON
+    try { JSON.parse(props.content); } 
+    catch { return 'code'; }
+  }
   try {
     const data = JSON.parse(props.content);
     if (data.type === 'chart') return 'chart';
@@ -120,8 +136,46 @@ const type = computed(() => {
   }
   // Fallback check for ECharts JSON inside markdown
   if (props.content.includes('"type": "chart"') || props.content.includes('"xAxis"')) return 'chart';
-  return 'html';
+  
+  // If nothing matches, but it has some code-like structure
+  return 'code';
 });
+
+// Code Logic
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github-dark.css';
+
+const codeHtml = computed(() => {
+  if (type.value !== 'code') return '';
+  let raw = props.content;
+  // strip markdown code fences if present
+  if (raw.startsWith('```')) {
+    const lines = raw.split('\n');
+    if (lines.length > 1) {
+      lines.shift(); // remove opening fence
+      if (lines[lines.length - 1].startsWith('```')) {
+        lines.pop();
+      }
+      raw = lines.join('\n');
+    }
+  }
+  const highlighted = hljs.highlightAuto(raw).value;
+  return `<pre class="h-full overflow-auto p-6 bg-[#0d1117] text-[#c9d1d9] font-mono text-sm leading-relaxed"><code class="hljs">${highlighted}</code></pre>`;
+});
+
+const copyCode = () => {
+  let raw = props.content;
+  if (raw.startsWith('```')) {
+    const lines = raw.split('\n');
+    if (lines.length > 1) {
+      lines.shift(); 
+      if (lines[lines.length - 1].startsWith('```')) lines.pop();
+      raw = lines.join('\n');
+    }
+  }
+  navigator.clipboard.writeText(raw);
+  alert('Code copied to clipboard!');
+};
 
 // HTML Logic
 const htmlContent = computed(() => {

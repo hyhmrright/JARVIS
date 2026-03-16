@@ -20,6 +20,7 @@ def create_writing_agent_graph(
     plugin_tools: list[BaseTool] | None = None,
     conversation_id: str | None = None,
     fallback_providers: list[dict] | None = None,
+    base_url: str | None = None,
 ) -> CompiledStateGraph:
     """Return a compiled LangGraph optimised for writing tasks.
 
@@ -40,4 +41,5 @@ def create_writing_agent_graph(
         plugin_tools=plugin_tools,
         conversation_id=conversation_id,
         fallback_providers=fallback_providers,
+        base_url=base_url,
     )

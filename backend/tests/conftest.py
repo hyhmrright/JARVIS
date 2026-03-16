@@ -3,6 +3,7 @@ import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import sqlalchemy as sa
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine as sync_create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -42,7 +43,7 @@ def disable_rate_limiting():
 
 
 @pytest.fixture(autouse=True)
-def _suppress_auth_audit_logging():
+async def _suppress_auth_audit_logging():
     """Mock audit logging in auth endpoints to prevent cross-event-loop pool issues.
 
     Each async test gets its own event loop. log_action() acquires connections from
@@ -56,7 +57,7 @@ def _suppress_auth_audit_logging():
 
 
 @pytest.fixture(autouse=True)
-def _suppress_pat_last_used_update():
+async def _suppress_pat_last_used_update():
     """Mock AsyncSessionLocal in deps to prevent cross-event-loop pool contamination.
 
     _resolve_pat() uses AsyncSessionLocal (now imported at module level in deps.py)
@@ -78,9 +79,16 @@ def _suppress_pat_last_used_update():
 def setup_tables():
     """使用同步 psycopg2 驱动建表/删表，避免 session 与 function 事件循环交叉引用。"""
     engine = sync_create_engine(_SYNC_DATABASE_URL, echo=False)
+    with engine.begin() as conn:
+        conn.execute(
+            sa.text("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;")
+        )  # noqa: E501
     Base.metadata.create_all(engine)
     yield
-    Base.metadata.drop_all(engine)
+    with engine.begin() as conn:
+        conn.execute(
+            sa.text("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;")
+        )  # noqa: E501
     engine.dispose()
 
 
@@ -124,15 +132,41 @@ async def client(db_session):
     app.dependency_overrides.clear()
 
 
-@pytest.fixture
-async def auth_client(client):
-    """已登录的测试客户端（自动注册并获取 token）。"""
+async def _register_test_user(client) -> str:
+    """Register a test user and return their access token."""
     email = f"test_{uuid.uuid4().hex[:8]}@example.com"
     resp = await client.post(
         "/api/auth/register",
         json={"email": email, "password": "password123"},
     )
     assert resp.status_code == 201
-    token = resp.json()["access_token"]
+    return resp.json()["access_token"]
+
+
+@pytest.fixture
+async def auth_client(client):
+    """已登录的测试客户端（自动注册并获取 token）。"""
+    token = await _register_test_user(client)
     client.headers["Authorization"] = f"Bearer {token}"
     return client
+
+
+@pytest.fixture
+async def auth_headers(client) -> dict:
+    """返回已认证用户的 Authorization 请求头。"""
+    token = await _register_test_user(client)
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture(autouse=True)
+async def _suppress_chat_async_session():
+    mock_session = MagicMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+    mock_session.begin = MagicMock(return_value=mock_session)
+    mock_session.scalar = AsyncMock(return_value=None)
+    mock_session.execute = AsyncMock(return_value=None)
+    mock_session.add = MagicMock()
+    mock_session.flush = AsyncMock()
+    with patch("app.api.chat.AsyncSessionLocal", return_value=mock_session):
+        yield

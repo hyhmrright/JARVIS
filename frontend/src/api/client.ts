@@ -23,7 +23,8 @@ client.interceptors.response.use(
   (error) => {
     if (
       error.response?.status === 401 &&
-      !error.config?.url?.startsWith("/auth/")
+      !error.config?.url?.startsWith("/auth/") &&
+      !error.config?.url?.startsWith("/public/")
     ) {
       localStorage.removeItem("token");
       window.location.href = "/login";

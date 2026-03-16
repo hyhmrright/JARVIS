@@ -18,6 +18,7 @@
                   <option value="openai">OpenAI</option>
                   <option value="anthropic">Anthropic</option>
                   <option value="zhipuai">ZhipuAI (GLM)</option>
+                  <option value="ollama">Ollama (Local)</option>
                 </select>
               </div>
 
@@ -33,6 +34,16 @@
                   class="mt-2 bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors"
                   :placeholder="$t('settings.customModelPlaceholder')"
                 />
+              </div>
+
+              <div v-if="provider === 'ollama'" class="flex flex-col gap-2">
+                <label class="text-xs font-semibold text-zinc-400">Ollama Base URL</label>
+                <input
+                  v-model="ollamaBaseUrl"
+                  class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors"
+                  placeholder="http://localhost:11434"
+                />
+                <p class="text-[10px] text-zinc-500">Docker users: use http://host.docker.internal:11434</p>
               </div>
             </div>
           </section>
@@ -235,6 +246,46 @@
           </div>
         </Teleport>
 
+        <!-- Workspace Settings -->
+        <section
+          v-if="workspace.currentWorkspace"
+          class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm"
+        >
+          <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-4">
+            {{ $t("workspace.settingsTitle", { name: workspace.currentWorkspace.name }) }}
+          </h3>
+          <div class="space-y-4">
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-semibold text-zinc-400">{{ $t("settings.provider") }}</label>
+              <select
+                v-model="wsProvider"
+                class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600"
+              >
+                <option value="">{{ $t("workspace.usePersonal") }}</option>
+                <option value="deepseek">DeepSeek</option>
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic</option>
+              </select>
+            </div>
+            <div v-if="wsProvider" class="flex flex-col gap-2">
+              <label class="text-xs font-semibold text-zinc-400">{{ $t("settings.apiKey") }}</label>
+              <input
+                v-model="wsApiKey"
+                type="password"
+                class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600"
+                :placeholder="$t('settings.apiKeyPlaceholder')"
+              />
+            </div>
+            <button
+              type="button"
+              class="w-full py-2.5 bg-zinc-700 text-white text-sm font-semibold rounded-lg hover:bg-zinc-600 transition-colors"
+              @click="saveWsSettings"
+            >
+              {{ $t("workspace.saveSettings") }}
+            </button>
+          </div>
+        </section>
+
         <div class="flex justify-end pt-4">
           <button type="submit" class="px-8 py-3 bg-white text-black text-sm font-bold rounded-lg hover:bg-zinc-200 transition-colors disabled:opacity-50" :disabled="saving">
             {{ saving ? $t("settings.saving") : $t("settings.save") }}
@@ -265,8 +316,12 @@ import PageHeader from "@/components/PageHeader.vue";
 import { SUPPORTED_LOCALES } from "@/i18n";
 import { listApiKeys, createApiKey, deleteApiKey } from "@/api/keys";
 import type { ApiKeyItem, ApiKeyCreateRequest } from "@/api/keys";
+import { useWorkspaceStore } from "@/stores/workspace";
 
 const { locale, t } = useI18n();
+const workspace = useWorkspaceStore();
+const wsProvider = ref("");
+const wsApiKey = ref("");
 
 const onLocaleChange = (e: Event) => {
   const newLocale = (e.target as HTMLSelectElement).value;
@@ -274,15 +329,16 @@ const onLocaleChange = (e: Event) => {
   localStorage.setItem('jarvis_locale', newLocale);
 };
 
-const PROVIDER_MODELS: Record<string, string[]> = {
+const providerModels = ref<Record<string, string[]>>({
   deepseek: ["deepseek-chat", "deepseek-reasoner"],
   openai: ["gpt-4o-mini", "gpt-4o", "o1-mini", "o3-mini"],
   anthropic: ["claude-3-5-haiku-20241022", "claude-3-5-sonnet-20241022"],
   zhipuai: ["glm-4-flash", "glm-4", "glm-4-plus", "glm-4.5", "glm-4.7", "glm-4.7-FlashX", "glm-5", "glm-z1-flash"],
-};
+  ollama: [],
+});
 
 const DEFAULT_MODEL: Record<string, string> = {
-  deepseek: "deepseek-chat", openai: "gpt-4o-mini", anthropic: "claude-3-5-haiku-20241022", zhipuai: "glm-4-flash",
+  deepseek: "deepseek-chat", openai: "gpt-4o-mini", anthropic: "claude-3-5-haiku-20241022", zhipuai: "glm-4-flash", ollama: "",
 };
 
 type ToolRegistry = { name: string; label: string; description: string; default_enabled: boolean };
@@ -290,6 +346,7 @@ type ToolRegistry = { name: string; label: string; description: string; default_
 const provider = ref("deepseek");
 const modelSelect = ref("deepseek-chat");
 const customModelName = ref("");
+const ollamaBaseUrl = ref("");
 const apiKeys = ref<string[]>([""]);
 const keyCounts = ref<Record<string, number>>({});
 const personaOverride = ref("");
@@ -299,12 +356,21 @@ const saved = ref(false);
 const saving = ref(false);
 const saveError = ref(false);
 
-const currentProviderModels = computed(() => PROVIDER_MODELS[provider.value] ?? []);
+const currentProviderModels = computed(() => providerModels.value[provider.value] ?? []);
 const effectiveModelName = computed(() => modelSelect.value === "__custom__" ? customModelName.value : modelSelect.value);
 const existingKeyCount = computed(() => keyCounts.value[provider.value] ?? 0);
 
+async function loadModels() {
+  try {
+    const { data } = await client.get("/settings/models");
+    providerModels.value = data;
+  } catch (err) {
+    console.error("[settings] Failed to load models:", err);
+  }
+}
+
 function onProviderChange() {
-  modelSelect.value = DEFAULT_MODEL[provider.value] ?? PROVIDER_MODELS[provider.value]?.[0] ?? "";
+  modelSelect.value = DEFAULT_MODEL[provider.value] ?? providerModels.value[provider.value]?.[0] ?? "";
   customModelName.value = "";
   apiKeys.value = [""];
 }
@@ -360,6 +426,9 @@ function copyKey(): void {
 }
 
 onMounted(async () => {
+  await workspace.fetchOrganization();
+  await workspace.fetchWorkspaces();
+  await loadModels();
   try {
     const { data } = await client.get("/settings");
     provider.value = data.model_provider;
@@ -367,19 +436,52 @@ onMounted(async () => {
     keyCounts.value = data.key_counts ?? {};
     toolRegistry.value = data.tool_registry ?? [];
     enabledTools.value = data.enabled_tools ?? [];
+    ollamaBaseUrl.value = data.ollama_base_url ?? "";
     const savedModel = data.model_name ?? "";
-    if (PROVIDER_MODELS[provider.value]?.includes(savedModel)) modelSelect.value = savedModel;
+    if (providerModels.value[provider.value]?.includes(savedModel)) modelSelect.value = savedModel;
     else { modelSelect.value = "__custom__"; customModelName.value = savedModel; }
   } catch { /* settings not yet saved, use defaults */ }
   await loadApiKeys();
 });
 
+async function saveWsSettings() {
+  if (!workspace.currentWorkspaceId) return;
+  const payload: Record<string, unknown> = {};
+  if (wsProvider.value) {
+    payload.model_provider = wsProvider.value;
+    if (wsApiKey.value) {
+      payload.api_keys = { [wsProvider.value]: wsApiKey.value };
+    }
+  }
+  try {
+    await client.put(`/workspaces/${workspace.currentWorkspaceId}/settings`, payload);
+    wsApiKey.value = "";
+    saved.value = true;
+    setTimeout(() => (saved.value = false), 2000);
+  } catch {
+    saveError.value = true;
+    setTimeout(() => (saveError.value = false), 3000);
+  }
+}
+
 async function save() {
   saving.value = true;
   try {
     const payload: any = { model_provider: provider.value, model_name: effectiveModelName.value, persona_override: personaOverride.value || null, enabled_tools: enabledTools.value };
+    
+    const apiKeysPayload: Record<string, any> = {};
     const nonEmptyKeys = apiKeys.value.filter(k => k.trim());
-    if (nonEmptyKeys.length > 0) payload.api_keys = { [provider.value]: nonEmptyKeys };
+    if (nonEmptyKeys.length > 0) apiKeysPayload[provider.value] = nonEmptyKeys;
+    
+    // Add Ollama Base URL to the keys payload so it gets encrypted/stored
+    if (ollamaBaseUrl.value.trim()) {
+      apiKeysPayload['ollama_base_url'] = ollamaBaseUrl.value.trim();
+    }
+    
+    if (Object.keys(apiKeysPayload).length > 0) {
+      payload.api_keys = apiKeysPayload;
+    }
+    
     await client.put("/settings", payload);
     const { data: refreshed } = await client.get("/settings");
     keyCounts.value = refreshed.key_counts ?? {};

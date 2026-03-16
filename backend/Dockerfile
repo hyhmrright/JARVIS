@@ -36,6 +36,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy the pre-built venv — no compiler required
 COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv
 
 ENV PATH="/app/.venv/bin:$PATH"
 

@@ -1,0 +1,178 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-lint:
+    name: Backend Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: latest
+          python-version: "3.13.12"
+      - run: uv sync --frozen
+        working-directory: backend
+      - run: uv run ruff check .
+        working-directory: backend
+      - run: uv run ruff format --check .
+        working-directory: backend
+
+  backend-type:
+    name: Backend Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: latest
+          python-version: "3.13.12"
+      - run: uv sync --frozen
+        working-directory: backend
+      - run: uv run mypy app
+        working-directory: backend
+
+  frontend-lint:
+    name: Frontend Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+        working-directory: frontend
+      - run: bun run lint
+        working-directory: frontend
+
+  frontend-type:
+    name: Frontend Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+        working-directory: frontend
+      - run: bun run type-check
+        working-directory: frontend
+
+  backend-test:
+    name: Backend Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: jarvis
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: jarvis_test
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: latest
+          python-version: "3.13.12"
+      - run: uv sync --frozen
+        working-directory: backend
+      - run: uv run alembic upgrade head
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://jarvis:testpass@localhost:5432/jarvis_test
+      - run: uv run pytest tests/ -v --tb=short
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://jarvis:testpass@localhost:5432/jarvis_test
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET: ci-test-jwt-secret-not-for-production
+          ENCRYPTION_KEY: Y2ktdGVzdC1mZXJuZXQta2V5LXBhZGRpbmctamFydmk=
+          MINIO_ACCESS_KEY: ci-test-minio-access
+          MINIO_SECRET_KEY: ci-test-minio-secret
+          POSTGRES_PASSWORD: testpass
+
+  frontend-e2e:
+    name: Frontend E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [backend-test, frontend-lint]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: jarvis
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: jarvis_test
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
+      qdrant:
+        image: qdrant/qdrant:v1.7.4
+        ports:
+          - 6333:6333
+      minio:
+        image: minio/minio:RELEASE.2024-01-28T22-35-53Z
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        ports:
+          - 9000:9000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: latest
+          python-version: 3.13.12
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: |
+          cd backend && uv sync
+          cd ../frontend && npm install -g bun && bun install
+      - name: Install Playwright Browsers
+        run: cd frontend && bun x playwright install --with-deps chromium
+      - name: Wait for infrastructure
+        run: |
+          for i in {1..10}; do
+            nc -zv localhost 5432 && nc -zv localhost 6379 && nc -zv localhost 9000 && nc -zv localhost 6333 && break
+            echo "Waiting for infra..."
+            sleep 3
+          done
+      - name: Run DB Migrations
+        run: cd backend && uv run alembic upgrade head
+        env:
+          DATABASE_URL: postgresql+asyncpg://jarvis:testpass@localhost:5432/jarvis_test
+      - name: Run Playwright tests
+        run: cd frontend && bun x playwright test
+        env:
+          CI: true
+          CI_E2E: true
+          DATABASE_URL: postgresql+asyncpg://jarvis:testpass@localhost:5432/jarvis_test
+          REDIS_URL: redis://localhost:6379/0
+          MINIO_URL: http://localhost:9000
+          QDRANT_URL: http://localhost:6333
+          JWT_SECRET: ci-test-jwt-secret-not-for-production
+          ENCRYPTION_KEY: Y2ktdGVzdC1mZXJuZXQta2V5LXBhZGRpbmctamFydmk=
+          MINIO_ACCESS_KEY: minioadmin
+          MINIO_SECRET_KEY: minioadmin
+          POSTGRES_PASSWORD: testpass

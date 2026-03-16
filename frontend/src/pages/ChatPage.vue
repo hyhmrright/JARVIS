@@ -93,8 +93,23 @@
           >
             <Layout class="w-4 h-4" />
           </button>
-          <button class="text-zinc-500 hover:text-zinc-300 transition-colors">
-            <Share2 class="w-4 h-4" />
+          <button 
+            class="text-zinc-500 hover:text-zinc-300 transition-colors relative"
+            :disabled="sharing"
+            @click="handleShare"
+          >
+            <Share2 class="w-4 h-4" :class="{'animate-pulse': sharing}" />
+            
+            <!-- Share Link Popover -->
+            <div v-if="shareUrl" class="absolute top-10 right-0 w-64 bg-zinc-950 border border-zinc-800 p-3 rounded-lg shadow-2xl z-50 animate-in fade-in zoom-in duration-200">
+              <p class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Share Conversation</p>
+              <div class="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded px-2 py-1.5 mb-2">
+                <input type="text" readonly :value="shareUrl" class="bg-transparent border-none outline-none text-[10px] text-zinc-300 flex-1 truncate" />
+              </div>
+              <button class="w-full py-1.5 bg-white text-black text-[10px] font-bold rounded hover:bg-zinc-200 transition-all" @click="copyShareUrl">
+                COPY LINK
+              </button>
+            </div>
           </button>
         </div>
       </header>
@@ -104,24 +119,53 @@
         <div class="max-w-3xl mx-auto px-6 py-12 space-y-16">
           
           <!-- New Session Welcome -->
-          <div v-if="chat.messages.length === 0" class="pt-20 text-center animate-in fade-in slide-in-from-bottom-4 duration-1000">
-            <div class="w-10 h-10 bg-white text-black rounded-lg flex items-center justify-center font-bold mx-auto mb-6">J</div>
-            <h1 class="text-2xl font-bold text-zinc-50 mb-12 tracking-tight">Intelligence at your service.</h1>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 w-full max-w-lg mx-auto">
-              <button 
-                v-for="s in suggestions" :key="s.text"
-                class="p-4 rounded-xl border border-zinc-800 bg-zinc-950/50 hover:bg-zinc-800 hover:border-zinc-700 transition-all text-left group"
-                @click="input = s.prompt"
-              >
-                <div class="text-[13px] font-semibold text-zinc-200 group-hover:text-white">{{ s.text }}</div>
-                <div class="text-[11px] text-zinc-500 mt-1">{{ s.sub }}</div>
-              </button>
+          <div v-if="chat.messages.length === 0" class="pt-20 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+            <div class="max-w-2xl mx-auto">
+              <div class="w-10 h-10 bg-white text-black rounded-lg flex items-center justify-center font-bold mx-auto mb-6">J</div>
+              <h1 class="text-center text-2xl font-bold text-zinc-50 mb-12 tracking-tight">Intelligence at your service.</h1>
+              
+              <!-- Persona Selector -->
+              <div v-if="personas.length > 0" class="mb-12">
+                <div class="flex items-center justify-between mb-4">
+                  <p class="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">Select Persona</p>
+                  <router-link to="/personas" class="text-[10px] font-bold text-zinc-500 hover:text-white transition-colors">MANAGE</router-link>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button 
+                    :class="['p-4 rounded-xl border text-left transition-all group', !selectedPersonaId ? 'bg-white border-white text-black shadow-xl shadow-white/5' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700']"
+                    @click="selectedPersonaId = null"
+                  >
+                    <div class="text-[13px] font-bold uppercase tracking-tight">Default Agent</div>
+                    <div :class="['text-[11px] mt-1', !selectedPersonaId ? 'text-black/60' : 'text-zinc-500 group-hover:text-zinc-400']">Standard autonomous assistant</div>
+                  </button>
+                  <button 
+                    v-for="p in personas" 
+                    :key="p.id"
+                    :class="['p-4 rounded-xl border text-left transition-all group', selectedPersonaId === p.id ? 'bg-white border-white text-black shadow-xl shadow-white/5' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700']"
+                    @click="selectedPersonaId = p.id"
+                  >
+                    <div class="text-[13px] font-bold uppercase tracking-tight truncate">{{ p.name }}</div>
+                    <div :class="['text-[11px] mt-1 truncate', selectedPersonaId === p.id ? 'text-black/60' : 'text-zinc-500 group-hover:text-zinc-400']">{{ p.description || 'Custom personality' }}</div>
+                  </button>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <button 
+                  v-for="s in suggestions" :key="s.text"
+                  class="p-4 rounded-xl border border-zinc-800 bg-zinc-950/50 hover:bg-zinc-800 hover:border-zinc-700 transition-all text-left group"
+                  @click="input = s.prompt"
+                >
+                  <div class="text-[13px] font-semibold text-zinc-200 group-hover:text-white">{{ s.text }}</div>
+                  <div class="text-[11px] text-zinc-500 mt-1">{{ s.sub }}</div>
+                </button>
+              </div>
             </div>
           </div>
 
           <!-- Message Blocks -->
           <div
-            v-for="(msg, idx) in chat.messages"
+            v-for="(msg, idx) in chat.activeMessages"
             :key="idx"
             class="flex flex-col gap-4 animate-in fade-in duration-700"
           >
@@ -137,7 +181,28 @@
 
             <!-- Content Column -->
             <div class="pl-8 group relative min-h-[20px]">
-              <div class="markdown-body text-zinc-200 leading-[1.7] text-[14px]" v-html="renderMarkdown(msg.content)"></div>
+              <div v-if="msg.image_urls && msg.image_urls.length > 0" class="flex flex-wrap gap-2 mb-2">
+                <img v-for="(img, imgIdx) in msg.image_urls" :key="imgIdx" :src="img" class="max-w-[300px] max-h-[300px] object-contain rounded-md border border-zinc-700/50" />
+              </div>
+              
+              <div v-if="editingMessageId === msg.id" class="space-y-2">
+                <textarea
+                  v-model="editInput"
+                  class="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-3 text-[14px] text-zinc-100 focus:ring-1 focus:ring-white/20 focus:border-zinc-600 outline-none min-h-[100px] resize-none"
+                ></textarea>
+                <div class="flex gap-2 justify-end">
+                  <button class="px-3 py-1.5 text-[11px] font-bold text-zinc-400 hover:text-zinc-200 transition-colors" @click="cancelEdit">CANCEL</button>
+                  <button class="px-3 py-1.5 text-[11px] font-bold bg-white text-black rounded hover:bg-zinc-200 transition-all" @click="handleEditSubmit(msg)">SUBMIT</button>
+                </div>
+              </div>
+              <div v-else class="markdown-body text-zinc-200 leading-[1.7] text-[14px]" v-html="renderMarkdown(msg.content)"></div>
+              
+              <!-- Message Actions (Human) -->
+              <div v-if="msg.role === 'human' && !editingMessageId" class="absolute -top-1 -right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Edit" @click="startEdit(msg)">
+                  <SquarePen class="w-3 h-3" />
+                </button>
+              </div>
               
               <!-- HITL Security Box -->
               <div v-if="msg.pending_tool_call" class="mt-8 p-6 bg-zinc-950 border border-white/10 rounded-lg space-y-5 max-w-md shadow-2xl">
@@ -152,6 +217,38 @@
                 </div>
               </div>
 
+              <!-- Message Footer: Branch Nav & Actions -->
+              <div v-if="msg.id" class="mt-3 flex items-center gap-4 text-zinc-500">
+                <!-- Branch Switcher -->
+                <div v-if="chat.getSiblings(msg).length > 1" class="flex items-center gap-1.5 bg-zinc-900/50 rounded-full px-2 py-0.5 border border-zinc-800/50">
+                  <button 
+                    class="hover:text-zinc-200 disabled:opacity-30 disabled:hover:text-zinc-500 transition-colors" 
+                    :disabled="getBranchIndex(msg) === 0"
+                    @click="navigateBranch(msg, -1)"
+                  >
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                  </button>
+                  <span class="text-[9px] font-medium tabular-nums text-zinc-400">{{ getBranchIndex(msg) + 1 }} / {{ chat.getSiblings(msg).length }}</span>
+                  <button 
+                    class="hover:text-zinc-200 disabled:opacity-30 disabled:hover:text-zinc-500 transition-colors" 
+                    :disabled="getBranchIndex(msg) === chat.getSiblings(msg).length - 1"
+                    @click="navigateBranch(msg, 1)"
+                  >
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                  </button>
+                </div>
+
+                <!-- AI Specific: Regenerate -->
+                <button 
+                  v-if="msg.role === 'ai' && !chat.streaming" 
+                  class="text-[10px] font-medium hover:text-zinc-300 flex items-center gap-1.5 transition-colors" 
+                  @click="chat.regenerate(msg.id)"
+                >
+                  <RotateCcw class="w-3 h-3" />
+                  Regenerate
+                </button>
+              </div>
+              
               <!-- Tool Execution Logs -->
               <div v-if="msg.toolCalls?.length" class="mt-6 flex flex-col gap-2 pt-4 border-t border-zinc-800/50">
                 <details v-for="(tc, i) in msg.toolCalls" :key="i" class="group bg-zinc-950/80 border border-zinc-800/80 rounded-xl overflow-hidden text-xs transition-all">
@@ -214,7 +311,31 @@
       <div class="w-full bg-zinc-900 pt-2">
         <div class="max-w-3xl mx-auto px-6 pb-10">
           <div class="relative bg-zinc-950 border border-zinc-800 rounded-xl transition-all focus-within:border-zinc-700">
+            <!-- Image Previews -->
+            <div v-if="selectedImages.length > 0" class="flex flex-wrap gap-2 px-4 pt-3 pb-1">
+              <div v-for="(img, idx) in selectedImages" :key="idx" class="relative group">
+                <img :src="img" class="w-14 h-14 object-cover rounded-md border border-zinc-800" />
+                <button 
+                  class="absolute -top-1.5 -right-1.5 bg-zinc-900 text-zinc-400 rounded-full p-0.5 border border-zinc-800 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all"
+                  @click="removeImage(idx)"
+                >
+                  <X class="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+
             <div class="flex items-end p-2 gap-1">
+              <input 
+                ref="fileInput" 
+                type="file" 
+                class="hidden" 
+                multiple 
+                accept="image/*" 
+                @change="handleImageSelect" 
+              />
+              <button class="p-2.5 text-zinc-500 hover:text-white transition-colors" title="Attach Image" @click="fileInput?.click()">
+                <Image class="w-4 h-4" />
+              </button>
               <button class="p-2.5 text-zinc-500 hover:text-white transition-colors" @click="voiceOverlay?.start()">
                 <Mic class="w-4 h-4" />
               </button>
@@ -227,8 +348,19 @@
                 @keydown.enter="handleEnter"
               ></textarea>
               
+              <!-- Stop button during streaming -->
               <button
-                :disabled="!input.trim() || chat.streaming"
+                v-if="chat.streaming"
+                class="p-2.5 bg-zinc-800 text-white rounded-lg transition-all active:scale-95 hover:bg-zinc-700"
+                :title="$t('chat.stopGenerating')"
+                @click="chat.cancelStream()"
+              >
+                <Square class="w-4 h-4" />
+              </button>
+              <!-- Send button otherwise -->
+              <button
+                v-else
+                :disabled="!input.trim()"
                 class="p-2.5 bg-white text-black rounded-lg disabled:opacity-10 transition-all active:scale-95"
                 @click="handleSend"
               >
@@ -267,11 +399,11 @@ import { marked } from "marked";
 import hljs from "highlight.js";
 import "highlight.js/styles/github-dark.css";
 
-import { 
-  Trash2, Zap, Settings, LogOut, 
+import {
+  Trash2, Zap, Settings, LogOut,
   PanelLeft, SquarePen, Copy, RotateCcw,
-  Mic, ArrowUp, ShieldAlert, Share2, MessageSquare,
-  Volume2, Layout
+  Mic, ArrowUp, Square, ShieldAlert, Share2, MessageSquare,
+  Volume2, Layout, Image, X
 } from "lucide-vue-next";
 
 import LiveCanvas from "@/components/LiveCanvas.vue";
@@ -283,9 +415,105 @@ const auth = useAuthStore();
 const router = useRouter();
 
 const input = ref("");
+const editingMessageId = ref<string | null>(null);
+const editInput = ref("");
+const fileInput = ref<HTMLInputElement>();
+const selectedImages = ref<string[]>([]);
 const sidebarCollapsed = ref(false);
+
+const startEdit = (msg: any) => {
+  editingMessageId.value = msg.id;
+  editInput.value = msg.content;
+};
+
+const cancelEdit = () => {
+  editingMessageId.value = null;
+  editInput.value = "";
+};
+
+const handleEditSubmit = async (msg: any) => {
+  const content = editInput.value;
+  cancelEdit();
+  await chat.sendMessage(content, undefined, msg.parent_id);
+};
+
+const getBranchIndex = (msg: any) => {
+  const siblings = chat.getSiblings(msg);
+  return siblings.findIndex(m => m.id === msg.id);
+};
+
+const navigateBranch = (msg: any, direction: number) => {
+  const siblings = chat.getSiblings(msg);
+  const currentIndex = siblings.findIndex(m => m.id === msg.id);
+  const nextIndex = currentIndex + direction;
+  if (nextIndex >= 0 && nextIndex < siblings.length) {
+    chat.switchBranch(siblings[nextIndex].id!);
+  }
+};
+
+const handleImageSelect = (e: Event) => {
+  const files = (e.target as HTMLInputElement).files;
+  if (!files) return;
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      if (ev.target?.result) {
+        selectedImages.value.push(ev.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+  // Reset input
+  if (fileInput.value) fileInput.value.value = '';
+};
+
+const removeImage = (idx: number) => {
+  selectedImages.value.splice(idx, 1);
+};
+
 const messagesEl = ref<HTMLElement>();
 const voiceOverlay = ref<InstanceType<typeof VoiceOverlay>>();
+
+// Share State
+const shareUrl = ref<string | null>(null);
+const sharing = ref(false);
+
+// Personas State
+const personas = ref<any[]>([]);
+const selectedPersonaId = ref<string | null>(null);
+
+const fetchPersonas = async () => {
+  try {
+    const { data } = await client.get("/personas");
+    personas.value = data;
+  } catch (err) {
+    console.error("Failed to fetch personas:", err);
+  }
+};
+
+const handleShare = async () => {
+  if (!chat.currentConvId || sharing.value) return;
+  sharing.value = true;
+  try {
+    const { data } = await client.post(`/conversations/${chat.currentConvId}/share`);
+    const baseUrl = window.location.origin;
+    shareUrl.value = `${baseUrl}/share/${data.token}`;
+  } catch (err) {
+    console.error("Failed to share:", err);
+  } finally {
+    sharing.value = false;
+  }
+};
+
+const copyShareUrl = () => {
+  if (shareUrl.value) {
+    navigator.clipboard.writeText(shareUrl.value);
+    // Could add a toast here
+    setTimeout(() => {
+      shareUrl.value = null;
+    }, 3000);
+  }
+};
 
 // Canvas State
 const canvasVisible = ref(false);
@@ -311,19 +539,25 @@ const handleCanvasSubmit = async (values: any) => {
 const currentAudio = ref<HTMLAudioElement | null>(null);
 const isPlayingTTS = ref<string | null>(null);
 
-const playTTS = async (text: string) => {
+const playTTS = async function(text: string): Promise<void> {
+  // If the same text is already playing, toggle pause
   if (isPlayingTTS.value === text && currentAudio.value) {
     currentAudio.value.pause();
     isPlayingTTS.value = null;
     return;
-  } else if (currentAudio.value) {
+  }
+
+  // Stop currently playing audio
+  if (currentAudio.value) {
     currentAudio.value.pause();
   }
-  
+
   try {
     isPlayingTTS.value = text;
-    // Strip markdown formatting approximately
-    const cleanText = text.replace(/<[^>]*>?/gm, '').replace(/[*#_`~[\]()]/g, '');
+    const cleanText = text
+      .replace(/<[^>]*>?/gm, '')
+      .replace(/[*#_`~[\]()]/g, '');
+
     const response = await client.post('/tts/synthesize', {
       text: cleanText.substring(0, 5000),
       voice: "zh-CN-XiaoxiaoNeural",
@@ -331,16 +565,16 @@ const playTTS = async (text: string) => {
     }, {
       responseType: 'blob'
     });
-    
+
     const audioUrl = URL.createObjectURL(response.data);
     const audio = new Audio(audioUrl);
     currentAudio.value = audio;
-    
+
     audio.onended = () => {
       isPlayingTTS.value = null;
       URL.revokeObjectURL(audioUrl);
     };
-    
+
     await audio.play();
   } catch (error) {
     console.error("TTS failed", error);
@@ -376,7 +610,38 @@ marked.use({
   },
 });
 
-const renderMarkdown = (text: string) => text ? marked.parse(text) : '<span class="cursor-block"></span>';
+const renderMarkdown = (text: string) => {
+  if (!text) return '<span class="cursor-block"></span>';
+  
+  let processed = text;
+  const blocks: string[] = [];
+  
+  // Extract closed <think> blocks
+  processed = processed.replace(/<think>([\s\S]*?)<\/think>/g, (_, p1) => {
+    const placeholder = `__THINK_BLOCK_${blocks.length}__`;
+    blocks.push(`<details class="my-3 group"><summary class="cursor-pointer text-xs font-semibold text-zinc-500 hover:text-zinc-300 transition-colors list-none flex items-center gap-2 select-none"><span class="w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px]">🧠</span> <span>Thought Process</span></summary><div class="mt-3 pl-4 border-l-2 border-zinc-800 text-zinc-400 text-[13px] leading-relaxed opacity-80">${marked.parse(p1)}</div></details>`);
+    return placeholder;
+  });
+
+  // Extract unclosed <think> block (streaming)
+  const unclosedIndex = processed.indexOf('<think>');
+  if (unclosedIndex !== -1) {
+    const thinkingPart = processed.substring(unclosedIndex + 7);
+    processed = processed.substring(0, unclosedIndex);
+    const placeholder = `__THINK_BLOCK_${blocks.length}__`;
+    blocks.push(`<details open class="my-3 group"><summary class="cursor-pointer text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors list-none flex items-center gap-2 select-none"><span class="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center text-[10px] animate-pulse">🧠</span> <span>Thinking...</span></summary><div class="mt-3 pl-4 border-l-2 border-indigo-500/30 text-zinc-400 text-[13px] leading-relaxed opacity-80">${marked.parse(thinkingPart)}</div></details>`);
+    processed += placeholder;
+  }
+
+  let html = marked.parse(processed) as string;
+
+  blocks.forEach((blockHtml, i) => {
+    html = html.replace(`<p>__THINK_BLOCK_${i}__</p>`, blockHtml);
+    html = html.replace(`__THINK_BLOCK_${i}__`, blockHtml);
+  });
+  
+  return html;
+};
 const hasHtml = (text: string) => /<html>[\s\S]*?<\/html>/.test(text);
 const hasCanvasData = (text: string) => {
   if (text.includes('"type": "chart"') || text.includes('"type": "form"')) return true;
@@ -384,41 +649,59 @@ const hasCanvasData = (text: string) => {
 };
 const currentConvTitle = computed(() => chat.conversations.find((conv) => conv.id === chat.currentConvId)?.title || "Intelligence Terminal");
 
-const handleSend = async () => {
-  if (!input.value.trim() || chat.streaming) return;
+const handleSend = async function(): Promise<void> {
+  if ((!input.value.trim() && selectedImages.value.length === 0) || chat.streaming) return;
   const msg = input.value;
+  const images = [...selectedImages.value];
+  const personaId = selectedPersonaId.value;
   input.value = "";
-  await chat.sendMessage(msg);
+  selectedImages.value = [];
+  await chat.sendMessage(msg, images.length > 0 ? images : undefined, undefined, personaId || undefined);
 };
 
-const handleEnter = (e: KeyboardEvent) => {
-  // If IME is composing (e.g. typing Chinese), do nothing
-  if (e.isComposing) return;
-  
-  // If Shift is pressed, let it act as a newline
-  if (e.shiftKey) return;
-  
-  // Otherwise, prevent default newline and send
+const handleEnter = function(e: KeyboardEvent): void {
+  // IME composition or Shift+Enter → allow newline
+  if (e.isComposing || e.shiftKey) return;
+
+  // Otherwise, send the message
   e.preventDefault();
   handleSend();
 };
 
-const copyText = (text: string) => { navigator.clipboard.writeText(text); };
-const regenerate = async (idx: number) => {
-  const prevHuman = chat.messages.slice(0, idx).reverse().find(m => m.role === 'human');
-  if (prevHuman) await chat.sendMessage(prevHuman.content);
+const copyText = function(text: string): void {
+  navigator.clipboard.writeText(text);
 };
 
-const handleLogout = () => { auth.logout(); router.push("/login"); };
+const regenerate = async function(idx: number): Promise<void> {
+  const prevHuman = chat.messages.slice(0, idx)
+    .reverse()
+    .find(m => m.role === 'human');
+  if (prevHuman) {
+    await chat.sendMessage(prevHuman.content);
+  }
+};
 
-const scrollToBottom = async () => {
+const handleLogout = function(): void {
+  auth.logout();
+  router.push("/login");
+};
+
+const scrollToBottom = async function(): Promise<void> {
   await nextTick();
-  if (messagesEl.value) messagesEl.value.scrollTo({ top: messagesEl.value.scrollHeight, behavior: "smooth" });
+  if (messagesEl.value) {
+    messagesEl.value.scrollTo({
+      top: messagesEl.value.scrollHeight,
+      behavior: "smooth"
+    });
+  }
 };
 
 watch(() => chat.messages.length, scrollToBottom);
 watch(() => chat.streaming, (isStreaming) => { if (isStreaming) scrollToBottom(); });
-onMounted(async () => { await chat.loadConversations(); });
+onMounted(async () => { 
+  await chat.loadConversations(); 
+  await fetchPersonas();
+});
 </script>
 
 <style scoped>

@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import client from "@/api/client";
+import { useAuthStore } from "@/stores/auth";
 
 interface ToolCall {
   name: string;
@@ -9,8 +10,11 @@ interface ToolCall {
 }
 
 interface Message {
+  id?: string;
+  parent_id?: string;
   role: "human" | "ai";
   content: string;
+  image_urls?: string[];
   toolCalls?: ToolCall[];
   pending_tool_call?: { name: string; args: any };
 }
@@ -24,8 +28,42 @@ export const useChatStore = defineStore("chat", {
     messages: [] as Message[],
     streaming: false,
     routingAgent: null as string | null,
+    abortController: null as AbortController | null,
+    activeLeafId: null as string | null,
   }),
+  getters: {
+    activeMessages: (state) => {
+      if (!state.messages.length) return [];
+      const msgDict = new Map<string, Message>();
+      const latestMsg = state.messages[state.messages.length - 1];
+      
+      for (const msg of state.messages) {
+        if (msg.id) msgDict.set(msg.id, msg);
+      }
+      
+      let currentId = state.activeLeafId || latestMsg.id;
+      if (!currentId || !msgDict.has(currentId)) {
+        return state.messages; // fallback for unpersisted messages
+      }
+      
+      const thread = [];
+      while (currentId && msgDict.has(currentId)) {
+        const m: Message = msgDict.get(currentId)!;
+        thread.unshift(m);
+        currentId = m.parent_id;
+      }
+      return thread;
+    },
+    getSiblings: (state) => (msg: Message) => {
+      if (!msg.id) return [];
+      return state.messages.filter(m => m.parent_id === msg.parent_id);
+    }
+  },
   actions: {
+    switchBranch(messageId: string) {
+      this.activeLeafId = messageId;
+    },
+
     async loadConversations() {
       const { data } = await client.get("/conversations");
       this.conversations = data;
@@ -34,6 +72,7 @@ export const useChatStore = defineStore("chat", {
       this.currentConvId = convId;
       this.messages = [];
       this.routingAgent = null;
+      this.activeLeafId = null;
       try {
         const { data } = await client.get<Message[]>(`/conversations/${convId}/messages`);
         this.messages = data;
@@ -46,6 +85,7 @@ export const useChatStore = defineStore("chat", {
       this.currentConvId = null;
       this.messages = [];
       this.routingAgent = null;
+      this.activeLeafId = null;
     },
     async deleteConversation(convId: string) {
       try {
@@ -55,59 +95,35 @@ export const useChatStore = defineStore("chat", {
           this.currentConvId = null;
           this.messages = [];
           this.routingAgent = null;
+      this.activeLeafId = null;
         }
       } catch (err) {
         console.error("[chat] deleteConversation failed", err);
       }
     },
 
-    async handleConsent(approved: boolean) {
-      const lastAiMsg = this.messages[this.messages.length - 1];
-      if (!lastAiMsg || !lastAiMsg.pending_tool_call) return;
 
-      const callInfo = lastAiMsg.pending_tool_call;
-      lastAiMsg.pending_tool_call = undefined;
-
-      await this.sendMessage(`[CONSENT:${approved ? 'ALLOW' : 'DENY'}] ${callInfo.name}`);
-    },
-
-    async sendMessage(content: string) {
-      if (!this.currentConvId) {
-        const title = content.slice(0, 30) + (content.length > 30 ? "..." : "");
-        const { data } = await client.post("/conversations", { title });
-        this.conversations.unshift(data);
-        this.currentConvId = data.id;
-      }
-      
-      if (!content.startsWith("[CONSENT:")) {
-        this.messages.push({ role: "human", content });
-        this.messages.push({ role: "ai", content: "" });
-      }
-      
+    async regenerate(messageId: string) {
+      if (!this.currentConvId || !messageId) return;
       this.streaming = true;
-
       try {
-        const token = localStorage.getItem("token");
-        const resp = await fetch("/api/chat/stream", {
+        const auth = useAuthStore();
+        const response = await fetch("/api/chat/regenerate", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ conversation_id: this.currentConvId, content }),
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+          body: JSON.stringify({ conversation_id: this.currentConvId, message_id: messageId })
         });
-
-        if (!resp.ok) {
-          let detail = `HTTP ${resp.status}`;
-          const errorText = await resp.text().catch(() => "");
-          try {
-            const parsed = JSON.parse(errorText);
-            if (parsed.detail) detail = typeof parsed.detail === 'string' ? parsed.detail : JSON.stringify(parsed.detail);
-          } catch {
-            if (errorText) detail = errorText;
-          }
-          throw new Error(detail);
+        if (!response.ok) throw new Error("Regenerate failed");
+        
+        // We push a temporary empty AI message that will be populated by the stream
+        const activeThread = this.activeMessages;
+        const msg = activeThread.find(m => m.id === messageId);
+        if (msg) {
+            this.messages.push({ role: "ai", content: "", parent_id: msg.parent_id });
+            this.activeLeafId = null; // Will attach to latest in UI
         }
-        if (!resp.body) throw new Error("No response body");
-
-        const reader = resp.body.getReader();
+        
+        const reader = response.body!.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
 
@@ -122,7 +138,102 @@ export const useChatStore = defineStore("chat", {
               try {
                 const data = JSON.parse(line.slice(6));
                 const aiMsg = this.messages[this.messages.length - 1];
-                
+                if (data.delta) aiMsg.content += data.delta;
+                else if (data.content) aiMsg.content = data.content;
+              } catch { /* empty */ }
+            }
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        this.streaming = false;
+      }
+    },
+    cancelStream() {
+      if (this.abortController) {
+        this.abortController.abort();
+      }
+    },
+
+    async handleConsent(approved: boolean) {
+      const lastAiMsg = this.messages[this.messages.length - 1];
+      if (!lastAiMsg || !lastAiMsg.pending_tool_call) return;
+
+      const callInfo = lastAiMsg.pending_tool_call;
+      lastAiMsg.pending_tool_call = undefined;
+
+      await this.sendMessage(`[CONSENT:${approved ? 'ALLOW' : 'DENY'}] ${callInfo.name}`);
+    },
+
+    async sendMessage(content: string, imageUrls?: string[], parentId?: string, personaId?: string) {
+      if (!this.currentConvId) {
+        const title = content.slice(0, 30) + (content.length > 30 ? "..." : "");
+        const { data } = await client.post("/conversations", { title });
+        this.conversations.unshift(data);
+        this.currentConvId = data.id;
+      }
+
+      const actualParentId = parentId || (this.activeMessages.length > 0 ? this.activeMessages[this.activeMessages.length - 1].id : undefined);
+
+      if (!content.startsWith("[CONSENT:")) {
+        this.messages.push({ role: "human", content, image_urls: imageUrls, parent_id: actualParentId });
+        this.messages.push({ role: "ai", content: "", parent_id: undefined }); // Resulting AI msg will eventually get a parent_id from backend if we refresh, but for now we just link it optimistically
+      }
+
+      this.streaming = true;
+
+      try {
+        const auth = useAuthStore();
+        const token = auth.token;
+        const controller = new AbortController();
+        this.abortController = controller;
+        const response = await fetch("/api/chat/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            conversation_id: this.currentConvId,
+            content,
+            image_urls: imageUrls,
+            parent_message_id: actualParentId,
+            persona_id: personaId,
+          }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          let errorDetail = `HTTP ${response.status}`;
+          const errorText = await response.text().catch(() => "");
+          if (errorText) {
+            try {
+              const parsed = JSON.parse(errorText);
+              errorDetail = typeof parsed.detail === "string"
+                ? parsed.detail
+                : JSON.stringify(parsed.detail);
+            } catch {
+              errorDetail = errorText;
+            }
+          }
+          throw new Error(errorDetail);
+        }
+        if (!response.body) throw new Error("No response body");
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                const aiMsg = this.messages[this.messages.length - 1];
+
                 if (data.type === "routing") {
                   this.routingAgent = data.agent;
                 } else if (data.type === "title_updated") {
@@ -133,45 +244,54 @@ export const useChatStore = defineStore("chat", {
                 } else if (data.type === "approval_required") {
                   aiMsg.pending_tool_call = { name: data.tool, args: data.args };
                   this.streaming = false;
-                  this.routingAgent = null; // finally won't run after return
-                  return; // Stop reading stream, wait for user
+                  this.routingAgent = null;
+      this.activeLeafId = null;
+                  return;
                 }
 
                 if (data.type === "tool_start") {
-                  if (!aiMsg.toolCalls) aiMsg.toolCalls = [];
+                  if (!aiMsg.toolCalls) {
+                    aiMsg.toolCalls = [];
+                  }
                   aiMsg.toolCalls.push({
                     name: data.tool,
                     args: data.args ?? {},
                     status: "running",
                   });
                 } else if (data.type === "tool_end") {
-                  const tc = aiMsg.toolCalls?.find(
-                    (t: ToolCall) => t.name === data.tool && t.status === "running",
+                  const toolCall = aiMsg.toolCalls?.find(
+                    (t: ToolCall) => t.name === data.tool && t.status === "running"
                   );
-                  if (tc) {
-                    tc.status = "done";
-                    tc.result = data.result_preview;
+                  if (toolCall) {
+                    toolCall.status = "done";
+                    toolCall.result = data.result_preview;
                   }
-                } else {
-                  if (data.delta) {
-                    aiMsg.content += data.delta;
-                  } else if (data.content) {
-                    aiMsg.content = data.content;
-                  }
+                } else if (data.delta) {
+                  aiMsg.content += data.delta;
+                } else if (data.content) {
+                  aiMsg.content = data.content;
                 }
-              } catch { /* ignore SSE parse errors */ }
+              } catch {
+                // Ignore SSE parse errors
+              }
             }
           }
         }
       } catch (err: any) {
+        if (err.name === "AbortError") {
+          // User intentionally cancelled — do not show error toast
+          return;
+        }
         const aiMsg = this.messages[this.messages.length - 1];
         if (aiMsg?.role === "ai") {
           aiMsg.content = `> **System Warning**: Failed to communicate with the model.\n> \`${err.message}\`\n\nPlease check your configuration in **Settings** (e.g., ensure API keys are correctly filled) and try again.`;
         }
         console.error("[chat] streaming error:", err);
       } finally {
+        this.abortController = null;
         this.streaming = false;
         this.routingAgent = null;
+      this.activeLeafId = null;
       }
     },
   },

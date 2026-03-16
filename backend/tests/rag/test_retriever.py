@@ -161,7 +161,7 @@ async def test_index_document_stores_doc_name_in_payload() -> None:
 
     with (
         patch("app.rag.indexer.get_qdrant_client", return_value=mock_client),
-        patch("app.rag.indexer.ensure_user_collection", new_callable=AsyncMock),
+        patch("app.rag.indexer.ensure_collection", new_callable=AsyncMock),
         patch("app.rag.indexer.get_embedder") as mock_ef,
     ):
         mock_emb = AsyncMock()

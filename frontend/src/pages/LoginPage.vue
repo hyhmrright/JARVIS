@@ -48,13 +48,14 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useI18n } from "vue-i18n";
 import { AxiosError } from "axios";
 
 const { t } = useI18n();
 const auth = useAuthStore();
+const route = useRoute();
 const router = useRouter();
 
 const email = ref("");
@@ -68,7 +69,8 @@ async function handleLogin() {
   error.value = "";
   try {
     await auth.login(email.value, password.value);
-    router.push("/");
+    const redirect = route.query.redirect;
+    router.push(typeof redirect === "string" ? decodeURIComponent(redirect) : "/");
   } catch (e) {
     if (e instanceof AxiosError && e.response?.status === 401) {
       error.value = t("login.invalidCredentials");

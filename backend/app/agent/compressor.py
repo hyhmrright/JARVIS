@@ -28,6 +28,7 @@ async def compact_messages(
     api_key: str,
     threshold: int = 50_000,
     keep_recent: int = 6,
+    base_url: str | None = None,
 ) -> list[BaseMessage]:
     """Compress *messages* when total character count exceeds *threshold*.
 
@@ -37,7 +38,7 @@ async def compact_messages(
 
         [system_msg, AIMessage(summary), ...last *keep_recent* messages]
     """
-    total_chars = sum(len(str(m.content)) for m in messages)
+    total_chars = sum(len(f"{m.type}: {m.content}") for m in messages)
     if total_chars < threshold:
         return messages
 
@@ -58,7 +59,7 @@ async def compact_messages(
 
     summary_input = "\n".join(f"{m.type}: {m.content}" for m in to_compress)
 
-    llm = get_llm(provider, model, api_key)
+    llm = get_llm(provider, model, api_key, base_url=base_url)
     summary_response = await llm.ainvoke(
         [
             SystemMessage(content=_SUMMARY_PROMPT),

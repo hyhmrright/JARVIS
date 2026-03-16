@@ -2,7 +2,7 @@
 
 ## 后端 (Backend)
 - **语言**：Python 3.13+
-- **框架**：FastAPI (异步 Web 框架)，LangGraph (智能体编排)，LangChain (LLM 链式处理)。
+- **框架**：FastAPI (异步 Web 框架)，LangGraph (智能体编排)，LangChain (LLM 链式处理)，langchain-ollama (本地模型支持)。
 - **数据库 ORM**：SQLAlchemy 2.0+ (异步)。
 - **迁移工具**：Alembic。
 - **校验与设置**：Pydantic v2+, Pydantic-Settings。

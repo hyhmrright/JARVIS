@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import ResolvedLLMConfig, get_current_user, get_llm_config
 from app.core.config import settings
 from app.core.security import resolve_api_key
-from app.db.models import Document, User
+from app.db.models import Document, User, Workspace, WorkspaceMember
 from app.db.session import get_db
 from app.infra.minio import get_minio_client
 from app.infra.qdrant import get_qdrant_client, user_collection_name
@@ -27,31 +27,62 @@ MAX_SIZE = 50 * 1024 * 1024
 
 
 def extract_text(content: bytes, file_type: str) -> str:
-    if file_type in ("txt", "md"):
-        return content.decode("utf-8", errors="ignore")
-    if file_type == "pdf":
-        import pypdf
+    match file_type:
+        case "txt" | "md":
+            return content.decode("utf-8", errors="ignore")
+        case "pdf":
+            import pypdf
 
-        reader = pypdf.PdfReader(io.BytesIO(content))
-        return "\n".join(p.extract_text() or "" for p in reader.pages)
-    if file_type == "docx":
-        import docx
+            reader = pypdf.PdfReader(io.BytesIO(content))
+            return "\n".join(p.extract_text() or "" for p in reader.pages)
+        case "docx":
+            import docx
 
-        doc = docx.Document(io.BytesIO(content))
-        return "\n".join(p.text for p in doc.paragraphs)
-    return ""
+            doc = docx.Document(io.BytesIO(content))
+            return "\n".join(p.text for p in doc.paragraphs)
+        case _:
+            return ""
 
 
 @router.get("")
 async def list_documents(
+    workspace_id: uuid.UUID | None = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, list[dict]]:
-    rows = await db.scalars(
-        select(Document)
-        .where(Document.user_id == user.id, Document.is_deleted.is_(False))
-        .order_by(Document.created_at.desc())
-    )
+    if workspace_id is not None:
+        # Workspace listing: show all docs in this workspace to members.
+        ws = await db.get(Workspace, workspace_id)
+        if not ws or ws.is_deleted or ws.organization_id != user.organization_id:
+            raise HTTPException(status_code=404, detail="Workspace not found")
+        membership = await db.scalar(
+            select(WorkspaceMember).where(
+                WorkspaceMember.workspace_id == workspace_id,
+                WorkspaceMember.user_id == user.id,
+            )
+        )
+        if not membership:
+            raise HTTPException(status_code=403, detail="Not a workspace member")
+        query = (
+            select(Document)
+            .where(
+                Document.workspace_id == workspace_id,
+                Document.is_deleted.is_(False),
+            )
+            .order_by(Document.created_at.desc())
+        )
+    else:
+        # Personal listing: only the user's own non-workspace documents.
+        query = (
+            select(Document)
+            .where(
+                Document.user_id == user.id,
+                Document.workspace_id.is_(None),
+                Document.is_deleted.is_(False),
+            )
+            .order_by(Document.created_at.desc())
+        )
+    rows = await db.scalars(query)
     docs = rows.all()
     return {
         "documents": [
@@ -62,6 +93,7 @@ async def list_documents(
                 "file_size_bytes": d.file_size_bytes,
                 "chunk_count": d.chunk_count,
                 "created_at": d.created_at.isoformat(),
+                "workspace_id": str(d.workspace_id) if d.workspace_id else None,
             }
             for d in docs
         ]
@@ -79,12 +111,13 @@ async def delete_document(
         raise HTTPException(status_code=404, detail="Document not found")
 
     doc.is_deleted = True
+    doc.chunk_count = 0
     await db.commit()
 
-    # Try to delete from Qdrant
+    # Use the stored collection name so workspace docs are cleaned up correctly.
+    collection = doc.qdrant_collection or user_collection_name(str(user.id))
     try:
         q_client = await get_qdrant_client()
-        collection = user_collection_name(str(user.id))
         await q_client.delete(
             collection_name=collection,
             points_selector=Filter(
@@ -105,6 +138,7 @@ async def delete_document(
 @router.post("", status_code=201)
 async def upload_document(
     file: UploadFile = File(...),
+    workspace_id: uuid.UUID | None = None,
     user: User = Depends(get_current_user),
     llm: ResolvedLLMConfig = Depends(get_llm_config),
     db: AsyncSession = Depends(get_db),
@@ -116,6 +150,22 @@ async def upload_document(
     content = await file.read()
     if len(content) > MAX_SIZE:
         raise HTTPException(status_code=400, detail="File exceeds 50MB limit")
+
+    # Validate workspace membership before touching MinIO to avoid orphaned objects.
+    qdrant_collection = user_collection_name(str(user.id))
+    if workspace_id is not None:
+        ws = await db.get(Workspace, workspace_id)
+        if not ws or ws.is_deleted or ws.organization_id != user.organization_id:
+            raise HTTPException(status_code=404, detail="Workspace not found")
+        membership = await db.scalar(
+            select(WorkspaceMember).where(
+                WorkspaceMember.workspace_id == workspace_id,
+                WorkspaceMember.user_id == user.id,
+            )
+        )
+        if not membership:
+            raise HTTPException(status_code=403, detail="Not a workspace member")
+        qdrant_collection = f"workspace_{workspace_id}"
 
     safe_name = Path(file.filename or "upload").name
     object_key = f"{user.id}/{uuid.uuid4()}_{safe_name}"
@@ -135,9 +185,11 @@ async def upload_document(
         filename=safe_name,
         file_type=ext,
         file_size_bytes=len(content),
-        qdrant_collection=user_collection_name(str(user.id)),
+        qdrant_collection=qdrant_collection,
         minio_object_key=object_key,
     )
+    if workspace_id is not None:
+        doc.workspace_id = workspace_id
     db.add(doc)
     await db.flush()
     # Embeddings always use OpenAI (text-embedding-3-small), resolve the
@@ -150,7 +202,12 @@ async def upload_document(
             "Configure it in Settings or ask the admin.",
         )
     chunk_count = await index_document(
-        str(user.id), str(doc.id), text, openai_key, doc_name=safe_name
+        str(user.id),
+        str(doc.id),
+        text,
+        openai_key,
+        doc_name=safe_name,
+        collection_name=qdrant_collection,
     )
     doc.chunk_count = chunk_count
     await db.commit()

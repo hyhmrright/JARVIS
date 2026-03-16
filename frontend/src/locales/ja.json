@@ -1,11 +1,14 @@
 {
   "common": {
+    "prev": "前へ",
+    "next": "次へ",
     "close": "閉じる",
     "loading": "読み込み中...",
     "backToChat": "← チャットに戻る",
     "networkError": "ネットワークエラーです。接続を確認してください",
     "rateLimitError": "リクエストが多すぎます。しばらくしてから再試行してください",
     "cancel": "キャンセル",
+    "confirm": "確認",
     "copy": "コピー",
     "copied": "コピー済み！"
   },
@@ -48,7 +51,8 @@
     "streamError": "メッセージの送信に失敗しました。再試行してください",
     "toolResult": "ツール結果",
     "toolRunning": "実行中...",
-    "usage": "利用統計"
+    "usage": "利用統計",
+    "stopGenerating": "生成を停止"
   },
   "usage": {
     "title": "利用統計",
@@ -65,7 +69,13 @@
     "uploading": "アップロード中...",
     "fileTooLarge": "ファイルサイズは 50MB を超えられません",
     "uploadSuccess": "アップロード成功、{count} チャンクに分割されました",
-    "uploadError": "アップロードに失敗しました。ファイル形式を確認してください"
+    "uploadError": "アップロードに失敗しました。ファイル形式を確認してください",
+    "uploadZoneText": "ファイルをここにドロップまたはクリックしてアップロード",
+    "uploadZoneHint": "PDF、TXT、MD、DOCX をサポート（最大 50MB）",
+    "uploadedTitle": "アップロード済みドキュメント",
+    "deleteConfirm": "このドキュメントを削除しますか？",
+    "deleteSuccess": "ドキュメントが削除されました",
+    "deleteError": "削除に失敗しました。再試行してください"
   },
   "settings": {
     "title": "設定",
@@ -109,6 +119,111 @@
     "emailInvalid": "有効なメールアドレスを入力してください",
     "passwordRequired": "パスワードを入力してください",
     "passwordMinLength": "パスワードは8文字以上必要です"
+  },
+  "admin": {
+    "title": "管理パネル",
+    "tabs": {
+      "users": "ユーザー管理",
+      "plugins": "プラグイン管理",
+      "stats": "統計"
+    },
+    "users": {
+      "email": "メール",
+      "name": "名前",
+      "role": "役割",
+      "status": "ステータス",
+      "actions": "操作",
+      "active": "有効",
+      "disabled": "無効",
+      "enable": "有効化",
+      "disable": "無効化"
+    },
+    "plugins": {
+      "tools": "ツール数",
+      "install": "プラグインをインストール",
+      "installTitle": "プラグインのインストール",
+      "installDesc": "プラグインPythonファイルの生URLを入力してください（例：GitHubから）"
+    },
+    "stats": {
+      "users": "総ユーザー数",
+      "conversations": "総会話数",
+      "messages": "総メッセージ数",
+      "tokens": "総トークン使用量"
+    }
+  },
+  "proactive": {
+    "title": "プロアクティブ監視",
+    "addTask": "タスクを追加",
+    "noTasks": "監視タスクがありません",
+    "lastRun": "最終トリガー",
+    "schedule": "スケジュール",
+    "triggerType": "トリガータイプ",
+    "taskPrompt": "AIタスク指示",
+    "targetLabel": "監視対象",
+    "targetPlaceholder": "製品価格、ニュース見出し、キーワード…",
+    "useBrowser": "ブラウザレンダリングを使用（SPA対応）",
+    "fireOnInit": "作成後すぐに一度トリガー",
+    "imapFolder": "IMAPフォルダ",
+    "imapPort": "IMAPポート",
+    "triggerTypes": {
+      "cron": "定期実行",
+      "web_watcher": "ウェブ監視（ハッシュ）",
+      "semantic_watcher": "ウェブ監視（セマンティック）",
+      "email": "メールトリガー"
+    },
+    "testTrigger": "テストトリガー",
+    "testResult": "テスト結果",
+    "triggered": "トリガー済み",
+    "testFailed": "テストに失敗しました。再試行してください",
+    "history": "実行履歴",
+    "noHistory": "実行記録がありません",
+    "deleteConfirm": "この監視タスクを削除しますか？",
+    "neverRun": "未実行",
+    "duration": "所要時間",
+    "triggeredYes": "はい",
+    "triggeredNo": "いいえ（未トリガー）",
+    "changeSummary": "変更サマリー",
+    "agentReply": "エージェント応答",
+    "saveError": "作成に失敗しました。しばらくしてから再試行してください",
+    "validation": {
+      "taskRequired": "タスク指示を入力してください",
+      "urlRequired": "URLを入力してください",
+      "urlInvalid": "有効なURLを入力してください",
+      "targetRequired": "監視対象を入力してください",
+      "imapHostRequired": "IMAPホストを入力してください",
+      "emailAddressRequired": "メールアドレスを入力してください"
+    }
+  },
+  "workspace": {
+    "title": "ワークスペース",
+    "personal": "個人",
+    "noOrgDesc": "チームメンバーを招待するには組織を作成してください",
+    "orgName": "組織名",
+    "orgSlug": "スラッグ（英小文字とハイフン）",
+    "createOrg": "組織を作成",
+    "createWorkspace": "新しいワークスペース",
+    "workspaceName": "ワークスペース名",
+    "members": "メンバー管理",
+    "membersList": "メンバー一覧",
+    "manageMembers": "メンバーを管理",
+    "inviteEmail": "招待するメール",
+    "invite": "招待を送信",
+    "inviteLink": "招待リンク",
+    "roleMember": "メンバー",
+    "roleAdmin": "管理者",
+    "roleOwner": "オーナー",
+    "remove": "削除",
+    "removeConfirm": "このメンバーを削除しますか？",
+    "scope": "スコープ",
+    "inviteTitle": "ワークスペースに参加",
+    "inviteDesc": "\"{workspace}\"に{role}として招待されました",
+    "inviteLoginRequired": "招待を受け入れるにはログインしてください",
+    "acceptInvite": "招待を受け入れる",
+    "inviteInvalid": "招待リンクが無効または期限切れです",
+    "inviteAcceptError": "招待の受け入れに失敗しました。再試行してください。",
+    "settingsTitle": "ワークスペース設定 — {name}",
+    "saveSettings": "ワークスペース設定を保存",
+    "usePersonal": "個人設定を使用"
   },
   "apiKeys": {
     "title": "個人APIキー",

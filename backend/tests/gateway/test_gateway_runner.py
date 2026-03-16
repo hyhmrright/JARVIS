@@ -40,6 +40,7 @@ async def test_run_agent_for_user_returns_ai_reply():
     with (
         patch("app.gateway.agent_runner.AsyncSessionLocal", return_value=mock_ctx),
         patch("app.gateway.agent_runner.resolve_api_keys", return_value=["fake-key"]),
+        patch("app.gateway.agent_runner.build_rag_context", AsyncMock(return_value="")),
         patch("app.gateway.agent_runner.create_graph", return_value=mock_graph),
     ):
         result = await run_agent_for_user(_USER_ID, "帮我做个计划")

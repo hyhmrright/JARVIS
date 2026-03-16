@@ -1,11 +1,14 @@
 {
   "common": {
+    "prev": "Précédent",
+    "next": "Suivant",
     "close": "Fermer",
     "loading": "Chargement...",
     "backToChat": "← Retour au chat",
     "networkError": "Erreur réseau, veuillez vérifier votre connexion",
     "rateLimitError": "Trop de requêtes, veuillez réessayer plus tard",
     "cancel": "Annuler",
+    "confirm": "Confirmer",
     "copy": "Copier",
     "copied": "Copié !"
   },
@@ -48,7 +51,8 @@
     "streamError": "Échec de l'envoi du message, veuillez réessayer",
     "toolResult": "Résultat de l'outil",
     "toolRunning": "En cours...",
-    "usage": "Statistiques"
+    "usage": "Statistiques",
+    "stopGenerating": "Arrêter la génération"
   },
   "usage": {
     "title": "Statistiques d'utilisation",
@@ -65,7 +69,13 @@
     "uploading": "Téléversement en cours...",
     "fileTooLarge": "La taille du fichier ne peut pas dépasser 50 Mo",
     "uploadSuccess": "Téléversement réussi, découpé en {count} fragments",
-    "uploadError": "Échec du téléversement, veuillez vérifier le format du fichier"
+    "uploadError": "Échec du téléversement, veuillez vérifier le format du fichier",
+    "uploadZoneText": "Déposez vos fichiers ici ou cliquez pour parcourir",
+    "uploadZoneHint": "Formats supportés : PDF, TXT, MD, DOCX (max 50 Mo)",
+    "uploadedTitle": "Documents téléchargés",
+    "deleteConfirm": "Supprimer ce document ?",
+    "deleteSuccess": "Document supprimé",
+    "deleteError": "Échec de la suppression, veuillez réessayer"
   },
   "settings": {
     "title": "Paramètres",
@@ -109,6 +119,111 @@
     "emailInvalid": "Veuillez saisir une adresse e-mail valide",
     "passwordRequired": "Veuillez saisir votre mot de passe",
     "passwordMinLength": "Le mot de passe doit contenir au moins 8 caractères"
+  },
+  "admin": {
+    "title": "Panneau d'administration",
+    "tabs": {
+      "users": "Utilisateurs",
+      "plugins": "Plugins",
+      "stats": "Statistiques"
+    },
+    "users": {
+      "email": "E-mail",
+      "name": "Nom",
+      "role": "Rôle",
+      "status": "Statut",
+      "actions": "Actions",
+      "active": "Actif",
+      "disabled": "Désactivé",
+      "enable": "Activer",
+      "disable": "Désactiver"
+    },
+    "plugins": {
+      "tools": "Outils",
+      "install": "Installer un plugin",
+      "installTitle": "Installer un plugin",
+      "installDesc": "Entrez l'URL brute du fichier Python du plugin (ex : depuis GitHub)"
+    },
+    "stats": {
+      "users": "Utilisateurs totaux",
+      "conversations": "Conversations totales",
+      "messages": "Messages totaux",
+      "tokens": "Tokens totaux utilisés"
+    }
+  },
+  "proactive": {
+    "title": "Surveillance proactive",
+    "addTask": "Ajouter une tâche",
+    "noTasks": "Aucune tâche de surveillance",
+    "lastRun": "Dernier déclenchement",
+    "schedule": "Planification",
+    "triggerType": "Type de déclencheur",
+    "taskPrompt": "Instruction IA",
+    "targetLabel": "Cible de surveillance",
+    "targetPlaceholder": "Prix du produit, titre d'actualité, mot-clé…",
+    "useBrowser": "Utiliser le rendu navigateur (SPA)",
+    "fireOnInit": "Déclencher une fois à la création",
+    "imapFolder": "Dossier IMAP",
+    "imapPort": "Port IMAP",
+    "triggerTypes": {
+      "cron": "Planifié",
+      "web_watcher": "Surveillance web (hash)",
+      "semantic_watcher": "Surveillance web (sémantique)",
+      "email": "Déclencheur e-mail"
+    },
+    "testTrigger": "Tester le déclencheur",
+    "testResult": "Résultat du test",
+    "triggered": "Déclenché",
+    "testFailed": "Échec du test, veuillez réessayer",
+    "history": "Historique d'exécution",
+    "noHistory": "Aucun historique d'exécution",
+    "deleteConfirm": "Supprimer cette tâche de surveillance ?",
+    "neverRun": "Jamais exécuté",
+    "duration": "Durée",
+    "triggeredYes": "Oui",
+    "triggeredNo": "Non (non déclenché)",
+    "changeSummary": "Résumé des modifications",
+    "agentReply": "Réponse de l'agent",
+    "saveError": "Échec de la création, veuillez réessayer",
+    "validation": {
+      "taskRequired": "L'instruction de tâche est requise",
+      "urlRequired": "L'URL est requise",
+      "urlInvalid": "Veuillez saisir une URL valide",
+      "targetRequired": "La cible de surveillance est requise",
+      "imapHostRequired": "L'hôte IMAP est requis",
+      "emailAddressRequired": "L'adresse e-mail est requise"
+    }
+  },
+  "workspace": {
+    "title": "Espace de travail",
+    "personal": "Personnel",
+    "noOrgDesc": "Créez une organisation pour inviter des membres",
+    "orgName": "Nom de l'organisation",
+    "orgSlug": "Slug (lettres minuscules et tirets)",
+    "createOrg": "Créer l'organisation",
+    "createWorkspace": "Nouvel espace de travail",
+    "workspaceName": "Nom de l'espace de travail",
+    "members": "Gestion des membres",
+    "membersList": "Liste des membres",
+    "manageMembers": "Gérer les membres",
+    "inviteEmail": "Email à inviter",
+    "invite": "Envoyer l'invitation",
+    "inviteLink": "Lien d'invitation",
+    "roleMember": "Membre",
+    "roleAdmin": "Administrateur",
+    "roleOwner": "Propriétaire",
+    "remove": "Supprimer",
+    "removeConfirm": "Supprimer ce membre ?",
+    "scope": "Portée",
+    "inviteTitle": "Rejoindre l'espace de travail",
+    "inviteDesc": "Vous avez été invité à rejoindre \"{workspace}\" en tant que {role}",
+    "inviteLoginRequired": "Veuillez vous connecter pour accepter l'invitation",
+    "acceptInvite": "Accepter l'invitation",
+    "inviteInvalid": "L'invitation est invalide ou expirée",
+    "inviteAcceptError": "Échec de l'acceptation. Veuillez réessayer.",
+    "settingsTitle": "Paramètres de l'espace — {name}",
+    "saveSettings": "Enregistrer les paramètres",
+    "usePersonal": "Utiliser la config personnelle"
   },
   "apiKeys": {
     "title": "Clés API personnelles",

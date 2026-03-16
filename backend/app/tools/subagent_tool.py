@@ -27,6 +27,7 @@ def create_subagent_tool(
     openai_api_key: str | None = None,
     tavily_api_key: str | None = None,
     enabled_tools: list[str] | None = None,
+    base_url: str | None = None,
 ) -> BaseTool:
     """Return a ``spawn_subagent`` tool pre-bound to the given context."""
 
@@ -70,6 +71,7 @@ def create_subagent_tool(
             user_id=user_id,
             openai_api_key=openai_api_key,
             tavily_api_key=tavily_api_key,
+            base_url=base_url,
         )
 
         try:

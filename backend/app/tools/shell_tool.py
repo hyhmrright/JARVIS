@@ -9,14 +9,24 @@ from app.sandbox.manager import SandboxError, SandboxManager
 logger = structlog.get_logger(__name__)
 
 # Best-effort filter — the Docker sandbox is the primary security boundary.
+# When sandbox_enabled=False (local exec inside backend container), these
+# patterns reduce accidental damage. They are NOT a substitute for sandboxing.
 _BLOCKED_PATTERNS: set[str] = {
     "rm -rf /",
+    "rm -rf /*",
+    "rm --no-preserve-root",
     "mkfs",
     "dd if=",
+    "dd of=/dev/",
     ":(){:|:&};:",
     "chmod -R 777 /",
     ">(){ ",
     "fork bomb",
+    "/dev/sda",
+    "/dev/sdb",
+    "/dev/nvme",
+    "shred /dev/",
+    "> /dev/",
 }
 
 _MAX_OUTPUT = 10_000

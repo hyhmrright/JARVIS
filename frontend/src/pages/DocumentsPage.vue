@@ -3,6 +3,20 @@
     <PageHeader :title="$t('documents.title')" />
 
     <div class="page-content custom-scrollbar">
+      <div class="flex items-center gap-3 mb-4">
+        <label class="text-xs text-zinc-500">{{ $t("workspace.scope") }}:</label>
+        <select
+          v-model="selectedWorkspaceId"
+          class="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm text-zinc-200 outline-none"
+          @change="fetchDocuments"
+        >
+          <option :value="null">{{ $t("workspace.personal") }}</option>
+          <option v-for="ws in workspace.workspaces" :key="ws.id" :value="ws.id">
+            {{ ws.name }}
+          </option>
+        </select>
+      </div>
+
       <section class="glass-card upload-section animate-fade-in">
         <label
           class="upload-zone"
@@ -20,24 +34,19 @@
           <div class="upload-content">
             <span class="upload-icon">{{ uploading ? '⏳' : '📤' }}</span>
             <p class="upload-text">
-              {{ uploading ? $t("documents.uploading") : 'Drop your files here or click to browse' }}
+              {{ uploading ? $t("documents.uploading") : $t("documents.uploadZoneText") }}
             </p>
-            <p class="upload-hint">Supports PDF, TXT, MD, DOCX (Max 50MB)</p>
+            <p class="upload-hint">{{ $t("documents.uploadZoneHint") }}</p>
           </div>
           <div v-if="uploading" class="progress-bar-container">
-            <div class="progress-bar-fill"></div>
+            <div class="progress-bar-fill" :style="{ width: uploadProgress + '%' }"></div>
           </div>
         </label>
-
-        <div v-if="result" :class="['result-msg animate-fade-in', resultType]">
-          <span class="result-icon">{{ resultType === 'success' ? '✅' : '❌' }}</span>
-          {{ result }}
-        </div>
       </section>
 
       <!-- Document List -->
       <section v-if="documents.length > 0" class="documents-list-section animate-fade-in">
-        <h3 class="section-title">Uploaded Documents</h3>
+        <h3 class="section-title">{{ $t("documents.uploadedTitle") }}</h3>
         <div class="documents-grid">
           <div v-for="doc in documents" :key="doc.id" class="glass-card doc-card">
             <div class="doc-icon">
@@ -77,6 +86,8 @@ import { useI18n } from "vue-i18n";
 import { Trash2 } from "lucide-vue-next";
 import client from "@/api/client";
 import PageHeader from "@/components/PageHeader.vue";
+import { useToast } from "@/composables/useToast";
+import { useWorkspaceStore } from "@/stores/workspace";
 
 interface DocumentItem {
   id: string;
@@ -88,10 +99,12 @@ interface DocumentItem {
 }
 
 const { t } = useI18n();
+const { success, error: toastError } = useToast();
+const workspace = useWorkspaceStore();
 const uploading = ref(false);
-const result = ref("");
-const resultType = ref<"success" | "error">("success");
+const uploadProgress = ref(0);
 const documents = ref<DocumentItem[]>([]);
+const selectedWorkspaceId = ref<string | null>(null);
 
 function formatBytes(bytes: number) {
   if (bytes === 0) return '0 B';
@@ -103,7 +116,10 @@ function formatBytes(bytes: number) {
 
 async function fetchDocuments() {
   try {
-    const { data } = await client.get("/documents");
+    const url = selectedWorkspaceId.value
+      ? `/documents?workspace_id=${selectedWorkspaceId.value}`
+      : "/documents";
+    const { data } = await client.get(url);
     documents.value = data.documents;
   } catch (error) {
     console.error("Failed to fetch documents", error);
@@ -111,13 +127,13 @@ async function fetchDocuments() {
 }
 
 async function deleteDocument(id: string) {
-  if (!confirm("Are you sure you want to delete this document?")) return;
+  if (!confirm(t('documents.deleteConfirm'))) return;
   try {
     await client.delete(`/documents/${id}`);
     await fetchDocuments();
-  } catch (error) {
-    console.error("Failed to delete document", error);
-    alert("Failed to delete document.");
+    success(t('documents.deleteSuccess'));
+  } catch {
+    toastError(t('documents.deleteError'));
   }
 }
 
@@ -133,28 +149,34 @@ function upload(e: Event) {
 
 async function processFile(file: File) {
   if (file.size > 50 * 1024 * 1024) {
-    result.value = t("documents.fileTooLarge");
-    resultType.value = "error";
+    toastError(t("documents.fileTooLarge"));
     return;
   }
   uploading.value = true;
-  result.value = "";
+  uploadProgress.value = 0;
   const form = new FormData();
   form.append("file", file);
   try {
-    const { data } = await client.post("/documents", form);
-    result.value = t("documents.uploadSuccess", { count: data.chunk_count });
-    resultType.value = "success";
+    const uploadUrl = selectedWorkspaceId.value
+      ? `/documents?workspace_id=${selectedWorkspaceId.value}`
+      : "/documents";
+    const { data } = await client.post(uploadUrl, form, {
+      onUploadProgress(e) {
+        if (e.total) uploadProgress.value = Math.round((e.loaded / e.total) * 100);
+      },
+    });
+    success(t("documents.uploadSuccess", { count: data.chunk_count }));
     await fetchDocuments();
   } catch {
-    result.value = t("documents.uploadError");
-    resultType.value = "error";
+    toastError(t("documents.uploadError"));
   } finally {
     uploading.value = false;
+    uploadProgress.value = 0;
   }
 }
 
 onMounted(() => {
+  workspace.fetchWorkspaces();
   fetchDocuments();
 });
 </script>
@@ -181,20 +203,7 @@ onMounted(() => {
 .upload-hint { font-size: 0.85rem; color: var(--text-muted); }
 
 .progress-bar-container { position: absolute; bottom: 0; left: 0; right: 0; height: 4px; background: var(--bg-tertiary); }
-.progress-bar-fill {
-  height: 100%; background: var(--accent); width: 100%;
-  animation: loading-shimmer 2s infinite linear; background-size: 200% 100%;
-  background-image: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-}
-
-@keyframes loading-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-
-.result-msg {
-  margin-top: 2rem; padding: 1rem; border-radius: var(--radius-md); font-size: 0.95rem;
-  text-align: center; display: flex; align-items: center; justify-content: center; gap: 0.75rem;
-}
-.result-msg.success { background: rgba(76, 175, 80, 0.1); color: #4caf50; border: 1px solid rgba(76, 175, 80, 0.2); }
-.result-msg.error { background: rgba(244, 67, 54, 0.1); color: #f44336; border: 1px solid rgba(244, 67, 54, 0.2); }
+.progress-bar-fill { height: 100%; background: var(--accent); transition: width 0.2s ease; }
 
 .documents-list-section { margin-top: 2rem; }
 .section-title { font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 1rem; }

@@ -19,9 +19,15 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     anthropic_api_key: str = ""
     zhipuai_api_key: str = ""
+    ollama_api_key: str = "local"  # Default placeholder for local-only provider
 
     # Tool API keys — optional, used as server-level fallback
     tavily_api_key: str = ""
+
+    # LangSmith / Observability
+    langchain_tracing_v2: str = "false"
+    langchain_api_key: str = ""
+    langchain_project: str = "jarvis"
 
     # Channel bot tokens — optional, leave empty to disable the channel
     telegram_bot_token: str = ""
@@ -31,16 +37,25 @@ class Settings(BaseSettings):
     discord_bot_token: str = ""
     slack_bot_token: str = ""
     slack_app_token: str = ""
+
+    wechat_app_id: str = ""
+    wechat_app_secret: str = ""
+    wechat_token: str = ""
+    wechat_encoding_aes_key: str = ""
     whatsapp_account_sid: str = ""
     whatsapp_auth_token: str = ""
     whatsapp_from_number: str = "whatsapp:+14155238886"  # Twilio sandbox default
 
     # Non-sensitive — safe defaults for local development
+    ollama_base_url: str = "http://localhost:11434"
     qdrant_url: str = "http://localhost:6333"
     minio_endpoint: str = "localhost:9000"
     minio_bucket: str = "jarvis-documents"
     jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 60 * 24 * 30  # 30 days
+    jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
+    skill_registry_url: str = (
+        "https://raw.githubusercontent.com/hyhmrright/JARVIS-skills/main/registry.json"
+    )
     cors_origins: list[str] = ["http://localhost:3000"]
     log_level: str = "INFO"
 
@@ -52,6 +67,11 @@ class Settings(BaseSettings):
 
     # MCP server configurations (JSON array of MCPServerConfig dicts)
     mcp_servers_json: str = ""
+
+    # Rate limiting and job quotas
+    max_cron_jobs_per_user: int = 20
+    cron_lock_ttl_seconds: int = 300
+    cron_execution_retention_days: int = 90
 
     # Sandbox settings
     sandbox_enabled: bool = False

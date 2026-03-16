@@ -7,6 +7,8 @@ export interface PluginInfo {
   description: string;
   tools: string[];
   channels: string[];
+  config_schema?: Record<string, any>;
+  requires?: string[];
 }
 
 export interface ConfigItem {
@@ -16,6 +18,8 @@ export interface ConfigItem {
 
 export const pluginsApi = {
   list: () => api.get<PluginInfo[]>("/plugins"),
+
+  reload: () => api.post<{ status: string }>("/plugins/reload"),
 
   getConfig: (pluginId: string) =>
     api.get<Record<string, ConfigItem>>(`/plugins/${pluginId}/config`),

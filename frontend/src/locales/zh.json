@@ -51,7 +51,8 @@
     "streamError": "消息发送失败，请重试",
     "toolResult": "工具结果",
     "toolRunning": "执行中...",
-    "usage": "用量统计"
+    "usage": "用量统计",
+    "stopGenerating": "停止生成"
   },
   "usage": {
     "title": "用量统计",
@@ -68,7 +69,13 @@
     "uploading": "上传中...",
     "fileTooLarge": "文件不能超过 50MB",
     "uploadSuccess": "上传成功，共切分 {count} 个片段",
-    "uploadError": "上传失败，请检查文件格式"
+    "uploadError": "上传失败，请检查文件格式",
+    "uploadZoneText": "将文件拖到此处或点击上传",
+    "uploadZoneHint": "支持 PDF、TXT、MD、DOCX（最大 50MB）",
+    "uploadedTitle": "已上传文档",
+    "deleteConfirm": "确定要删除此文档？",
+    "deleteSuccess": "文档已删除",
+    "deleteError": "删除失败，请重试"
   },
   "settings": {
     "title": "设置",
@@ -142,7 +149,10 @@
     "no_config": "暂无配置项",
     "load_error": "加载配置失败，请重试",
     "save_error": "保存配置失败，请重试",
-    "delete_error": "删除配置失败，请重试"
+    "delete_error": "删除配置失败，请重试",
+    "reload": "重载插件",
+    "reload_error": "重载插件失败，请检查后端日志",
+    "requires": "依赖"
   },
   "proactive": {
     "title": "主动监控",
@@ -151,7 +161,72 @@
     "lastRun": "最后触发",
     "schedule": "调度频率",
     "triggerType": "触发类型",
-    "taskPrompt": "AI 任务指令"
+    "taskPrompt": "AI 任务指令",
+    "targetLabel": "监控目标",
+    "targetPlaceholder": "产品价格、新闻标题、关键词…",
+    "useBrowser": "使用浏览器渲染（支持 SPA 页面）",
+    "fireOnInit": "创建后立即触发一次",
+    "imapFolder": "邮件文件夹",
+    "imapPort": "IMAP 端口",
+    "triggerTypes": {
+      "cron": "定时任务",
+      "web_watcher": "网页监控（哈希）",
+      "semantic_watcher": "网页监控（语义）",
+      "email": "邮件触发"
+    },
+    "testTrigger": "测试触发",
+    "testResult": "测试结果",
+    "triggered": "是否触发",
+    "testFailed": "测试失败，请稍后重试",
+    "history": "执行历史",
+    "noHistory": "暂无执行记录",
+    "deleteConfirm": "删除此监控任务？",
+    "neverRun": "从未运行",
+    "duration": "耗时",
+    "triggeredYes": "是",
+    "triggeredNo": "否（未触发）",
+    "changeSummary": "变化摘要",
+    "agentReply": "Agent 回复",
+    "saveError": "创建失败，请稍后重试",
+    "validation": {
+      "taskRequired": "请输入任务指令",
+      "urlRequired": "请输入监控 URL",
+      "urlInvalid": "请输入有效的 URL",
+      "targetRequired": "请输入监控目标",
+      "imapHostRequired": "请输入 IMAP 主机地址",
+      "emailAddressRequired": "请输入邮件地址"
+    }
+  },
+  "workspace": {
+    "title": "工作空间",
+    "personal": "个人",
+    "noOrgDesc": "创建一个组织，邀请团队成员协作",
+    "orgName": "组织名称",
+    "orgSlug": "组织标识（小写字母和连字符）",
+    "createOrg": "创建组织",
+    "createWorkspace": "新建工作空间",
+    "workspaceName": "工作空间名称",
+    "members": "成员管理",
+    "membersList": "成员列表",
+    "manageMembers": "管理成员",
+    "inviteEmail": "邀请邮箱",
+    "invite": "发送邀请",
+    "inviteLink": "邀请链接",
+    "roleMember": "成员",
+    "roleAdmin": "管理员",
+    "roleOwner": "所有者",
+    "remove": "移除",
+    "removeConfirm": "确定要移除该成员？",
+    "scope": "范围",
+    "inviteTitle": "加入工作空间",
+    "inviteDesc": "您被邀请以\"{role}\"身份加入工作空间\"{workspace}\"",
+    "inviteLoginRequired": "请先登录以接受邀请",
+    "acceptInvite": "接受邀请",
+    "inviteInvalid": "邀请链接无效或已过期",
+    "inviteAcceptError": "接受邀请失败，请重试",
+    "settingsTitle": "工作空间设置 — {name}",
+    "saveSettings": "保存工作空间设置",
+    "usePersonal": "使用个人配置"
   },
   "apiKeys": {
     "title": "个人 API 密钥",
