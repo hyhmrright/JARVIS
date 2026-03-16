@@ -38,6 +38,7 @@ async def test_llm_no_fallback_if_no_keys():
     """验证当没有备用 Key 时，不创建 fallback 链。"""
     with patch("app.agent.llm.settings") as mock_settings:
         mock_settings.openai_api_key = ""
+        mock_settings.deepseek_api_key = ""
         mock_settings.anthropic_api_key = ""
 
         with patch("app.agent.llm.get_llm") as mock_get_llm:
