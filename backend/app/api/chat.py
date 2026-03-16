@@ -419,6 +419,7 @@ async def chat_stream(  # noqa: C901
                     )
                     _init_sess.add(ag_sess)
                     await _init_sess.flush()
+                    agent_session_id = ag_sess.id
 
         except Exception:
             logger.warning("agent_session_create_failed", exc_info=True)
@@ -525,10 +526,12 @@ async def chat_stream(  # noqa: C901
                         break
             stream_completed = not is_disconnected
         except Exception:
+            stream_error = True
             logger.exception("chat_stream_error", conv_id=str(conv_id))
             raise
         finally:
             new_title: str | None = None
+            tokens_in, tokens_out = _extract_token_counts(last_ai_msg)
             if full_content:
                 try:
                     if stream_completed and is_first_exchange:
@@ -543,7 +546,6 @@ async def chat_stream(  # noqa: C901
                             base_url=llm.base_url,
                         )
 
-                    tokens_in, tokens_out = _extract_token_counts(last_ai_msg)
                     async with AsyncSessionLocal() as session:
                         async with session.begin():
                             session.add(
@@ -581,13 +583,12 @@ async def chat_stream(  # noqa: C901
             if agent_session_id:
                 try:
                     session_status = "error" if stream_error else "completed"
-                    tokens_meta_in, tokens_meta_out = _extract_token_counts(last_ai_msg)
                     metadata: dict = {
                         "model": llm.model_name,
                         "provider": llm.provider,
                         "tools_used": tools_used,
-                        "input_tokens": tokens_meta_in or 0,
-                        "output_tokens": tokens_meta_out or 0,
+                        "input_tokens": tokens_in or 0,
+                        "output_tokens": tokens_out or 0,
                         "trigger_type": "chat",
                     }
                     update_values: dict = {
@@ -717,7 +718,6 @@ async def chat_regenerate(  # noqa: C901
     tavily_key = settings.tavily_api_key
 
     async def generate() -> AsyncGenerator[str]:  # noqa: C901
-        stream_error = False  # noqa: F841
         nonlocal lc_messages
 
         try:
@@ -731,6 +731,7 @@ async def chat_regenerate(  # noqa: C901
         except Exception:
             pass
 
+        agent_session_id: uuid.UUID | None = None
         try:
             async with AsyncSessionLocal() as _init_sess:
                 async with _init_sess.begin():
@@ -741,9 +742,9 @@ async def chat_regenerate(  # noqa: C901
                     )
                     _init_sess.add(ag_sess)
                     await _init_sess.flush()
-
+                    agent_session_id = ag_sess.id
         except Exception:
-            pass
+            logger.warning("agent_session_create_failed", exc_info=True)
 
         mcp_tools, plugin_tools = await _load_tools(llm.enabled_tools)
 
@@ -762,6 +763,8 @@ async def chat_regenerate(  # noqa: C901
         yield _format_sse({"type": "routing", "agent": route})
         full_content = ""
         last_ai_msg = None
+        stream_error = False
+        tools_used: list[str] = []
 
         try:
             graph = _build_expert_graph(
@@ -784,15 +787,24 @@ async def chat_regenerate(  # noqa: C901
             async for chunk in graph.astream(state):
                 if "llm" in chunk:
                     last_ai_msg = chunk["llm"]["messages"][-1]
+                if "tools" in chunk:
+                    for tm in chunk["tools"]["messages"]:
+                        if (
+                            isinstance(tm, ToolMessage)
+                            and tm.name
+                            and tm.name not in tools_used
+                        ):
+                            tools_used.append(tm.name)
                 events, full_content = _sse_events_from_chunk(chunk, full_content)
                 for event in events:
                     yield event
         except Exception:
+            stream_error = True
             raise
         finally:
+            tokens_in, tokens_out = _extract_token_counts(last_ai_msg)
             if full_content:
                 try:
-                    tokens_in, tokens_out = _extract_token_counts(last_ai_msg)
                     async with AsyncSessionLocal() as session:
                         async with session.begin():
                             session.add(
@@ -808,7 +820,29 @@ async def chat_regenerate(  # noqa: C901
                                 )
                             )
                 except Exception:
-                    pass
+                    logger.warning("regenerate_save_message_failed", exc_info=True)
+            if agent_session_id:
+                try:
+                    async with AsyncSessionLocal() as status_sess:
+                        async with status_sess.begin():
+                            await status_sess.execute(
+                                update(AgentSession)
+                                .where(AgentSession.id == agent_session_id)
+                                .values(
+                                    status="error" if stream_error else "completed",
+                                    completed_at=datetime.now(UTC),
+                                    metadata_json={
+                                        "model": llm.model_name,
+                                        "provider": llm.provider,
+                                        "tools_used": tools_used,
+                                        "input_tokens": tokens_in or 0,
+                                        "output_tokens": tokens_out or 0,
+                                        "trigger_type": "regenerate",
+                                    },
+                                )
+                            )
+                except Exception:
+                    logger.warning("agent_session_update_failed", exc_info=True)
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 
