@@ -8,9 +8,9 @@
 
 ## Overview
 
-A systematic plan to bring the JARVIS project to production-quality with zero known defects. Based on a comprehensive audit of the codebase, 35 issues were identified across security, stability, performance, and code quality dimensions.
+A systematic plan to bring the JARVIS project to production-quality with zero known defects. Based on a comprehensive audit of the codebase, 35 issues were identified across security, stability, performance, and code quality dimensions; after consolidation (PR-35 merged into PR-31) and re-severity-classification, this yields **34 independent PRs**.
 
-**Goal**: Fix all 35 issues as independent, reviewable PRs — each with a failing test that proves the bug, a fix, and a passing test that proves the fix.
+**Goal**: Fix all 35 issues (34 PRs after consolidation) as independent, reviewable PRs — each with a failing test that proves the bug, a fix, and a passing test that proves the fix.
 
 **Approach**: Severity × Module dual-dimension ordering (Critical → High → Medium → Low), one PR per issue, each merged independently to `dev`.
 
@@ -45,7 +45,7 @@ Every PR follows this exact sequence:
 
 ---
 
-## Phase 1 — Critical (5 PRs)
+## Phase 1 — Critical (4 PRs)
 
 ### PR-01: AsyncSessionLocal Cross-Event-Loop Contamination
 
@@ -89,24 +89,10 @@ Every PR follows this exact sequence:
 
 ---
 
-### PR-04: RAG Overfetch with Non-Functional Mock Reranker
-
-**Branch**: `fix/critical-rag-overfetch-mock-reranker`
-**File(s)**: `backend/app/rag/retriever.py`
-**Problem**: Retriever fetches `top_k * 2` results then applies a mock reranker (keyword overlap boost) that provides no real quality improvement, wasting Qdrant I/O.
-**Fix**:
-- Change `limit` from `top_k * 2` to `top_k`
-- Remove mock reranker logic
-- Leave a documented `TODO: implement cross-encoder reranking` comment with interface placeholder
-- Use chunk ID (not content string) for deduplication
-
-**Test**: `retrieve(query, top_k=5)` returns exactly 5 results with no duplicates.
-
----
-
-### PR-05: LLM Fallback Chain Exception Swallowing
+### PR-04: LLM Fallback Chain Exception Swallowing
 
 **Branch**: `fix/critical-agent-llm-fallback-error-chain`
+
 **File(s)**: `backend/app/agent/llm.py`
 **Problem**: When all LLM providers fail, the last exception is logged but the caller receives a vague error without knowing which providers were tried and why each failed.
 **Fix**:
@@ -119,14 +105,30 @@ Every PR follows this exact sequence:
 
 ---
 
-## Phase 2 — High (7 PRs)
+## Phase 2 — High (8 PRs)
+
+### PR-05: RAG Overfetch with Non-Functional Mock Reranker
+
+**Branch**: `fix/high-rag-overfetch-mock-reranker`
+**File(s)**: `backend/app/rag/retriever.py`
+**Problem**: Retriever fetches `top_k * 2` results then applies a mock reranker (keyword overlap boost) that provides no real quality improvement, wasting Qdrant I/O.
+**Fix**:
+- Change `limit` from `top_k * 2` to `top_k`
+- Remove mock reranker logic
+- Leave a documented `TODO: implement cross-encoder reranking` comment with interface placeholder
+- Use chunk ID (not content string) for deduplication
+
+**Test**: `retrieve(query, top_k=5)` returns exactly 5 results with no duplicates.
+
+---
 
 ### PR-06: N+1 Queries in Admin Endpoints
 
 **Branch**: `fix/high-db-admin-n-plus-one-queries`
 **File(s)**: `backend/app/api/admin.py`
-**Fix**: Add `selectinload()` / `joinedload()` for user relationships in list endpoints. Enforce max `limit=1000`, default `limit=50`.
-**Test**: Listing 10 users generates ≤ 3 SQL queries (verify with SQLAlchemy event listener).
+**Problem**: Listing users in the admin panel triggers one SQL query per user to fetch related data (organization, workspaces). With 100 users, this produces 100+ queries, causing the admin list endpoint latency to scale linearly with dataset size.
+**Fix**: Add `selectinload(User.organization)` and `selectinload(User.workspaces)` to the user list query. Enforce `max limit=1000`, default `limit=50`, and `offset >= 0` validation.
+**Test**: Listing 10 users generates ≤ 3 SQL queries total (verified with a SQLAlchemy `before_cursor_execute` event listener in the test).
 
 ---
 
@@ -170,8 +172,9 @@ Every PR follows this exact sequence:
 **Branch**: `fix/high-security-file-tool-symlink`
 **File(s)**: `backend/app/tools/file_tool.py`
 **Fix**:
-- Use `os.path.realpath()` without following symlinks, or check that path components don't contain symlinks pointing outside workspace
-- Alternatively, stat the path without resolving and reject if it's a symlink pointing outside bounds
+- Resolve the requested path fully with `os.path.realpath()` (which follows symlinks to their final target)
+- Verify the resolved path starts with `os.path.realpath(WORKSPACE_ROOT)` — if not, reject with 403
+- This ensures symlinks pointing outside the workspace (e.g., `/tmp/jarvis/{user_id}/link → /etc/passwd`) are caught after resolution
 
 **Test**: Create a symlink inside workspace pointing to `/etc/passwd` → read attempt returns 403/error.
 
@@ -180,14 +183,17 @@ Every PR follows this exact sequence:
 ### PR-11: Message Branch Active Leaf Not Persisted
 
 **Branch**: `fix/high-db-message-branch-persistence`
-**File(s)**: `backend/app/db/models.py`, `backend/alembic/versions/`, `backend/app/api/conversations.py`, `frontend/src/stores/chat.ts`
+**File(s)**: `backend/app/db/models.py`, `backend/alembic/versions/`, `backend/app/api/conversations.py`, `frontend/src/stores/chat.ts`, `frontend/src/api/client.ts`
 **Fix**:
-- Add `active_leaf_message_id: UUID | None` column to `Conversation` model
+- Add `active_leaf_message_id: UUID | None` column to `Conversation` model with `ForeignKey("messages.id", ondelete="SET NULL")`
 - New alembic migration
-- Update `GET /api/conversations/{id}` to return `active_leaf_message_id`
-- Frontend restores branch on page load from this field
+- Add `ConversationUpdate(active_leaf_message_id: UUID | None)` Pydantic request schema
+- Add `PATCH /api/conversations/{id}` endpoint accepting `ConversationUpdate` body; update the column and return updated conversation
+- Update `GET /api/conversations/{id}` response schema to include `active_leaf_message_id`
+- Add `patchConversation(id, body)` to `frontend/src/api/client.ts`
+- In `frontend/src/stores/chat.ts`: after fetching a conversation, call `setActiveBranch(conversation.active_leaf_message_id)` if non-null; fallback to root message (first message with no parent) if null or if the referenced message is not found in the local message list
 
-**Test**: Set active branch → reload page → verify same branch is active.
+**Test**: Set active branch → call `PATCH` → reload page → verify frontend shows the same branch, not root.
 
 ---
 
@@ -208,7 +214,11 @@ Every PR follows this exact sequence:
 
 ### PR-13: Exception Handling Without Recovery Logic
 **Branch**: `fix/medium-core-exception-no-recovery`
-**Fix**: Add exponential backoff retry decorator for transient I/O errors in channels and RAG. Add circuit breaker for persistent failures.
+**Fix**:
+- Add a `@retry(max_attempts=3, base_delay=1.0, exceptions=(OSError, httpx.TransientError))` decorator (using `tenacity` library, already in pyproject.toml or add it) to channel adapter `send()` methods and RAG `retrieve()` calls
+- Retry parameters: max 3 attempts, exponential backoff `base_delay * 2 ** attempt`, jitter ±0.1s, only on transient I/O exceptions (not `ValueError`, `AuthError`, etc.)
+- Circuit breaker: after 5 consecutive failures on a channel, mark it as `OPEN` for 60 seconds (configurable via `CIRCUIT_BREAKER_THRESHOLD=5` and `CIRCUIT_BREAKER_TIMEOUT_SECONDS=60` in config)
+- Log each retry attempt at `WARNING` level with attempt count and exception type
 
 ### PR-14: Organization Cascade Delete Missing
 **Branch**: `fix/medium-db-org-cascade-delete`
@@ -228,7 +238,13 @@ Every PR follows this exact sequence:
 
 ### PR-18: MCP Tools Create New Process Per Invocation
 **Branch**: `fix/medium-tools-mcp-connection-reuse`
-**Fix**: Implement per-server connection pool. Reuse stdio connections across tool calls in the same session.
+**Fix**: Implement a connection pool dict `{agent_session_id: MCPConnection}`. Reuse the connection for all tool calls with the same `agent_session_id`. Lifecycle:
+- Connection created on first tool call for a given session
+- Connection closed and removed from pool when the agent runner's `run()` method returns (normal completion) or raises (crash/exception) — use `try/finally` to guarantee cleanup
+- Session timeout: add `MCP_SESSION_TIMEOUT_SECONDS=300` to config; a background task evicts idle connections older than this value
+- Crash safety: if `run()` raises, the `finally` block must close the connection even if `agent_session_id` cleanup fails
+
+**Test**: Two consecutive tool calls in the same agent session reuse the same process PID. A third call after session ends creates a new process.
 
 ### PR-19: CronJob Missing Unique Name Constraint
 **Branch**: `fix/medium-db-cronjob-unique-name`
@@ -252,7 +268,7 @@ Every PR follows this exact sequence:
 
 ---
 
-## Phase 4 — Low (12 PRs)
+## Phase 4 — Low (11 PRs)
 
 ### PR-24: Inconsistent Error Response Shapes
 **Branch**: `fix/low-api-consistent-error-response`
@@ -274,9 +290,15 @@ Every PR follows this exact sequence:
 **Branch**: `fix/low-db-query-timeout`
 **Fix**: Add `connect_args={"command_timeout": 30}` to engine creation. Document in config.
 
-### PR-29: Frontend Build Optimization Not Verified
+### PR-29: Frontend Bundle Size Not Optimized
 **Branch**: `fix/low-frontend-build-optimization`
-**Fix**: Audit `vite.config.ts` for tree-shaking, code splitting, and minification settings. Enable any missing optimizations.
+**Fix**:
+- Run `bun run build` and `bun run preview` to generate baseline bundle report
+- Enable `vite-plugin-visualizer` (add as dev dep) to identify largest chunks
+- Enable manual chunk splitting for large dependencies (`vue`, `axios`, `vue-i18n`) in `vite.config.ts` `build.rollupOptions.output.manualChunks`
+- Verify initial JS bundle (excluding lazy-loaded routes) is under 200KB gzipped
+
+**Acceptance criteria**: `bun run build` succeeds, `dist/assets/index-*.js` is ≤ 200KB gzipped (checked via `gzip -c file | wc -c`), and no single chunk exceeds 500KB ungzipped.
 
 ### PR-30: Agent Supervisor Route Not Validated
 **Branch**: `fix/low-agent-supervisor-route-validation`
@@ -290,9 +312,9 @@ Every PR follows this exact sequence:
 **Branch**: `fix/low-worker-webhook-retry-backoff`
 **Fix**: Add `MAX_WEBHOOK_RETRIES = 10` to config. Use `2 ** (attempt - 1)` second delay. Mark delivery as permanently failed after max.
 
-### PR-33: SSE Stream Not Compressed
-**Branch**: `fix/low-api-sse-compression`
-**Fix**: Add GZip middleware to FastAPI app with `minimum_size=500`. Verify SSE streams are compressed in browser DevTools.
+### PR-33: Non-Streaming Responses Not Compressed
+**Branch**: `fix/low-api-response-compression`
+**Fix**: Add `GZipMiddleware` to FastAPI app with `minimum_size=500`, but **exclude SSE routes** (`/api/chat/stream`, `/api/gateway/stream`) — GZip buffers chunks which breaks real-time SSE delivery. Apply compression only to JSON responses (admin, documents, settings, etc.). Verify in browser DevTools that JSON list responses are gzip-encoded and SSE streams are not affected.
 
 ### PR-34: Title Generation Has No Fallback
 **Branch**: `fix/low-agent-title-generation-fallback`
@@ -331,8 +353,8 @@ A PR is considered complete when:
 
 ## Consolidated PR Count
 
-- Phase 1 Critical: 5 PRs
-- Phase 2 High: 7 PRs
+- Phase 1 Critical: 4 PRs
+- Phase 2 High: 8 PRs
 - Phase 3 Medium: 11 PRs
-- Phase 4 Low: 11 PRs (PR-35 merged into PR-31)
+- Phase 4 Low: 11 PRs (original PR-35 merged into PR-31)
 - **Total: 34 PRs**
