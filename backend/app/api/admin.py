@@ -27,7 +27,7 @@ async def list_users(
 ) -> dict[str, Any]:
     """List all users with pagination."""
     offset = (page - 1) * limit
-    total = await db.scalar(select(func.count()).select_from(User))
+    total = (await db.scalar(select(func.count()).select_from(User))) or 0
     result = await db.scalars(
         select(User).order_by(User.created_at.desc()).offset(offset).limit(limit)
     )
@@ -113,25 +113,38 @@ async def get_system_stats(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_admin_user),
 ) -> dict[str, Any]:
-    """Get global system statistics."""
-    user_count = await db.scalar(select(func.count()).select_from(User))
-    conv_count = await db.scalar(select(func.count()).select_from(Conversation))
-    msg_count = await db.scalar(select(func.count()).select_from(Message))
-
-    tokens_result = await db.execute(
-        select(
-            func.sum(Message.tokens_input).label("total_in"),
-            func.sum(Message.tokens_output).label("total_out"),
+    """Get global system statistics in a single DB round-trip."""
+    row = (
+        await db.execute(
+            select(
+                select(func.count())
+                .select_from(User)
+                .scalar_subquery()
+                .label("user_count"),
+                select(func.count())
+                .select_from(Conversation)
+                .scalar_subquery()
+                .label("conv_count"),
+                select(func.count())
+                .select_from(Message)
+                .scalar_subquery()
+                .label("msg_count"),
+                func.coalesce(
+                    select(func.sum(Message.tokens_input)).scalar_subquery(), 0
+                ).label("total_in"),
+                func.coalesce(
+                    select(func.sum(Message.tokens_output)).scalar_subquery(), 0
+                ).label("total_out"),
+            )
         )
-    )
-    tokens = tokens_result.one()
+    ).one()
 
     return {
-        "user_count": user_count,
-        "conversation_count": conv_count,
-        "message_count": msg_count,
-        "total_tokens_input": tokens.total_in or 0,
-        "total_tokens_output": tokens.total_out or 0,
+        "user_count": row.user_count,
+        "conversation_count": row.conv_count,
+        "message_count": row.msg_count,
+        "total_tokens_input": row.total_in,
+        "total_tokens_output": row.total_out,
     }
 
 
@@ -156,7 +169,7 @@ async def list_audit_logs(
         query = query.where(AuditLog.user_id == user_id)
         count_query = count_query.where(AuditLog.user_id == user_id)
 
-    total = await db.scalar(count_query) or 0
+    total = (await db.scalar(count_query)) or 0
     rows = (await db.scalars(query.offset(offset).limit(limit))).all()
 
     return {
