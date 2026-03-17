@@ -24,7 +24,9 @@ def test_fallback_init_failure_logs_provider_name() -> None:
             primary = MagicMock()
             primary.with_fallbacks = MagicMock(return_value=primary)
 
-            def side_effect(provider: str, *args: object, **kwargs: object) -> MagicMock:
+            def side_effect(
+                provider: str, *args: object, **kwargs: object
+            ) -> MagicMock:
                 if provider == "openai":
                     raise ValueError("Connection refused to OpenAI")
                 return primary

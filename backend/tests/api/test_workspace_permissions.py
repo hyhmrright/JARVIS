@@ -48,7 +48,9 @@ def _user_id_from_token(token: str) -> uuid.UUID:
 
 
 @pytest.mark.anyio
-async def test_cross_org_user_cannot_list_workspace_cron_jobs(client: AsyncClient) -> None:
+async def test_cross_org_user_cannot_list_workspace_cron_jobs(
+    client: AsyncClient,
+) -> None:
     """GET /api/cron?workspace_id=<ws> must return 404 for cross-org users.
 
     Users with no organization (organization_id=None) are treated as cross-org
