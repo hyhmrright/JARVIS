@@ -135,6 +135,42 @@ class TestPathTraversal:
         result = tools["file_read"].invoke({"path": "subdir/data.txt"})
         assert result == "nested data"
 
+    def test_symlink_to_outside_blocked_on_read(
+        self, user_workspace: pathlib.Path, tmp_path: pathlib.Path
+    ) -> None:
+        """A symlink inside the workspace pointing outside must be blocked on read."""
+        outside_file = tmp_path / "secret.txt"
+        outside_file.write_text("secret contents", encoding="utf-8")
+        # Precondition: the target must genuinely be outside the workspace.
+        assert not outside_file.is_relative_to(user_workspace)
+        (user_workspace / "evil_link").symlink_to(outside_file)
+        tools = _tools(user_workspace)
+        result = tools["file_read"].invoke({"path": "evil_link"})
+        assert "blocked" in result.lower()
+
+    def test_symlink_to_outside_blocked_on_write(
+        self, user_workspace: pathlib.Path, tmp_path: pathlib.Path
+    ) -> None:
+        """A symlink inside the workspace pointing outside must be blocked on write."""
+        outside_dir = tmp_path / "outside_dir"
+        outside_dir.mkdir()
+        # Precondition: the target must genuinely be outside the workspace.
+        assert not outside_dir.is_relative_to(user_workspace)
+        (user_workspace / "evil_link").symlink_to(outside_dir)
+        tools = _tools(user_workspace)
+        result = tools["file_write"].invoke(
+            {"path": "evil_link/pwned.txt", "content": "bad"}
+        )
+        assert "blocked" in result.lower()
+
+    def test_circular_symlink_blocked(self, user_workspace: pathlib.Path) -> None:
+        """A circular symlink must be blocked rather than causing an infinite loop."""
+        loop = user_workspace / "loop"
+        loop.symlink_to(loop)
+        tools = _tools(user_workspace)
+        result = tools["file_read"].invoke({"path": "loop"})
+        assert "blocked" in result.lower()
+
 
 class TestFileDelete:
     """Tests for file_delete tool."""
