@@ -170,3 +170,25 @@ async def _suppress_chat_async_session():
     mock_session.flush = AsyncMock()
     with patch("app.api.chat.AsyncSessionLocal", return_value=mock_session):
         yield
+
+
+@pytest.fixture(autouse=True)
+async def _suppress_worker_async_session():
+    """Mock AsyncSessionLocal in worker to prevent cross-event-loop pool contamination.
+
+    execute_cron_job() and deliver_webhook() use AsyncSessionLocal directly.
+    Those connections bind to the calling event loop and are invalid in the
+    next test's event loop, causing asyncpg "another operation is in progress".
+    """
+    mock_session = MagicMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+    mock_session.begin = MagicMock(return_value=mock_session)
+    mock_session.scalar = AsyncMock(return_value=None)
+    mock_session.execute = AsyncMock(return_value=MagicMock())
+    mock_session.get = AsyncMock(return_value=None)
+    mock_session.add = MagicMock()
+    mock_session.flush = AsyncMock()
+    mock_session.commit = AsyncMock()
+    with patch("app.worker.AsyncSessionLocal", return_value=mock_session):
+        yield

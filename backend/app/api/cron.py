@@ -4,21 +4,24 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import func as sql_func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_workspace_member
 from app.core.config import settings
 from app.core.security import fernet_encrypt
-from app.db.models import CronJob, JobExecution, User, Workspace, WorkspaceMember
+from app.db.models import CronJob, JobExecution, User
 from app.db.session import get_db
 from app.gateway.agent_runner import run_agent_for_user
 from app.scheduler.runner import register_cron_job, unregister_cron_job
 from app.scheduler.trigger_schemas import validate_trigger_metadata
 from app.scheduler.triggers import evaluate_trigger
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/cron", tags=["cron"])
 
@@ -70,6 +73,7 @@ async def list_cron_jobs(
     """List all proactive monitoring jobs for the current user."""
     query = select(CronJob).where(CronJob.user_id == user.id)
     if workspace_id is not None:
+        await require_workspace_member(workspace_id, user, db)
         query = query.where(CronJob.workspace_id == workspace_id)
     result = await db.scalars(query)
     jobs = result.all()
@@ -146,17 +150,7 @@ async def create_cron_job(  # noqa: C901
         trigger_metadata=trigger_metadata,
     )
     if data.workspace_id is not None:
-        ws = await db.get(Workspace, data.workspace_id)
-        if not ws or ws.is_deleted or ws.organization_id != user.organization_id:
-            raise HTTPException(status_code=404, detail="Workspace not found")
-        membership = await db.scalar(
-            select(WorkspaceMember).where(
-                WorkspaceMember.workspace_id == data.workspace_id,
-                WorkspaceMember.user_id == user.id,
-            )
-        )
-        if not membership:
-            raise HTTPException(status_code=403, detail="Not a workspace member")
+        await require_workspace_member(data.workspace_id, user, db)
         job.workspace_id = data.workspace_id
     db.add(job)
     await db.commit()
@@ -310,33 +304,46 @@ async def test_trigger(
 
     start = time.monotonic()
 
-    async def _run() -> tuple[bool, dict | None, str | None, bool]:
+    trigger_fired = False
+
+    async def _run() -> tuple[bool, dict | None, str | None]:
+        nonlocal trigger_fired
         metadata = dict(job.trigger_metadata or {})
         result = await evaluate_trigger(job.trigger_type, metadata)
         if not result.fired:
-            return False, None, None, False
+            return False, None, None
+        trigger_fired = True
         agent_result = await run_agent_for_user(
             user_id=str(job.user_id),
             task=job.task,
             trigger_ctx=result.trigger_ctx,
         )
-        is_error = (agent_result or "").startswith("[Error")
-        return True, result.trigger_ctx, agent_result, is_error
+        return True, result.trigger_ctx, agent_result
 
     try:
-        triggered, trigger_ctx, agent_result, is_error = await asyncio.wait_for(
+        triggered, trigger_ctx, agent_result = await asyncio.wait_for(
             _run(), timeout=30.0
         )
     except TimeoutError as exc:
         raise HTTPException(
             status_code=504, detail="Trigger evaluation timed out after 30s"
         ) from exc
+    except Exception as exc:
+        logger.exception("manual_trigger_test_failed", job_id=str(job_id))
+        duration_ms = int((time.monotonic() - start) * 1000)
+        return TestTriggerResponse(
+            triggered=trigger_fired,
+            trigger_ctx=None,
+            agent_result=str(exc),
+            is_error=True,
+            duration_ms=duration_ms,
+        )
 
     duration_ms = int((time.monotonic() - start) * 1000)
     return TestTriggerResponse(
         triggered=triggered,
         trigger_ctx=trigger_ctx,
         agent_result=agent_result,
-        is_error=is_error,
+        is_error=False,
         duration_ms=duration_ms,
     )

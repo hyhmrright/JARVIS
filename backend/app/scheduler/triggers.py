@@ -8,6 +8,7 @@ import email as email_lib
 import email.message
 import hashlib
 import imaplib
+import json
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 from typing import Literal
@@ -15,7 +16,7 @@ from typing import Literal
 import httpx
 import structlog
 from langchain_core.messages import HumanMessage, SystemMessage
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from app.agent.llm import get_llm_with_fallback
 from app.core.config import settings
@@ -193,13 +194,17 @@ class SemanticWatcherProcessor(TriggerProcessor):
             logger.debug("semantic_watcher_structured_output_failed", error=str(e))
 
         try:
-            import json
-
             raw = await llm.ainvoke(messages)
             data = json.loads(str(raw.content))
             return SemanticAnalysisResult(**data)
-        except Exception as exc:
+        except (json.JSONDecodeError, ValidationError) as exc:
             logger.warning("semantic_watcher_llm_parse_error", error=str(exc))
+            return None
+        except Exception:
+            logger.error(
+                "semantic_watcher_unexpected_error",
+                exc_info=True,
+            )
             return None
 
 

@@ -23,12 +23,20 @@ def _format_listing(directory: pathlib.Path) -> str:
 def _safe_resolve(workspace: pathlib.Path, path: str) -> pathlib.Path | None:
     """Resolve a user-provided path within the workspace.
 
-    Returns None if the resolved path escapes the workspace.
+    ``workspace`` must already be resolved (no symlinks, absolute).
+    Returns None if the resolved path escapes the workspace, if resolution
+    fails (e.g. broken symlink chains), or if the path is a dangling or
+    circular symlink (which ``resolve(strict=False)`` silently accepts).
     """
-    resolved = (workspace / path).resolve()
+    candidate = workspace / path
     try:
-        resolved.relative_to(workspace.resolve())
-    except ValueError:
+        resolved = candidate.resolve()
+        resolved.relative_to(workspace)
+    except (ValueError, OSError):
+        return None
+    # resolve(strict=False) does not raise for circular/dangling symlinks on
+    # Python 3.13 — it returns the link path unchanged.  Reject them explicitly.
+    if candidate.is_symlink() and not candidate.exists():
         return None
     return resolved
 
@@ -41,6 +49,7 @@ def create_file_tools(user_id: str) -> list[BaseTool]:  # noqa: C901
     """
     workspace = pathlib.Path(f"/tmp/jarvis/{user_id}")
     workspace.mkdir(parents=True, exist_ok=True)
+    workspace = workspace.resolve()  # Resolve once; reused for all checks
 
     @tool
     def file_read(path: str) -> str:
@@ -71,7 +80,7 @@ def create_file_tools(user_id: str) -> list[BaseTool]:  # noqa: C901
             return f"Blocked: path '{path}' escapes workspace."
         safe_path.parent.mkdir(parents=True, exist_ok=True)
         safe_path.write_text(content, encoding="utf-8")
-        return f"File written: {safe_path.relative_to(workspace.resolve())}"
+        return f"File written: {safe_path.relative_to(workspace)}"
 
     @tool
     def file_list(directory: str = ".") -> str:
@@ -130,7 +139,7 @@ def create_file_tools(user_id: str) -> list[BaseTool]:  # noqa: C901
         if not matches:
             return f"No files matched pattern: {pattern}"
 
-        lines = [f"  {m.relative_to(workspace.resolve())}" for m in matches[:100]]
+        lines = [f"  {m.relative_to(workspace)}" for m in matches[:100]]
         if len(matches) > 100:
             lines.append(f"  ... and {len(matches) - 100} more")
         return "\n".join(lines)

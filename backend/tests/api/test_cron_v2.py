@@ -1,10 +1,12 @@
 """Tests for new cron API endpoints: history, test trigger, quota."""
 
 import uuid
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import AsyncClient
+
+from app.scheduler.trigger_result import TriggerResult
 
 # --- GET /api/cron/{job_id}/history ---
 
@@ -34,6 +36,64 @@ async def test_test_endpoint_404_for_other_user_job(
         headers=auth_headers,
     )
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_test_trigger_agent_failure_returns_is_error(
+    client: AsyncClient, auth_headers: dict
+):
+    """When the trigger fires but the agent raises, triggered=True and is_error=True."""
+    create_resp = await client.post(
+        "/api/cron",
+        json={"schedule": "0 9 * * *", "task": "t", "trigger_type": "cron"},
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 200
+    job_id = create_resp.json()["id"]
+
+    fired_result = TriggerResult(
+        fired=True, reason="fired", trigger_ctx={"trigger_type": "cron"}
+    )
+    with (
+        patch("app.api.cron.evaluate_trigger", AsyncMock(return_value=fired_result)),
+        patch(
+            "app.api.cron.run_agent_for_user",
+            AsyncMock(side_effect=RuntimeError("agent down")),
+        ),
+    ):
+        resp = await client.post(f"/api/cron/{job_id}/test", headers=auth_headers)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["is_error"] is True
+    assert body["triggered"] is True
+    assert "agent down" in body["agent_result"]
+
+
+@pytest.mark.asyncio
+async def test_test_trigger_evaluate_failure_returns_triggered_false(
+    client: AsyncClient, auth_headers: dict
+):
+    """When trigger evaluation itself raises, triggered=False (trigger never fired)."""
+    create_resp = await client.post(
+        "/api/cron",
+        json={"schedule": "0 9 * * *", "task": "t", "trigger_type": "cron"},
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 200
+    job_id = create_resp.json()["id"]
+
+    with patch(
+        "app.api.cron.evaluate_trigger",
+        AsyncMock(side_effect=RuntimeError("watcher down")),
+    ):
+        resp = await client.post(f"/api/cron/{job_id}/test", headers=auth_headers)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["is_error"] is True
+    assert body["triggered"] is False
+    assert "watcher down" in body["agent_result"]
 
 
 # --- POST /api/cron quota ---

@@ -4,10 +4,14 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+import structlog
 from qdrant_client import AsyncQdrantClient
+from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.models import Distance, VectorParams
 
 from app.core.config import settings
+
+logger = structlog.get_logger(__name__)
 
 _COLLECTIONS_JSON = (
     Path(__file__).resolve().parents[3] / "database" / "qdrant" / "collections.json"
@@ -76,10 +80,23 @@ async def ensure_collection(collection_name: str) -> None:
         # Create collection with configured vector settings
         vec_cfg = _load_vector_config()
         distance = getattr(Distance, vec_cfg["distance"].upper(), Distance.COSINE)
-        await client.create_collection(
-            collection_name=collection_name,
-            vectors_config=VectorParams(size=vec_cfg["size"], distance=distance),
-        )
+        try:
+            await client.create_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(size=vec_cfg["size"], distance=distance),
+            )
+        except UnexpectedResponse as exc:
+            # Another process may have created the collection between our
+            # collection_exists() check and create_collection() call.
+            # Re-check: if it now exists, treat as success; otherwise re-raise.
+            if await client.collection_exists(collection_name):
+                logger.info(
+                    "collection_already_exists_race",
+                    collection=collection_name,
+                    exc=str(exc),
+                )
+            else:
+                raise
         _created_collections.add(collection_name)
 
 

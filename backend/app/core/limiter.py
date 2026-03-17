@@ -2,6 +2,7 @@ import functools
 import hashlib
 import ipaddress
 
+import structlog
 from fastapi import Request
 from slowapi import Limiter
 
@@ -38,6 +39,9 @@ def get_trusted_client_ip(request: Request) -> str | None:
     return direct_ip
 
 
+logger = structlog.get_logger(__name__)
+
+
 def _get_user_or_ip(request: Request) -> str:
     """Per-user key for authenticated requests; fall back to IP for anonymous.
 
@@ -57,8 +61,8 @@ def _get_user_or_ip(request: Request) -> str:
 
             user_id = decode_access_token(token)
             return f"user:{user_id}"
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("jwt_decode_failed_using_ip_fallback", error=str(exc))
     return get_trusted_client_ip(request) or "unknown"
 
 
