@@ -36,6 +36,35 @@ def _create_fake_webhook() -> MagicMock:
 
 
 @pytest.mark.asyncio
+async def test_deliver_webhook_success_even_if_reply_starts_with_apology():
+    """deliver_webhook marks success for any non-exception reply, even if it starts
+    with an apology word — the error contract is exception-based, not string-based."""
+    webhook_id = str(uuid.uuid4())
+    fake_webhook = _create_fake_webhook()
+    fake_webhook.id = uuid.UUID(webhook_id)
+
+    mock_db = _create_mock_db()
+    mock_db.get = AsyncMock(return_value=fake_webhook)
+
+    ctx = {"job_try": 1}
+
+    with (
+        patch("app.worker.AsyncSessionLocal", return_value=mock_db),
+        patch(
+            "app.worker.run_agent_for_user",
+            # Agent legitimately returns content that starts with "抱歉" (an apology)
+            AsyncMock(return_value="抱歉我之前的回答有误，正确答案是..."),
+        ),
+    ):
+        from app.worker import deliver_webhook
+
+        await deliver_webhook(ctx, webhook_id=webhook_id, payload={"key": "val"})
+
+    stmt = mock_db.execute.call_args_list[-1][0][0]
+    assert "success" in str(stmt.compile(compile_kwargs={"literal_binds": True}))
+
+
+@pytest.mark.asyncio
 async def test_deliver_webhook_success():
     """deliver_webhook marks delivery success when agent returns a non-error reply."""
     webhook_id = str(uuid.uuid4())

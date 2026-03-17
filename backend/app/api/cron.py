@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import func as sql_func
@@ -19,6 +20,8 @@ from app.gateway.agent_runner import run_agent_for_user
 from app.scheduler.runner import register_cron_job, unregister_cron_job
 from app.scheduler.trigger_schemas import validate_trigger_metadata
 from app.scheduler.triggers import evaluate_trigger
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/cron", tags=["cron"])
 
@@ -310,33 +313,46 @@ async def test_trigger(
 
     start = time.monotonic()
 
-    async def _run() -> tuple[bool, dict | None, str | None, bool]:
+    trigger_fired = False
+
+    async def _run() -> tuple[bool, dict | None, str | None]:
+        nonlocal trigger_fired
         metadata = dict(job.trigger_metadata or {})
         result = await evaluate_trigger(job.trigger_type, metadata)
         if not result.fired:
-            return False, None, None, False
+            return False, None, None
+        trigger_fired = True
         agent_result = await run_agent_for_user(
             user_id=str(job.user_id),
             task=job.task,
             trigger_ctx=result.trigger_ctx,
         )
-        is_error = (agent_result or "").startswith("[Error")
-        return True, result.trigger_ctx, agent_result, is_error
+        return True, result.trigger_ctx, agent_result
 
     try:
-        triggered, trigger_ctx, agent_result, is_error = await asyncio.wait_for(
+        triggered, trigger_ctx, agent_result = await asyncio.wait_for(
             _run(), timeout=30.0
         )
     except TimeoutError as exc:
         raise HTTPException(
             status_code=504, detail="Trigger evaluation timed out after 30s"
         ) from exc
+    except Exception as exc:
+        logger.exception("manual_trigger_test_failed", job_id=str(job_id))
+        duration_ms = int((time.monotonic() - start) * 1000)
+        return TestTriggerResponse(
+            triggered=trigger_fired,
+            trigger_ctx=None,
+            agent_result=str(exc),
+            is_error=True,
+            duration_ms=duration_ms,
+        )
 
     duration_ms = int((time.monotonic() - start) * 1000)
     return TestTriggerResponse(
         triggered=triggered,
         trigger_ctx=trigger_ctx,
         agent_result=agent_result,
-        is_error=is_error,
+        is_error=False,
         duration_ms=duration_ms,
     )
