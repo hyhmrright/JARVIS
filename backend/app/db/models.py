@@ -172,6 +172,7 @@ class Conversation(Base):
         back_populates="conversation",
         cascade="all, delete-orphan",
         order_by="Message.created_at",
+        foreign_keys="Message.conversation_id",
     )
 
 
