@@ -262,7 +262,10 @@ class Message(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    conversation: Mapped["Conversation"] = relationship(back_populates="messages")
+    conversation: Mapped["Conversation"] = relationship(
+        back_populates="messages",
+        foreign_keys="[Message.conversation_id]",
+    )
     agent_session: Mapped["AgentSession | None"] = relationship(
         back_populates="messages"
     )
