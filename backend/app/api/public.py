@@ -1,13 +1,13 @@
-import uuid
-from typing import Any
+from typing import Annotated, Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Path
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.db.models import Conversation, Message, SharedConversation
+from app.db.models import Message, SharedConversation
 from app.db.session import get_db
 
 logger = structlog.get_logger(__name__)
@@ -29,18 +29,18 @@ class PublicConversationOut(BaseModel):
 
 @router.get("/share/{token}", response_model=PublicConversationOut)
 async def get_shared_conversation(
-    token: uuid.UUID,
+    token: Annotated[str, Path(min_length=40, max_length=64)],
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     share = await db.scalar(
-        select(SharedConversation).where(SharedConversation.id == token)
+        select(SharedConversation)
+        .where(SharedConversation.share_token == token)
+        .options(selectinload(SharedConversation.conversation))
     )
     if not share:
         raise HTTPException(status_code=404, detail="Shared conversation not found")
 
-    conv = await db.scalar(
-        select(Conversation).where(Conversation.id == share.conversation_id)
-    )
+    conv = share.conversation
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
@@ -50,11 +50,6 @@ async def get_shared_conversation(
         .order_by(Message.created_at)
     )
     messages = rows.all()
-
-    # For now we just return the flat list of messages.
-    # In a real tree UI we might want to return the whole tree,
-    # but for sharing, the 'activeMessages' logic is usually what's wanted.
-    # However, since this is a simple share, let's just return all messages in order.
 
     return {
         "title": conv.title,

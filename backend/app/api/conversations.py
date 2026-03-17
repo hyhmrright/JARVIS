@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from datetime import datetime
 
@@ -5,6 +6,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -158,10 +160,26 @@ async def share_conversation(
         select(SharedConversation).where(SharedConversation.conversation_id == conv_id)
     )
     if existing:
-        return {"token": str(existing.id)}
+        return {"token": existing.share_token}
 
-    new_share = SharedConversation(conversation_id=conv_id)
+    new_share = SharedConversation(
+        conversation_id=conv_id,
+        share_token=secrets.token_urlsafe(32),
+    )
     db.add(new_share)
-    await db.commit()
-    await db.refresh(new_share)
-    return {"token": str(new_share.id)}
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Concurrent request already created a share for this conversation.
+        await db.rollback()
+        existing = await db.scalar(
+            select(SharedConversation).where(
+                SharedConversation.conversation_id == conv_id
+            )
+        )
+        if existing is None:
+            raise HTTPException(
+                status_code=500, detail="Share creation conflict; please retry."
+            ) from None
+        return {"token": existing.share_token}
+    return {"token": new_share.share_token}

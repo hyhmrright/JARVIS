@@ -695,6 +695,10 @@ class SharedConversation(Base):
         UUID(as_uuid=True),
         ForeignKey("conversations.id", ondelete="CASCADE"),
         nullable=False,
+        unique=True,
+    )
+    share_token: Mapped[str] = mapped_column(
+        String(64), unique=True, nullable=False, index=True
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
