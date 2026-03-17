@@ -26,18 +26,13 @@ def upgrade() -> None:
         "shared_conversations",
         sa.Column("share_token", sa.String(64), nullable=True),
     )
-    # Backfill: produce a URL-safe base64 token matching secrets.token_urlsafe(32).
-    # rtrim strips trailing '=' padding and the '\n' that PostgreSQL appends to
-    # base64 output; the two replace() calls swap standard-base64 chars to URL-safe.
+    # Backfill: produce a 64-char hex token using gen_random_uuid() (built-in
+    # since PostgreSQL 13, no extension required). Two UUIDs concatenated
+    # without hyphens yield a 32+32=64 character cryptographically random string.
     op.execute(
         "UPDATE shared_conversations "
-        "SET share_token = rtrim("
-        "    replace("
-        "        replace(encode(gen_random_bytes(32), 'base64'), '+', '-'),"
-        "        '/', '_'"
-        "    ),"
-        "    E'=\\n'"
-        ") "
+        "SET share_token = replace(gen_random_uuid()::text, '-', '') "
+        "               || replace(gen_random_uuid()::text, '-', '') "
         "WHERE share_token IS NULL"
     )
     op.alter_column("shared_conversations", "share_token", nullable=False)
