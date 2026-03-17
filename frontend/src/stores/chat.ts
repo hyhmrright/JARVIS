@@ -19,7 +19,7 @@ interface Message {
   pending_tool_call?: { name: string; args: any };
 }
 
-interface Conversation { id: string; title: string }
+interface Conversation { id: string; title: string; active_leaf_id?: string | null }
 
 export const useChatStore = defineStore("chat", {
   state: () => ({
@@ -30,6 +30,7 @@ export const useChatStore = defineStore("chat", {
     routingAgent: null as string | null,
     abortController: null as AbortController | null,
     activeLeafId: null as string | null,
+    _switchLeafController: null as AbortController | null,
   }),
   getters: {
     activeMessages: (state) => {
@@ -62,6 +63,27 @@ export const useChatStore = defineStore("chat", {
   actions: {
     switchBranch(messageId: string) {
       this.activeLeafId = messageId;
+      if (!this.currentConvId) return;
+      // Cancel any in-flight persist from a previous rapid switch
+      this._switchLeafController?.abort();
+      const controller = new AbortController();
+      this._switchLeafController = controller;
+      client
+        .patch(
+          `/conversations/${this.currentConvId}/active-leaf`,
+          { active_leaf_id: messageId },
+          { signal: controller.signal },
+        )
+        .catch((err) => {
+          if (err.name !== "CanceledError" && err.code !== "ERR_CANCELED") {
+            console.error("[chat] switchBranch persist failed", err);
+          }
+        })
+        .finally(() => {
+          if (this._switchLeafController === controller) {
+            this._switchLeafController = null;
+          }
+        });
     },
 
     async loadConversations() {
@@ -72,7 +94,9 @@ export const useChatStore = defineStore("chat", {
       this.currentConvId = convId;
       this.messages = [];
       this.routingAgent = null;
-      this.activeLeafId = null;
+      // Restore the persisted active branch if available
+      const conv = this.conversations.find((c) => c.id === convId);
+      this.activeLeafId = conv?.active_leaf_id ?? null;
       try {
         const { data } = await client.get<Message[]>(`/conversations/${convId}/messages`);
         this.messages = data;
