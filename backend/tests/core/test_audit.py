@@ -121,7 +121,9 @@ async def test_log_action_x_real_ip_ignored_from_public_ip(mock_session):
     able to spoof the audit-log IP by setting X-Real-IP themselves.
     """
     req = MagicMock()
-    req.client.host = "203.0.113.1"  # external/public IP
+    # 1.2.3.4 is a genuinely routable public IP; Python 3.11+ marks
+    # TEST-NET ranges (203.0.113.0/24) as is_private, so use 1.2.3.4 instead.
+    req.client.host = "1.2.3.4"
     req.headers = {"x-real-ip": "5.6.7.8", "user-agent": "Attacker/1.0"}
 
     with patch("app.core.audit.AsyncSessionLocal", return_value=mock_session):
@@ -129,4 +131,4 @@ async def test_log_action_x_real_ip_ignored_from_public_ip(mock_session):
 
     row = mock_session.add.call_args[0][0]
     # Must use the actual TCP peer IP, not the spoofed X-Real-IP header.
-    assert row.ip_address == "203.0.113.1"
+    assert row.ip_address == "1.2.3.4"
