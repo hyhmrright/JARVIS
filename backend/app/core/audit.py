@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 
+from app.core.limiter import get_trusted_client_ip
 from app.db.models import AuditLog
 from app.db.session import AsyncSessionLocal
 
@@ -33,12 +34,7 @@ async def log_action(
     ip_address: str | None = None
     user_agent: str | None = None
     if request is not None:
-        # Prefer proxy headers (Traefik sets X-Real-IP) over the internal IP.
-        ip_address = (
-            request.headers.get("x-real-ip")
-            or request.headers.get("x-forwarded-for", "").split(",")[0].strip()
-            or (request.client.host if request.client else None)
-        ) or None
+        ip_address = get_trusted_client_ip(request)
         raw_ua = request.headers.get("user-agent", "")
         user_agent = raw_ua[:1000] or None
 
