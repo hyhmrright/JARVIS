@@ -252,7 +252,7 @@ class Message(Base):
     )
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    tool_calls: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    tool_calls: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
     model_provider: Mapped[str | None] = mapped_column(String(50))
     model_name: Mapped[str | None] = mapped_column(String(100))
     tokens_input: Mapped[int | None] = mapped_column(Integer)

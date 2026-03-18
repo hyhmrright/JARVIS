@@ -673,7 +673,7 @@ const getRagSources = (msg: { id?: string; role: string; tool_calls?: Array<{nam
   if (msgIdx === -1) return [];
 
   const sources: RagSource[] = [];
-  const re = new RegExp('\\\\[(\\d+)\\\\] Document: "([^"]+)" \\\\(relevance: ([\\d.]+)\\\\)\\n([\\s\\S]*?)(?=\\\\[\\d+\\\\] Document:|$)', "g");
+  const re = new RegExp('\\[(\\d+)\\] Document: "([^"]+)" \\(relevance: ([\\d.]+)\\)\\n([\\s\\S]*?)(?=\\[\\d+\\] Document:|$)', "g");
   for (let i = msgIdx + 1; i < chat.messages.length; i++) {
     const m = chat.messages[i];
     if (m.role !== 'tool') break;
