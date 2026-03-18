@@ -531,6 +531,7 @@ async def chat_stream(  # noqa: C901
             raise
         finally:
             new_title: str | None = None
+            ai_msg_id: uuid.UUID | None = None
             tokens_in, tokens_out = _extract_token_counts(last_ai_msg)
             if full_content:
                 try:
@@ -548,20 +549,20 @@ async def chat_stream(  # noqa: C901
 
                     async with AsyncSessionLocal() as session:
                         async with session.begin():
-                            session.add(
-                                Message(
-                                    conversation_id=conv_id,
-                                    role="ai",
-                                    content=full_content,
-                                    model_provider=llm.provider,
-                                    model_name=llm.model_name,
-                                    tokens_input=tokens_in,
-                                    tokens_output=tokens_out,
-                                    parent_id=human_msg_id
-                                    if not is_consent
-                                    else body.parent_message_id,  # noqa: E501
-                                )
+                            saved_ai_msg = Message(
+                                conversation_id=conv_id,
+                                role="ai",
+                                content=full_content,
+                                model_provider=llm.provider,
+                                model_name=llm.model_name,
+                                tokens_input=tokens_in,
+                                tokens_output=tokens_out,
+                                parent_id=human_msg_id
+                                if not is_consent
+                                else body.parent_message_id,  # noqa: E501
                             )
+                            session.add(saved_ai_msg)
+                            ai_msg_id = saved_ai_msg.id
                             if new_title:
                                 await session.execute(
                                     update(Conversation)
@@ -613,6 +614,14 @@ async def chat_stream(  # noqa: C901
             ).inc()
             if new_title:
                 yield _format_sse({"type": "title_updated", "title": new_title})
+            if stream_completed and human_msg_id and ai_msg_id:
+                yield _format_sse(
+                    {
+                        "type": "done",
+                        "human_msg_id": str(human_msg_id),
+                        "ai_msg_id": str(ai_msg_id),
+                    }
+                )
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 

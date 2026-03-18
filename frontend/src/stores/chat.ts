@@ -199,6 +199,7 @@ export const useChatStore = defineStore("chat", {
       }
 
       const actualParentId = parentId || (this.activeMessages.length > 0 ? this.activeMessages[this.activeMessages.length - 1].id : undefined);
+      let doneReceived = false;
 
       if (!content.startsWith("[CONSENT:")) {
         this.messages.push({ role: "human", content, image_urls: imageUrls, parent_id: actualParentId });
@@ -258,7 +259,18 @@ export const useChatStore = defineStore("chat", {
                 const data = JSON.parse(line.slice(6));
                 const aiMsg = this.messages[this.messages.length - 1];
 
-                if (data.type === "routing") {
+                if (data.type === "done") {
+                  doneReceived = true;
+                  const humanMsg = this.messages[this.messages.length - 2];
+                  if (humanMsg?.role === "human" && !humanMsg.id && data.human_msg_id) {
+                    humanMsg.id = data.human_msg_id;
+                  }
+                  if (aiMsg?.role === "ai" && !aiMsg.id && data.ai_msg_id) {
+                    aiMsg.id = data.ai_msg_id;
+                    aiMsg.parent_id = data.human_msg_id;
+                  }
+                  this.activeLeafId = data.ai_msg_id ?? null;
+                } else if (data.type === "routing") {
                   this.routingAgent = data.agent;
                 } else if (data.type === "title_updated") {
                   const conv = this.conversations.find(c => c.id === this.currentConvId);
@@ -269,7 +281,7 @@ export const useChatStore = defineStore("chat", {
                   aiMsg.pending_tool_call = { name: data.tool, args: data.args };
                   this.streaming = false;
                   this.routingAgent = null;
-      this.activeLeafId = null;
+                  this.activeLeafId = null;
                   return;
                 }
 
@@ -315,7 +327,9 @@ export const useChatStore = defineStore("chat", {
         this.abortController = null;
         this.streaming = false;
         this.routingAgent = null;
-      this.activeLeafId = null;
+        if (!doneReceived) {
+          this.activeLeafId = null;
+        }
       }
     },
   },
