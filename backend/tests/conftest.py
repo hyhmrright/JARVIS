@@ -187,7 +187,11 @@ async def _suppress_chat_async_session():
     mock_session.__aexit__ = AsyncMock(return_value=None)
     mock_session.begin = MagicMock(return_value=mock_session)
     mock_session.scalar = AsyncMock(return_value=None)
-    mock_session.execute = AsyncMock(return_value=MagicMock())
+    _scalars = MagicMock()
+    _scalars.all = MagicMock(return_value=[])
+    _execute_result = MagicMock()
+    _execute_result.scalars = MagicMock(return_value=_scalars)
+    mock_session.execute = AsyncMock(return_value=_execute_result)
     mock_session.add = MagicMock()
     mock_session.flush = AsyncMock()
     with patch("app.api.chat.AsyncSessionLocal", return_value=mock_session):

@@ -8,25 +8,22 @@ from pathlib import Path
 import httpx
 import structlog
 
+from app.tools.web_fetch_tool import is_safe_url
+
 logger = structlog.get_logger(__name__)
 
 _FETCH_TIMEOUT = 10.0
 _MAX_SIZE = 5 * 1024 * 1024  # 5 MB
 
 
-def _validate_url(url: str) -> None:
-    """Raise ValueError if the URL scheme is not http or https."""
-    if not url.startswith(("https://", "http://")):
-        raise ValueError(f"Only http/https URLs are allowed, got: {url!r}")
-
-
 async def download_skill_md(url: str, dest_path: Path) -> str:
     """Download a .md skill file and write it to dest_path. Returns the content.
 
-    Raises ValueError for non-http URLs.
+    Raises ValueError for unsafe/non-http URLs or oversized responses.
     Raises httpx.HTTPStatusError on non-2xx responses.
     """
-    _validate_url(url)
+    if not is_safe_url(url):
+        raise ValueError(f"URL is not allowed (internal or non-http): {url!r}")
     async with httpx.AsyncClient(
         follow_redirects=True, timeout=_FETCH_TIMEOUT
     ) as client:
