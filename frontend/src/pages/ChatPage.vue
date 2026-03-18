@@ -9,34 +9,81 @@
       ]"
     >
       <div class="h-14 flex items-center px-4 justify-between">
-        <div class="flex items-center gap-2 font-semibold tracking-tighter">
-          <div class="w-5 h-5 bg-white text-black rounded-sm flex items-center justify-center text-[10px] font-bold">J</div>
-          <span class="text-sm text-zinc-100">JARVIS</span>
-        </div>
-        <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors" title="New Chat" @click="chat.newConversation">
-          <SquarePen class="w-4 h-4 text-zinc-400" />
-        </button>
+        <template v-if="searchMode">
+          <input
+            ref="searchInputEl"
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search conversations..."
+            class="flex-1 bg-zinc-800 rounded-md px-2 py-1 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none mr-2"
+          />
+          <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors" @click="clearSearch">
+            <X class="w-4 h-4 text-zinc-400" />
+          </button>
+        </template>
+        <template v-else>
+          <div class="flex items-center gap-2 font-semibold tracking-tighter">
+            <div class="w-5 h-5 bg-white text-black rounded-sm flex items-center justify-center text-[10px] font-bold">J</div>
+            <span class="text-sm text-zinc-100">JARVIS</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors" title="Search" @click="searchMode = true">
+              <Search class="w-4 h-4 text-zinc-400" />
+            </button>
+            <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors" title="New Chat" @click="chat.newConversation">
+              <SquarePen class="w-4 h-4 text-zinc-400" />
+            </button>
+          </div>
+        </template>
       </div>
 
       <nav class="flex-1 overflow-y-auto px-2 py-4 space-y-0.5 custom-scrollbar">
-        <div
-          v-for="c in chat.conversations"
-          :key="c.id"
-          :class="[
-            'group flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors relative',
-            chat.currentConvId === c.id ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
-          ]"
-          @click="chat.selectConversation(c.id)"
-        >
-          <MessageSquare class="w-3.5 h-3.5 flex-shrink-0" />
-          <span class="text-xs truncate flex-1">{{ c.title }}</span>
-          <button
-            class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400"
-            @click.stop="chat.deleteConversation(c.id)"
+        <!-- Search results -->
+        <template v-if="searchMode && searchQuery.length >= 2">
+          <div
+            v-for="r in searchResults"
+            :key="r.conv_id"
+            class="group flex items-start gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+            @click="chat.selectConversation(r.conv_id); clearSearch()"
           >
-            <Trash2 class="w-3 h-3" />
-          </button>
-        </div>
+            <MessageSquare class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+            <div class="flex-1 min-w-0">
+              <div class="text-xs truncate">{{ r.title }}</div>
+              <div class="text-[10px] text-zinc-600 truncate mt-0.5">{{ r.snippet }}</div>
+            </div>
+          </div>
+          <div v-if="searchResults.length === 0" class="px-3 py-6 text-center text-[10px] text-zinc-600">
+            No results
+          </div>
+        </template>
+        <!-- Normal conversation list -->
+        <template v-else>
+          <div
+            v-for="c in chat.conversations"
+            :key="c.id"
+            :class="[
+              'group flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors relative',
+              chat.currentConvId === c.id ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
+            ]"
+            @click="chat.selectConversation(c.id)"
+          >
+            <MessageSquare class="w-3.5 h-3.5 flex-shrink-0" />
+            <span class="text-xs truncate flex-1">{{ c.title }}</span>
+            <button
+              class="opacity-0 group-hover:opacity-100 p-1 hover:text-zinc-200"
+              title="Export"
+              @click.stop="exportConv(c.id, c.title)"
+            >
+              <Download class="w-3 h-3" />
+            </button>
+            <button
+              class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400"
+              @click.stop="chat.deleteConversation(c.id)"
+            >
+              <Trash2 class="w-3 h-3" />
+            </button>
+          </div>
+        </template>
       </nav>
 
       <div class="p-4 border-t border-zinc-800 space-y-4">
@@ -198,7 +245,7 @@
               <div v-else class="markdown-body text-zinc-200 leading-[1.7] text-[14px]" v-html="renderMarkdown(msg.content)"></div>
 
               <!-- RAG Sources -->
-              <template v-for="ragSources in [getRagSources(msg)]" :key="'rag-' + msg.id">
+              <template v-for="(ragSources, _ri) in [getRagSources(msg)]" :key="'rag-' + _ri + '-' + msg.id">
                 <div v-if="msg.role === 'ai' && ragSources.length > 0" class="mt-2 border-t border-zinc-800 pt-2">
                   <button
                     class="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
@@ -366,6 +413,13 @@
               <button class="p-2.5 text-zinc-500 hover:text-white transition-colors" @click="voiceOverlay?.start()">
                 <Mic class="w-4 h-4" />
               </button>
+              <button
+                class="p-2.5 text-zinc-500 hover:text-white transition-colors"
+                title="Prompt Templates"
+                @click="showTemplates = true"
+              >
+                <Sparkles class="w-4 h-4" />
+              </button>
               
               <textarea
                 v-model="input"
@@ -415,6 +469,12 @@
     />
 
     <VoiceOverlay ref="voiceOverlay" />
+
+    <PromptTemplateModal
+      v-if="showTemplates"
+      @close="showTemplates = false"
+      @select="applyTemplate"
+    />
   </div>
 </template>
 
@@ -431,12 +491,16 @@ import {
   Trash2, Zap, Settings, LogOut,
   PanelLeft, SquarePen, Copy, RotateCcw,
   Mic, ArrowUp, Square, ShieldAlert, Share2, MessageSquare,
-  Volume2, Layout, Image, X, ChevronDown
+  Volume2, Layout, Image, X, ChevronDown,
+  Search, Download, Sparkles
 } from "lucide-vue-next";
 
 import LiveCanvas from "@/components/LiveCanvas.vue";
 import VoiceOverlay from "@/components/VoiceOverlay.vue";
+import PromptTemplateModal from "@/components/PromptTemplateModal.vue";
+import type { PromptTemplate } from "@/data/prompt-templates";
 import client from "@/api/client";
+import { searchConversations, exportConversation, patchConversation } from "@/api";
 import { useToast } from "@/composables/useToast";
 
 const chat = useChatStore();
@@ -450,6 +514,66 @@ const editInput = ref("");
 const fileInput = ref<HTMLInputElement>();
 const selectedImages = ref<string[]>([]);
 const sidebarCollapsed = ref(false);
+
+// Search state
+const searchMode = ref(false);
+const searchQuery = ref("");
+const searchResults = ref<Array<{ conv_id: string; title: string; snippet: string }>>([]);
+const searchInputEl = ref<HTMLInputElement>();
+
+const clearSearch = () => {
+  searchMode.value = false;
+  searchQuery.value = "";
+  searchResults.value = [];
+};
+
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(searchQuery, (q) => {
+  if (searchTimer) clearTimeout(searchTimer);
+  if (q.length < 2) {
+    searchResults.value = [];
+    return;
+  }
+  searchTimer = setTimeout(async () => {
+    try {
+      const resp = await searchConversations(q);
+      searchResults.value = resp.data;
+    } catch {
+      /* ignore */
+    }
+  }, 300);
+});
+
+watch(searchMode, async (on) => {
+  if (on) {
+    await nextTick();
+    searchInputEl.value?.focus();
+  }
+});
+
+const exportConv = async (convId: string, title: string) => {
+  const resp = await exportConversation(convId, "md");
+  const url = URL.createObjectURL(resp.data as Blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${title}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+// Prompt template state
+const showTemplates = ref(false);
+
+const applyTemplate = async (template: PromptTemplate) => {
+  showTemplates.value = false;
+  if (chat.currentConvId) {
+    try {
+      await patchConversation(chat.currentConvId, { persona_override: template.system_prompt });
+    } catch {
+      /* ignore */
+    }
+  }
+};
 
 const startEdit = (msg: any) => {
   editingMessageId.value = msg.id;

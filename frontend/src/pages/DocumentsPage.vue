@@ -17,6 +17,16 @@
         </select>
       </div>
 
+      <div class="flex items-center gap-2 mb-3">
+        <button
+          class="flex items-center gap-2 px-3 py-1.5 text-xs rounded-md bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors"
+          @click="showUrlModal = true"
+        >
+          <Link class="w-3.5 h-3.5" />
+          From URL
+        </button>
+      </div>
+
       <section class="glass-card upload-section animate-fade-in">
         <label
           class="upload-zone"
@@ -77,14 +87,46 @@
         </div>
       </section>
     </div>
+
+    <!-- URL ingestion modal -->
+    <div
+      v-if="showUrlModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      @click.self="showUrlModal = false"
+    >
+      <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-md shadow-xl">
+        <h3 class="text-sm font-semibold text-zinc-100 mb-4">Add Web Page to Knowledge Base</h3>
+        <input
+          v-model="urlInput"
+          type="url"
+          placeholder="https://example.com/article"
+          class="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 mb-4"
+          @keydown.enter="handleIngestUrl"
+        />
+        <p v-if="urlError" class="text-xs text-red-400 mb-3">{{ urlError }}</p>
+        <div class="flex justify-end gap-2">
+          <button class="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-100" @click="showUrlModal = false">
+            Cancel
+          </button>
+          <button
+            :disabled="!urlInput || urlIngesting"
+            class="px-4 py-1.5 text-xs bg-white text-black rounded-md disabled:opacity-30 hover:bg-zinc-200"
+            @click="handleIngestUrl"
+          >
+            {{ urlIngesting ? 'Adding...' : 'Add Page' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
-import { Trash2 } from "lucide-vue-next";
+import { Trash2, Link } from "lucide-vue-next";
 import client from "@/api/client";
+import { ingestDocumentUrl } from "@/api";
 import PageHeader from "@/components/PageHeader.vue";
 import { useToast } from "@/composables/useToast";
 import { useWorkspaceStore } from "@/stores/workspace";
@@ -105,6 +147,28 @@ const uploading = ref(false);
 const uploadProgress = ref(0);
 const documents = ref<DocumentItem[]>([]);
 const selectedWorkspaceId = ref<string | null>(null);
+
+const showUrlModal = ref(false);
+const urlInput = ref("");
+const urlIngesting = ref(false);
+const urlError = ref("");
+
+const handleIngestUrl = async () => {
+  if (!urlInput.value) return;
+  urlIngesting.value = true;
+  urlError.value = "";
+  try {
+    await ingestDocumentUrl(urlInput.value, selectedWorkspaceId.value);
+    showUrlModal.value = false;
+    urlInput.value = "";
+    await fetchDocuments();
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { detail?: string } } };
+    urlError.value = err?.response?.data?.detail ?? "Failed to ingest URL";
+  } finally {
+    urlIngesting.value = false;
+  }
+};
 
 function formatBytes(bytes: number) {
   if (bytes === 0) return '0 B';
