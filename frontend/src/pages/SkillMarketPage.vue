@@ -1,46 +1,80 @@
 <template>
-  <div class="min-h-screen bg-black text-zinc-300 font-sans selection:bg-white/10">
-    <div class="max-w-6xl mx-auto px-6 py-12">
+  <div class="min-h-screen bg-black font-sans text-zinc-300 selection:bg-white/10">
+    <div class="mx-auto max-w-6xl px-6 py-12">
       <!-- Header -->
-      <header class="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <header class="mb-8 flex flex-col justify-between gap-6 md:flex-row md:items-end">
         <div class="space-y-2">
-          <div class="flex items-center gap-2 text-[10px] font-black text-white tracking-[0.2em] uppercase">
-            <Zap class="w-3.5 h-3.5" />
+          <div
+            class="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white"
+          >
+            <Zap class="h-3.5 w-3.5" />
             JARVIS ecosystem
           </div>
-          <h1 class="text-4xl font-bold text-white tracking-tight">Skill Market</h1>
-          <p class="text-zinc-500 text-sm max-w-lg">
-            Discover and install specialized AI capabilities. From code analysis to creative writing, 
-            extend your assistant with a single click.
+          <h1 class="text-4xl font-bold tracking-tight text-white">Skill Market</h1>
+          <p class="max-w-lg text-sm text-zinc-500">
+            Discover and install specialized AI capabilities. From code analysis to creative
+            writing, extend your assistant with a single click.
           </p>
         </div>
-        
+
         <div class="flex items-center gap-3">
           <div class="relative">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-            <input 
+            <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+            <input
               v-model="searchQuery"
-              type="text" 
-              placeholder="Search skills..." 
-              class="bg-zinc-900 border border-zinc-800 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-zinc-600 transition-colors w-64"
+              type="text"
+              placeholder="Search skills..."
+              class="w-64 rounded-lg border border-zinc-800 bg-zinc-900 py-2 pl-10 pr-4 text-sm text-white transition-colors focus:border-zinc-600 focus:outline-none"
             />
           </div>
-          <router-link to="/plugins" class="px-4 py-2 bg-zinc-800 text-zinc-300 rounded-lg text-sm font-bold hover:bg-zinc-700 transition-all">
+          <button
+            class="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-300 transition-all hover:bg-zinc-700"
+            @click="showInstallModal = true"
+          >
+            + Install from URL
+          </button>
+          <router-link
+            to="/plugins"
+            class="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-300 transition-all hover:bg-zinc-700"
+          >
             BACK
           </router-link>
         </div>
       </header>
 
+      <!-- Category Tabs -->
+      <div class="mb-8 flex flex-wrap gap-2">
+        <button
+          v-for="cat in categories"
+          :key="cat"
+          class="rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all"
+          :class="
+            activeCategory === cat
+              ? 'border-white bg-white text-black'
+              : 'border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'
+          "
+          @click="activeCategory = cat"
+        >
+          {{ cat === '__all__' ? 'All' : cat }}
+        </button>
+      </div>
+
       <!-- Loading State -->
-      <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div v-for="i in 6" :key="i" class="h-64 bg-zinc-900/50 rounded-2xl border border-zinc-800 animate-pulse"></div>
+      <div v-if="loading" class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div
+          v-for="i in 6"
+          :key="i"
+          class="h-64 animate-pulse rounded-2xl border border-zinc-800 bg-zinc-900/50"
+        ></div>
       </div>
 
       <!-- Error State -->
-      <div v-else-if="error" class="py-20 text-center space-y-4">
-        <ShieldAlert class="w-12 h-12 text-red-500 mx-auto" />
-        <p class="text-red-400 font-medium">{{ error }}</p>
-        <button class="text-sm text-zinc-500 underline hover:text-white" @click="fetchSkills">Try Again</button>
+      <div v-else-if="error" class="space-y-4 py-20 text-center">
+        <ShieldAlert class="mx-auto h-12 w-12 text-red-500" />
+        <p class="font-medium text-red-400">{{ error }}</p>
+        <button class="text-sm text-zinc-500 underline hover:text-white" @click="loadSkills">
+          Try Again
+        </button>
       </div>
 
       <!-- Empty State -->
@@ -49,141 +83,168 @@
       </div>
 
       <!-- Skill Grid -->
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div 
-          v-for="skill in filteredSkills" 
+      <div v-else class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div
+          v-for="skill in filteredSkills"
           :key="skill.id"
-          class="group bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col justify-between hover:border-zinc-600 transition-all duration-300"
+          class="group flex flex-col justify-between rounded-2xl border border-zinc-800 bg-zinc-900 p-6 transition-all duration-300 hover:border-zinc-600"
         >
           <div class="space-y-4">
             <div class="flex items-start justify-between">
-              <div class="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center text-white group-hover:bg-white group-hover:text-black transition-colors">
-                <Box class="w-5 h-5" />
+              <div
+                class="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-800 text-white transition-colors group-hover:bg-white group-hover:text-black"
+              >
+                <Box class="h-5 w-5" />
               </div>
-              <span v-if="skill.installed" class="px-2 py-0.5 bg-green-500/10 text-green-400 rounded text-[9px] font-black uppercase tracking-widest border border-green-500/20">
-                Installed
-              </span>
-            </div>
-            
-            <div>
-              <h3 class="text-lg font-bold text-white mb-1">{{ skill.name }}</h3>
-              <p class="text-zinc-500 text-xs line-clamp-3 leading-relaxed">{{ skill.description }}</p>
+              <div class="flex flex-wrap gap-1">
+                <span
+                  v-for="tag in skill.tags.slice(0, 2)"
+                  :key="tag"
+                  class="rounded border border-zinc-700 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-zinc-500"
+                >
+                  {{ tag }}
+                </span>
+              </div>
             </div>
 
-            <div class="flex items-center gap-4 text-[10px] text-zinc-600 font-bold uppercase tracking-wider">
-              <span class="flex items-center gap-1"><User class="w-3 h-3" /> {{ skill.author }}</span>
-              <span>v{{ skill.version }}</span>
+            <div>
+              <h3 class="mb-1 text-lg font-bold text-white">{{ skill.name }}</h3>
+              <p class="line-clamp-3 text-xs leading-relaxed text-zinc-500">
+                {{ skill.description }}
+              </p>
+            </div>
+
+            <div
+              class="flex items-center gap-4 text-[10px] font-bold uppercase tracking-wider text-zinc-600"
+            >
+              <span class="flex items-center gap-1">
+                <User class="h-3 w-3" /> {{ skill.author }}
+              </span>
+              <span class="rounded bg-zinc-800 px-1.5 py-0.5 text-zinc-400">
+                {{ skill.type }}
+              </span>
             </div>
           </div>
 
-          <div class="mt-8">
-            <button 
-              v-if="!skill.installed"
+          <div class="mt-8 flex flex-col gap-2">
+            <button
               :disabled="installingId === skill.id"
-              class="w-full py-2.5 bg-white text-black rounded-xl text-xs font-black uppercase tracking-widest hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
-              @click="installSkill(skill)"
+              class="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-2.5 text-xs font-black uppercase tracking-widest text-black transition-all hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
+              @click="installSkill(skill, 'personal')"
             >
               <template v-if="installingId === skill.id">
-                <div class="w-3 h-3 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>
+                <div
+                  class="h-3 w-3 animate-spin rounded-full border-2 border-black/20 border-t-black"
+                ></div>
                 Installing...
               </template>
               <template v-else>
-                <Download class="w-3.5 h-3.5" />
-                Install Skill
+                <Download class="h-3.5 w-3.5" />
+                Install (Personal)
               </template>
             </button>
-            <button 
-              v-else
+            <button
+              v-if="isAdmin && skill.scope.includes('system')"
               :disabled="installingId === skill.id"
-              class="w-full py-2.5 bg-zinc-800 text-zinc-400 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
-              @click="uninstallSkill(skill)"
+              class="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700 py-2.5 text-xs font-black uppercase tracking-widest text-zinc-400 transition-all hover:border-zinc-500 hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
+              @click="installSkill(skill, 'system')"
             >
-              <template v-if="installingId === skill.id">
-                <div class="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                Removing...
-              </template>
-              <template v-else>
-                <Trash2 class="w-3.5 h-3.5" />
-                Uninstall
-              </template>
+              <Download class="h-3.5 w-3.5" />
+              Install (System-wide)
             </button>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Install from URL Modal -->
+    <InstallFromUrlModal
+      v-if="showInstallModal"
+      @close="showInstallModal = false"
+      @installed="onInstalled"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
-import { Zap, Search, Box, User, Download, Trash2, ShieldAlert } from "lucide-vue-next";
-import client from "@/api/client";
+import { Zap, Search, Box, User, Download, ShieldAlert } from "lucide-vue-next";
+import { useAuthStore } from "@/stores/auth";
+import { marketApi } from "@/api/plugins";
+import type { MarketSkillOut } from "@/api/plugins";
+import InstallFromUrlModal from "@/components/InstallFromUrlModal.vue";
 
-interface Skill {
-  id: string;
-  name: string;
-  description: string;
-  author: string;
-  version: string;
-  md_url: string;
-  installed: boolean;
-}
+const auth = useAuthStore();
+const isAdmin = computed(() => auth.isAdmin);
 
-const skills = ref<Skill[]>([]);
+const skills = ref<MarketSkillOut[]>([]);
 const loading = ref(true);
 const error = ref<string | null>(null);
 const searchQuery = ref("");
 const installingId = ref<string | null>(null);
+const activeCategory = ref("__all__");
+const showInstallModal = ref(false);
 
-const filteredSkills = computed(() => {
-  if (!searchQuery.value) return skills.value;
-  const q = searchQuery.value.toLowerCase();
-  return skills.value.filter(s => 
-    s.name.toLowerCase().includes(q) || 
-    s.description.toLowerCase().includes(q) ||
-    s.author.toLowerCase().includes(q)
-  );
+const categories = computed(() => {
+  const tagSet = new Set<string>();
+  for (const s of skills.value) {
+    for (const t of s.tags) tagSet.add(t);
+  }
+  return ["__all__", ...Array.from(tagSet).sort()];
 });
 
-const fetchSkills = async () => {
+const filteredSkills = computed(() => {
+  let list = skills.value;
+  if (activeCategory.value !== "__all__") {
+    list = list.filter((s) => s.tags.includes(activeCategory.value));
+  }
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase();
+    list = list.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.description.toLowerCase().includes(q) ||
+        s.author.toLowerCase().includes(q),
+    );
+  }
+  return list;
+});
+
+async function loadSkills() {
   loading.value = true;
   error.value = null;
   try {
-    const { data } = await client.get("/plugins/market/skills");
-    skills.value = data;
-  } catch (err: any) {
+    skills.value = (await marketApi.listSkills()).data;
+  } catch (err: unknown) {
     error.value = "Failed to fetch skills from registry.";
     console.error(err);
   } finally {
     loading.value = false;
   }
-};
+}
 
-const installSkill = async (skill: Skill) => {
+async function installSkill(skill: MarketSkillOut, scope: "personal" | "system") {
   installingId.value = skill.id;
   try {
-    await client.post(`/plugins/market/install/${skill.id}?md_url=${encodeURIComponent(skill.md_url)}`);
-    skill.installed = true;
-  } catch (err) {
-    console.error("Install failed:", err);
-    alert("Installation failed. Check console for details.");
+    await marketApi.install({
+      url: skill.install_url,
+      type: skill.type,
+      scope,
+    });
+    alert(`"${skill.name}" installed successfully.`);
+  } catch (err: unknown) {
+    const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data
+      ?.detail;
+    alert(typeof detail === "string" ? detail : "Installation failed.");
+    console.error(err);
   } finally {
     installingId.value = null;
   }
-};
+}
 
-const uninstallSkill = async (skill: Skill) => {
-  if (!confirm(`Are you sure you want to uninstall ${skill.name}?`)) return;
-  installingId.value = skill.id;
-  try {
-    await client.delete(`/plugins/market/uninstall/${skill.id}`);
-    skill.installed = false;
-  } catch (err) {
-    console.error("Uninstall failed:", err);
-  } finally {
-    installingId.value = null;
-  }
-};
+function onInstalled(_pluginId: string) {
+  // Reload list so newly installed plugin appears in PluginsPage
+}
 
-onMounted(fetchSkills);
+onMounted(loadSkills);
 </script>
