@@ -2,7 +2,7 @@
 
 # JARVIS
 
-> A self-hosted AI assistant platform with RAG, multi-channel messaging, sandboxed tool execution, and full observability — one `docker compose up` away.
+> A self-hosted AI assistant platform with RAG, multi-channel messaging, sandboxed tool execution, multi-tenant workspaces, and full observability — one `docker compose up` away.
 
 [![License](https://img.shields.io/github/license/hyhmrright/JARVIS)](LICENSE)
 [![Latest Release](https://img.shields.io/github/v/release/hyhmrright/JARVIS)](https://github.com/hyhmrright/JARVIS/releases)
@@ -12,16 +12,41 @@
 
 ## Features
 
-- **Multi-Channel Messaging** — Unified adapter layer for Slack, Discord, Telegram, and Feishu; add new channels without touching the agent core
-- **Sandboxed Tool Execution** — Browser and shell tools run in ephemeral Docker containers, fully isolated from the host filesystem and network
-- **LLM Failover** — Configurable fallback chains across DeepSeek / OpenAI / Anthropic; transparent retries when a provider goes down
-- **RAG Knowledge Base** — Upload PDF / TXT / MD / DOCX with automatic chunking and vector indexing (Qdrant)
-- **Dynamic Skills** — Drop a `SKILL.md` in your project root; JARVIS parses and exposes it as a callable skill at runtime
-- **Personal API Keys** — Programmatic access via `jv_`-prefixed tokens; scoped (`full` / `readonly`), expirable, and hashed at rest
+### AI & Agents
+- **Multi-LLM with Failover** — DeepSeek · OpenAI · Anthropic · Zhipu GLM; configurable fallback chains with transparent retries
+- **LangGraph ReAct Agent** — Tool-calling agent with web search, code execution, file I/O, shell, browser, datetime, and RAG tools
+- **Multi-Agent Supervisor** — Routes complex tasks to specialized expert agents (code / research / writing); non-expert tasks go to the standard ReAct graph
+- **Visual Workflow Studio** — Node-based editor for designing multi-step AI workflows compiled to LangGraph at runtime
+- **Skill Market** — Discover and install agent skills from remote registries with 1-click deployment
+- **Personas** — Custom system-prompt profiles; select at conversation start to control AI behavior and tone
+
+### Knowledge & Context
+- **RAG Knowledge Base** — Upload PDF / TXT / MD / DOCX with sliding-window chunking and vector indexing (Qdrant); one collection per user, one per workspace
+- **Branching Conversations** — Tree-based message history; regenerate any AI reply and switch between branches with full context preservation
+- **Context Compression** — Automatic LLM-powered summarization when context window approaches limits
+
+### Integrations & Automation
+- **Multi-Channel Messaging** — Unified adapter layer for Slack, Discord, Telegram, Feishu, and WhatsApp; add new channels without touching the agent core
+- **Cron Jobs + Trigger System** — Schedule agents on a cron; trigger on web content change, semantic similarity match, or incoming email
+- **Webhooks** — Inbound webhook endpoints deliver payloads directly to agents with automatic retry logic
+- **MCP Servers** — Connect any Model Context Protocol server as a tool source at runtime
+
+### Platform & Security
+- **Multi-Tenant Organizations** — Organizations → Workspaces → Members hierarchy; isolated RAG collections and settings per workspace
+- **Personal Access Tokens** — `jv_`-prefixed API keys; scoped (`full` / `readonly`), expirable, hashed at rest
+- **Audit Logs** — Tamper-evident log of all auth events, admin actions, and API key usage
+- **Per-User Rate Limiting** — Configurable request caps; input sanitization on all user content
+- **Public Sharing** — Generate read-only public links for sharing conversations
+
+### Interface & UX
 - **Live Canvas** — Stream ECharts visualizations and interactive forms into the sidebar alongside Markdown
-- **Voice Input/Output** — TTS and STT support for hands-free interaction
+- **Voice Input/Output** — TTS and STT support with multiple neural voices for hands-free interaction
+- **LLMOps Dashboard** — Visual token consumption and model performance metrics via ECharts
 - **Multilingual UI** — 6 languages: Chinese, English, Japanese, Korean, French, German
-- **Production-grade Infrastructure** — Traefik edge router, Prometheus + Grafana + Loki observability, 4-layer network isolation
+
+### Infrastructure
+- **Sandboxed Tool Execution** — Browser and shell tools run in ephemeral Docker containers, fully isolated from the host filesystem and network
+- **Production-grade Observability** — Traefik edge router, Prometheus + Grafana + Loki + Promtail stack, cAdvisor container metrics, 4-layer network isolation
 
 ## System Limitations (Sandbox)
 
@@ -35,13 +60,13 @@ JARVIS runs entirely inside Docker containers to ensure host safety.
 
 | Layer | Technology |
 |-------|------------|
-| Backend | FastAPI · LangGraph · SQLAlchemy · Alembic |
-| Frontend | Vue 3 · TypeScript · Vite · Pinia |
+| Backend | FastAPI · LangGraph · SQLAlchemy · Alembic · ARQ |
+| Frontend | Vue 3 · TypeScript · Vite · Pinia · Tailwind CSS |
 | Database | PostgreSQL · Redis · Qdrant (Vector DB) |
 | Storage | MinIO |
-| LLM | DeepSeek · OpenAI · Anthropic |
+| LLM | DeepSeek · OpenAI · Anthropic · Zhipu GLM |
 | Edge Router | Traefik v3 |
-| Observability | Prometheus · Grafana · cAdvisor |
+| Observability | Prometheus · Grafana · Loki · Promtail · cAdvisor |
 
 ## Prerequisites
 
@@ -72,6 +97,7 @@ Open `.env` and fill in at least one key:
 DEEPSEEK_API_KEY=sk-...      # https://platform.deepseek.com
 OPENAI_API_KEY=sk-...        # optional
 ANTHROPIC_API_KEY=sk-ant-... # optional
+ZHIPUAI_API_KEY=...          # optional, https://open.bigmodel.cn
 ```
 
 ### 3. Start
@@ -96,6 +122,7 @@ First run builds the Docker images — allow a few minutes. Once healthy:
 **Services fail to start** — check logs:
 ```bash
 docker compose logs backend
+docker compose logs worker
 docker compose logs traefik
 ```
 
@@ -163,7 +190,7 @@ uv run uvicorn app.main:app --reload   # http://localhost:8000
 ```bash
 cd frontend
 bun install
-bun run dev   # http://localhost:5173  (proxies /api → localhost:8000)
+bun run dev   # http://localhost:3000  (proxies /api → localhost:8000)
 ```
 
 ---
@@ -174,35 +201,40 @@ bun run dev   # http://localhost:5173  (proxies /api → localhost:8000)
 JARVIS/
 ├── backend/                    # FastAPI (Python 3.13 + uv)
 │   ├── app/
-│   │   ├── agent/              # LangGraph ReAct agent + LLM failover
-│   │   ├── api/                # HTTP routes (auth/chat/conversations/documents/keys/settings)
-│   │   ├── channels/           # Channel adapters (Slack/Discord/Telegram/Feishu)
-│   │   ├── core/               # Config, JWT/bcrypt/Fernet security, rate limiting
-│   │   ├── db/                 # SQLAlchemy async models + sessions
-│   │   ├── gateway/            # Channel router + session manager
+│   │   ├── agent/              # LangGraph ReAct agent, LLM failover, persona, context compressor
+│   │   ├── api/                # HTTP routes (auth/chat/conversations/documents/settings/
+│   │   │                       #   cron/webhooks/voice/tts/canvas/organizations/workspaces/
+│   │   │                       #   invitations/plugins/keys/admin/logs/usage/personas/
+│   │   │                       #   public/workflows/gateway)
+│   │   ├── channels/           # Channel adapters (Slack/Discord/Telegram/Feishu/WhatsApp)
+│   │   ├── core/               # Config, JWT/bcrypt/Fernet security, rate limiting, audit log
+│   │   ├── db/                 # SQLAlchemy async models (21 tables) + sessions
+│   │   ├── gateway/            # Channel router + session manager + security
 │   │   ├── infra/              # Qdrant / MinIO / Redis singletons
-│   │   ├── plugins/            # Plugin loader + SKILL.md parser
-│   │   ├── rag/                # Document chunker + embedder + indexer
-│   │   ├── sandbox/            # Docker-based sandbox manager
-│   │   ├── scheduler/          # Cron job runner + triggers
+│   │   ├── plugins/            # Plugin SDK loader + SKILL.md parser
+│   │   ├── rag/                # Document chunker + embedder + indexer + context builder
+│   │   ├── sandbox/            # Docker-based ephemeral sandbox manager
+│   │   ├── scheduler/          # Cron runner + trigger system (web/semantic/email watchers)
 │   │   ├── services/           # Cross-cutting services (memory sync)
-│   │   └── tools/              # LangGraph tools (search/browser/shell/code_exec/file)
-│   ├── alembic/                # Database migrations
+│   │   ├── tools/              # LangGraph tools (search/browser/shell/code_exec/file/rag/canvas)
+│   │   └── worker.py           # ARQ background worker (cron execution, webhook delivery, cleanup)
+│   ├── alembic/                # Database migrations (027 versions)
 │   └── tests/                  # pytest suite
 ├── frontend/                   # Vue 3 + TypeScript + Vite + Pinia
 │   └── src/
 │       ├── api/                # Axios singleton + auth interceptor
-│       ├── components/         # Shared components (Canvas, Voice, PageHeader)
-│       ├── composables/        # Vue composables (speech input, voice stream)
-│       ├── stores/             # Pinia stores (auth + chat)
-│       ├── pages/              # Login / Register / Chat / Documents / Settings
+│       ├── components/         # Shared components (Canvas, Voice, MarkdownRenderer)
+│       ├── stores/             # Pinia stores (auth / chat / workspace)
+│       ├── pages/              # Chat · Documents · Settings · Personas · SharedChat ·
+│       │                       #   SkillMarket · WorkflowStudio · Admin · Usage ·
+│       │                       #   WorkspaceMembers · InviteAccept · Login · Register
 │       └── locales/            # i18n (zh/en/ja/ko/fr/de)
 ├── database/                   # Docker init scripts (postgres/redis/qdrant)
-├── monitoring/                 # Prometheus config + Grafana provisioning
+├── monitoring/                 # Prometheus · Grafana provisioning · Loki · Promtail configs
 ├── traefik/                    # Traefik dynamic routing config
 ├── scripts/
 │   └── init-env.sh             # Generates secure .env (requires uv)
-├── docker-compose.yml          # Base orchestration
+├── docker-compose.yml          # Base orchestration (production)
 ├── docker-compose.override.yml # Dev overrides (debug ports + hot-reload)
 └── .env.example                # Environment variable reference
 ```
@@ -247,10 +279,11 @@ Hooks: YAML/TOML/JSON validation · uv.lock sync · Ruff lint+format · ESLint �
 | `REDIS_PASSWORD` | Redis auth password |
 | `JWT_SECRET` | JWT signing secret |
 | `ENCRYPTION_KEY` | Fernet key for encrypting user API keys at rest |
-| `GRAFANA_PASSWORD` | Grafana admin password |
+| `GRAFANA_USER/PASSWORD` | Grafana admin credentials |
 | `DEEPSEEK_API_KEY` | **Fill in manually** |
 | `OPENAI_API_KEY` | Optional |
 | `ANTHROPIC_API_KEY` | Optional |
+| `ZHIPUAI_API_KEY` | Optional — Zhipu GLM models |
 
 See `.env.example` for the full reference.
 

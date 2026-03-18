@@ -52,7 +52,7 @@ cd backend && uv run uvicorn app.main:app --reload
 cd frontend && bun run dev
 ```
 
-Frontend: http://localhost:5173 · Backend: http://localhost:8000
+Frontend: http://localhost:3000 · Backend: http://localhost:8000
 
 ## Branch Naming
 
@@ -113,19 +113,19 @@ git worktree remove .worktrees/my-feature
 
 | Workspace | Backend | Frontend |
 |-----------|---------|----------|
-| Root | 8000 | 5173 |
-| Worktree 1 | 8001 | 5174 |
-| Worktree 2 | 8002 | 5175 |
+| Root | 8000 | 3000 |
+| Worktree 1 | 8001 | 3100 |
+| Worktree 2 | 8002 | 3200 |
 
 ```bash
 # In a worktree, use different ports
 cd backend && uv run uvicorn app.main:app --reload --port 8001
-cd frontend && bun run dev --port 5174
+cd frontend && bun run dev --port 3100
 ```
 
 ## Code Style
 
-- **Python**: Ruff (lint + format), Pyright (type check)
+- **Python**: Ruff (lint + format), mypy (type check)
 - **TypeScript/Vue**: ESLint + Prettier, vue-tsc (type check)
 - All enforced via pre-commit hooks
 
