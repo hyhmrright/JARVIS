@@ -3,6 +3,7 @@ import json
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import structlog
@@ -16,6 +17,7 @@ from fastapi import (
 )
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
@@ -33,7 +35,7 @@ from app.core.limiter import limiter
 from app.core.metrics import llm_requests_total
 from app.core.sanitizer import sanitize_user_input
 from app.core.security import resolve_api_key
-from app.db.models import AgentSession, Conversation, Message, User
+from app.db.models import AgentSession, Conversation, InstalledPlugin, Message, User
 from app.db.session import AsyncSessionLocal, get_db
 from app.plugins import plugin_registry
 from app.rag.context import build_rag_context
@@ -233,6 +235,33 @@ def _build_expert_graph(
         conversation_id=conversation_id,
         base_url=base_url,
     )
+
+
+async def _load_personal_plugin_tools(user_id: str) -> list[BaseTool]:
+    """Load personal installed skill_md/python_plugin tools for this request."""
+    from app.plugins.loader import _load_from_directory, load_markdown_skills
+    from app.plugins.registry import PluginRegistry
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(InstalledPlugin).where(
+                InstalledPlugin.scope == "personal",
+                InstalledPlugin.installed_by == user_id,
+                InstalledPlugin.type.in_(["skill_md", "python_plugin"]),
+            )
+        )
+        rows = result.scalars().all()
+        if not rows:
+            return []
+
+    personal_dir = Path(settings.installed_plugins_dir) / "users" / str(user_id)
+    if not personal_dir.exists():
+        return []
+
+    personal_registry = PluginRegistry()
+    _load_from_directory(personal_registry, personal_dir)
+    await load_markdown_skills(personal_registry, [personal_dir])
+    return personal_registry.get_all_tools()
 
 
 async def _load_tools(enabled_tools: list[str] | None) -> tuple[list, list | None]:
@@ -446,6 +475,10 @@ async def chat_stream(  # noqa: C901
             logger.warning("agent_session_create_failed", exc_info=True)
 
         mcp_tools, plugin_tools = await _load_tools(llm.enabled_tools)
+
+        personal_tools = await _load_personal_plugin_tools(str(user.id))
+        if personal_tools:
+            plugin_tools = [*(plugin_tools or []), *personal_tools]
 
         route = "simple"
         if not is_consent:
@@ -774,6 +807,10 @@ async def chat_regenerate(  # noqa: C901
 
         mcp_tools, plugin_tools = await _load_tools(llm.enabled_tools)
 
+        personal_tools = await _load_personal_plugin_tools(str(user.id))
+        if personal_tools:
+            plugin_tools = [*(plugin_tools or []), *personal_tools]
+
         try:
             route = await classify_task(
                 user_content,
@@ -784,7 +821,6 @@ async def chat_regenerate(  # noqa: C901
             )
         except Exception as e:
             logger.error("classify_task_failed_falling_back", error=str(e))
-            route = "main"
 
         yield _format_sse({"type": "routing", "agent": route})
         full_content = ""
