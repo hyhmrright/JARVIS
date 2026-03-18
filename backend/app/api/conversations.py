@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -73,6 +73,78 @@ class MessageOut(BaseModel):
     image_urls: list[str] | None = None
     created_at: datetime
     model_config = {"from_attributes": True}
+
+
+class SearchResult(BaseModel):
+    conv_id: uuid.UUID
+    title: str
+    snippet: str
+    updated_at: datetime
+
+
+@router.get("/search", response_model=list[SearchResult])
+async def search_conversations(
+    q: str = Query(..., min_length=2, description="Search query, min 2 chars"),
+    limit: int = Query(20, ge=1, le=50),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[SearchResult]:
+    """Full-text search across conversation titles and message content."""
+    pattern = f"%{q}%"
+
+    title_rows = await db.execute(
+        select(Conversation)
+        .where(
+            Conversation.user_id == user.id,
+            Conversation.title.ilike(pattern),
+        )
+        .order_by(Conversation.updated_at.desc())
+    )
+    title_convs = list(title_rows.scalars().all())
+    title_ids = {c.id for c in title_convs}
+
+    msg_rows = await db.execute(
+        select(Message.conversation_id, Message.content)
+        .join(Conversation, Conversation.id == Message.conversation_id)
+        .where(
+            Conversation.user_id == user.id,
+            Message.role.in_(["human", "ai"]),
+            Message.content.ilike(pattern),
+        )
+        .order_by(Message.conversation_id, Message.created_at, Message.id)
+        .distinct(Message.conversation_id)
+    )
+    msg_matches: dict[uuid.UUID, str] = {
+        row.conversation_id: row.content for row in msg_rows.all()
+    }
+
+    extra_ids = [cid for cid in msg_matches if cid not in title_ids]
+    extra_convs: list[Conversation] = []
+    if extra_ids:
+        extra_rows = await db.execute(
+            select(Conversation)
+            .where(Conversation.id.in_(extra_ids))
+            .order_by(Conversation.updated_at.desc())
+        )
+        extra_convs = list(extra_rows.scalars().all())
+
+    def _snippet(text: str) -> str:
+        idx = text.lower().find(q.lower())
+        start = max(0, idx - 50) if idx >= 0 else 0
+        return ("..." if start > 0 else "") + text[start : start + 200]
+
+    results: list[SearchResult] = []
+    for conv in title_convs + extra_convs:
+        snippet_src = msg_matches.get(conv.id, conv.title)
+        results.append(
+            SearchResult(
+                conv_id=conv.id,
+                title=conv.title,
+                snippet=_snippet(snippet_src),
+                updated_at=conv.updated_at,
+            )
+        )
+    return results[:limit]
 
 
 @router.get("/{conv_id}/messages", response_model=list[MessageOut])

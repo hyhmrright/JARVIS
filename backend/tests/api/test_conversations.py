@@ -1,5 +1,9 @@
 import uuid
 
+import pytest
+
+from app.db.models import Conversation, Message
+
 
 async def test_create_conversation(auth_client):
     resp = await auth_client.post("/api/conversations", json={"title": "My Chat"})
@@ -49,3 +53,56 @@ async def test_set_active_leaf_wrong_conversation_returns_404(auth_client):
         json={"active_leaf_id": str(uuid.uuid4())},
     )
     assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_search_rejects_single_char(auth_client):
+    resp = await auth_client.get("/api/conversations/search?q=a")
+    assert resp.status_code == 422  # Pydantic min_length=2 returns 422
+
+
+@pytest.mark.anyio
+async def test_search_returns_empty_list_for_no_match(auth_client):
+    resp = await auth_client.get("/api/conversations/search?q=zzznomatch")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+@pytest.mark.anyio
+async def test_search_finds_conversation_by_title(auth_client, db_session):
+    from app.core.security import decode_access_token
+
+    token = auth_client.headers["Authorization"].split(" ")[1]
+    user_id = decode_access_token(token)
+    conv = Conversation(user_id=user_id, title="Python tutorials for beginners")
+    db_session.add(conv)
+    await db_session.commit()
+    resp = await auth_client.get("/api/conversations/search?q=Python")
+    assert resp.status_code == 200
+    results = resp.json()
+    assert any(r["conv_id"] == str(conv.id) for r in results)
+    result = next(r for r in results if r["conv_id"] == str(conv.id))
+    assert "title" in result
+    assert "snippet" in result
+    assert "updated_at" in result
+
+
+@pytest.mark.anyio
+async def test_search_finds_by_message_content(auth_client, db_session):
+    from app.core.security import decode_access_token
+
+    token = auth_client.headers["Authorization"].split(" ")[1]
+    user_id = decode_access_token(token)
+    conv = Conversation(user_id=user_id, title="Generic conversation")
+    db_session.add(conv)
+    await db_session.flush()
+    msg = Message(
+        conversation_id=conv.id,
+        role="human",
+        content="Explain quantum entanglement in simple terms",
+    )
+    db_session.add(msg)
+    await db_session.commit()
+    resp = await auth_client.get("/api/conversations/search?q=quantum")
+    assert resp.status_code == 200
+    assert any(r["conv_id"] == str(conv.id) for r in resp.json())
