@@ -19,7 +19,7 @@ from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -291,6 +291,18 @@ class ChatRequest(BaseModel):
     parent_message_id: uuid.UUID | None = None
     persona_id: uuid.UUID | None = None
     workflow_dsl: dict | None = None
+
+    @field_validator("image_urls")
+    @classmethod
+    def validate_image_urls(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        if len(v) > 4:
+            raise ValueError("Maximum 4 images per message")
+        for url in v:
+            if len(url) > 5_600_000:
+                raise ValueError("Image too large (max 4 MB per image)")
+        return v
 
 
 @router.post("/stream")
