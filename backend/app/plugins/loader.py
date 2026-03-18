@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib
 import importlib.metadata
 import importlib.util
@@ -30,6 +31,18 @@ logger = structlog.get_logger(__name__)
 
 _ENTRY_POINT_GROUP = "jarvis_plugins"
 _DEFAULT_PLUGIN_DIR = Path.home() / ".jarvis" / "plugins"
+
+# Protects system plugin reload against concurrent admin installs
+_system_reload_lock = asyncio.Lock()
+
+
+async def reload_system_plugins(registry: PluginRegistry) -> None:
+    """Reload system plugins under a lock to prevent concurrent reload races."""
+    async with _system_reload_lock:
+        await deactivate_all_plugins(registry)
+        registry._entries.clear()
+        await load_all_plugins(registry)
+        await activate_all_plugins(registry)
 
 
 async def install_plugin_from_url(url: str, registry: PluginRegistry) -> str:
