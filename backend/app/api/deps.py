@@ -135,8 +135,10 @@ async def get_current_user_optional(
         return None
     try:
         return await _resolve_user(credentials.credentials, db, request)
-    except HTTPException:
-        return None
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            return None
+        raise
 
 
 async def get_current_user_query_token(

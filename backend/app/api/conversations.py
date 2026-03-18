@@ -174,7 +174,7 @@ async def export_conversation(
         shared = await db.scalar(
             select(SharedConversation).where(SharedConversation.share_token == token)
         )
-        if shared:
+        if shared and shared.conversation_id == conv_id:
             conv = await db.get(Conversation, shared.conversation_id)
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
