@@ -1,10 +1,14 @@
 import asyncio
 import io
 import uuid
+from datetime import datetime
 from pathlib import Path
 
+import httpx
 import structlog
+from bs4 import BeautifulSoup
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel
 from qdrant_client.models import FieldCondition, Filter, MatchValue
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +21,7 @@ from app.db.session import get_db
 from app.infra.minio import get_minio_client
 from app.infra.qdrant import get_qdrant_client, user_collection_name
 from app.rag.indexer import index_document
+from app.tools.web_fetch_tool import is_safe_url
 
 logger = structlog.get_logger(__name__)
 
@@ -24,6 +29,42 @@ router = APIRouter(prefix="/api/documents", tags=["documents"])
 
 ALLOWED_TYPES = {"pdf", "txt", "md", "docx"}
 MAX_SIZE = 50 * 1024 * 1024
+
+
+async def _resolve_workspace_collection(
+    workspace_id: uuid.UUID,
+    user: User,
+    db: AsyncSession,
+) -> str:
+    """Validate workspace membership and return the Qdrant collection name.
+
+    Raises HTTPException 404 if the workspace is missing/deleted/outside the
+    user's org, and 403 if the user is not a member.
+    """
+    ws = await db.get(Workspace, workspace_id)
+    if not ws or ws.is_deleted or ws.organization_id != user.organization_id:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    membership = await db.scalar(
+        select(WorkspaceMember).where(
+            WorkspaceMember.workspace_id == workspace_id,
+            WorkspaceMember.user_id == user.id,
+        )
+    )
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not a workspace member")
+    return f"workspace_{workspace_id}"
+
+
+class DocumentOut(BaseModel):
+    id: uuid.UUID
+    filename: str
+    file_type: str
+    source_url: str | None = None
+    file_size_bytes: int
+    chunk_count: int
+    created_at: datetime
+    workspace_id: uuid.UUID | None = None
+    model_config = {"from_attributes": True}
 
 
 def extract_text(content: bytes, file_type: str) -> str:
@@ -52,17 +93,7 @@ async def list_documents(
 ) -> dict[str, list[dict]]:
     if workspace_id is not None:
         # Workspace listing: show all docs in this workspace to members.
-        ws = await db.get(Workspace, workspace_id)
-        if not ws or ws.is_deleted or ws.organization_id != user.organization_id:
-            raise HTTPException(status_code=404, detail="Workspace not found")
-        membership = await db.scalar(
-            select(WorkspaceMember).where(
-                WorkspaceMember.workspace_id == workspace_id,
-                WorkspaceMember.user_id == user.id,
-            )
-        )
-        if not membership:
-            raise HTTPException(status_code=403, detail="Not a workspace member")
+        await _resolve_workspace_collection(workspace_id, user, db)
         query = (
             select(Document)
             .where(
@@ -135,14 +166,14 @@ async def delete_document(
     logger.info("document_deleted", user_id=str(user.id), doc_id=str(doc.id))
 
 
-@router.post("", status_code=201)
+@router.post("", status_code=201, response_model=DocumentOut)
 async def upload_document(
     file: UploadFile = File(...),
     workspace_id: uuid.UUID | None = None,
     user: User = Depends(get_current_user),
     llm: ResolvedLLMConfig = Depends(get_llm_config),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, str | int]:
+) -> DocumentOut:
     ext = (file.filename or "").rsplit(".", 1)[-1].lower()
     if ext not in ALLOWED_TYPES:
         raise HTTPException(status_code=400, detail=f"File type .{ext} not supported")
@@ -154,18 +185,7 @@ async def upload_document(
     # Validate workspace membership before touching MinIO to avoid orphaned objects.
     qdrant_collection = user_collection_name(str(user.id))
     if workspace_id is not None:
-        ws = await db.get(Workspace, workspace_id)
-        if not ws or ws.is_deleted or ws.organization_id != user.organization_id:
-            raise HTTPException(status_code=404, detail="Workspace not found")
-        membership = await db.scalar(
-            select(WorkspaceMember).where(
-                WorkspaceMember.workspace_id == workspace_id,
-                WorkspaceMember.user_id == user.id,
-            )
-        )
-        if not membership:
-            raise HTTPException(status_code=403, detail="Not a workspace member")
-        qdrant_collection = f"workspace_{workspace_id}"
+        qdrant_collection = await _resolve_workspace_collection(workspace_id, user, db)
 
     safe_name = Path(file.filename or "upload").name
     object_key = f"{user.id}/{uuid.uuid4()}_{safe_name}"
@@ -220,4 +240,122 @@ async def upload_document(
         file_size_bytes=len(content),
         chunk_count=chunk_count,
     )
-    return {"id": str(doc.id), "filename": doc.filename, "chunk_count": chunk_count}
+    return DocumentOut.model_validate(doc)
+
+
+class IngestUrlRequest(BaseModel):
+    url: str
+    workspace_id: uuid.UUID | None = None
+
+
+_MAX_URL_CONTENT_BYTES = 5 * 1024 * 1024  # 5 MB
+
+
+def _extract_page_text(html_bytes: bytes) -> tuple[str, str]:
+    """Return (title, body_text) from HTML. Strips noise, collects content tags."""
+    soup = BeautifulSoup(html_bytes, "lxml")
+    for tag in soup(["script", "style", "nav", "footer", "header"]):
+        tag.decompose()
+    title = ""
+    if soup.title and soup.title.string:
+        title = soup.title.string.strip()
+    if not title:
+        h1 = soup.find("h1")
+        if h1:
+            title = h1.get_text(strip=True)
+    parts = []
+    for tag in soup.find_all(["p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "td"]):
+        text = tag.get_text(separator=" ", strip=True)
+        if text:
+            parts.append(text)
+    return title or "Web Page", "\n\n".join(parts)
+
+
+@router.post("/ingest-url", response_model=DocumentOut, status_code=201)
+async def ingest_url(
+    body: IngestUrlRequest,
+    user: User = Depends(get_current_user),
+    llm: ResolvedLLMConfig = Depends(get_llm_config),
+    db: AsyncSession = Depends(get_db),
+) -> DocumentOut:
+    """Fetch a web page and add it to the knowledge base."""
+    if not is_safe_url(body.url):
+        raise HTTPException(
+            status_code=400,
+            detail=f"URL not allowed (internal or non-http): {body.url!r}",
+        )
+
+    qdrant_collection = user_collection_name(str(user.id))
+    workspace_id = body.workspace_id
+
+    if workspace_id is not None:
+        qdrant_collection = await _resolve_workspace_collection(workspace_id, user, db)
+
+    async with httpx.AsyncClient(follow_redirects=True, timeout=15.0) as client:
+        try:
+            response = await client.get(body.url)
+            response.raise_for_status()
+        except httpx.HTTPError as e:
+            raise HTTPException(
+                status_code=400, detail=f"Failed to fetch URL: {e}"
+            ) from e
+        if len(response.content) > _MAX_URL_CONTENT_BYTES:
+            raise HTTPException(status_code=400, detail="Page too large (max 5 MB)")
+
+    title, text = await asyncio.to_thread(_extract_page_text, response.content)
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="No readable content found on page")
+
+    text_bytes = text.encode("utf-8")
+    object_key = f"{user.id}/{uuid.uuid4()}_webpage.txt"
+
+    minio_client = get_minio_client()
+    await asyncio.to_thread(
+        minio_client.put_object,
+        settings.minio_bucket,
+        object_key,
+        io.BytesIO(text_bytes),
+        len(text_bytes),
+    )
+
+    openai_key = resolve_api_key("openai", llm.raw_keys)
+    if not openai_key:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "OpenAI API key required for document embedding. "
+                "Configure it in Settings."
+            ),
+        )
+
+    doc = Document(
+        user_id=user.id,
+        filename=title[:255],
+        file_type="txt",
+        file_size_bytes=len(text_bytes),
+        qdrant_collection=qdrant_collection,
+        minio_object_key=object_key,
+        source_url=body.url,
+    )
+    if workspace_id is not None:
+        doc.workspace_id = workspace_id
+    db.add(doc)
+    await db.flush()
+
+    chunk_count = await index_document(
+        str(user.id),
+        str(doc.id),
+        text,
+        openai_key,
+        doc_name=title,
+        collection_name=qdrant_collection,
+    )
+    doc.chunk_count = chunk_count
+    await db.commit()
+    logger.info(
+        "document_url_ingested",
+        user_id=str(user.id),
+        doc_id=str(doc.id),
+        url=body.url,
+    )
+    return DocumentOut.model_validate(doc)
