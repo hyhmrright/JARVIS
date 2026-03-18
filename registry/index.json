@@ -1,0 +1,38 @@
+{
+  "version": "1",
+  "skills": [
+    {
+      "id": "mcp-github",
+      "name": "GitHub MCP Server",
+      "description": "Read repos, issues, PRs, and code via GitHub API using Model Context Protocol",
+      "type": "mcp",
+      "source": "https://github.com/modelcontextprotocol/servers",
+      "install_url": "npx @modelcontextprotocol/server-github",
+      "author": "Model Context Protocol",
+      "tags": ["dev", "github", "mcp"],
+      "scope": ["system", "personal"]
+    },
+    {
+      "id": "mcp-filesystem",
+      "name": "Filesystem MCP Server",
+      "description": "Read and write files on the host filesystem via Model Context Protocol",
+      "type": "mcp",
+      "source": "https://github.com/modelcontextprotocol/servers",
+      "install_url": "npx @modelcontextprotocol/server-filesystem",
+      "author": "Model Context Protocol",
+      "tags": ["files", "mcp"],
+      "scope": ["system"]
+    },
+    {
+      "id": "mcp-brave-search",
+      "name": "Brave Search MCP Server",
+      "description": "Web and local search via Brave Search API using Model Context Protocol",
+      "type": "mcp",
+      "source": "https://github.com/modelcontextprotocol/servers",
+      "install_url": "npx @modelcontextprotocol/server-brave-search",
+      "author": "Model Context Protocol",
+      "tags": ["search", "web", "mcp"],
+      "scope": ["system", "personal"]
+    }
+  ]
+}
