@@ -111,7 +111,7 @@ async def test_search_finds_by_message_content(auth_client, db_session):
 @pytest.mark.anyio
 async def test_export_markdown_format(auth_client, db_session):
     from app.core.security import decode_access_token
-    import json as _json
+
     token = auth_client.headers["Authorization"].split(" ")[1]
     user_id = decode_access_token(token)
     conv = Conversation(user_id=user_id, title="My Export Test")
@@ -131,8 +131,10 @@ async def test_export_markdown_format(auth_client, db_session):
 
 @pytest.mark.anyio
 async def test_export_json_format(auth_client, db_session):
-    from app.core.security import decode_access_token
     import json as _json
+
+    from app.core.security import decode_access_token
+
     token = auth_client.headers["Authorization"].split(" ")[1]
     user_id = decode_access_token(token)
     conv = Conversation(user_id=user_id, title="JSON Export")
@@ -151,6 +153,7 @@ async def test_export_json_format(auth_client, db_session):
 @pytest.mark.anyio
 async def test_export_txt_format(auth_client, db_session):
     from app.core.security import decode_access_token
+
     token = auth_client.headers["Authorization"].split(" ")[1]
     user_id = decode_access_token(token)
     conv = Conversation(user_id=user_id, title="TXT Export")
@@ -164,8 +167,11 @@ async def test_export_txt_format(auth_client, db_session):
 
 
 @pytest.mark.anyio
-async def test_export_returns_404_for_wrong_user(auth_client, second_user_auth_headers, db_session):
+async def test_export_returns_404_for_wrong_user(
+    auth_client, second_user_auth_headers, db_session
+):
     from app.core.security import decode_access_token
+
     # Create a conversation owned by second user
     token2 = second_user_auth_headers["Authorization"].split(" ")[1]
     user2_id = decode_access_token(token2)
@@ -180,6 +186,7 @@ async def test_export_returns_404_for_wrong_user(auth_client, second_user_auth_h
 @pytest.mark.anyio
 async def test_patch_conversation_sets_persona(auth_client, db_session):
     from app.core.security import decode_access_token
+
     token = auth_client.headers["Authorization"].split(" ")[1]
     user_id = decode_access_token(token)
     conv = Conversation(user_id=user_id, title="Patch test")
@@ -197,9 +204,12 @@ async def test_patch_conversation_sets_persona(auth_client, db_session):
 @pytest.mark.anyio
 async def test_patch_conversation_clears_persona(auth_client, db_session):
     from app.core.security import decode_access_token
+
     token = auth_client.headers["Authorization"].split(" ")[1]
     user_id = decode_access_token(token)
-    conv = Conversation(user_id=user_id, title="Clear test", persona_override="Old value")
+    conv = Conversation(
+        user_id=user_id, title="Clear test", persona_override="Old value"
+    )
     db_session.add(conv)
     await db_session.commit()
     resp = await auth_client.patch(
@@ -209,3 +219,42 @@ async def test_patch_conversation_clears_persona(auth_client, db_session):
     assert resp.status_code == 204
     await db_session.refresh(conv)
     assert conv.persona_override is None
+
+
+@pytest.mark.anyio
+async def test_export_accessible_via_share_token(client, db_session):
+    """Export should work for anonymous users who have a valid share token."""
+    import uuid as _uuid
+
+    from app.core.security import decode_access_token
+
+    # Register a user and create a conversation
+    resp = await client.post(
+        "/api/auth/register",
+        json={
+            "email": f"sharetest_{_uuid.uuid4().hex[:6]}@example.com",
+            "password": "password123",
+        },
+    )
+    assert resp.status_code == 201
+    owner_token = resp.json()["access_token"]
+    owner_id = decode_access_token(owner_token)
+    conv = Conversation(user_id=owner_id, title="Shared Conversation")
+    db_session.add(conv)
+    await db_session.flush()
+    db_session.add(
+        Message(conversation_id=conv.id, role="human", content="Shared message")
+    )
+    from app.db.models import SharedConversation
+
+    share = SharedConversation(
+        conversation_id=conv.id, share_token="test-share-token-xyz"
+    )
+    db_session.add(share)
+    await db_session.commit()
+    # Access export without auth but with share token
+    resp = await client.get(
+        f"/api/conversations/{conv.id}/export?token=test-share-token-xyz"
+    )
+    assert resp.status_code == 200
+    assert "Shared Conversation" in resp.text
