@@ -129,8 +129,8 @@ async def _fetch_file_plugin(
     plugin_id: str,
     default_name: str,
     user_id: Any,
-) -> tuple[str | None, str | None, str]:
-    """Download skill_md / python_plugin files; return (cmd, args, name)."""
+) -> str:
+    """Download skill_md / python_plugin files; return resolved display name."""
     base = Path(settings.installed_plugins_dir)
     scope_dir = _scope_dir(req.scope, user_id, base)
     name = default_name
@@ -146,7 +146,7 @@ async def _fetch_file_plugin(
                 name = manifest_name
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Could not fetch URL: {e}") from e
-    return None, None, name
+    return name
 
 
 # ── Install ────────────────────────────────────────────────────────────────────
@@ -181,7 +181,7 @@ async def install_plugin_unified(
     if detected_type == "mcp":
         mcp_command, mcp_args = parse_mcp_command(req.url)
     else:
-        _, _, name = await _fetch_file_plugin(
+        name = await _fetch_file_plugin(
             detected_type, req, plugin_id, default_name, user.id
         )
 

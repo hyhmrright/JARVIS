@@ -3,16 +3,16 @@
 import io
 import zipfile
 
+import httpx
 import pytest
 import respx
-import httpx
 
 from app.plugins.adapters.mcp import parse_mcp_command
-from app.plugins.adapters.skill_md import download_skill_md, extract_md_title
 from app.plugins.adapters.python_plugin import download_python_plugin
-
+from app.plugins.adapters.skill_md import download_skill_md, extract_md_title
 
 # ── MCP adapter ──────────────────────────────────────────────────────────────
+
 
 def test_parse_mcp_basic() -> None:
     cmd, args = parse_mcp_command("npx @modelcontextprotocol/server-github")
@@ -32,6 +32,7 @@ def test_parse_mcp_invalid_raises() -> None:
 
 
 # ── skill_md adapter ──────────────────────────────────────────────────────────
+
 
 def test_extract_md_title_from_heading() -> None:
     content = "# Weather Query\n\nSome description."
@@ -70,6 +71,7 @@ async def test_download_skill_md_network_error(tmp_path):
 
 
 # ── python_plugin adapter ─────────────────────────────────────────────────────
+
 
 @pytest.mark.anyio
 @respx.mock

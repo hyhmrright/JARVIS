@@ -1,5 +1,6 @@
 """Skill Market service — reads curated registry from disk."""
 
+import asyncio
 import json
 from pathlib import Path
 from typing import Literal
@@ -41,7 +42,8 @@ class SkillMarketManager:
                     "market_registry_not_found", path=str(self._registry_path)
                 )
                 return []
-            data = json.loads(self._registry_path.read_text())
+            text = await asyncio.to_thread(self._registry_path.read_text)
+            data = json.loads(text)
             return [MarketSkillOut(**item) for item in data.get("skills", [])]
         except Exception as e:
             logger.error("market_registry_error", error=str(e))

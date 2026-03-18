@@ -9,8 +9,9 @@ Create Date: 2026-03-18 22:00:00.000000
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
+
+from alembic import op
 
 revision: str = "d4e5f6a7b8c9"
 down_revision: str | None = "c7c0b68bab0e"

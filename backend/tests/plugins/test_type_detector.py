@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.plugins.type_detector import DetectionResult, detect_type
+from app.plugins.type_detector import detect_type
 
 
 @pytest.mark.parametrize(

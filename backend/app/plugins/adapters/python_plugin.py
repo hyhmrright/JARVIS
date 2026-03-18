@@ -45,7 +45,10 @@ async def download_python_plugin(url: str, dest_dir: Path) -> tuple[Path, str | 
                 safe_members = [
                     m
                     for m in z.infolist()
-                    if not (m.filename.startswith("/") or ".." in m.filename.split("/"))
+                    if not (
+                        m.filename.startswith("/")
+                        or ".." in m.filename.replace("\\", "/").split("/")
+                    )
                 ]
                 z.extractall(pkg_dir, members=safe_members)
 

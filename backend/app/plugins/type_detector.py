@@ -89,7 +89,8 @@ def detect_type(url_or_command: str) -> DetectionResult | None:
             default_name=_title_from_slug(stem),
         )
 
-    if path_lower.endswith(".zip") or "archive" in path_lower:
+    filename_lower = PurePosixPath(parsed.path).name.lower()
+    if path_lower.endswith(".zip") or "archive" in filename_lower:
         stem = _stem_from_url(s)
         return DetectionResult(
             type="python_plugin",

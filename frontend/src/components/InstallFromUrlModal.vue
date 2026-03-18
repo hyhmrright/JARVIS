@@ -83,7 +83,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 import { useAuthStore } from "@/stores/auth";
 import { marketApi } from "@/api/plugins";
 import type { InstallRequest } from "@/api/plugins";
@@ -105,6 +105,10 @@ const detecting = ref(false);
 const installing = ref(false);
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+onBeforeUnmount(() => {
+  if (debounceTimer) clearTimeout(debounceTimer);
+});
 
 function onInputChange() {
   detectedType.value = null;

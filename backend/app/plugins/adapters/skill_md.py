@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import httpx
@@ -24,7 +25,7 @@ async def download_skill_md(url: str, dest_path: Path) -> str:
         response.raise_for_status()
         content = response.text
         dest_path.parent.mkdir(parents=True, exist_ok=True)
-        dest_path.write_text(content, encoding="utf-8")
+        await asyncio.to_thread(dest_path.write_text, content, "utf-8")
         logger.info("skill_md_downloaded", url=url, path=str(dest_path))
         return content
 

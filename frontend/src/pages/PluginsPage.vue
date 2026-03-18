@@ -240,8 +240,7 @@ async function loadPlugins() {
 }
 
 onMounted(() => {
-  loadPlugins();
-  loadInstalled();
+  void Promise.all([loadPlugins(), loadInstalled()]);
 });
 
 async function handleReload() {

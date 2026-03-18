@@ -811,6 +811,7 @@ async def chat_regenerate(  # noqa: C901
         if personal_tools:
             plugin_tools = [*(plugin_tools or []), *personal_tools]
 
+        route = "main"
         try:
             route = await classify_task(
                 user_content,
