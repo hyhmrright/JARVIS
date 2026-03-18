@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 
 @pytest.mark.anyio
@@ -67,3 +68,41 @@ async def test_ingest_url_success(auth_client, db_session):
     assert data["file_type"] == "txt"
     assert data["source_url"] == "https://example.com/ml-guide"
     assert "filename" in data
+
+
+def test_extract_page_text_basic_html():
+    from app.api.documents import _extract_page_text
+
+    html = (
+        b"<html><head><title>Test Title</title></head>"
+        b"<body>"
+        b"<nav>skip this</nav>"
+        b"<p>First paragraph.</p>"
+        b"<h2>Section Header</h2>"
+        b"<li>List item</li>"
+        b"<script>skip script</script>"
+        b"</body></html>"
+    )
+    title, text = _extract_page_text(html, "https://example.com/page")
+    assert title == "Test Title"
+    assert "First paragraph." in text
+    assert "Section Header" in text
+    assert "List item" in text
+    assert "skip this" not in text
+    assert "skip script" not in text
+
+
+def test_extract_page_text_fallback_to_h1():
+    from app.api.documents import _extract_page_text
+
+    html = b"<html><body><h1>Page Heading</h1><p>Content here.</p></body></html>"
+    title, text = _extract_page_text(html, "https://example.com")
+    assert title == "Page Heading"
+
+
+def test_extract_page_text_fallback_to_hostname():
+    from app.api.documents import _extract_page_text
+
+    html = b"<html><body><p>No title here.</p></body></html>"
+    title, text = _extract_page_text(html, "https://docs.example.org/page")
+    assert title == "docs.example.org"

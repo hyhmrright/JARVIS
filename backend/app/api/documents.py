@@ -3,6 +3,7 @@ import io
 import uuid
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 import structlog
@@ -251,7 +252,7 @@ class IngestUrlRequest(BaseModel):
 _MAX_URL_CONTENT_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
-def _extract_page_text(html_bytes: bytes) -> tuple[str, str]:
+def _extract_page_text(html_bytes: bytes, url: str = "") -> tuple[str, str]:
     """Return (title, body_text) from HTML. Strips noise, collects content tags."""
     soup = BeautifulSoup(html_bytes, "lxml")
     for tag in soup(["script", "style", "nav", "footer", "header"]):
@@ -268,7 +269,8 @@ def _extract_page_text(html_bytes: bytes) -> tuple[str, str]:
         text = tag.get_text(separator=" ", strip=True)
         if text:
             parts.append(text)
-    return title or "Web Page", "\n\n".join(parts)
+    fallback = urlparse(url).hostname or "Web Page"
+    return title or fallback, "\n\n".join(parts)
 
 
 @router.post("/ingest-url", response_model=DocumentOut, status_code=201)
@@ -302,7 +304,9 @@ async def ingest_url(
         if len(response.content) > _MAX_URL_CONTENT_BYTES:
             raise HTTPException(status_code=400, detail="Page too large (max 5 MB)")
 
-    title, text = await asyncio.to_thread(_extract_page_text, response.content)
+    title, text = await asyncio.to_thread(
+        _extract_page_text, response.content, body.url
+    )
     if not text.strip():
         raise HTTPException(status_code=400, detail="No readable content found on page")
 
