@@ -15,7 +15,6 @@ from app.plugins.type_detector import detect_type
         ("https://github.com/user/repo/archive/refs/heads/main.zip", "python_plugin"),
         ("npx @modelcontextprotocol/server-github", "mcp"),
         ("npx some-package", "mcp"),
-        ("mcp://some-server", "mcp"),
     ],
 )
 def test_detect_type_by_pattern(url: str, expected_type: str) -> None:
@@ -26,6 +25,12 @@ def test_detect_type_by_pattern(url: str, expected_type: str) -> None:
 
 def test_unrecognized_url_returns_none() -> None:
     result = detect_type("https://example.com/something")
+    assert result is None
+
+
+def test_mcp_scheme_returns_none() -> None:
+    # mcp:// has no install path (only npx commands are installable as MCP)
+    result = detect_type("mcp://some-server")
     assert result is None
 
 

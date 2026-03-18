@@ -239,29 +239,33 @@ def _build_expert_graph(
 
 async def _load_personal_plugin_tools(user_id: str) -> list[BaseTool]:
     """Load personal installed skill_md/python_plugin tools for this request."""
-    from app.plugins.loader import _load_from_directory, load_markdown_skills
-    from app.plugins.registry import PluginRegistry
+    try:
+        from app.plugins.loader import _load_from_directory, load_markdown_skills
+        from app.plugins.registry import PluginRegistry
 
-    async with AsyncSessionLocal() as db:
-        result = await db.execute(
-            select(InstalledPlugin).where(
-                InstalledPlugin.scope == "personal",
-                InstalledPlugin.installed_by == user_id,
-                InstalledPlugin.type.in_(["skill_md", "python_plugin"]),
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(InstalledPlugin).where(
+                    InstalledPlugin.scope == "personal",
+                    InstalledPlugin.installed_by == user_id,
+                    InstalledPlugin.type.in_(["skill_md", "python_plugin"]),
+                )
             )
-        )
-        rows = result.scalars().all()
-        if not rows:
+            rows = result.scalars().all()
+            if not rows:
+                return []
+
+        personal_dir = Path(settings.installed_plugins_dir) / "users" / str(user_id)
+        if not personal_dir.exists():
             return []
 
-    personal_dir = Path(settings.installed_plugins_dir) / "users" / str(user_id)
-    if not personal_dir.exists():
+        personal_registry = PluginRegistry()
+        _load_from_directory(personal_registry, personal_dir)
+        await load_markdown_skills(personal_registry, [personal_dir])
+        return personal_registry.get_all_tools()
+    except Exception:
+        logger.exception("personal_plugin_load_failed", user_id=user_id)
         return []
-
-    personal_registry = PluginRegistry()
-    _load_from_directory(personal_registry, personal_dir)
-    await load_markdown_skills(personal_registry, [personal_dir])
-    return personal_registry.get_all_tools()
 
 
 async def _load_tools(enabled_tools: list[str] | None) -> tuple[list, list | None]:

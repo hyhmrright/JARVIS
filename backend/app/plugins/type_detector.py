@@ -53,16 +53,6 @@ def detect_type(url_or_command: str) -> DetectionResult | None:
             default_name=_title_from_slug(_slugify(bare)),
         )
 
-    # MCP: mcp:// scheme
-    if s.startswith("mcp://"):
-        host = urlparse(s).netloc or s[6:]
-        plugin_id = "mcp-" + _slugify(host)
-        return DetectionResult(
-            type="mcp",
-            plugin_id=plugin_id,
-            default_name=_title_from_slug(_slugify(host)),
-        )
-
     # Must be an http(s) URL from here
     try:
         parsed = urlparse(s)
