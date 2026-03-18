@@ -6,7 +6,7 @@ import json
 from collections.abc import AsyncGenerator
 
 import structlog
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
 from app.api.deps import get_current_user_query_token
@@ -19,6 +19,7 @@ router = APIRouter(prefix="/api/canvas", tags=["canvas"])
 
 @router.get("/stream/{conversation_id}")
 async def canvas_stream(
+    request: Request,
     conversation_id: str,
     user: User = Depends(get_current_user_query_token),
 ) -> StreamingResponse:
@@ -36,6 +37,13 @@ async def canvas_stream(
             conv_id=conversation_id,
         )
         async for event in bus.subscribe(conversation_id):
+            if await request.is_disconnected():
+                logger.info(
+                    "canvas_stream_disconnected",
+                    user_id=str(user.id),
+                    conv_id=conversation_id,
+                )
+                break
             yield "data: " + json.dumps(event, ensure_ascii=False) + "\n\n"
 
     return StreamingResponse(

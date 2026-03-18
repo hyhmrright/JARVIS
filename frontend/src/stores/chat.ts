@@ -48,10 +48,12 @@ export const useChatStore = defineStore("chat", {
       }
       
       const thread = [];
-      while (currentId && msgDict.has(currentId)) {
+      let depth = 0;
+      while (currentId && msgDict.has(currentId) && depth < 500) {
         const m: Message = msgDict.get(currentId)!;
         thread.unshift(m);
         currentId = m.parent_id;
+        depth++;
       }
       return thread;
     },
@@ -162,8 +164,17 @@ export const useChatStore = defineStore("chat", {
               try {
                 const data = JSON.parse(line.slice(6));
                 const aiMsg = this.messages[this.messages.length - 1];
-                if (data.delta) aiMsg.content += data.delta;
-                else if (data.content) aiMsg.content = data.content;
+                if (data.type === "done") {
+                  if (aiMsg?.role === "ai" && !aiMsg.id && data.ai_msg_id) {
+                    aiMsg.id = data.ai_msg_id;
+                    aiMsg.parent_id = data.human_msg_id ?? aiMsg.parent_id;
+                  }
+                  this.activeLeafId = data.ai_msg_id ?? null;
+                } else if (data.delta) {
+                  aiMsg.content += data.delta;
+                } else if (data.content) {
+                  aiMsg.content = data.content;
+                }
               } catch { /* empty */ }
             }
           }
@@ -259,8 +270,15 @@ export const useChatStore = defineStore("chat", {
                 const data = JSON.parse(line.slice(6));
                 const aiMsg = this.messages[this.messages.length - 1];
 
-                if (data.type === "done") {
+                if (data.type === "human_msg_saved") {
+                  // Patch early so human ID is available even if stream is cancelled
+                  const humanMsg = this.messages[this.messages.length - 2];
+                  if (humanMsg?.role === "human" && !humanMsg.id && data.human_msg_id) {
+                    humanMsg.id = data.human_msg_id;
+                  }
+                } else if (data.type === "done") {
                   doneReceived = true;
+                  // Fallback patch in case human_msg_saved was missed
                   const humanMsg = this.messages[this.messages.length - 2];
                   if (humanMsg?.role === "human" && !humanMsg.id && data.human_msg_id) {
                     humanMsg.id = data.human_msg_id;
@@ -278,6 +296,13 @@ export const useChatStore = defineStore("chat", {
                     conv.title = data.title;
                   }
                 } else if (data.type === "approval_required") {
+                  // Patch human message ID received before the approval pause
+                  if (data.human_msg_id) {
+                    const humanMsg = this.messages[this.messages.length - 2];
+                    if (humanMsg?.role === "human" && !humanMsg.id) {
+                      humanMsg.id = data.human_msg_id;
+                    }
+                  }
                   aiMsg.pending_tool_call = { name: data.tool, args: data.args };
                   this.streaming = false;
                   this.routingAgent = null;

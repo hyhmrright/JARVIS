@@ -51,7 +51,11 @@ def _format_sse(payload: dict) -> str:
     return "data: " + json.dumps(payload) + "\n\n"
 
 
-def _sse_events_from_chunk(chunk: dict, full_content: str) -> tuple[list[str], str]:
+def _sse_events_from_chunk(
+    chunk: dict,
+    full_content: str,
+    human_msg_id: uuid.UUID | None = None,
+) -> tuple[list[str], str]:
     """Convert a LangGraph stream chunk into SSE event lines.
 
     Returns (list_of_sse_lines, updated_full_content).
@@ -67,6 +71,7 @@ def _sse_events_from_chunk(chunk: dict, full_content: str) -> tuple[list[str], s
                         "type": "approval_required",
                         "tool": pending["name"],
                         "args": pending.get("args", {}),
+                        "human_msg_id": str(human_msg_id) if human_msg_id else None,
                     }
                 )
             )
@@ -103,6 +108,23 @@ def _sse_events_from_chunk(chunk: dict, full_content: str) -> tuple[list[str], s
                 )
             )
     return events, full_content
+
+
+def _walk_message_chain(
+    msg_dict: dict,
+    start_id: uuid.UUID | None,
+    max_depth: int = 500,
+) -> list:
+    """Trace parent_id links from start_id, returning messages chronologically."""
+    history: list = []
+    current_id = start_id
+    depth = 0
+    while current_id and current_id in msg_dict and depth < max_depth:
+        history.append(msg_dict[current_id])
+        current_id = msg_dict[current_id].parent_id
+        depth += 1
+    history.reverse()
+    return history
 
 
 def _extract_token_counts(ai_msg: object | None) -> tuple[int, int]:
@@ -311,20 +333,13 @@ async def chat_stream(  # noqa: C901
 
     # Build tree
     msg_dict = {msg.id: msg for msg in all_conv_messages}
-    all_history = []
 
-    current_id = human_msg_id if not is_consent else body.parent_message_id
-    # If this is the first message and parent_id is not provided, current_id might be None if consent?  # noqa: E501
-    # Actually if consent, we rely on parent_message_id or just find the latest.
-    if not current_id and all_conv_messages:
-        # Fallback to the latest message if parent_id is missing
-        current_id = all_conv_messages[-1].id
+    start_id = human_msg_id if not is_consent else body.parent_message_id
+    # Fallback to the latest message if parent_id is missing
+    if not start_id and all_conv_messages:
+        start_id = all_conv_messages[-1].id
 
-    while current_id and current_id in msg_dict:
-        all_history.append(msg_dict[current_id])
-        current_id = msg_dict[current_id].parent_id
-
-    all_history.reverse()
+    all_history = _walk_message_chain(msg_dict, start_id)
     lc_messages = []
     for msg in all_history:
         message_class = _ROLE_TO_MESSAGE.get(msg.role)
@@ -387,6 +402,12 @@ async def chat_stream(  # noqa: C901
     async def generate() -> AsyncGenerator[str]:  # noqa: C901
         stream_error = False  # noqa: C901
         nonlocal lc_messages
+        # Immediately notify the frontend of the persisted human message ID so
+        # it can patch the optimistic message even if the stream is cancelled.
+        if human_msg_id:
+            yield _format_sse(
+                {"type": "human_msg_saved", "human_msg_id": str(human_msg_id)}
+            )
         compressed_summary: str | None = None
         try:
             lc_messages = await compact_messages(
@@ -518,7 +539,9 @@ async def chat_stream(  # noqa: C901
                                 and (tm.name not in tools_used)
                             ):
                                 tools_used.append(tm.name)
-                    events, full_content = _sse_events_from_chunk(chunk, full_content)
+                    events, full_content = _sse_events_from_chunk(
+                        chunk, full_content, human_msg_id
+                    )
                     for event in events:
                         yield event
                     if await request.is_disconnected():
@@ -574,6 +597,7 @@ async def chat_stream(  # noqa: C901
                         conv_id=str(conv_id),
                         response_chars=len(full_content),
                     )
+
                     asyncio.create_task(sync_conversation_to_markdown(conv_id))
                 except Exception:
                     new_title = None  # Don't emit title_updated if DB write failed
@@ -668,15 +692,8 @@ async def chat_regenerate(  # noqa: C901
     all_conv_messages = history_rows.all()
 
     msg_dict = {msg.id: msg for msg in all_conv_messages}
-    all_history = []
-
-    # Trace back from target_msg parent (which should be the user message)
-    current_id = target_msg.parent_id
-    while current_id and current_id in msg_dict:
-        all_history.append(msg_dict[current_id])
-        current_id = msg_dict[current_id].parent_id
-
-    all_history.reverse()
+    # Trace back from target_msg's parent to reconstruct conversation history
+    all_history = _walk_message_chain(msg_dict, target_msg.parent_id)
 
     lc_messages = []
     for msg in all_history:
@@ -812,24 +829,35 @@ async def chat_regenerate(  # noqa: C901
             raise
         finally:
             tokens_in, tokens_out = _extract_token_counts(last_ai_msg)
+            regen_ai_msg_id: uuid.UUID | None = None
             if full_content:
                 try:
                     async with AsyncSessionLocal() as session:
                         async with session.begin():
-                            session.add(
-                                Message(
-                                    conversation_id=conv_id,
-                                    role="ai",
-                                    content=full_content,
-                                    model_provider=llm.provider,
-                                    model_name=llm.model_name,
-                                    tokens_input=tokens_in,
-                                    tokens_output=tokens_out,
-                                    parent_id=target_msg.parent_id,
-                                )
+                            saved_regen_msg = Message(
+                                conversation_id=conv_id,
+                                role="ai",
+                                content=full_content,
+                                model_provider=llm.provider,
+                                model_name=llm.model_name,
+                                tokens_input=tokens_in,
+                                tokens_output=tokens_out,
+                                parent_id=target_msg.parent_id,
                             )
+                            session.add(saved_regen_msg)
+                            regen_ai_msg_id = saved_regen_msg.id
                 except Exception:
                     logger.warning("regenerate_save_message_failed", exc_info=True)
+            if regen_ai_msg_id and not stream_error:
+                yield _format_sse(
+                    {
+                        "type": "done",
+                        "ai_msg_id": str(regen_ai_msg_id),
+                        "human_msg_id": str(target_msg.parent_id)
+                        if target_msg.parent_id
+                        else None,
+                    }
+                )
             if agent_session_id:
                 try:
                     async with AsyncSessionLocal() as status_sess:
