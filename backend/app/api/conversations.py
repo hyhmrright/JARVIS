@@ -2,6 +2,7 @@ import json as _json
 import secrets
 import uuid
 from datetime import datetime
+from typing import Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -77,6 +78,7 @@ class MessageOut(BaseModel):
     content: str
     parent_id: uuid.UUID | None = None
     image_urls: list[str] | None = None
+    tool_calls: list[dict[str, Any]] | None = None
     created_at: datetime
     model_config = {"from_attributes": True}
 

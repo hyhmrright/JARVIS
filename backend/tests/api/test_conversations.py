@@ -222,6 +222,36 @@ async def test_patch_conversation_clears_persona(auth_client, db_session):
 
 
 @pytest.mark.anyio
+async def test_messages_include_tool_calls_field(auth_client, db_session):
+    from typing import Any
+
+    from app.core.security import decode_access_token
+
+    token = auth_client.headers["Authorization"].split(" ")[1]
+    user_id = decode_access_token(token)
+    conv = Conversation(user_id=user_id, title="Tool calls test")
+    db_session.add(conv)
+    await db_session.flush()
+    tool_calls_data: list[dict[str, Any]] = [
+        {"name": "rag_search", "id": "call_abc123", "args": {"query": "test"}}
+    ]
+    ai_msg = Message(
+        conversation_id=conv.id,
+        role="ai",
+        content="Here are the results.",
+        tool_calls=tool_calls_data,
+    )
+    db_session.add(ai_msg)
+    await db_session.commit()
+    resp = await auth_client.get(f"/api/conversations/{conv.id}/messages")
+    assert resp.status_code == 200
+    msgs = resp.json()
+    ai = next(m for m in msgs if m["role"] == "ai")
+    assert "tool_calls" in ai
+    assert ai["tool_calls"][0]["name"] == "rag_search"
+
+
+@pytest.mark.anyio
 async def test_export_accessible_via_share_token(client, db_session):
     """Export should work for anonymous users who have a valid share token."""
     import uuid as _uuid
