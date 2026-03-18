@@ -158,6 +158,28 @@ async def auth_headers(client) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+@pytest.fixture
+async def admin_auth_headers(client, db_session) -> dict:
+    """Auth headers for an admin user (role promoted to 'admin' in test DB)."""
+    from app.core.security import decode_access_token
+    from app.db.models import User
+
+    token = await _register_test_user(client)
+    user_id = decode_access_token(token)
+    await db_session.execute(
+        sa.update(User).where(User.id == user_id).values(role="admin")
+    )
+    await db_session.commit()
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+async def second_user_auth_headers(client) -> dict:
+    """Auth headers for a second (non-admin) user."""
+    token = await _register_test_user(client)
+    return {"Authorization": f"Bearer {token}"}
+
+
 @pytest.fixture(autouse=True)
 async def _suppress_chat_async_session():
     mock_session = MagicMock()
