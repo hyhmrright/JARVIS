@@ -1,15 +1,17 @@
+import json as _json
 import secrets
 import uuid
 from datetime import datetime
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_current_user_optional
 from app.db.models import Conversation, Message, SharedConversation, User
 from app.db.session import get_db
 
@@ -31,6 +33,10 @@ class ConversationOut(BaseModel):
 
 class ActiveLeafUpdate(BaseModel):
     active_leaf_id: uuid.UUID
+
+
+class ConversationUpdate(BaseModel):
+    persona_override: str | None = None
 
 
 @router.post("", response_model=ConversationOut, status_code=201)
@@ -147,6 +153,87 @@ async def search_conversations(
     return results[:limit]
 
 
+@router.get("/{conv_id}/export")
+async def export_conversation(
+    conv_id: uuid.UUID,
+    format: str = Query("md", pattern="^(md|json|txt)$"),
+    token: str | None = Query(None, description="Share token for public access"),
+    user: "User | None" = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """Export conversation as Markdown, JSON, or plain text."""
+    conv: Conversation | None = None
+
+    if user:
+        conv = await db.scalar(
+            select(Conversation).where(
+                Conversation.id == conv_id, Conversation.user_id == user.id
+            )
+        )
+    if not conv and token:
+        shared = await db.scalar(
+            select(SharedConversation).where(SharedConversation.share_token == token)
+        )
+        if shared:
+            conv = await db.get(Conversation, shared.conversation_id)
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    rows = await db.scalars(
+        select(Message)
+        .where(
+            Message.conversation_id == conv_id,
+            Message.role.in_(["human", "ai"]),
+        )
+        .order_by(Message.created_at)
+    )
+    messages = list(rows.all())
+    safe_title = conv.title.replace("/", "_").replace("\\", "_")
+
+    if format == "md":
+        lines = [f"# {conv.title}", ""]
+        for msg in messages:
+            prefix = "**Human:**" if msg.role == "human" else "**Assistant:**"
+            lines.append(f"{prefix}\n{msg.content}")
+            lines.append("")
+        return Response(
+            content="\n".join(lines),
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{safe_title}.md"'},
+        )
+    elif format == "json":
+        data = {
+            "id": str(conv.id),
+            "title": conv.title,
+            "created_at": conv.created_at.isoformat(),
+            "messages": [
+                {
+                    "role": msg.role,
+                    "content": msg.content,
+                    "created_at": msg.created_at.isoformat(),
+                }
+                for msg in messages
+            ],
+        }
+        disposition = f'attachment; filename="{safe_title}.json"'
+        return Response(
+            content=_json.dumps(data, ensure_ascii=False, indent=2),
+            media_type="application/json",
+            headers={"Content-Disposition": disposition},
+        )
+    else:  # txt
+        lines = []
+        for msg in messages:
+            prefix = "Human" if msg.role == "human" else "Assistant"
+            lines.append(f"{prefix}: {msg.content}")
+            lines.append("")
+        return Response(
+            content="\n".join(lines),
+            media_type="text/plain; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{safe_title}.txt"'},
+        )
+
+
 @router.get("/{conv_id}/messages", response_model=list[MessageOut])
 async def list_messages(
     conv_id: uuid.UUID,
@@ -210,6 +297,25 @@ async def set_active_leaf(
     if not msg:
         raise HTTPException(status_code=404, detail="Message not found in conversation")
     conv.active_leaf_id = body.active_leaf_id
+    await db.commit()
+
+
+@router.patch("/{conv_id}", status_code=204)
+async def update_conversation(
+    conv_id: uuid.UUID,
+    body: ConversationUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Update mutable conversation fields (currently: persona_override)."""
+    conv = await db.scalar(
+        select(Conversation).where(
+            Conversation.id == conv_id, Conversation.user_id == user.id
+        )
+    )
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    conv.persona_override = body.persona_override
     await db.commit()
 
 

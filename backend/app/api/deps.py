@@ -122,6 +122,23 @@ async def get_current_user(
     return await _resolve_user(credentials.credentials, db, request)
 
 
+_security_optional = HTTPBearer(auto_error=False)
+
+
+async def get_current_user_optional(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_security_optional),
+    db: AsyncSession = Depends(get_db),
+    request: Request = None,  # type: ignore[assignment]
+) -> "User | None":
+    """Like get_current_user but returns None instead of raising 401."""
+    if not credentials:
+        return None
+    try:
+        return await _resolve_user(credentials.credentials, db, request)
+    except HTTPException:
+        return None
+
+
 async def get_current_user_query_token(
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),

@@ -106,3 +106,106 @@ async def test_search_finds_by_message_content(auth_client, db_session):
     resp = await auth_client.get("/api/conversations/search?q=quantum")
     assert resp.status_code == 200
     assert any(r["conv_id"] == str(conv.id) for r in resp.json())
+
+
+@pytest.mark.anyio
+async def test_export_markdown_format(auth_client, db_session):
+    from app.core.security import decode_access_token
+    import json as _json
+    token = auth_client.headers["Authorization"].split(" ")[1]
+    user_id = decode_access_token(token)
+    conv = Conversation(user_id=user_id, title="My Export Test")
+    db_session.add(conv)
+    await db_session.flush()
+    db_session.add(Message(conversation_id=conv.id, role="human", content="Hello AI"))
+    db_session.add(Message(conversation_id=conv.id, role="ai", content="Hello human"))
+    await db_session.commit()
+    resp = await auth_client.get(f"/api/conversations/{conv.id}/export?format=md")
+    assert resp.status_code == 200
+    assert "text/markdown" in resp.headers["content-type"]
+    assert "My Export Test" in resp.text
+    assert "**Human:**" in resp.text
+    assert "**Assistant:**" in resp.text
+    assert "Hello AI" in resp.text
+
+
+@pytest.mark.anyio
+async def test_export_json_format(auth_client, db_session):
+    from app.core.security import decode_access_token
+    import json as _json
+    token = auth_client.headers["Authorization"].split(" ")[1]
+    user_id = decode_access_token(token)
+    conv = Conversation(user_id=user_id, title="JSON Export")
+    db_session.add(conv)
+    await db_session.flush()
+    db_session.add(Message(conversation_id=conv.id, role="human", content="Question"))
+    await db_session.commit()
+    resp = await auth_client.get(f"/api/conversations/{conv.id}/export?format=json")
+    assert resp.status_code == 200
+    data = _json.loads(resp.content)
+    assert data["title"] == "JSON Export"
+    assert len(data["messages"]) == 1
+    assert data["messages"][0]["role"] == "human"
+
+
+@pytest.mark.anyio
+async def test_export_txt_format(auth_client, db_session):
+    from app.core.security import decode_access_token
+    token = auth_client.headers["Authorization"].split(" ")[1]
+    user_id = decode_access_token(token)
+    conv = Conversation(user_id=user_id, title="TXT Export")
+    db_session.add(conv)
+    await db_session.flush()
+    db_session.add(Message(conversation_id=conv.id, role="human", content="Test msg"))
+    await db_session.commit()
+    resp = await auth_client.get(f"/api/conversations/{conv.id}/export?format=txt")
+    assert resp.status_code == 200
+    assert "Human: Test msg" in resp.text
+
+
+@pytest.mark.anyio
+async def test_export_returns_404_for_wrong_user(auth_client, second_user_auth_headers, db_session):
+    from app.core.security import decode_access_token
+    # Create a conversation owned by second user
+    token2 = second_user_auth_headers["Authorization"].split(" ")[1]
+    user2_id = decode_access_token(token2)
+    conv = Conversation(user_id=user2_id, title="Private")
+    db_session.add(conv)
+    await db_session.commit()
+    # Try to export as first user (auth_client)
+    resp = await auth_client.get(f"/api/conversations/{conv.id}/export")
+    assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_patch_conversation_sets_persona(auth_client, db_session):
+    from app.core.security import decode_access_token
+    token = auth_client.headers["Authorization"].split(" ")[1]
+    user_id = decode_access_token(token)
+    conv = Conversation(user_id=user_id, title="Patch test")
+    db_session.add(conv)
+    await db_session.commit()
+    resp = await auth_client.patch(
+        f"/api/conversations/{conv.id}",
+        json={"persona_override": "You are a Socratic tutor."},
+    )
+    assert resp.status_code == 204
+    await db_session.refresh(conv)
+    assert conv.persona_override == "You are a Socratic tutor."
+
+
+@pytest.mark.anyio
+async def test_patch_conversation_clears_persona(auth_client, db_session):
+    from app.core.security import decode_access_token
+    token = auth_client.headers["Authorization"].split(" ")[1]
+    user_id = decode_access_token(token)
+    conv = Conversation(user_id=user_id, title="Clear test", persona_override="Old value")
+    db_session.add(conv)
+    await db_session.commit()
+    resp = await auth_client.patch(
+        f"/api/conversations/{conv.id}",
+        json={"persona_override": None},
+    )
+    assert resp.status_code == 204
+    await db_session.refresh(conv)
+    assert conv.persona_override is None
