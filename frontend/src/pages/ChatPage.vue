@@ -196,7 +196,34 @@
                 </div>
               </div>
               <div v-else class="markdown-body text-zinc-200 leading-[1.7] text-[14px]" v-html="renderMarkdown(msg.content)"></div>
-              
+
+              <!-- RAG Sources -->
+              <template v-for="ragSources in [getRagSources(msg)]" :key="'rag-' + msg.id">
+                <div v-if="msg.role === 'ai' && ragSources.length > 0" class="mt-2 border-t border-zinc-800 pt-2">
+                  <button
+                    class="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
+                    @click="toggleSources(msg.id!)"
+                  >
+                    <ChevronDown
+                      class="w-3 h-3 transition-transform duration-200"
+                      :class="openSources.has(msg.id!) ? 'rotate-180' : ''"
+                    />
+                    {{ ragSources.length }} source{{ ragSources.length > 1 ? 's' : '' }}
+                  </button>
+                  <div v-if="msg.id && openSources.has(msg.id)" class="mt-2 space-y-2">
+                    <div
+                      v-for="(src, si) in ragSources"
+                      :key="si"
+                      class="rounded-md bg-zinc-800/50 border border-zinc-700/40 p-2.5 text-xs"
+                    >
+                      <div class="text-zinc-200 font-medium mb-0.5">{{ src.name }}</div>
+                      <div class="text-zinc-500 text-[11px] mb-1">{{ Math.round(src.score * 100) }}% relevance</div>
+                      <div class="text-zinc-400 line-clamp-3">{{ src.snippet }}</div>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
               <!-- Message Actions (Human) -->
               <div v-if="msg.role === 'human' && !editingMessageId" class="absolute -top-1 -right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Edit" @click="startEdit(msg)">
@@ -346,6 +373,7 @@
                 :placeholder="$t('chat.inputPlaceholder')"
                 rows="1"
                 @keydown.enter="handleEnter"
+                @paste="handlePaste"
               ></textarea>
               
               <!-- Stop button during streaming -->
@@ -403,16 +431,18 @@ import {
   Trash2, Zap, Settings, LogOut,
   PanelLeft, SquarePen, Copy, RotateCcw,
   Mic, ArrowUp, Square, ShieldAlert, Share2, MessageSquare,
-  Volume2, Layout, Image, X
+  Volume2, Layout, Image, X, ChevronDown
 } from "lucide-vue-next";
 
 import LiveCanvas from "@/components/LiveCanvas.vue";
 import VoiceOverlay from "@/components/VoiceOverlay.vue";
 import client from "@/api/client";
+import { useToast } from "@/composables/useToast";
 
 const chat = useChatStore();
 const auth = useAuthStore();
 const router = useRouter();
+const toast = useToast();
 
 const input = ref("");
 const editingMessageId = ref<string | null>(null);
@@ -451,10 +481,21 @@ const navigateBranch = (msg: any, direction: number) => {
   }
 };
 
-const handleImageSelect = (e: Event) => {
-  const files = (e.target as HTMLInputElement).files;
-  if (!files) return;
-  Array.from(files).forEach(file => {
+const MAX_IMAGES = 4;
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+
+const addImages = (files: File[]) => {
+  let accepted = 0;
+  for (const file of files) {
+    if (selectedImages.value.length + accepted >= MAX_IMAGES) {
+      toast.error(`Maximum ${MAX_IMAGES} images per message`);
+      break;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast.error(`"${file.name}" exceeds 4 MB`);
+      continue;
+    }
+    accepted++;
     const reader = new FileReader();
     reader.onload = (ev) => {
       if (ev.target?.result) {
@@ -462,9 +503,30 @@ const handleImageSelect = (e: Event) => {
       }
     };
     reader.readAsDataURL(file);
-  });
-  // Reset input
+  }
+};
+
+const handleImageSelect = (e: Event) => {
+  const files = (e.target as HTMLInputElement).files;
+  if (!files) return;
+  addImages(Array.from(files));
   if (fileInput.value) fileInput.value.value = '';
+};
+
+const handlePaste = (e: ClipboardEvent) => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  const imageFiles: File[] = [];
+  for (const item of Array.from(items)) {
+    if (item.type.startsWith("image/")) {
+      const file = item.getAsFile();
+      if (file) imageFiles.push(file);
+    }
+  }
+  if (imageFiles.length > 0) {
+    e.preventDefault();
+    addImages(imageFiles);
+  }
 };
 
 const removeImage = (idx: number) => {
@@ -591,6 +653,39 @@ const AGENT_LABELS: Record<string, string> = {
 };
 
 const agentLabel = (agent: string): string => AGENT_LABELS[agent] ?? agent;
+
+const openSources = ref(new Set<string>());
+const toggleSources = (msgId: string) => {
+  const s = new Set(openSources.value);
+  if (s.has(msgId)) s.delete(msgId);
+  else s.add(msgId);
+  openSources.value = s;
+};
+
+interface RagSource { name: string; score: number; snippet: string }
+
+const getRagSources = (msg: { id?: string; role: string; tool_calls?: Array<{name: string; id?: string}> | null }): RagSource[] => {
+  if (msg.role !== 'ai' || !msg.tool_calls) return [];
+  const ragCall = msg.tool_calls.find((tc) => tc.name === 'rag_search');
+  if (!ragCall) return [];
+
+  const msgIdx = chat.messages.findIndex((m) => m.id === msg.id);
+  if (msgIdx === -1) return [];
+
+  const sources: RagSource[] = [];
+  const re = new RegExp('\\\\[(\\d+)\\\\] Document: "([^"]+)" \\\\(relevance: ([\\d.]+)\\\\)\\n([\\s\\S]*?)(?=\\\\[\\d+\\\\] Document:|$)', "g");
+  for (let i = msgIdx + 1; i < chat.messages.length; i++) {
+    const m = chat.messages[i];
+    if (m.role !== 'tool') break;
+    re.lastIndex = 0;
+    let match;
+    while ((match = re.exec(m.content)) !== null) {
+      sources.push({ name: match[2], score: parseFloat(match[3]), snippet: match[4].trim().slice(0, 150) });
+    }
+    break;
+  }
+  return sources;
+};
 
 const suggestions = [
   { text: 'Run Security Scan', sub: 'Audit current workspace structure', prompt: 'Run a proactive security check' },

@@ -12,10 +12,11 @@ interface ToolCall {
 interface Message {
   id?: string;
   parent_id?: string;
-  role: "human" | "ai";
+  role: "human" | "ai" | "tool";
   content: string;
   image_urls?: string[];
   toolCalls?: ToolCall[];
+  tool_calls?: Array<{ name: string; id?: string; args?: Record<string, unknown> }> | null;
   pending_tool_call?: { name: string; args: any };
 }
 
