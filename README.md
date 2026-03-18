@@ -10,6 +10,16 @@
 [![Python](https://img.shields.io/badge/python-3.13-blue)](https://www.python.org)
 [![Vue](https://img.shields.io/badge/vue-3-brightgreen)](https://vuejs.org)
 
+## Screenshots
+
+| Chat + Tool Calls | Workflow Studio |
+|:-----------------:|:---------------:|
+| ![Chat interface showing AI agent responding with tool calls](docs/screenshots/chat.png) | ![Visual workflow editor with node-based design](docs/screenshots/workflow-studio.png) |
+
+| Settings | Skill Market |
+|:--------:|:------------:|
+| ![Settings page with LLM provider and tool permissions](docs/screenshots/settings.png) | ![Skill marketplace for extending agent capabilities](docs/screenshots/skill-market.png) |
+
 ## Features
 
 ### AI & Agents
