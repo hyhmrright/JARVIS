@@ -16,6 +16,7 @@ from app.db.models import (
     User,
     UserRole,
     UserSettings,
+    Workspace,
     WorkspaceMember,
     WorkspaceSettings,
 )
@@ -139,6 +140,36 @@ async def get_admin_user(user: User = Depends(get_current_user)) -> User:
             detail="Admin access required",
         )
     return user
+
+
+async def require_workspace_member(
+    workspace_id: uuid.UUID,
+    user: User,
+    db: AsyncSession,
+) -> None:
+    """Raise 404 if workspace not found or cross-org, 403 if user is not a member.
+
+    This is the canonical workspace access guard used across all API modules.
+    The 404/403 split is intentional: cross-org workspaces return 404 to avoid
+    leaking workspace existence to users outside the organization.
+    """
+    workspace = await db.get(Workspace, workspace_id)
+    if (
+        workspace is None
+        or workspace.is_deleted
+        or workspace.organization_id != user.organization_id
+    ):
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    membership = await db.scalar(
+        select(WorkspaceMember).where(
+            WorkspaceMember.workspace_id == workspace_id,
+            WorkspaceMember.user_id == user.id,
+        )
+    )
+    if membership is None:
+        raise HTTPException(
+            status_code=403, detail="You are not a member of this workspace"
+        )
 
 
 async def get_llm_config(

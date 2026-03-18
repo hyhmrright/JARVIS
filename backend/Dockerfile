@@ -34,16 +34,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
  && rm -rf /var/lib/apt/lists/*
 
-# Copy the pre-built venv — no compiler required
-COPY --from=builder /app/.venv /app/.venv
-COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv
-
-ENV PATH="/app/.venv/bin:$PATH"
-
-# Create non-root user before COPY so --chown avoids a separate chown layer
+# Create non-root user before any COPY so --chown avoids a separate chown layer
 RUN addgroup --system jarvis \
  && adduser --system --ingroup jarvis --home /home/jarvis jarvis \
  && mkdir -p /home/jarvis
+
+# Copy the pre-built venv — no compiler required
+COPY --from=builder --chown=jarvis:jarvis /app/.venv /app/.venv
+
+# uv is not copied to the runtime stage; arq/uvicorn/alembic run directly from the venv via PATH
+ENV PATH="/app/.venv/bin:$PATH"
 
 COPY --chown=jarvis:jarvis . .
 

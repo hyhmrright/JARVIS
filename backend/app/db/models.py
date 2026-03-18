@@ -160,12 +160,19 @@ class Conversation(Base):
     )
     persona_override: Mapped[str | None] = mapped_column(Text)
     workflow_dsl: Mapped[dict | None] = mapped_column(JSONB)
+    active_leaf_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("messages.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     user: Mapped["User"] = relationship(back_populates="conversations")
     messages: Mapped[list["Message"]] = relationship(
         back_populates="conversation",
         cascade="all, delete-orphan",
         order_by="Message.created_at",
+        foreign_keys="Message.conversation_id",
     )
 
 
@@ -255,7 +262,10 @@ class Message(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    conversation: Mapped["Conversation"] = relationship(back_populates="messages")
+    conversation: Mapped["Conversation"] = relationship(
+        back_populates="messages",
+        foreign_keys="[Message.conversation_id]",
+    )
     agent_session: Mapped["AgentSession | None"] = relationship(
         back_populates="messages"
     )
@@ -689,6 +699,10 @@ class SharedConversation(Base):
         UUID(as_uuid=True),
         ForeignKey("conversations.id", ondelete="CASCADE"),
         nullable=False,
+        unique=True,
+    )
+    share_token: Mapped[str] = mapped_column(
+        String(64), unique=True, nullable=False, index=True
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

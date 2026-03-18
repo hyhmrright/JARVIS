@@ -34,9 +34,12 @@ async def synthesize(
 
     async def _stream() -> AsyncGenerator[bytes]:
         communicate = edge_tts.Communicate(body.text, body.voice, rate=body.rate)
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio" and chunk.get("data"):
-                yield chunk["data"]
+        try:
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio" and chunk.get("data"):
+                    yield chunk["data"]
+        except Exception:
+            logger.exception("tts_stream_error", user_id=str(user.id), voice=body.voice)
 
     logger.info(
         "tts_synthesize",

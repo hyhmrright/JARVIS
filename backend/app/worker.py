@@ -155,8 +155,7 @@ async def deliver_webhook(ctx: dict, *, webhook_id: str, payload: dict) -> None:
 
     try:
         agent_result = await run_agent_for_user(user_id=user_id, task=task_str)
-        if agent_result and not agent_result.startswith("抱歉"):
-            final_status = "success"
+        final_status = "success"
         response_body = (agent_result or "")[:4000]
     except Exception as exc:
         response_body = str(exc)[:4000]

@@ -19,10 +19,18 @@ def search_local_memory(query: str) -> str:
     if not memory_dir.exists():
         return "No local memory found."
 
+    resolved_memory_dir = memory_dir.resolve()
     results = []
     try:
-        # Simple search across all .md files in the memory dir
+        # Simple search across all .md files in the memory dir.
+        # Skip any symlink that resolves outside the memory directory.
         for md_file in memory_dir.glob("*.md"):
+            try:
+                md_file.resolve().relative_to(resolved_memory_dir)
+            except (ValueError, OSError):
+                continue
+            if md_file.is_symlink() and not md_file.exists():
+                continue  # circular symlink — skip cleanly
             content = md_file.read_text()
             if query.lower() in content.lower():
                 idx = content.lower().find(query.lower())
@@ -49,10 +57,15 @@ def read_memory_file(filename: str) -> str:
     memory_dir = Path(settings.memory_sync_dir)
     file_path = memory_dir / filename
 
-    # Basic security check to prevent path traversal
-    if not file_path.exists() or not str(file_path.resolve()).startswith(
-        str(memory_dir.resolve())
-    ):
+    # Security check: prevent path traversal and circular-symlink exploitation.
+    # Resolve memory_dir once to avoid repeated syscalls and ensure consistency
+    # when memory_sync_dir itself contains symlinks.
+    resolved_memory_dir = memory_dir.resolve()
+    try:
+        file_path.resolve().relative_to(resolved_memory_dir)
+    except (ValueError, OSError):
+        return "File not found or access denied."
+    if not file_path.exists():
         return "File not found or access denied."
 
     try:

@@ -22,9 +22,9 @@ services:
       POSTGRES_DB: jarvis
       POSTGRES_USER: jarvis
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      PGDATA: /var/lib/postgresql/18/docker
+      PGDATA: /var/lib/postgresql/data
     volumes:
-      - ${HOME}/jarvis-data/postgres:/var/lib/postgresql/18/docker
+      - ${HOME}/jarvis-data/postgres:/var/lib/postgresql/data
       - ./database/postgres:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U jarvis"]
@@ -141,8 +141,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
-        condition: service_healthy
       minio-init:
         condition: service_completed_successfully
     healthcheck:
@@ -154,7 +152,7 @@ services:
 
   worker:
     build: ./backend
-    command: uv run arq app.worker.WorkerSettings
+    command: arq app.worker.WorkerSettings
     networks: [app, infra]
     restart: unless-stopped
     logging:
@@ -181,6 +179,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
 
   frontend:
     build: ./frontend
@@ -286,6 +288,11 @@ services:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
       - "--storage.tsdb.retention.time=30d"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   loki:
     image: grafana/loki:3.4.2
@@ -330,6 +337,11 @@ services:
     image: grafana/grafana:11.6.0
     networks: [monitor]
     restart: unless-stopped
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
     logging:
       driver: "json-file"
       options:

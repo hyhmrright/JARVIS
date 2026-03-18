@@ -69,13 +69,12 @@ async def test_run_agent_for_user_no_api_key_returns_message():
 
 
 @pytest.mark.asyncio
-async def test_run_agent_for_user_exception_returns_chinese_message():
-    """Any unhandled exception returns a user-friendly Chinese error string."""
+async def test_run_agent_for_user_exception_propagates():
+    """Unhandled exceptions are re-raised so callers can detect failures reliably."""
     mock_ctx = AsyncMock()
     mock_ctx.__aenter__ = AsyncMock(side_effect=RuntimeError("DB down"))
     mock_ctx.__aexit__ = AsyncMock(return_value=None)
 
     with patch("app.gateway.agent_runner.AsyncSessionLocal", return_value=mock_ctx):
-        result = await run_agent_for_user(_USER_ID, "test")
-
-    assert result == "抱歉，处理请求时出现错误，请稍后重试。"
+        with pytest.raises(RuntimeError, match="DB down"):
+            await run_agent_for_user(_USER_ID, "test")

@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from datetime import datetime
 
@@ -5,6 +6,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -23,7 +25,12 @@ class ConversationCreate(BaseModel):
 class ConversationOut(BaseModel):
     id: uuid.UUID
     title: str
+    active_leaf_id: uuid.UUID | None = None
     model_config = {"from_attributes": True}
+
+
+class ActiveLeafUpdate(BaseModel):
+    active_leaf_id: uuid.UUID
 
 
 @router.post("", response_model=ConversationOut, status_code=201)
@@ -62,6 +69,7 @@ class MessageOut(BaseModel):
     id: uuid.UUID
     role: str
     content: str
+    parent_id: uuid.UUID | None = None
     image_urls: list[str] | None = None
     created_at: datetime
     model_config = {"from_attributes": True}
@@ -106,6 +114,33 @@ async def delete_conversation(
     logger.info("conversation_deleted", user_id=str(user.id), conv_id=str(conv_id))
 
 
+@router.patch("/{conv_id}/active-leaf", status_code=204)
+async def set_active_leaf(
+    conv_id: uuid.UUID,
+    body: ActiveLeafUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    conv = await db.scalar(
+        select(Conversation).where(
+            Conversation.id == conv_id, Conversation.user_id == user.id
+        )
+    )
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    # Verify the message belongs to this conversation
+    msg = await db.scalar(
+        select(Message).where(
+            Message.id == body.active_leaf_id,
+            Message.conversation_id == conv_id,
+        )
+    )
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found in conversation")
+    conv.active_leaf_id = body.active_leaf_id
+    await db.commit()
+
+
 @router.post("/{conv_id}/share", response_model=dict)
 async def share_conversation(
     conv_id: uuid.UUID,
@@ -125,10 +160,26 @@ async def share_conversation(
         select(SharedConversation).where(SharedConversation.conversation_id == conv_id)
     )
     if existing:
-        return {"token": str(existing.id)}
+        return {"token": existing.share_token}
 
-    new_share = SharedConversation(conversation_id=conv_id)
+    new_share = SharedConversation(
+        conversation_id=conv_id,
+        share_token=secrets.token_urlsafe(32),
+    )
     db.add(new_share)
-    await db.commit()
-    await db.refresh(new_share)
-    return {"token": str(new_share.id)}
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Concurrent request already created a share for this conversation.
+        await db.rollback()
+        existing = await db.scalar(
+            select(SharedConversation).where(
+                SharedConversation.conversation_id == conv_id
+            )
+        )
+        if existing is None:
+            raise HTTPException(
+                status_code=500, detail="Share creation conflict; please retry."
+            ) from None
+        return {"token": existing.share_token}
+    return {"token": new_share.share_token}
