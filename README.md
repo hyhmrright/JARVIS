@@ -10,6 +10,8 @@
 [![Python](https://img.shields.io/badge/python-3.13-blue)](https://www.python.org)
 [![Vue](https://img.shields.io/badge/vue-3-brightgreen)](https://vuejs.org)
 
+![JARVIS demo — chat with live tool calls, workflow studio, and settings](docs/screenshots/demo.gif)
+
 ## Screenshots
 
 | Chat + Tool Calls | Workflow Studio |
@@ -298,6 +300,27 @@ Hooks: YAML/TOML/JSON validation · uv.lock sync · Ruff lint+format · ESLint �
 See `.env.example` for the full reference.
 
 ---
+
+## Comparison
+
+| Feature | JARVIS | Open WebUI | Dify | AnythingLLM |
+|---------|:------:|:----------:|:----:|:-----------:|
+| Multi-LLM with failover | ✅ | ✅ | ✅ | ✅ |
+| LangGraph ReAct agent | ✅ | ❌ | Partial | ❌ |
+| Sandboxed code/shell execution | ✅ | ❌ | ❌ | ❌ |
+| Visual Workflow Studio | ✅ | ❌ | ✅ | ❌ |
+| Branching conversations | ✅ | ❌ | ❌ | ❌ |
+| Multi-tenant organizations | ✅ | ✅ | ✅ | ❌ |
+| Cron jobs + trigger system | ✅ | ❌ | ✅ | ❌ |
+| Multi-channel messaging (Slack/Discord/Telegram…) | ✅ | ❌ | ✅ | ❌ |
+| Audit logs | ✅ | ❌ | Partial | ❌ |
+| Built-in observability (Grafana/Loki/Prometheus) | ✅ | ❌ | ❌ | ❌ |
+| Personal Access Tokens (API keys) | ✅ | ❌ | ✅ | ❌ |
+| One `docker compose up` deploy | ✅ | ✅ | ✅ | ✅ |
+
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for planned features.
 
 ## Contributing
 
