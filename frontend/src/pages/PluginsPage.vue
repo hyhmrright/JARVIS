@@ -49,6 +49,50 @@
       </div>
     </div>
 
+    <!-- System Installed Plugins -->
+    <section v-if="isAdmin && systemInstalled.length > 0" class="installed-section">
+      <h2 class="section-title">System Installed Plugins</h2>
+      <div class="plugin-list">
+        <div
+          v-for="item in systemInstalled"
+          :key="item.id"
+          class="plugin-card installed-card"
+        >
+          <div class="plugin-header">
+            <h3>{{ item.name }}</h3>
+            <span class="installed-badge system-badge">system</span>
+          </div>
+          <p class="description">{{ item.type }}</p>
+          <p class="description small">{{ item.install_url }}</p>
+          <button class="delete-btn uninstall-btn" @click="uninstallInstalledPlugin(item.id)">
+            Uninstall
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- My Installed Plugins -->
+    <section v-if="personalInstalled.length > 0" class="installed-section">
+      <h2 class="section-title">My Installed Plugins</h2>
+      <div class="plugin-list">
+        <div
+          v-for="item in personalInstalled"
+          :key="item.id"
+          class="plugin-card installed-card"
+        >
+          <div class="plugin-header">
+            <h3>{{ item.name }}</h3>
+            <span class="installed-badge personal-badge">personal</span>
+          </div>
+          <p class="description">{{ item.type }}</p>
+          <p class="description small">{{ item.install_url }}</p>
+          <button class="delete-btn uninstall-btn" @click="uninstallInstalledPlugin(item.id)">
+            Uninstall
+          </button>
+        </div>
+      </div>
+    </section>
+
     <!-- Config modal -->
     <Teleport to="body">
       <div v-if="activePlugin" class="modal-overlay" @click.self="closeModal">
@@ -138,11 +182,40 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
-import { pluginsApi, type PluginInfo, type ConfigItem } from "@/api/plugins";
+import { pluginsApi, marketApi, type PluginInfo, type ConfigItem, type InstalledPluginOut } from "@/api/plugins";
+import { useAuthStore } from "@/stores/auth";
 
 const { t } = useI18n();
+
+const auth = useAuthStore();
+const isAdmin = computed(() => auth.isAdmin);
+
+const systemInstalled = ref<InstalledPluginOut[]>([]);
+const personalInstalled = ref<InstalledPluginOut[]>([]);
+
+async function loadInstalled() {
+  try {
+    const { data } = await marketApi.listInstalled();
+    systemInstalled.value = data.system;
+    personalInstalled.value = data.personal;
+  } catch {
+    // Non-fatal: installed section just stays empty
+  }
+}
+
+async function uninstallInstalledPlugin(id: string) {
+  if (!confirm("Are you sure you want to uninstall this plugin?")) return;
+  try {
+    await marketApi.uninstall(id);
+    await loadInstalled();
+  } catch (err: unknown) {
+    const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data
+      ?.detail;
+    alert(typeof detail === "string" ? detail : "Uninstall failed.");
+  }
+}
 
 const plugins = ref<PluginInfo[]>([]);
 const loading = ref(true);
@@ -166,7 +239,10 @@ async function loadPlugins() {
   }
 }
 
-onMounted(loadPlugins);
+onMounted(() => {
+  loadPlugins();
+  loadInstalled();
+});
 
 async function handleReload() {
   try {
@@ -450,5 +526,65 @@ async function removeConfig(key: string) {
   color: #ef4444;
   font-size: 0.875rem;
   margin-bottom: 0.75rem;
+}
+.market-btn {
+  padding: 0.5rem 1rem;
+  background: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  text-decoration: none;
+  display: inline-block;
+}
+.market-btn:hover {
+  background: #4f46e5;
+}
+.installed-section {
+  margin-top: 2.5rem;
+}
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #374151;
+}
+.installed-card {
+  position: relative;
+}
+.installed-badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.system-badge {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.personal-badge {
+  background: #dcfce7;
+  color: #166534;
+}
+.description.small {
+  font-size: 0.75rem;
+  word-break: break-all;
+}
+.uninstall-btn {
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  background: none;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  color: #ef4444;
+  cursor: pointer;
+  font-size: 0.8125rem;
+}
+.uninstall-btn:hover {
+  background: #fef2f2;
 }
 </style>

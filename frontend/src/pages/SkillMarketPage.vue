@@ -186,17 +186,17 @@ const activeCategory = ref("__all__");
 const showInstallModal = ref(false);
 
 const categories = computed(() => {
-  const tagSet = new Set<string>();
+  const typeSet = new Set<string>();
   for (const s of skills.value) {
-    for (const t of s.tags) tagSet.add(t);
+    typeSet.add(s.type);
   }
-  return ["__all__", ...Array.from(tagSet).sort()];
+  return ["__all__", ...Array.from(typeSet).sort()];
 });
 
 const filteredSkills = computed(() => {
   let list = skills.value;
   if (activeCategory.value !== "__all__") {
-    list = list.filter((s) => s.tags.includes(activeCategory.value));
+    list = list.filter((s) => s.type === activeCategory.value);
   }
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase();
@@ -243,7 +243,7 @@ async function installSkill(skill: MarketSkillOut, scope: "personal" | "system")
 }
 
 function onInstalled(_pluginId: string) {
-  // Reload list so newly installed plugin appears in PluginsPage
+  loadSkills()
 }
 
 onMounted(loadSkills);
