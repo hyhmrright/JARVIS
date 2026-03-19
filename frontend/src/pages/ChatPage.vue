@@ -682,11 +682,34 @@ watch(
   { immediate: true },
 );
 
+const handleGlobalKeydown = (e: KeyboardEvent) => {
+  const isMeta = e.metaKey || e.ctrlKey;
+  // Ctrl/Cmd+K → open conversation search
+  if (isMeta && e.key === "k") {
+    e.preventDefault();
+    if (!sidebarCollapsed.value || isMobile.value) {
+      searchMode.value = true;
+    } else {
+      sidebarCollapsed.value = false;
+      searchMode.value = true;
+    }
+    return;
+  }
+  // Escape → close search, share overlay, export dropdown, or sidebar on mobile
+  if (e.key === "Escape") {
+    if (searchMode.value) { clearSearch(); return; }
+    if (shareUrl.value) { shareUrl.value = null; return; }
+    if (exportMenuConvId.value) { exportMenuConvId.value = null; return; }
+    if (isMobile.value && !sidebarCollapsed.value) { sidebarCollapsed.value = true; return; }
+  }
+};
+
 onUnmounted(() => {
   clearTimeout(searchTimer);
   clearTimeout(resizeDebounce);
   if (approvalTickInterval) clearInterval(approvalTickInterval);
   window.removeEventListener("resize", handleResize);
+  window.removeEventListener("keydown", handleGlobalKeydown);
 });
 
 watch(searchQuery, (q) => {
@@ -1163,6 +1186,7 @@ watch(() => chat.messages.length, scrollToBottom);
 watch(() => chat.streaming, (isStreaming) => { if (isStreaming) scrollToBottom(); });
 onMounted(async () => {
   window.addEventListener("resize", handleResize);
+  window.addEventListener("keydown", handleGlobalKeydown);
   await chat.loadConversations();
   await fetchPersonas();
 });
