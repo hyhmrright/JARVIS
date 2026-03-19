@@ -333,6 +333,52 @@
           </button>
         </div>
       </form>
+
+      <!-- Change Password (outside main form to avoid accidental submit) -->
+      <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm mt-8">
+        <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-6">Change Password</h3>
+        <div class="space-y-4 max-w-sm">
+          <div class="flex flex-col gap-2">
+            <label class="text-xs font-semibold text-zinc-400">Current Password</label>
+            <input
+              v-model="pwCurrent"
+              type="password"
+              autocomplete="current-password"
+              class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600"
+              placeholder="••••••••"
+            />
+          </div>
+          <div class="flex flex-col gap-2">
+            <label class="text-xs font-semibold text-zinc-400">New Password</label>
+            <input
+              v-model="pwNew"
+              type="password"
+              autocomplete="new-password"
+              class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600"
+              placeholder="Min. 8 characters"
+            />
+          </div>
+          <div class="flex flex-col gap-2">
+            <label class="text-xs font-semibold text-zinc-400">Confirm New Password</label>
+            <input
+              v-model="pwConfirm"
+              type="password"
+              autocomplete="new-password"
+              class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600"
+              placeholder="Repeat new password"
+            />
+          </div>
+          <p v-if="pwError" class="text-xs text-red-400">{{ pwError }}</p>
+          <button
+            type="button"
+            class="w-full py-2.5 bg-zinc-700 text-white text-sm font-semibold rounded-lg hover:bg-zinc-600 transition-colors disabled:opacity-50"
+            :disabled="pwSaving"
+            @click="changePassword"
+          >
+            {{ pwSaving ? "Saving…" : "Update Password" }}
+          </button>
+        </div>
+      </section>
     </div>
 
     <!-- Toasts -->
@@ -344,6 +390,11 @@
     <Transition name="fade">
       <div v-if="saveError" class="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 bg-red-500/20 text-red-400 border border-red-500/20 rounded-full text-sm font-medium backdrop-blur-md z-50">
         {{ $t("settings.saveError") }}
+      </div>
+    </Transition>
+    <Transition name="fade">
+      <div v-if="pwSaved" class="fixed bottom-20 left-1/2 -translate-x-1/2 px-6 py-3 bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-full text-sm font-medium backdrop-blur-md z-50">
+        Password updated successfully.
       </div>
     </Transition>
     <Transition name="fade">
@@ -401,6 +452,42 @@ const toolRegistry = ref<ToolRegistry[]>([]);
 const saved = ref(false);
 const saving = ref(false);
 const saveError = ref(false);
+
+// Change password state
+const pwCurrent = ref("");
+const pwNew = ref("");
+const pwConfirm = ref("");
+const pwSaving = ref(false);
+const pwSaved = ref(false);
+const pwError = ref("");
+
+const changePassword = async () => {
+  pwError.value = "";
+  if (!pwCurrent.value || !pwNew.value || !pwConfirm.value) {
+    pwError.value = "Please fill in all fields.";
+    return;
+  }
+  if (pwNew.value !== pwConfirm.value) {
+    pwError.value = "New passwords do not match.";
+    return;
+  }
+  pwSaving.value = true;
+  try {
+    await client.post("/auth/change-password", {
+      current_password: pwCurrent.value,
+      new_password: pwNew.value,
+    });
+    pwCurrent.value = "";
+    pwNew.value = "";
+    pwConfirm.value = "";
+    pwSaved.value = true;
+    setTimeout(() => { pwSaved.value = false; }, 3000);
+  } catch (err: any) {
+    pwError.value = err?.response?.data?.detail ?? "Failed to change password.";
+  } finally {
+    pwSaving.value = false;
+  }
+};
 
 const currentProviderModels = computed(() => providerModels.value[provider.value] ?? []);
 const effectiveModelName = computed(() => modelSelect.value === "__custom__" ? customModelName.value : modelSelect.value);

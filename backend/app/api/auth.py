@@ -18,6 +18,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_current_user
 from app.core.audit import log_action
 from app.core.limiter import limiter
 from app.core.security import create_access_token, hash_password, verify_password
@@ -58,6 +59,14 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     role: str
     display_name: str | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=8)
+
+    _check_current_bytes = field_validator("current_password")(_validate_password_bytes)
+    _check_new_bytes = field_validator("new_password")(_validate_password_bytes)
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
@@ -118,3 +127,26 @@ async def login(
         role=user.role,
         display_name=user.display_name,
     )
+
+
+@router.post("/change-password", status_code=204)
+@limiter.limit("5/minute")
+async def change_password(
+    request: Request,
+    body: ChangePasswordRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """修改当前用户密码。需验证旧密码后才可设置新密码。"""
+    current_ok = await asyncio.to_thread(
+        verify_password, body.current_password, user.password_hash
+    )
+    if not current_ok:
+        await log_action(
+            "user.change_password_failed", user_id=user.id, request=request
+        )
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    user.password_hash = await asyncio.to_thread(hash_password, body.new_password)
+    await db.commit()
+    logger.info("password_changed", user_id=str(user.id))
+    await log_action("user.change_password", user_id=user.id, request=request)

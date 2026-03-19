@@ -47,3 +47,36 @@ async def test_login_wrong_password(client):
         json={"email": "wp@example.com", "password": "wrong"},
     )
     assert resp.status_code == 401
+
+
+async def test_change_password_success(client, auth_client):
+    resp = await auth_client.post(
+        "/api/auth/change-password",
+        json={"current_password": "password123", "new_password": "newpassword456"},
+    )
+    assert resp.status_code == 204
+
+
+async def test_change_password_wrong_current(client, auth_client):
+    resp = await auth_client.post(
+        "/api/auth/change-password",
+        json={"current_password": "wrongpassword", "new_password": "newpassword456"},
+    )
+    assert resp.status_code == 400
+    assert "incorrect" in resp.json()["detail"].lower()
+
+
+async def test_change_password_too_short(client, auth_client):
+    resp = await auth_client.post(
+        "/api/auth/change-password",
+        json={"current_password": "password123", "new_password": "short"},
+    )
+    assert resp.status_code == 422
+
+
+async def test_change_password_requires_auth(client):
+    resp = await client.post(
+        "/api/auth/change-password",
+        json={"current_password": "password123", "new_password": "newpassword456"},
+    )
+    assert resp.status_code == 401
