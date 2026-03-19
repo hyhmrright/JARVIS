@@ -173,8 +173,10 @@ import { useAuthStore } from "@/stores/auth";
 import { marketApi } from "@/api/plugins";
 import type { MarketSkillOut } from "@/api/plugins";
 import InstallFromUrlModal from "@/components/InstallFromUrlModal.vue";
+import { useToast } from "@/composables/useToast";
 
 const { t } = useI18n();
+const { success: toastSuccess, error: toastError } = useToast();
 const auth = useAuthStore();
 const isAdmin = computed(() => auth.isAdmin);
 
@@ -232,11 +234,11 @@ async function installSkill(skill: MarketSkillOut, scope: "personal" | "system")
       type: skill.type,
       scope,
     });
-    alert(t("skillMarket.installSuccess", { name: skill.name }));
+    toastSuccess(t("skillMarket.installSuccess", { name: skill.name }));
   } catch (err: unknown) {
     const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data
       ?.detail;
-    alert(typeof detail === "string" ? detail : t("skillMarket.installError"));
+    toastError(typeof detail === "string" ? detail : t("skillMarket.installError"));
     console.error(err);
   } finally {
     installingId.value = null;

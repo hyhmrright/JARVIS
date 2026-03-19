@@ -183,7 +183,8 @@
     "systemInstalledSection": "System Installed Plugins",
     "personalInstalledSection": "My Installed Plugins",
     "uninstallConfirm": "Are you sure you want to uninstall this plugin?",
-    "uninstallError": "Uninstall failed"
+    "uninstallError": "Uninstall failed",
+    "noDescription": "No description"
   },
   "validation": {
     "emailRequired": "Please enter your email address",
@@ -270,7 +271,10 @@
       "enable": "Enable",
       "disable": "Disable",
       "roleUpdateError": "Failed to update user role",
-      "statusUpdateError": "Failed to update user status"
+      "statusUpdateError": "Failed to update user status",
+      "roleUser": "User",
+      "roleAdmin": "Admin",
+      "roleSuperadmin": "Superadmin"
     },
     "plugins": {
       "tools": "Tools",
@@ -278,13 +282,16 @@
       "installTitle": "Install Plugin",
       "installDesc": "Enter the raw URL of the plugin Python file (e.g. from GitHub)",
       "toggleError": "Failed to toggle plugin",
-      "installError": "Failed to install plugin"
+      "installError": "Failed to install plugin",
+      "toolCount": "{count} tools"
     },
     "stats": {
       "users": "Total Users",
       "conversations": "Total Conversations",
       "messages": "Total Messages",
-      "tokens": "Total Tokens Used"
+      "tokens": "Total Tokens Used",
+      "tokensIn": "In",
+      "tokensOut": "Out"
     }
   },
   "workspace": {
@@ -407,6 +414,9 @@
     "installError": "Installation failed."
   },
   "memory": {
+    "title": "AI Memory",
+    "description": "Facts the AI has remembered about you across conversations.",
+    "noMemories": "No memories stored yet.",
     "confirmClear": "Clear all AI memories? This cannot be undone.",
     "loadError": "Failed to load memories",
     "deleteError": "Failed to delete memory",

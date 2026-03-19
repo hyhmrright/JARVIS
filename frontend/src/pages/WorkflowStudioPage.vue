@@ -112,8 +112,10 @@ import LLMNode from '@/components/workflow/LLMNode.vue';
 import ToolNode from '@/components/workflow/ToolNode.vue';
 import '@vue-flow/core/dist/style.css';
 import '@vue-flow/core/dist/theme-default.css';
+import { useToast } from '@/composables/useToast';
 
 const { t } = useI18n();
+const { success: toastSuccess } = useToast();
 
 const workflowName = ref('');
 const elements = ref<Elements>([
@@ -171,7 +173,7 @@ const onSave = () => {
     name: workflowName.value,
     elements: elements.value
   });
-  alert(t('workflowStudio.saveInfo'));
+  toastSuccess(t('workflowStudio.saveInfo'));
 };
 </script>
 

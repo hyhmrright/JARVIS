@@ -43,9 +43,9 @@
                     :value="user.role"
                     @change="handleRoleChange(user.id, ($event.target as HTMLSelectElement).value)"
                   >
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
-                    <option value="superadmin">Superadmin</option>
+                    <option value="user">{{ $t('admin.users.roleUser') }}</option>
+                    <option value="admin">{{ $t('admin.users.roleAdmin') }}</option>
+                    <option value="superadmin">{{ $t('admin.users.roleSuperadmin') }}</option>
                   </select>
                 </td>
                 <td>
@@ -80,7 +80,7 @@
               </div>
               <p class="plugin-desc">{{ plugin.description }}</p>
               <div class="plugin-stats">
-                <span class="stat-pill">{{ plugin.tools.length }} tools</span>
+                <span class="stat-pill">{{ $t('admin.plugins.toolCount', { count: plugin.tools.length }) }}</span>
               </div>
             </div>
             <div class="plugin-ctrl">
@@ -112,7 +112,7 @@
             <label>{{ $t('admin.stats.tokens') }}</label>
             <div class="value">{{ (stats.total_tokens_input + stats.total_tokens_output).toLocaleString() }}</div>
             <div class="sub-value">
-              In: {{ stats.total_tokens_input.toLocaleString() }} · Out: {{ stats.total_tokens_output.toLocaleString() }}
+              {{ $t('admin.stats.tokensIn') }}: {{ stats.total_tokens_input.toLocaleString() }} · {{ $t('admin.stats.tokensOut') }}: {{ stats.total_tokens_output.toLocaleString() }}
             </div>
           </div>
         </div>

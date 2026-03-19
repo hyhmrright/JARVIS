@@ -177,6 +177,7 @@
     "personalInstalledSection": "내 설치 플러그인",
     "uninstallConfirm": "이 플러그인을 제거하시겠습니까?",
     "uninstallError": "제거에 실패했습니다",
+    "noDescription": "설명 없음",
     "browseMarket": "마켓 보기",
     "reload": "플러그인 새로고침",
     "reload_error": "플러그인 새로고침에 실패했습니다. 백엔드 로그를 확인하세요.",
@@ -209,7 +210,10 @@
       "enable": "활성화",
       "disable": "비활성화",
       "roleUpdateError": "사용자 역할 업데이트에 실패했습니다",
-      "statusUpdateError": "사용자 상태 업데이트에 실패했습니다"
+      "statusUpdateError": "사용자 상태 업데이트에 실패했습니다",
+      "roleUser": "사용자",
+      "roleAdmin": "관리자",
+      "roleSuperadmin": "슈퍼 관리자"
     },
     "plugins": {
       "tools": "도구 수",
@@ -217,13 +221,16 @@
       "installTitle": "플러그인 설치",
       "installDesc": "플러그인 Python 파일의 원본 URL을 입력하세요 (예: GitHub에서)",
       "toggleError": "플러그인 전환에 실패했습니다",
-      "installError": "플러그인 설치에 실패했습니다"
+      "installError": "플러그인 설치에 실패했습니다",
+      "toolCount": "{count}개 도구"
     },
     "stats": {
       "users": "총 사용자 수",
       "conversations": "총 대화 수",
       "messages": "총 메시지 수",
-      "tokens": "총 토큰 사용량"
+      "tokens": "총 토큰 사용량",
+      "tokensIn": "입력",
+      "tokensOut": "출력"
     }
   },
   "proactive": {
@@ -407,6 +414,9 @@
     "installError": "설치 실패."
   },
   "memory": {
+    "title": "AI 기억",
+    "description": "AI가 대화를 통해 당신에 대해 기억한 내용.",
+    "noMemories": "저장된 기억이 없습니다.",
     "confirmClear": "모든 AI 기억을 지우시겠습니까? 되돌릴 수 없습니다.",
     "loadError": "기억 로드 실패",
     "deleteError": "기억 삭제 실패",

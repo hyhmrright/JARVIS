@@ -177,6 +177,7 @@
     "personalInstalledSection": "Meine installierten Plugins",
     "uninstallConfirm": "Dieses Plugin deinstallieren?",
     "uninstallError": "Deinstallation fehlgeschlagen",
+    "noDescription": "Keine Beschreibung",
     "browseMarket": "Marktplatz durchsuchen",
     "reload": "Plugins neu laden",
     "reload_error": "Fehler beim Neuladen der Plugins, Backend-Logs prüfen.",
@@ -209,7 +210,10 @@
       "enable": "Aktivieren",
       "disable": "Deaktivieren",
       "roleUpdateError": "Aktualisierung der Benutzerrolle fehlgeschlagen",
-      "statusUpdateError": "Aktualisierung des Benutzerstatus fehlgeschlagen"
+      "statusUpdateError": "Aktualisierung des Benutzerstatus fehlgeschlagen",
+      "roleUser": "Benutzer",
+      "roleAdmin": "Administrator",
+      "roleSuperadmin": "Superadministrator"
     },
     "plugins": {
       "tools": "Werkzeuge",
@@ -217,13 +221,16 @@
       "installTitle": "Plugin installieren",
       "installDesc": "Geben Sie die URL der Python-Datei des Plugins ein (z. B. von GitHub)",
       "toggleError": "Plugin-Umschalten fehlgeschlagen",
-      "installError": "Plugin-Installation fehlgeschlagen"
+      "installError": "Plugin-Installation fehlgeschlagen",
+      "toolCount": "{count} Werkzeug(e)"
     },
     "stats": {
       "users": "Gesamtbenutzer",
       "conversations": "Gesamtgespräche",
       "messages": "Gesamtnachrichten",
-      "tokens": "Verbrauchte Tokens gesamt"
+      "tokens": "Verbrauchte Tokens gesamt",
+      "tokensIn": "Eingabe",
+      "tokensOut": "Ausgabe"
     }
   },
   "proactive": {
@@ -407,6 +414,9 @@
     "installError": "Installation fehlgeschlagen."
   },
   "memory": {
+    "title": "KI-Erinnerungen",
+    "description": "Fakten, die sich die KI aus Ihren Gesprächen gemerkt hat.",
+    "noMemories": "Keine gespeicherten Erinnerungen.",
     "confirmClear": "Alle KI-Erinnerungen löschen? Dies kann nicht rückgängig gemacht werden.",
     "loadError": "Erinnerungen konnten nicht geladen werden",
     "deleteError": "Erinnerung konnte nicht gelöscht werden",

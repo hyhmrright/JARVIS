@@ -177,6 +177,7 @@
     "personalInstalledSection": "Mes plugins installés",
     "uninstallConfirm": "Désinstaller ce plugin ?",
     "uninstallError": "Échec de la désinstallation",
+    "noDescription": "Pas de description",
     "browseMarket": "Explorer le marché",
     "reload": "Recharger les plugins",
     "reload_error": "Échec du rechargement des plugins, vérifiez les logs backend.",
@@ -209,7 +210,10 @@
       "enable": "Activer",
       "disable": "Désactiver",
       "roleUpdateError": "Échec de la mise à jour du rôle",
-      "statusUpdateError": "Échec de la mise à jour du statut"
+      "statusUpdateError": "Échec de la mise à jour du statut",
+      "roleUser": "Utilisateur",
+      "roleAdmin": "Administrateur",
+      "roleSuperadmin": "Super administrateur"
     },
     "plugins": {
       "tools": "Outils",
@@ -217,13 +221,16 @@
       "installTitle": "Installer un plugin",
       "installDesc": "Entrez l'URL brute du fichier Python du plugin (ex : depuis GitHub)",
       "toggleError": "Échec de la bascule du plugin",
-      "installError": "Échec de l'installation du plugin"
+      "installError": "Échec de l'installation du plugin",
+      "toolCount": "{count} outil(s)"
     },
     "stats": {
       "users": "Utilisateurs totaux",
       "conversations": "Conversations totales",
       "messages": "Messages totaux",
-      "tokens": "Tokens totaux utilisés"
+      "tokens": "Tokens totaux utilisés",
+      "tokensIn": "Entrée",
+      "tokensOut": "Sortie"
     }
   },
   "proactive": {
@@ -407,6 +414,9 @@
     "installError": "Échec de l'installation."
   },
   "memory": {
+    "title": "Mémoire IA",
+    "description": "Faits que l'IA a retenus sur vous au fil des conversations.",
+    "noMemories": "Aucun souvenir enregistré.",
     "confirmClear": "Effacer tous les souvenirs IA ? Cette action est irréversible.",
     "loadError": "Échec du chargement des souvenirs",
     "deleteError": "Échec de la suppression du souvenir",

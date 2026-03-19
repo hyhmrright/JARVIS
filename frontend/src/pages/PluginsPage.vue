@@ -111,7 +111,7 @@
             <!-- Schema-based hints -->
             <div v-if="activePlugin.config_schema" class="schema-hints">
               <div v-for="(schema, key) in activePlugin.config_schema.properties" :key="key" class="hint-item">
-                <code>{{ key }}</code>: {{ schema.description || 'No description' }}
+                <code>{{ key }}</code>: {{ schema.description || t('plugins.noDescription') }}
                 <span v-if="activePlugin.config_schema.required?.includes(key)" class="required-mark">*</span>
               </div>
             </div>
@@ -186,8 +186,10 @@ import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { pluginsApi, marketApi, type PluginInfo, type ConfigItem, type InstalledPluginOut } from "@/api/plugins";
 import { useAuthStore } from "@/stores/auth";
+import { useToast } from "@/composables/useToast";
 
 const { t } = useI18n();
+const { error: toastError } = useToast();
 
 const auth = useAuthStore();
 const isAdmin = computed(() => auth.isAdmin);
@@ -213,7 +215,7 @@ async function uninstallInstalledPlugin(id: string) {
   } catch (err: unknown) {
     const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data
       ?.detail;
-    alert(typeof detail === "string" ? detail : t("plugins.uninstallError"));
+    toastError(typeof detail === "string" ? detail : t("plugins.uninstallError"));
   }
 }
 

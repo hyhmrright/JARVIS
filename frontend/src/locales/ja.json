@@ -177,6 +177,7 @@
     "personalInstalledSection": "マイプラグイン",
     "uninstallConfirm": "このプラグインをアンインストールしますか？",
     "uninstallError": "アンインストールに失敗しました",
+    "noDescription": "説明なし",
     "browseMarket": "マーケットを見る",
     "reload": "プラグインを再読み込み",
     "reload_error": "プラグインの再読み込みに失敗しました。バックエンドのログを確認してください。",
@@ -209,7 +210,10 @@
       "enable": "有効化",
       "disable": "無効化",
       "roleUpdateError": "ユーザーロールの更新に失敗しました",
-      "statusUpdateError": "ユーザーステータスの更新に失敗しました"
+      "statusUpdateError": "ユーザーステータスの更新に失敗しました",
+      "roleUser": "ユーザー",
+      "roleAdmin": "管理者",
+      "roleSuperadmin": "スーパー管理者"
     },
     "plugins": {
       "tools": "ツール数",
@@ -217,13 +221,16 @@
       "installTitle": "プラグインのインストール",
       "installDesc": "プラグインPythonファイルの生URLを入力してください（例：GitHubから）",
       "toggleError": "プラグインの切り替えに失敗しました",
-      "installError": "プラグインのインストールに失敗しました"
+      "installError": "プラグインのインストールに失敗しました",
+      "toolCount": "{count} 個のツール"
     },
     "stats": {
       "users": "総ユーザー数",
       "conversations": "総会話数",
       "messages": "総メッセージ数",
-      "tokens": "総トークン使用量"
+      "tokens": "総トークン使用量",
+      "tokensIn": "入力",
+      "tokensOut": "出力"
     }
   },
   "proactive": {
@@ -407,6 +414,9 @@
     "installError": "インストールに失敗しました。"
   },
   "memory": {
+    "title": "AI メモリ",
+    "description": "会話を通じて AI が記憶したあなたに関する情報。",
+    "noMemories": "保存されたメモリはありません。",
     "confirmClear": "全ての AI メモリを削除しますか？元に戻せません。",
     "loadError": "メモリの読み込みに失敗しました",
     "deleteError": "メモリの削除に失敗しました",

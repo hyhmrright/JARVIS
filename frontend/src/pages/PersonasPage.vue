@@ -149,8 +149,10 @@ import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { UserCircle, Plus, Trash2, ShieldAlert, Smile, X } from "lucide-vue-next";
 import client from "@/api/client";
+import { useToast } from "@/composables/useToast";
 
 const { t } = useI18n();
+const { error: toastError } = useToast();
 
 interface Persona {
   id: string;
@@ -199,7 +201,7 @@ const createPersona = async () => {
     form.value = { name: "", description: "", system_prompt: "" };
   } catch (err) {
     console.error("Create failed:", err);
-    alert(t("personas.saveError"));
+    toastError(t("personas.saveError"));
   } finally {
     saving.value = false;
   }
@@ -212,7 +214,7 @@ const deletePersona = async (persona: Persona) => {
     personas.value = personas.value.filter(p => p.id !== persona.id);
   } catch (err) {
     console.error("Delete failed:", err);
-    alert(t("personas.deleteError"));
+    toastError(t("personas.deleteError"));
   }
 };
 

@@ -254,7 +254,7 @@
         <!-- Memory Management -->
         <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm">
           <div class="flex items-center justify-between mb-2">
-            <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase">AI Memory</h3>
+            <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase">{{ $t('memory.title') }}</h3>
             <button
               v-if="memories.length > 0"
               type="button"
@@ -264,10 +264,10 @@
               {{ $t("memory.clearAll") }}
             </button>
           </div>
-          <p class="text-xs text-zinc-500 mb-4">Facts the AI has remembered about you across conversations.</p>
-          <div v-if="memoriesLoading" class="text-xs text-zinc-600 italic">Loading…</div>
+          <p class="text-xs text-zinc-500 mb-4">{{ $t('memory.description') }}</p>
+          <div v-if="memoriesLoading" class="text-xs text-zinc-600 italic">{{ $t('common.loading') }}</div>
           <div v-else-if="memoryLoadError" class="text-xs text-red-400 italic">{{ $t("memory.loadError") }}</div>
-          <div v-else-if="memories.length === 0" class="text-xs text-zinc-600 italic">No memories stored yet.</div>
+          <div v-else-if="memories.length === 0" class="text-xs text-zinc-600 italic">{{ $t('memory.noMemories') }}</div>
           <div v-else class="space-y-2">
             <div
               v-for="mem in memories"
