@@ -18,7 +18,7 @@ interface Message {
   image_urls?: string[];
   toolCalls?: ToolCall[];
   tool_calls?: Array<{ name: string; id?: string; args?: Record<string, unknown> }> | null;
-  pending_tool_call?: { name: string; args: any };
+  pending_tool_call?: { name: string; args: any; pending_since: number };
 }
 
 interface Conversation { id: string; title: string; active_leaf_id?: string | null; is_pinned: boolean; updated_at?: string }
@@ -331,7 +331,7 @@ export const useChatStore = defineStore("chat", {
                       humanMsg.id = data.human_msg_id;
                     }
                   }
-                  aiMsg.pending_tool_call = { name: data.tool, args: data.args };
+                  aiMsg.pending_tool_call = { name: data.tool, args: data.args, pending_since: Date.now() };
                   this.streaming = false;
                   this.routingAgent = null;
                   this.activeLeafId = null;
