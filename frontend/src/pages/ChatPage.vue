@@ -592,8 +592,8 @@ const editingMessageId = ref<string | null>(null);
 const editInput = ref("");
 const fileInput = ref<HTMLInputElement>();
 const selectedImages = ref<string[]>([]);
-const isMobile = ref(false);
-const sidebarCollapsed = ref(true);
+const isMobile = ref(typeof window !== "undefined" ? window.innerWidth < 768 : false);
+const sidebarCollapsed = ref(isMobile.value);
 
 let resizeDebounce: ReturnType<typeof setTimeout> | undefined;
 const handleResize = () => {
@@ -1162,8 +1162,6 @@ const scrollToBottom = async function(): Promise<void> {
 watch(() => chat.messages.length, scrollToBottom);
 watch(() => chat.streaming, (isStreaming) => { if (isStreaming) scrollToBottom(); });
 onMounted(async () => {
-  isMobile.value = window.innerWidth < 768;
-  sidebarCollapsed.value = isMobile.value;
   window.addEventListener("resize", handleResize);
   await chat.loadConversations();
   await fetchPersonas();
