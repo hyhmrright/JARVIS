@@ -361,6 +361,27 @@
     "deleteConfirm": "Delete persona \"{name}\"?",
     "deleteError": "Failed to delete persona."
   },
+  "workflowStudio": {
+    "title": "Workflow Studio",
+    "untitledWorkflow": "Untitled Workflow",
+    "saveWorkflow": "Save Workflow",
+    "addNodes": "Add Nodes",
+    "nodeProperties": "Node Properties",
+    "labelField": "Label",
+    "modelField": "Model",
+    "promptTemplateField": "Prompt Template",
+    "nodeLlm": "LLM Node",
+    "nodeLlmDesc": "Generate text using AI",
+    "nodeTool": "Tool Node",
+    "nodeToolDesc": "Call a JARVIS tool",
+    "nodeCondition": "Condition",
+    "nodeConditionDesc": "Route based on logic",
+    "nodeOutput": "Output",
+    "nodeOutputDesc": "Return result to user",
+    "nodeStart": "Start",
+    "workflowStart": "Workflow Start",
+    "saveInfo": "Workflow structure logged to console. (Backend integration coming soon)"
+  },
   "skillMarket": {
     "ecosystem": "JARVIS ecosystem",
     "title": "Skill Market",

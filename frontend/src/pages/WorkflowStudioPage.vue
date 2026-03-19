@@ -5,13 +5,13 @@
       <div class="flex items-center gap-4">
         <div class="flex items-center gap-2">
           <div class="w-6 h-6 bg-white text-black flex items-center justify-center rounded font-black text-[10px]">J</div>
-          <h1 class="text-[13px] font-bold text-white tracking-tight">Workflow Studio</h1>
+          <h1 class="text-[13px] font-bold text-white tracking-tight">{{ $t('workflowStudio.title') }}</h1>
         </div>
         <div class="h-4 w-px bg-zinc-800"></div>
-        <input 
-          v-model="workflowName" 
+        <input
+          v-model="workflowName"
           class="bg-transparent border-none outline-none text-[12px] font-medium text-zinc-400 focus:text-white transition-colors"
-          placeholder="Untitled Workflow"
+          :placeholder="$t('workflowStudio.untitledWorkflow')"
         />
       </div>
       <div class="flex items-center gap-3">
@@ -20,9 +20,9 @@
           @click="onSave"
         >
           <Save class="w-3.5 h-3.5" />
-          Save Workflow
+          {{ $t('workflowStudio.saveWorkflow') }}
         </button>
-        <router-link to="/" class="text-[11px] font-bold text-zinc-500 hover:text-white transition-colors">CLOSE</router-link>
+        <router-link to="/" class="text-[11px] font-bold text-zinc-500 hover:text-white transition-colors">{{ $t('common.close') }}</router-link>
       </div>
     </header>
 
@@ -31,7 +31,7 @@
       <!-- Node Sidebar -->
       <aside class="w-64 border-r border-white/5 bg-zinc-950/30 p-6 space-y-8 overflow-y-auto">
         <div class="space-y-4">
-          <p class="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">Add Nodes</p>
+          <p class="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">{{ $t('workflowStudio.addNodes') }}</p>
           <div class="grid grid-cols-1 gap-2">
             <div 
               v-for="node in nodeTypes" 
@@ -70,19 +70,19 @@
       <aside v-if="selectedNode" class="w-80 border-l border-white/5 bg-zinc-950/30 p-6 overflow-y-auto animate-in slide-in-from-right-4 duration-300">
         <div class="space-y-6">
           <div class="flex items-center justify-between">
-            <p class="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">Node Properties</p>
+            <p class="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">{{ $t('workflowStudio.nodeProperties') }}</p>
             <button class="text-zinc-500 hover:text-white" @click="selectedNode = null"><X class="w-4 h-4" /></button>
           </div>
           
           <div class="space-y-4">
             <div class="space-y-1.5">
-              <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Label</label>
+              <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">{{ $t('workflowStudio.labelField') }}</label>
               <input v-model="selectedNode.data.label" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white" />
             </div>
             
             <div v-if="selectedNode.type === 'llm'" class="space-y-4">
               <div class="space-y-1.5">
-                <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Model</label>
+                <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">{{ $t('workflowStudio.modelField') }}</label>
                 <select v-model="selectedNode.data.model" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white">
                   <option value="gpt-4o">GPT-4o</option>
                   <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
@@ -90,7 +90,7 @@
                 </select>
               </div>
               <div class="space-y-1.5">
-                <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Prompt Template</label>
+                <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">{{ $t('workflowStudio.promptTemplateField') }}</label>
                 <textarea v-model="selectedNode.data.prompt" rows="6" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white font-mono"></textarea>
               </div>
             </div>
@@ -102,32 +102,33 @@
 </template>
 
 <script setup lang="ts">
-import { ref, markRaw } from 'vue';
+import { ref, computed, markRaw } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { VueFlow, useVueFlow, type Elements, type Connection, type Edge, type Node } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
 import { Controls } from '@vue-flow/controls';
 import { Save, Box, Target, GitFork, X, MessageSquare } from 'lucide-vue-next';
 import LLMNode from '@/components/workflow/LLMNode.vue';
 import ToolNode from '@/components/workflow/ToolNode.vue';
-
-// Styles for Vue Flow
 import '@vue-flow/core/dist/style.css';
 import '@vue-flow/core/dist/theme-default.css';
 
+const { t } = useI18n();
+
 const workflowName = ref('');
 const elements = ref<Elements>([
-  { id: '1', type: 'input', label: 'Start', position: { x: 250, y: 100 }, data: { label: 'Workflow Start' } }
+  { id: '1', type: 'input', label: t('workflowStudio.nodeStart'), position: { x: 250, y: 100 }, data: { label: t('workflowStudio.workflowStart') } }
 ]);
 
 const { addNodes, addEdges, onNodeClick } = useVueFlow();
 const selectedNode = ref<Node | null>(null);
 
-const nodeTypes = [
-  { type: 'llm', label: 'LLM Node', icon: MessageSquare, description: 'Generate text using AI' },
-  { type: 'tool', label: 'Tool Node', icon: Box, description: 'Call a JARVIS tool' },
-  { type: 'condition', label: 'Condition', icon: GitFork, description: 'Route based on logic' },
-  { type: 'output', label: 'Output', icon: Target, description: 'Return result to user' },
-];
+const nodeTypes = computed(() => [
+  { type: 'llm', label: t('workflowStudio.nodeLlm'), icon: MessageSquare, description: t('workflowStudio.nodeLlmDesc') },
+  { type: 'tool', label: t('workflowStudio.nodeTool'), icon: Box, description: t('workflowStudio.nodeToolDesc') },
+  { type: 'condition', label: t('workflowStudio.nodeCondition'), icon: GitFork, description: t('workflowStudio.nodeConditionDesc') },
+  { type: 'output', label: t('workflowStudio.nodeOutput'), icon: Target, description: t('workflowStudio.nodeOutputDesc') },
+]);
 
 const nodeTypeComponents = {
   llm: markRaw(LLMNode),
@@ -154,12 +155,13 @@ const onDrop = (event: DragEvent) => {
   if (!type) return;
 
   const position = { x: event.clientX - 300, y: event.clientY - 100 }; // Offset roughly
+  const nodeLabel = nodeTypes.value.find((n) => n.type === type)?.label ?? type.toUpperCase();
   const newNode = {
     id: `node_${Date.now()}`,
     type,
     position,
-    label: `${type.toUpperCase()} Node`,
-    data: { label: `${type.toUpperCase()} Node`, model: 'gpt-4o', prompt: '' },
+    label: nodeLabel,
+    data: { label: nodeLabel, model: 'gpt-4o', prompt: '' },
   };
   addNodes([newNode]);
 };
@@ -169,7 +171,7 @@ const onSave = () => {
     name: workflowName.value,
     elements: elements.value
   });
-  alert('Workflow structure logged to console. (Backend integration in Track 3.2)');
+  alert(t('workflowStudio.saveInfo'));
 };
 </script>
 

@@ -361,6 +361,27 @@
     "deleteConfirm": "페르소나 \"{name}\"를 삭제하시겠습니까?",
     "deleteError": "페르소나 삭제 실패."
   },
+  "workflowStudio": {
+    "title": "워크플로우 스튜디오",
+    "untitledWorkflow": "제목 없는 워크플로우",
+    "saveWorkflow": "워크플로우 저장",
+    "addNodes": "노드 추가",
+    "nodeProperties": "노드 속성",
+    "labelField": "레이블",
+    "modelField": "모델",
+    "promptTemplateField": "프롬프트 템플릿",
+    "nodeLlm": "LLM 노드",
+    "nodeLlmDesc": "AI로 텍스트 생성",
+    "nodeTool": "도구 노드",
+    "nodeToolDesc": "JARVIS 도구 호출",
+    "nodeCondition": "조건",
+    "nodeConditionDesc": "로직에 따라 라우팅",
+    "nodeOutput": "출력",
+    "nodeOutputDesc": "사용자에게 결과 반환",
+    "nodeStart": "시작",
+    "workflowStart": "워크플로우 시작",
+    "saveInfo": "워크플로우 구조가 콘솔에 기록되었습니다. (백엔드 통합 예정)"
+  },
   "skillMarket": {
     "ecosystem": "JARVIS 생태계",
     "title": "스킬 마켓",

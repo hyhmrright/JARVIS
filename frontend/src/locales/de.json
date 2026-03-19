@@ -361,6 +361,27 @@
     "deleteConfirm": "Persona \"{name}\" löschen?",
     "deleteError": "Persona konnte nicht gelöscht werden."
   },
+  "workflowStudio": {
+    "title": "Workflow-Studio",
+    "untitledWorkflow": "Unbenannter Workflow",
+    "saveWorkflow": "Workflow speichern",
+    "addNodes": "Knoten hinzufügen",
+    "nodeProperties": "Knoteneigenschaften",
+    "labelField": "Bezeichnung",
+    "modelField": "Modell",
+    "promptTemplateField": "Prompt-Vorlage",
+    "nodeLlm": "LLM-Knoten",
+    "nodeLlmDesc": "Text mit KI generieren",
+    "nodeTool": "Werkzeugknoten",
+    "nodeToolDesc": "Ein JARVIS-Werkzeug aufrufen",
+    "nodeCondition": "Bedingung",
+    "nodeConditionDesc": "Basierend auf Logik routen",
+    "nodeOutput": "Ausgabe",
+    "nodeOutputDesc": "Ergebnis an den Benutzer zurückgeben",
+    "nodeStart": "Start",
+    "workflowStart": "Workflow-Start",
+    "saveInfo": "Workflow-Struktur in der Konsole protokolliert. (Backend-Integration folgt)"
+  },
   "skillMarket": {
     "ecosystem": "JARVIS-Ökosystem",
     "title": "Skill-Markt",

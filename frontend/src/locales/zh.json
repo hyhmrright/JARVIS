@@ -361,6 +361,27 @@
     "deleteConfirm": "删除 Persona「{name}」？",
     "deleteError": "删除 Persona 失败。"
   },
+  "workflowStudio": {
+    "title": "工作流工作室",
+    "untitledWorkflow": "未命名工作流",
+    "saveWorkflow": "保存工作流",
+    "addNodes": "添加节点",
+    "nodeProperties": "节点属性",
+    "labelField": "标签",
+    "modelField": "模型",
+    "promptTemplateField": "提示词模板",
+    "nodeLlm": "LLM 节点",
+    "nodeLlmDesc": "使用 AI 生成文本",
+    "nodeTool": "工具节点",
+    "nodeToolDesc": "调用 JARVIS 工具",
+    "nodeCondition": "条件",
+    "nodeConditionDesc": "基于逻辑路由",
+    "nodeOutput": "输出",
+    "nodeOutputDesc": "向用户返回结果",
+    "nodeStart": "开始",
+    "workflowStart": "工作流开始",
+    "saveInfo": "工作流结构已记录到控制台。（后端集成即将推出）"
+  },
   "skillMarket": {
     "ecosystem": "JARVIS 生态",
     "title": "技能市场",

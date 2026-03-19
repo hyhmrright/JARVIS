@@ -361,6 +361,27 @@
     "deleteConfirm": "Supprimer le persona « {name} » ?",
     "deleteError": "Échec de la suppression du persona."
   },
+  "workflowStudio": {
+    "title": "Studio de workflows",
+    "untitledWorkflow": "Workflow sans titre",
+    "saveWorkflow": "Enregistrer le workflow",
+    "addNodes": "Ajouter des nœuds",
+    "nodeProperties": "Propriétés du nœud",
+    "labelField": "Libellé",
+    "modelField": "Modèle",
+    "promptTemplateField": "Modèle de prompt",
+    "nodeLlm": "Nœud LLM",
+    "nodeLlmDesc": "Générer du texte avec l'IA",
+    "nodeTool": "Nœud outil",
+    "nodeToolDesc": "Appeler un outil JARVIS",
+    "nodeCondition": "Condition",
+    "nodeConditionDesc": "Router selon la logique",
+    "nodeOutput": "Sortie",
+    "nodeOutputDesc": "Retourner le résultat à l'utilisateur",
+    "nodeStart": "Début",
+    "workflowStart": "Début du workflow",
+    "saveInfo": "Structure du workflow enregistrée dans la console. (Intégration backend à venir)"
+  },
   "skillMarket": {
     "ecosystem": "Écosystème JARVIS",
     "title": "Marché des compétences",

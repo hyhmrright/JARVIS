@@ -361,6 +361,27 @@
     "deleteConfirm": "ペルソナ「{name}」を削除しますか？",
     "deleteError": "ペルソナの削除に失敗しました。"
   },
+  "workflowStudio": {
+    "title": "ワークフロースタジオ",
+    "untitledWorkflow": "名称未設定ワークフロー",
+    "saveWorkflow": "ワークフローを保存",
+    "addNodes": "ノードを追加",
+    "nodeProperties": "ノードプロパティ",
+    "labelField": "ラベル",
+    "modelField": "モデル",
+    "promptTemplateField": "プロンプトテンプレート",
+    "nodeLlm": "LLM ノード",
+    "nodeLlmDesc": "AI を使用してテキストを生成",
+    "nodeTool": "ツールノード",
+    "nodeToolDesc": "JARVIS ツールを呼び出す",
+    "nodeCondition": "条件",
+    "nodeConditionDesc": "ロジックに基づいてルーティング",
+    "nodeOutput": "出力",
+    "nodeOutputDesc": "ユーザーに結果を返す",
+    "nodeStart": "開始",
+    "workflowStart": "ワークフロー開始",
+    "saveInfo": "ワークフロー構造がコンソールに記録されました。（バックエンド統合は近日公開）"
+  },
   "skillMarket": {
     "ecosystem": "JARVIS エコシステム",
     "title": "スキルマーケット",
