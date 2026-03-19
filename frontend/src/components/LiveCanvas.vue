@@ -105,8 +105,13 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Layout, X, ExternalLink } from 'lucide-vue-next';
+import { useToast } from '@/composables/useToast';
 import * as echarts from 'echarts';
+
+const { t } = useI18n();
+const { success: toastSuccess } = useToast();
 
 const props = defineProps<{
   content: string;
@@ -174,7 +179,7 @@ const copyCode = () => {
     }
   }
   navigator.clipboard.writeText(raw);
-  alert('Code copied to clipboard!');
+  toastSuccess(t('liveCanvas.codeCopied'));
 };
 
 // HTML Logic

@@ -84,14 +84,18 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useAuthStore } from "@/stores/auth";
 import { marketApi } from "@/api/plugins";
 import type { InstallRequest } from "@/api/plugins";
+import { useToast } from "@/composables/useToast";
 
 const emit = defineEmits<{
   close: [];
   installed: [pluginId: string];
 }>();
+const { t } = useI18n();
+const { error: toastError } = useToast();
 
 const auth = useAuthStore();
 const isAdmin = computed(() => auth.isAdmin);
@@ -151,7 +155,7 @@ async function doInstall() {
   } catch (err: unknown) {
     const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data
       ?.detail;
-    alert(typeof detail === "string" ? detail : "Install failed");
+    toastError(typeof detail === "string" ? detail : t("skillMarket.installError"));
   } finally {
     installing.value = false;
   }

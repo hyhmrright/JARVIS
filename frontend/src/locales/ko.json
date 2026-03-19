@@ -77,6 +77,7 @@
     "templateApplyError": "템플릿 적용에 실패했습니다",
     "imageTooLarge": "\"{name}\"이(가) 4 MB를 초과합니다",
     "templateApplyNewError": "새 대화에 템플릿 적용 실패",
+    "deleteMessageConfirm": "이 메시지를 영구적으로 삭제하시겠습니까?",
     "deleteMessageError": "메시지 삭제에 실패했습니다",
     "copyError": "복사에 실패했습니다",
     "automations": "자동화"
@@ -421,5 +422,8 @@
     "loadError": "기억 로드 실패",
     "deleteError": "기억 삭제 실패",
     "clearAll": "모두 삭제"
+  },
+  "liveCanvas": {
+    "codeCopied": "코드가 클립보드에 복사되었습니다!"
   }
 }

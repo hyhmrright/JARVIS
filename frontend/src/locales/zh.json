@@ -77,6 +77,7 @@
     "templateApplyError": "应用模板失败",
     "imageTooLarge": "「{name}」超过 4 MB",
     "templateApplyNewError": "对新会话应用模板失败",
+    "deleteMessageConfirm": "确定要永久删除此消息吗？",
     "deleteMessageError": "删除消息失败",
     "copyError": "复制失败",
     "automations": "自动化"
@@ -421,5 +422,8 @@
     "loadError": "加载记忆失败",
     "deleteError": "删除记忆失败",
     "clearAll": "全部清除"
+  },
+  "liveCanvas": {
+    "codeCopied": "代码已复制到剪贴板！"
   }
 }

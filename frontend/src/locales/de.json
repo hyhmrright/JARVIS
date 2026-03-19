@@ -77,6 +77,7 @@
     "templateApplyError": "Vorlage konnte nicht angewendet werden",
     "imageTooLarge": "\"{name}\" überschreitet 4 MB",
     "templateApplyNewError": "Vorlage konnte nicht auf neues Gespräch angewendet werden",
+    "deleteMessageConfirm": "Diese Nachricht dauerhaft löschen?",
     "deleteMessageError": "Nachricht konnte nicht gelöscht werden",
     "copyError": "Kopieren fehlgeschlagen",
     "automations": "Automatisierungen"
@@ -421,5 +422,8 @@
     "loadError": "Erinnerungen konnten nicht geladen werden",
     "deleteError": "Erinnerung konnte nicht gelöscht werden",
     "clearAll": "Alle löschen"
+  },
+  "liveCanvas": {
+    "codeCopied": "Code in die Zwischenablage kopiert!"
   }
 }

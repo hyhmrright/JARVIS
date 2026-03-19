@@ -1451,7 +1451,7 @@ const handleEnter = function(e: KeyboardEvent): void {
 };
 
 const handleDeleteMessage = async function(msgId: string): Promise<void> {
-  if (!window.confirm("Delete this message permanently?")) return;
+  if (!window.confirm(t("chat.deleteMessageConfirm"))) return;
   try {
     await chat.removeMessage(msgId);
   } catch {

@@ -77,6 +77,7 @@
     "templateApplyError": "Failed to apply template",
     "imageTooLarge": "\"{name}\" exceeds 4 MB",
     "templateApplyNewError": "Failed to apply template to new conversation",
+    "deleteMessageConfirm": "Delete this message permanently?",
     "deleteMessageError": "Failed to delete message",
     "copyError": "Failed to copy",
     "automations": "Automations"
@@ -421,5 +422,8 @@
     "loadError": "Failed to load memories",
     "deleteError": "Failed to delete memory",
     "clearAll": "Clear All"
+  },
+  "liveCanvas": {
+    "codeCopied": "Code copied to clipboard!"
   }
 }

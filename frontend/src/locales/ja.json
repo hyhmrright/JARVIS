@@ -77,6 +77,7 @@
     "templateApplyError": "テンプレートの適用に失敗しました",
     "imageTooLarge": "「{name}」は 4 MB を超えています",
     "templateApplyNewError": "新しい会話へのテンプレート適用に失敗しました",
+    "deleteMessageConfirm": "このメッセージを完全に削除しますか？",
     "deleteMessageError": "メッセージの削除に失敗しました",
     "copyError": "コピーに失敗しました",
     "automations": "オートメーション"
@@ -421,5 +422,8 @@
     "loadError": "メモリの読み込みに失敗しました",
     "deleteError": "メモリの削除に失敗しました",
     "clearAll": "すべて削除"
+  },
+  "liveCanvas": {
+    "codeCopied": "コードをクリップボードにコピーしました！"
   }
 }
