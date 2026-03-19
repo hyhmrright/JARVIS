@@ -60,14 +60,14 @@ def test_rag_injection_preserves_full_history() -> None:
 
 
 def test_format_rag_context_contains_relevance_score() -> None:
-    """format_rag_context output should include document name and relevance score."""
+    """Output includes numbered citation, document name, and score."""
     chunks = [RetrievedChunk("report.pdf", "Key insight here", 0.91)]
     result = format_rag_context(chunks)
 
-    assert "report.pdf" in result
+    assert "[1] report.pdf" in result
     assert "0.91" in result
     assert "Key insight here" in result
-    assert "Cite document names" in result
+    assert "[1]" in result  # numbered citation instruction
 
 
 def test_format_rag_context_multiple_chunks() -> None:

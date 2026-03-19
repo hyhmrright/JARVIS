@@ -50,15 +50,16 @@ async def build_rag_context(
 
 
 def _format_chunks(chunks: list[RetrievedChunk]) -> str:
-    lines = ["[Knowledge Base Context]"]
-    for chunk in chunks:
-        lines.append(
-            f'Document: "{chunk.document_name}" (relevance: {chunk.score:.2f})'
-        )
+    lines = ["[Knowledge Base Context]", ""]
+    for i, chunk in enumerate(chunks, 1):
+        lines.append(f"[{i}] {chunk.document_name} (relevance: {chunk.score:.2f})")
         lines.append(chunk.content)
         lines.append("")
+    source_list = ", ".join(
+        f'[{i}] "{c.document_name}"' for i, c in enumerate(chunks, 1)
+    )
     lines.append(
-        "Use the above context to answer the user's question. "
-        "Cite document names when referencing this content."
+        "When using information from the context above, cite it inline using the "
+        f"reference numbers (e.g. [1], [2]). Available sources: {source_list}."
     )
     return "\n".join(lines)
