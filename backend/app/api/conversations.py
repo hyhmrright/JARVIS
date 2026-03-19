@@ -58,6 +58,13 @@ class ConversationUpdate(BaseModel):
         return v
 
 
+class ConversationPage(BaseModel):
+    items: list[ConversationOut]
+    total: int
+    offset: int
+    limit: int
+
+
 @router.post("", response_model=ConversationOut, status_code=201)
 async def create_conversation(
     body: ConversationCreate,
@@ -86,28 +93,42 @@ async def create_conversation(
     )
 
 
-@router.get("", response_model=list[ConversationOut])
+@router.get("", response_model=ConversationPage)
 async def list_conversations(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> list[ConversationOut]:
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+) -> ConversationPage:
+    total = (
+        await db.scalar(
+            select(func.count(Conversation.id)).where(Conversation.user_id == user.id)
+        )
+    ) or 0
     rows = await db.scalars(
         select(Conversation)
         .where(Conversation.user_id == user.id)
         .options(selectinload(Conversation.tags))
         .order_by(Conversation.is_pinned.desc(), Conversation.updated_at.desc())
+        .limit(limit)
+        .offset(offset)
     )
-    return [
-        ConversationOut(
-            id=c.id,
-            title=c.title,
-            active_leaf_id=c.active_leaf_id,
-            is_pinned=c.is_pinned,
-            updated_at=c.updated_at,
-            tags=[t.tag for t in c.tags],
-        )
-        for c in rows.all()
-    ]
+    return ConversationPage(
+        items=[
+            ConversationOut(
+                id=c.id,
+                title=c.title,
+                active_leaf_id=c.active_leaf_id,
+                is_pinned=c.is_pinned,
+                updated_at=c.updated_at,
+                tags=[t.tag for t in c.tags],
+            )
+            for c in rows.all()
+        ],
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
 
 
 class MessageOut(BaseModel):

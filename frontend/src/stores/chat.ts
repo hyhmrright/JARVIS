@@ -38,9 +38,13 @@ function applyModelMeta(msg: Message, data: Record<string, unknown>) {
   if (data.output_tokens != null) msg.tokens_output = data.output_tokens as number;
 }
 
+const PAGE_SIZE = 50;
+
 export const useChatStore = defineStore("chat", {
   state: () => ({
     conversations: [] as Conversation[],
+    conversationsTotal: 0,
+    loadingMoreConversations: false,
     currentConvId: null as string | null,
     messages: [] as Message[],
     streaming: false,
@@ -106,8 +110,22 @@ export const useChatStore = defineStore("chat", {
     },
 
     async loadConversations() {
-      const { data } = await client.get("/conversations");
-      this.conversations = data;
+      const { data } = await client.get<{ items: Conversation[]; total: number }>(`/conversations?limit=${PAGE_SIZE}&offset=0`);
+      this.conversations = data.items;
+      this.conversationsTotal = data.total;
+    },
+    async loadMoreConversations() {
+      if (this.loadingMoreConversations || this.conversations.length >= this.conversationsTotal) return;
+      this.loadingMoreConversations = true;
+      try {
+        const { data } = await client.get<{ items: Conversation[]; total: number }>(
+          `/conversations?limit=${PAGE_SIZE}&offset=${this.conversations.length}`
+        );
+        this.conversations.push(...data.items);
+        this.conversationsTotal = data.total;
+      } finally {
+        this.loadingMoreConversations = false;
+      }
     },
     async _reloadMessages(convId: string): Promise<void> {
       const { data } = await client.get<Message[]>(`/conversations/${convId}/messages`);
@@ -137,6 +155,7 @@ export const useChatStore = defineStore("chat", {
       try {
         await client.delete(`/conversations/${convId}`);
         this.conversations = this.conversations.filter(c => c.id !== convId);
+        this.conversationsTotal = Math.max(0, this.conversationsTotal - 1);
         if (this.currentConvId === convId) {
           this.currentConvId = null;
           this.messages = [];
@@ -330,6 +349,7 @@ export const useChatStore = defineStore("chat", {
         } else {
           this.conversations.splice(firstUnpinned, 0, data);
         }
+        this.conversationsTotal += 1;
         this.currentConvId = data.id;
       }
 

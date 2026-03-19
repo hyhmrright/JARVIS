@@ -30,7 +30,32 @@ async def test_list_conversations(auth_client):
     await auth_client.post("/api/conversations", json={"title": "Chat 2"})
     resp = await auth_client.get("/api/conversations")
     assert resp.status_code == 200
-    assert len(resp.json()) >= 2
+    body = resp.json()
+    assert "items" in body
+    assert "total" in body
+    assert len(body["items"]) >= 2
+    assert body["total"] >= 2
+
+
+async def test_list_conversations_pagination(auth_client):
+    for i in range(3):
+        await auth_client.post("/api/conversations", json={"title": f"Page Conv {i}"})
+    resp = await auth_client.get("/api/conversations?limit=2&offset=0")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["items"]) == 2
+    assert body["total"] >= 3
+    assert body["limit"] == 2
+    assert body["offset"] == 0
+
+    resp2 = await auth_client.get("/api/conversations?limit=2&offset=2")
+    assert resp2.status_code == 200
+    body2 = resp2.json()
+    assert body2["offset"] == 2
+    # Items from page 2 should differ from page 1
+    ids1 = {c["id"] for c in body["items"]}
+    ids2 = {c["id"] for c in body2["items"]}
+    assert ids1.isdisjoint(ids2)
 
 
 async def test_delete_conversation(auth_client):
@@ -411,7 +436,7 @@ async def test_pinned_conversations_listed_first(auth_client, db_session):
     # Filter to only the two conversations created in this test to avoid
     # interference from other conversations that may exist in the session.
     ids = {str(normal.id), str(pinned.id)}
-    ordered = [c for c in resp.json() if c["id"] in ids]
+    ordered = [c for c in resp.json()["items"] if c["id"] in ids]
     assert len(ordered) == 2
     assert ordered[0]["id"] == str(pinned.id)
 
@@ -756,7 +781,7 @@ async def test_add_and_list_tags(auth_client, db_session):
 
     # Tags also appear in the conversation list
     resp = await auth_client.get("/api/conversations")
-    found = next((c for c in resp.json() if c["id"] == str(conv.id)), None)
+    found = next((c for c in resp.json()["items"] if c["id"] == str(conv.id)), None)
     assert found is not None
     assert "work" in found["tags"]
 
@@ -804,7 +829,7 @@ async def test_remove_tag(auth_client, db_session):
 
     # Tag gone from conversation list
     resp = await auth_client.get("/api/conversations")
-    found = next((c for c in resp.json() if c["id"] == str(conv.id)), None)
+    found = next((c for c in resp.json()["items"] if c["id"] == str(conv.id)), None)
     assert found is not None
     assert "research" not in found["tags"]
 
@@ -879,7 +904,7 @@ async def test_list_conversations_includes_tags(auth_client, db_session):
 
     resp = await auth_client.get("/api/conversations")
     assert resp.status_code == 200
-    found = next((c for c in resp.json() if c["id"] == str(conv.id)), None)
+    found = next((c for c in resp.json()["items"] if c["id"] == str(conv.id)), None)
     assert found is not None
     assert "mytag" in found["tags"]
 

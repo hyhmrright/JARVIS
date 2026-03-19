@@ -24,7 +24,7 @@ async def test_full_flow(client):
     # 3. 列出对话
     r = await client.get("/api/conversations", headers=headers)
     assert r.status_code == 200
-    assert any(c["id"] == conv_id for c in r.json())
+    assert any(c["id"] == conv_id for c in r.json()["items"])
 
     # 4. 健康检查
     r = await client.get("/health")

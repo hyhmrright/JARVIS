@@ -210,6 +210,16 @@
             </div>
           </div>
         </template>
+        <!-- Load more conversations -->
+        <div v-if="chat.conversations.length < chat.conversationsTotal" class="px-3 py-2">
+          <button
+            class="w-full text-xs text-zinc-500 hover:text-zinc-300 disabled:opacity-40 py-1 transition-colors"
+            :disabled="chat.loadingMoreConversations"
+            @click="chat.loadMoreConversations()"
+          >
+            {{ chat.loadingMoreConversations ? 'Loading…' : `Load more (${chat.conversationsTotal - chat.conversations.length} remaining)` }}
+          </button>
+        </div>
       </nav>
 
       <div class="p-4 border-t border-zinc-800 space-y-4">
