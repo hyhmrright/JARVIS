@@ -216,7 +216,16 @@
       </header>
 
       <!-- Messages Stream -->
-      <div ref="messagesEl" class="flex-1 overflow-y-auto custom-scrollbar">
+      <div class="flex-1 relative overflow-hidden">
+      <button
+        v-if="showScrollBtn"
+        class="absolute bottom-4 right-4 z-20 p-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-full shadow-lg transition-all text-zinc-400 hover:text-white"
+        title="Scroll to bottom"
+        @click="scrollToBottom"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </button>
+      <div ref="messagesEl" class="h-full overflow-y-auto custom-scrollbar" @scroll="onMessagesScroll">
         <div class="max-w-3xl mx-auto px-6 py-12 space-y-16">
           
           <!-- New Session Welcome -->
@@ -335,6 +344,11 @@
                 </div>
               </template>
 
+              <!-- Human message timestamp -->
+              <div v-if="msg.role === 'human' && msg.created_at" class="mt-2 text-[10px] text-zinc-700 select-none text-right">
+                {{ formatMsgTime(msg.created_at) }}
+              </div>
+
               <!-- Message Actions (Human) -->
               <div v-if="msg.role === 'human' && !editingMessageId" class="absolute -top-1 -right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Edit" @click="startEdit(msg)">
@@ -426,15 +440,21 @@
                 </details>
               </div>
 
-              <!-- Model / Token metadata -->
+              <!-- Message metadata (model, tokens, timestamp) -->
               <div
-                v-if="msg.role === 'ai' && msg.model_name"
+                v-if="msg.role === 'ai' && (msg.model_name || msg.created_at)"
                 class="mt-3 flex items-center gap-2 text-[10px] text-zinc-600 select-none"
               >
-                <span class="font-mono">{{ msg.model_name }}</span>
-                <template v-if="msg.tokens_input != null || msg.tokens_output != null">
-                  <span>·</span>
-                  <span>{{ (msg.tokens_input ?? 0) + (msg.tokens_output ?? 0) }} tokens</span>
+                <template v-if="msg.model_name">
+                  <span class="font-mono">{{ msg.model_name }}</span>
+                  <template v-if="msg.tokens_input != null || msg.tokens_output != null">
+                    <span>·</span>
+                    <span>{{ (msg.tokens_input ?? 0) + (msg.tokens_output ?? 0) }} tokens</span>
+                  </template>
+                </template>
+                <template v-if="msg.created_at">
+                  <span v-if="msg.model_name">·</span>
+                  <span>{{ formatMsgTime(msg.created_at) }}</span>
                 </template>
               </div>
 
@@ -467,6 +487,7 @@
             >{{ agentLabel(chat.routingAgent) }}</span>
           </div>
         </div>
+      </div>
       </div>
 
       <!-- Footer Dock -->
@@ -715,6 +736,8 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
 onUnmounted(() => {
   clearTimeout(searchTimer);
   clearTimeout(resizeDebounce);
+  clearTimeout(_scrollGuardTimer);
+  cancelAnimationFrame(_scrollRafId);
   if (approvalTickInterval) clearInterval(approvalTickInterval);
   window.removeEventListener("resize", handleResize);
   window.removeEventListener("keydown", handleGlobalKeydown);
@@ -901,6 +924,26 @@ const removeImage = (idx: number) => {
 
 const messagesEl = ref<HTMLElement>();
 const voiceOverlay = ref<InstanceType<typeof VoiceOverlay>>();
+const showScrollBtn = ref(false);
+
+let _scrollRafId = 0;
+let _programmaticScroll = false;
+let _scrollGuardTimer = 0;
+const onMessagesScroll = () => {
+  if (_programmaticScroll) return;
+  cancelAnimationFrame(_scrollRafId);
+  _scrollRafId = requestAnimationFrame(() => {
+    if (!messagesEl.value) return;
+    const { scrollTop, scrollHeight, clientHeight } = messagesEl.value;
+    showScrollBtn.value = scrollHeight - scrollTop - clientHeight > 200;
+  });
+};
+
+const formatMsgTime = (iso: string) => {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+};
 
 // Share State
 const shareUrl = ref<string | null>(null);
@@ -1183,10 +1226,15 @@ const handleLogout = function(): void {
 const scrollToBottom = async function(): Promise<void> {
   await nextTick();
   if (messagesEl.value) {
+    _programmaticScroll = true;
+    showScrollBtn.value = false;
     messagesEl.value.scrollTo({
       top: messagesEl.value.scrollHeight,
       behavior: "smooth"
     });
+    // Re-enable scroll tracking after animation completes; cancel any prior timer
+    clearTimeout(_scrollGuardTimer);
+    _scrollGuardTimer = window.setTimeout(() => { _programmaticScroll = false; }, 400);
   }
 };
 

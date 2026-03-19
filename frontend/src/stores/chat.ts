@@ -23,6 +23,7 @@ interface Message {
   model_provider?: string | null;
   tokens_input?: number | null;
   tokens_output?: number | null;
+  created_at?: string | null;
 }
 
 interface Conversation { id: string; title: string; active_leaf_id?: string | null; is_pinned: boolean; updated_at?: string }
