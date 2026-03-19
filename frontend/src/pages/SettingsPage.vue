@@ -246,6 +246,47 @@
           </div>
         </Teleport>
 
+        <!-- Memory Management -->
+        <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase">AI Memory</h3>
+            <button
+              v-if="memories.length > 0"
+              type="button"
+              class="text-xs font-medium px-3 py-1.5 bg-red-600/10 text-red-400 rounded-lg hover:bg-red-600/20 transition-colors"
+              @click="handleClearAllMemories"
+            >
+              Clear All
+            </button>
+          </div>
+          <p class="text-xs text-zinc-500 mb-4">Facts the AI has remembered about you across conversations.</p>
+          <div v-if="memoriesLoading" class="text-xs text-zinc-600 italic">Loading…</div>
+          <div v-else-if="memoryLoadError" class="text-xs text-red-400 italic">{{ $t("memory.loadError") }}</div>
+          <div v-else-if="memories.length === 0" class="text-xs text-zinc-600 italic">No memories stored yet.</div>
+          <div v-else class="space-y-2">
+            <div
+              v-for="mem in memories"
+              :key="mem.id"
+              class="flex items-start justify-between bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 gap-3"
+            >
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 mb-0.5">
+                  <span class="text-[10px] px-1.5 py-0.5 rounded font-mono bg-zinc-800 text-zinc-400">{{ mem.category }}</span>
+                  <span class="text-xs font-semibold text-zinc-300 truncate">{{ mem.key }}</span>
+                </div>
+                <p class="text-xs text-zinc-500 break-all">{{ mem.value }}</p>
+              </div>
+              <button
+                type="button"
+                class="text-xs text-red-400 hover:text-red-300 transition-colors flex-shrink-0 mt-0.5"
+                @click="handleDeleteMemory(mem.id)"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </section>
+
         <!-- Workspace Settings -->
         <section
           v-if="workspace.currentWorkspace"
@@ -303,6 +344,11 @@
     <Transition name="fade">
       <div v-if="saveError" class="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 bg-red-500/20 text-red-400 border border-red-500/20 rounded-full text-sm font-medium backdrop-blur-md z-50">
         {{ $t("settings.saveError") }}
+      </div>
+    </Transition>
+    <Transition name="fade">
+      <div v-if="memoryDeleteError" class="fixed bottom-20 left-1/2 -translate-x-1/2 px-6 py-3 bg-red-500/20 text-red-400 border border-red-500/20 rounded-full text-sm font-medium backdrop-blur-md z-50">
+        {{ $t("memory.deleteError") }}
       </div>
     </Transition>
   </div>
@@ -381,6 +427,59 @@ function toggleTool(name: string) {
   else enabledTools.value.push(name);
 }
 
+// ── Memory Management ──────────────────────────────────────────────────────
+interface Memory {
+  id: string;
+  key: string;
+  value: string;
+  category: string;
+  created_at: string;
+  updated_at: string;
+}
+
+const memories = ref<Memory[]>([]);
+const memoriesLoading = ref(false);
+const memoryLoadError = ref(false);
+const memoryDeleteError = ref(false);
+
+async function loadMemories(): Promise<void> {
+  memoriesLoading.value = true;
+  memoryLoadError.value = false;
+  try {
+    const { data } = await client.get("/memories");
+    memories.value = data;
+  } catch {
+    memoryLoadError.value = true;
+  } finally {
+    memoriesLoading.value = false;
+  }
+}
+
+async function handleDeleteMemory(id: string): Promise<void> {
+  const prev = [...memories.value];
+  memories.value = memories.value.filter((m) => m.id !== id);
+  try {
+    await client.delete(`/memories/${id}`);
+  } catch {
+    memories.value = prev;
+    memoryDeleteError.value = true;
+    setTimeout(() => (memoryDeleteError.value = false), 3000);
+  }
+}
+
+async function handleClearAllMemories(): Promise<void> {
+  if (!confirm(t("memory.confirmClear"))) return;
+  const prev = [...memories.value];
+  memories.value = [];
+  try {
+    await client.delete("/memories");
+  } catch {
+    memories.value = prev;
+    memoryDeleteError.value = true;
+    setTimeout(() => (memoryDeleteError.value = false), 3000);
+  }
+}
+
 // ── Personal API Keys ──────────────────────────────────────────────────────
 const apiKeysList = ref<ApiKeyItem[]>([]);
 const showCreateKeyModal = ref(false);
@@ -441,7 +540,7 @@ onMounted(async () => {
     if (providerModels.value[provider.value]?.includes(savedModel)) modelSelect.value = savedModel;
     else { modelSelect.value = "__custom__"; customModelName.value = savedModel; }
   } catch { /* settings not yet saved, use defaults */ }
-  await loadApiKeys();
+  await Promise.all([loadApiKeys(), loadMemories()]);
 });
 
 async function saveWsSettings() {

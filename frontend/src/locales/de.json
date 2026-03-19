@@ -239,5 +239,10 @@
     "confirmDelete": "Diesen API-Schlüssel widerrufen? Dies kann nicht rückgängig gemacht werden.",
     "revealTitle": "Ihr neuer API-Schlüssel",
     "revealWarning": "Kopieren Sie ihn jetzt — er wird nicht mehr angezeigt."
+  },
+  "memory": {
+    "confirmClear": "Alle KI-Erinnerungen löschen? Dies kann nicht rückgängig gemacht werden.",
+    "loadError": "Erinnerungen konnten nicht geladen werden",
+    "deleteError": "Erinnerung konnte nicht gelöscht werden"
   }
 }

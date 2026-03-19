@@ -242,5 +242,10 @@
     "confirmDelete": "确定要撤销这个 API 密钥吗？此操作不可恢复。",
     "revealTitle": "你的新 API 密钥",
     "revealWarning": "请立即复制，此密钥不会再次显示。"
+  },
+  "memory": {
+    "confirmClear": "确定要清除所有 AI 记忆吗？此操作不可恢复。",
+    "loadError": "加载记忆失败",
+    "deleteError": "删除记忆失败"
   }
 }

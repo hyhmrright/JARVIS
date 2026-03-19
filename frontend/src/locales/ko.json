@@ -239,5 +239,10 @@
     "confirmDelete": "이 API 키를 폐기하시겠습니까? 되돌릴 수 없습니다.",
     "revealTitle": "새 API 키",
     "revealWarning": "지금 복사하세요. 다시 표시되지 않습니다."
+  },
+  "memory": {
+    "confirmClear": "모든 AI 기억을 지우시겠습니까? 되돌릴 수 없습니다.",
+    "loadError": "기억 로드 실패",
+    "deleteError": "기억 삭제 실패"
   }
 }

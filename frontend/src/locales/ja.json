@@ -239,5 +239,10 @@
     "confirmDelete": "このAPIキーを失効させますか？元に戻せません。",
     "revealTitle": "新しいAPIキー",
     "revealWarning": "今すぐコピーしてください。再表示されません。"
+  },
+  "memory": {
+    "confirmClear": "全ての AI メモリを削除しますか？元に戻せません。",
+    "loadError": "メモリの読み込みに失敗しました",
+    "deleteError": "メモリの削除に失敗しました"
   }
 }

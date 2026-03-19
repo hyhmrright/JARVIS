@@ -242,5 +242,10 @@
     "confirmDelete": "Revoke this API key? This cannot be undone.",
     "revealTitle": "Your New API Key",
     "revealWarning": "Copy it now — it won't be shown again."
+  },
+  "memory": {
+    "confirmClear": "Clear all AI memories? This cannot be undone.",
+    "loadError": "Failed to load memories",
+    "deleteError": "Failed to delete memory"
   }
 }

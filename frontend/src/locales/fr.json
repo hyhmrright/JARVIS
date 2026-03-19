@@ -239,5 +239,10 @@
     "confirmDelete": "Révoquer cette clé API ? Cette action est irréversible.",
     "revealTitle": "Votre nouvelle clé API",
     "revealWarning": "Copiez-la maintenant, elle ne sera plus affichée."
+  },
+  "memory": {
+    "confirmClear": "Effacer tous les souvenirs IA ? Cette action est irréversible.",
+    "loadError": "Échec du chargement des souvenirs",
+    "deleteError": "Échec de la suppression du souvenir"
   }
 }
