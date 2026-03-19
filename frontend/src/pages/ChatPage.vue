@@ -1,11 +1,25 @@
 <template>
-  <div class="flex h-screen w-full bg-zinc-950 font-sans overflow-hidden">
-    
-    <!-- Ultra-thin Sidebar -->
-    <aside 
+  <div class="flex h-screen w-full bg-zinc-950 font-sans">
+
+    <!-- Mobile backdrop overlay -->
+    <div
+      v-if="isMobile && !sidebarCollapsed"
+      aria-hidden="true"
+      class="fixed inset-0 z-30 bg-black/50"
+      @click="sidebarCollapsed = true"
+    />
+
+    <!-- Sidebar -->
+    <aside
       :class="[
         'flex flex-col bg-zinc-950 border-r border-zinc-800 transition-all duration-300 ease-in-out',
-        sidebarCollapsed ? 'w-0 border-none opacity-0' : 'w-[260px]'
+        isMobile
+          ? sidebarCollapsed
+            ? 'fixed inset-y-0 left-0 z-50 w-[260px] -translate-x-full'
+            : 'fixed inset-y-0 left-0 z-50 w-[260px] translate-x-0 shadow-2xl'
+          : sidebarCollapsed
+            ? 'w-0 border-none opacity-0'
+            : 'w-[260px]'
       ]"
     >
       <div class="h-14 flex items-center px-4 justify-between">
@@ -44,7 +58,7 @@
             v-for="r in searchResults"
             :key="r.conv_id"
             class="group flex items-start gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
-            @click="chat.selectConversation(r.conv_id); clearSearch()"
+            @click="selectSearchResult(r.conv_id)"
           >
             <MessageSquare class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
             <div class="flex-1 min-w-0">
@@ -65,7 +79,7 @@
               'group flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors relative',
               chat.currentConvId === c.id ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
             ]"
-            @click="chat.selectConversation(c.id)"
+            @click="selectConversation(c.id)"
           >
             <MessageSquare class="w-3.5 h-3.5 flex-shrink-0" />
             <input
@@ -578,7 +592,31 @@ const editingMessageId = ref<string | null>(null);
 const editInput = ref("");
 const fileInput = ref<HTMLInputElement>();
 const selectedImages = ref<string[]>([]);
-const sidebarCollapsed = ref(false);
+const isMobile = ref(false);
+const sidebarCollapsed = ref(true);
+
+let resizeDebounce: ReturnType<typeof setTimeout> | undefined;
+const handleResize = () => {
+  clearTimeout(resizeDebounce);
+  resizeDebounce = setTimeout(() => {
+    const nowMobile = window.innerWidth < 768;
+    if (nowMobile !== isMobile.value) {
+      isMobile.value = nowMobile;
+      if (!nowMobile) sidebarCollapsed.value = false;
+    }
+  }, 150);
+};
+
+const selectConversation = (convId: string) => {
+  chat.selectConversation(convId);
+  if (isMobile.value) sidebarCollapsed.value = true;
+};
+
+const selectSearchResult = (convId: string) => {
+  chat.selectConversation(convId);
+  clearSearch();
+  if (isMobile.value) sidebarCollapsed.value = true;
+};
 const exportMenuConvId = ref<string | null>(null);
 const pendingSystemPrompt = ref<string | null>(null);
 
@@ -646,7 +684,9 @@ watch(
 
 onUnmounted(() => {
   clearTimeout(searchTimer);
+  clearTimeout(resizeDebounce);
   if (approvalTickInterval) clearInterval(approvalTickInterval);
+  window.removeEventListener("resize", handleResize);
 });
 
 watch(searchQuery, (q) => {
@@ -1121,8 +1161,11 @@ const scrollToBottom = async function(): Promise<void> {
 
 watch(() => chat.messages.length, scrollToBottom);
 watch(() => chat.streaming, (isStreaming) => { if (isStreaming) scrollToBottom(); });
-onMounted(async () => { 
-  await chat.loadConversations(); 
+onMounted(async () => {
+  isMobile.value = window.innerWidth < 768;
+  sidebarCollapsed.value = isMobile.value;
+  window.addEventListener("resize", handleResize);
+  await chat.loadConversations();
   await fetchPersonas();
 });
 </script>

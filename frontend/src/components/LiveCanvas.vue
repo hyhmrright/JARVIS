@@ -252,11 +252,14 @@ watch([type, () => props.isVisible, () => props.collapsed], () => {
   }
 });
 
+const handleChartResize = () => chartInstance?.resize();
+
 onMounted(() => {
-  window.addEventListener('resize', () => chartInstance?.resize());
+  window.addEventListener('resize', handleChartResize);
 });
 
 onUnmounted(() => {
+  window.removeEventListener('resize', handleChartResize);
   chartInstance?.dispose();
 });
 
