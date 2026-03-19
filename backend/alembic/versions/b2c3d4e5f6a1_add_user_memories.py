@@ -1,6 +1,6 @@
 """add_user_memories
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: b2c3d4e5f6a1
 Revises: f1a2b3c4d5e6
 Create Date: 2026-03-19 11:00:00.000000
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision: str = "a1b2c3d4e5f6"
+revision: str = "b2c3d4e5f6a1"
 down_revision: str | None = "f1a2b3c4d5e6"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
