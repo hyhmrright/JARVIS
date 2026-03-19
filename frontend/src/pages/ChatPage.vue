@@ -322,8 +322,8 @@
                   </div>
                   <span
                     class="text-[10px] font-mono tabular-nums"
-                    :class="approvalCountdown(msg.pending_tool_call.pending_since) <= 30 ? 'text-red-400 animate-pulse' : 'text-zinc-500'"
-                  >{{ formatCountdown(approvalCountdown(msg.pending_tool_call.pending_since)) }}</span>
+                    :class="approvalRemainingSeconds <= 30 ? 'text-red-400 animate-pulse' : 'text-zinc-500'"
+                  >{{ formatCountdown(approvalRemainingSeconds) }}</span>
                 </div>
                 <div class="text-[13px] text-zinc-300">Target action: <code class="bg-zinc-800 text-white px-1.5 py-0.5 rounded font-mono">{{ msg.pending_tool_call.name }}</code></div>
                 <div class="flex gap-2">
@@ -577,15 +577,8 @@ let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
 // HITL approval timeout
 const APPROVAL_TIMEOUT_SECONDS = 300;
-const approvalTick = ref(0);
+const approvalRemainingSeconds = ref(APPROVAL_TIMEOUT_SECONDS);
 let approvalTickInterval: ReturnType<typeof setInterval> | undefined;
-
-const approvalCountdown = (pendingSince: number): number => {
-  // Reading approvalTick.value registers this function as a reactive dependency
-  // so Vue re-evaluates it every second when the ticker increments.
-  void approvalTick.value;
-  return Math.max(0, APPROVAL_TIMEOUT_SECONDS - Math.floor((Date.now() - pendingSince) / 1000));
-};
 
 const formatCountdown = (seconds: number): string => {
   const m = Math.floor(seconds / 60);
@@ -593,29 +586,48 @@ const formatCountdown = (seconds: number): string => {
   return `${m}:${s.toString().padStart(2, "0")}`;
 };
 
+const calcRemaining = (pendingSince: number): number =>
+  Math.max(0, APPROVAL_TIMEOUT_SECONDS - Math.floor((Date.now() - pendingSince) / 1000));
+
 watch(
   () => chat.activeMessages.some((m) => !!m.pending_tool_call),
   (hasPending) => {
     if (hasPending && !approvalTickInterval) {
+      const pendingMsg = chat.activeMessages.find((m) => m.pending_tool_call);
+      if (!pendingMsg?.pending_tool_call) return;
+      // Capture pendingSince once so the interval avoids per-second getter traversal
+      const { pending_since: pendingSince } = pendingMsg.pending_tool_call;
+      const initial = calcRemaining(pendingSince);
+      approvalRemainingSeconds.value = initial;
+      if (initial === 0) {
+        chat.handleConsent(false).catch((e) => console.error("[chat] auto-deny failed", e));
+        return;
+      }
       approvalTickInterval = setInterval(() => {
-        approvalTick.value++;
-        const pendingMsg = chat.activeMessages.find((m) => m.pending_tool_call);
-        if (pendingMsg?.pending_tool_call) {
-          const remaining = approvalCountdown(pendingMsg.pending_tool_call.pending_since);
-          if (remaining === 0) chat.handleConsent(false).catch((e) => console.error("[chat] auto-deny failed", e));
+        const remaining = calcRemaining(pendingSince);
+        approvalRemainingSeconds.value = remaining;
+        if (remaining === 0) {
+          clearInterval(approvalTickInterval);
+          approvalTickInterval = undefined;
+          chat.handleConsent(false).catch((e) => console.error("[chat] auto-deny failed", e));
         }
       }, 1000);
-    } else if (!hasPending && approvalTickInterval) {
-      clearInterval(approvalTickInterval);
-      approvalTickInterval = undefined;
+    } else if (!hasPending) {
+      if (approvalTickInterval) {
+        clearInterval(approvalTickInterval);
+        approvalTickInterval = undefined;
+      }
+      approvalRemainingSeconds.value = APPROVAL_TIMEOUT_SECONDS;
     }
   },
+  { immediate: true },
 );
 
 onUnmounted(() => {
   clearTimeout(searchTimer);
   if (approvalTickInterval) clearInterval(approvalTickInterval);
 });
+
 watch(searchQuery, (q) => {
   if (searchTimer) clearTimeout(searchTimer);
   if (q.length < 2) {
