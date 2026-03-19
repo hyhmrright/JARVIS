@@ -93,6 +93,12 @@ TOOL_REGISTRY: list[ToolDef] = [
         "Tools provided by installed JARVIS plugins",
         default_enabled=False,
     ),
+    ToolDef(
+        "memory",
+        "AI Memory",
+        "Remember and recall facts across conversations",
+        default_enabled=True,
+    ),
 ]
 
 TOOL_NAMES: set[str] = {t.name for t in TOOL_REGISTRY}
