@@ -90,6 +90,10 @@ class MessageOut(BaseModel):
     image_urls: list[str] | None = None
     tool_calls: list[dict[str, Any]] | None = None
     created_at: datetime
+    model_provider: str | None = None
+    model_name: str | None = None
+    tokens_input: int | None = None
+    tokens_output: int | None = None
     model_config = {"from_attributes": True}
 
 

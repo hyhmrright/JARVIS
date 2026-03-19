@@ -722,6 +722,10 @@ async def chat_stream(  # noqa: C901
                         "type": "done",
                         "human_msg_id": str(human_msg_id),
                         "ai_msg_id": str(ai_msg_id),
+                        "model": llm.model_name,
+                        "provider": llm.provider,
+                        "input_tokens": tokens_in or 0,
+                        "output_tokens": tokens_out or 0,
                     }
                 )
 
@@ -943,6 +947,10 @@ async def chat_regenerate(  # noqa: C901
                         "human_msg_id": str(target_msg.parent_id)
                         if target_msg.parent_id
                         else None,
+                        "model": llm.model_name,
+                        "provider": llm.provider,
+                        "input_tokens": tokens_in or 0,
+                        "output_tokens": tokens_out or 0,
                     }
                 )
             if agent_session_id:

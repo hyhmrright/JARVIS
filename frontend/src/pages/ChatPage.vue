@@ -426,6 +426,18 @@
                 </details>
               </div>
 
+              <!-- Model / Token metadata -->
+              <div
+                v-if="msg.role === 'ai' && msg.model_name"
+                class="mt-3 flex items-center gap-2 text-[10px] text-zinc-600 select-none"
+              >
+                <span class="font-mono">{{ msg.model_name }}</span>
+                <template v-if="msg.tokens_input != null || msg.tokens_output != null">
+                  <span>·</span>
+                  <span>{{ (msg.tokens_input ?? 0) + (msg.tokens_output ?? 0) }} tokens</span>
+                </template>
+              </div>
+
               <!-- Message Actions -->
               <div v-if="msg.role === 'ai' && msg.content" class="absolute -bottom-8 left-8 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Copy" @click="copyToClipboard(msg.content)">

@@ -19,9 +19,21 @@ interface Message {
   toolCalls?: ToolCall[];
   tool_calls?: Array<{ name: string; id?: string; args?: Record<string, unknown> }> | null;
   pending_tool_call?: { name: string; args: Record<string, unknown>; pending_since: number };
+  model_name?: string | null;
+  model_provider?: string | null;
+  tokens_input?: number | null;
+  tokens_output?: number | null;
 }
 
 interface Conversation { id: string; title: string; active_leaf_id?: string | null; is_pinned: boolean; updated_at?: string }
+
+function applyModelMeta(msg: Message, data: Record<string, unknown>) {
+  if (msg.role !== "ai") return;
+  if (data.model) msg.model_name = data.model as string;
+  if (data.provider) msg.model_provider = data.provider as string;
+  if (data.input_tokens != null) msg.tokens_input = data.input_tokens as number;
+  if (data.output_tokens != null) msg.tokens_output = data.output_tokens as number;
+}
 
 export const useChatStore = defineStore("chat", {
   state: () => ({
@@ -218,6 +230,7 @@ export const useChatStore = defineStore("chat", {
                     aiMsg.id = data.ai_msg_id;
                     aiMsg.parent_id = data.human_msg_id ?? aiMsg.parent_id;
                   }
+                  if (aiMsg) applyModelMeta(aiMsg, data);
                   this.activeLeafId = data.ai_msg_id ?? null;
                 } else if (data.delta) {
                   aiMsg.content += data.delta;
@@ -342,6 +355,7 @@ export const useChatStore = defineStore("chat", {
                     aiMsg.id = data.ai_msg_id;
                     aiMsg.parent_id = data.human_msg_id;
                   }
+                  if (aiMsg) applyModelMeta(aiMsg, data);
                   this.activeLeafId = data.ai_msg_id ?? null;
                 } else if (data.type === "routing") {
                   this.routingAgent = data.agent;
