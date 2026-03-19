@@ -62,7 +62,8 @@
     "days": "日間",
     "loading": "読み込み中...",
     "noData": "利用データがありません",
-    "chartTitle": "過去 {days} 日間の出力トークン数"
+    "chartTitle": "過去 {days} 日間の出力トークン数",
+    "providerShare": "プロバイダー別分布"
   },
   "documents": {
     "title": "ナレッジベース",

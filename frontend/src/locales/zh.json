@@ -62,7 +62,8 @@
     "days": "天",
     "loading": "加载中...",
     "noData": "暂无使用数据",
-    "chartTitle": "近 {days} 天输出 Token 用量"
+    "chartTitle": "近 {days} 天输出 Token 用量",
+    "providerShare": "模型提供商分布"
   },
   "documents": {
     "title": "知识库",

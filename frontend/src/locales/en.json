@@ -62,7 +62,8 @@
     "days": " days",
     "loading": "Loading...",
     "noData": "No usage data available",
-    "chartTitle": "Output Token Usage — Last {days} Days"
+    "chartTitle": "Output Token Usage — Last {days} Days",
+    "providerShare": "Provider Distribution"
   },
   "documents": {
     "title": "Knowledge Base",

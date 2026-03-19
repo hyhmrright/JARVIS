@@ -62,7 +62,8 @@
     "days": " Tage",
     "loading": "Wird geladen...",
     "noData": "Keine Nutzungsdaten vorhanden",
-    "chartTitle": "Ausgabe-Token — letzte {days} Tage"
+    "chartTitle": "Ausgabe-Token — letzte {days} Tage",
+    "providerShare": "Anbieterverteilung"
   },
   "documents": {
     "title": "Wissensdatenbank",

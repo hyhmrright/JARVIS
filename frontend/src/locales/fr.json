@@ -62,7 +62,8 @@
     "days": " jours",
     "loading": "Chargement...",
     "noData": "Aucune donnée d'utilisation",
-    "chartTitle": "Tokens de sortie — {days} derniers jours"
+    "chartTitle": "Tokens de sortie — {days} derniers jours",
+    "providerShare": "Répartition par fournisseur"
   },
   "documents": {
     "title": "Base de connaissances",

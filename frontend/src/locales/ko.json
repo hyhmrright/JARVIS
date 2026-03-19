@@ -62,7 +62,8 @@
     "days": "일",
     "loading": "로딩 중...",
     "noData": "사용 데이터가 없습니다",
-    "chartTitle": "최근 {days}일 출력 토큰 사용량"
+    "chartTitle": "최근 {days}일 출력 토큰 사용량",
+    "providerShare": "공급자 분포"
   },
   "documents": {
     "title": "지식 베이스",
