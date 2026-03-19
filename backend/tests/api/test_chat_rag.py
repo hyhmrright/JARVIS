@@ -67,7 +67,7 @@ def test_format_rag_context_contains_relevance_score() -> None:
     assert "[1] report.pdf" in result
     assert "0.91" in result
     assert "Key insight here" in result
-    assert "[1]" in result  # numbered citation instruction
+    assert "Available sources:" in result
 
 
 def test_format_rag_context_multiple_chunks() -> None:
@@ -78,7 +78,7 @@ def test_format_rag_context_multiple_chunks() -> None:
     ]
     result = format_rag_context(chunks)
 
-    assert "alpha.pdf" in result
-    assert "beta.pdf" in result
+    assert "[1] alpha.pdf" in result
+    assert "[2] beta.pdf" in result
     assert "Content from alpha" in result
     assert "Content from beta" in result

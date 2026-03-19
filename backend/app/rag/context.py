@@ -6,7 +6,6 @@ import structlog
 
 from app.core.metrics import rag_retrieval_duration_seconds
 from app.rag import retriever as _retriever
-from app.rag.retriever import RetrievedChunk
 
 logger = structlog.get_logger(__name__)
 
@@ -41,25 +40,9 @@ async def build_rag_context(
             chunk_count=len(chunks),
             workspace_ids=workspace_ids,
         )
-        return _format_chunks(chunks)
+        return _retriever.format_rag_context(chunks)
     except Exception:
         logger.warning("rag_context_build_failed", exc_info=True)
         return ""
     finally:
         rag_retrieval_duration_seconds.observe(time.monotonic() - _t0)
-
-
-def _format_chunks(chunks: list[RetrievedChunk]) -> str:
-    lines = ["[Knowledge Base Context]", ""]
-    for i, chunk in enumerate(chunks, 1):
-        lines.append(f"[{i}] {chunk.document_name} (relevance: {chunk.score:.2f})")
-        lines.append(chunk.content)
-        lines.append("")
-    source_list = ", ".join(
-        f'[{i}] "{c.document_name}"' for i, c in enumerate(chunks, 1)
-    )
-    lines.append(
-        "When using information from the context above, cite it inline using the "
-        f"reference numbers (e.g. [1], [2]). Available sources: {source_list}."
-    )
-    return "\n".join(lines)

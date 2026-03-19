@@ -687,12 +687,8 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
   // Ctrl/Cmd+K → open conversation search
   if (isMeta && e.key === "k") {
     e.preventDefault();
-    if (!sidebarCollapsed.value || isMobile.value) {
-      searchMode.value = true;
-    } else {
-      sidebarCollapsed.value = false;
-      searchMode.value = true;
-    }
+    if (sidebarCollapsed.value) sidebarCollapsed.value = false;
+    searchMode.value = true;
     return;
   }
   // Escape → close search, share overlay, export dropdown, or sidebar on mobile
