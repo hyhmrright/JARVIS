@@ -78,7 +78,8 @@
     "imageTooLarge": "「{name}」超过 4 MB",
     "templateApplyNewError": "对新会话应用模板失败",
     "deleteMessageError": "删除消息失败",
-    "copyError": "复制失败"
+    "copyError": "复制失败",
+    "automations": "自动化"
   },
   "usage": {
     "title": "用量统计",
@@ -271,6 +272,12 @@
     "imapHost": "IMAP 主机",
     "emailUser": "邮箱用户名",
     "appPassword": "应用密码",
+    "taskPlaceholder": "例如：检查苹果新闻并总结",
+    "urlPlaceholder": "https://...",
+    "imapHostPlaceholder": "imap.gmail.com",
+    "imapFolderPlaceholder": "INBOX",
+    "imapPortPlaceholder": "993",
+    "emailUserPlaceholder": "user@example.com",
     "validation": {
       "taskRequired": "请输入任务指令",
       "urlRequired": "请输入监控 URL",

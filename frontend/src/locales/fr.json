@@ -78,7 +78,8 @@
     "imageTooLarge": "« {name} » dépasse 4 Mo",
     "templateApplyNewError": "Échec de l'application du modèle à la nouvelle conversation",
     "deleteMessageError": "Échec de la suppression du message",
-    "copyError": "Échec de la copie"
+    "copyError": "Échec de la copie",
+    "automations": "Automatisations"
   },
   "usage": {
     "title": "Statistiques d'utilisation",
@@ -271,6 +272,12 @@
     "imapHost": "Hôte IMAP",
     "emailUser": "Utilisateur e-mail",
     "appPassword": "Mot de passe d'application",
+    "taskPlaceholder": "ex. Vérifier les nouvelles Apple et les résumer",
+    "urlPlaceholder": "https://...",
+    "imapHostPlaceholder": "imap.gmail.com",
+    "imapFolderPlaceholder": "INBOX",
+    "imapPortPlaceholder": "993",
+    "emailUserPlaceholder": "user@example.com",
     "validation": {
       "taskRequired": "L'instruction de tâche est requise",
       "urlRequired": "L'URL est requise",

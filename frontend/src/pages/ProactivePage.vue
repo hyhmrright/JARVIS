@@ -127,7 +127,7 @@
         <div class="p-6 space-y-5">
           <div class="flex flex-col gap-2">
             <label class="text-xs font-semibold text-zinc-400">{{ $t('proactive.taskPrompt') }}</label>
-            <textarea v-model="newJob.task" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-sm outline-none focus:border-zinc-600 transition-colors resize-none h-24" placeholder="e.g. Check for new Apple news and summarize"></textarea>
+            <textarea v-model="newJob.task" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-sm outline-none focus:border-zinc-600 transition-colors resize-none h-24" :placeholder="$t('proactive.taskPlaceholder')"></textarea>
             <span v-if="formErrors.task" class="text-red-400 text-xs mt-1 block">{{ formErrors.task }}</span>
           </div>
 
@@ -169,7 +169,7 @@
           <!-- web_watcher fields -->
           <div v-if="newJob.trigger_type === 'web_watcher'" class="flex flex-col gap-2 animate-in fade-in slide-in-from-top-2">
             <label class="text-xs font-semibold text-zinc-400">{{ $t('proactive.urlToWatch') }}</label>
-            <input v-model="newJob.trigger_metadata.url" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" placeholder="https://..." />
+            <input v-model="newJob.trigger_metadata.url" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" :placeholder="$t('proactive.urlPlaceholder')" />
             <span v-if="formErrors.url" class="text-red-400 text-xs mt-1 block">{{ formErrors.url }}</span>
           </div>
 
@@ -177,7 +177,7 @@
           <div v-if="newJob.trigger_type === 'semantic_watcher'" class="space-y-4 animate-in fade-in slide-in-from-top-2">
             <div class="flex flex-col gap-2">
               <label class="text-xs font-semibold text-zinc-400">{{ $t('proactive.urlToWatch') }}</label>
-              <input v-model="newJob.trigger_metadata.url" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" placeholder="https://..." />
+              <input v-model="newJob.trigger_metadata.url" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" :placeholder="$t('proactive.urlPlaceholder')" />
               <span v-if="formErrors.url" class="text-red-400 text-xs mt-1 block">{{ formErrors.url }}</span>
             </div>
             <div class="flex flex-col gap-2">
@@ -195,22 +195,22 @@
           <div v-if="newJob.trigger_type === 'email'" class="space-y-4 animate-in fade-in slide-in-from-top-2">
             <div class="flex flex-col gap-2">
               <label class="text-xs font-semibold text-zinc-400">{{ $t('proactive.imapHost') }}</label>
-              <input v-model="newJob.trigger_metadata.imap_host" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" placeholder="imap.gmail.com" />
+              <input v-model="newJob.trigger_metadata.imap_host" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" :placeholder="$t('proactive.imapHostPlaceholder')" />
               <span v-if="formErrors.imap_host" class="text-red-400 text-xs mt-1 block">{{ formErrors.imap_host }}</span>
             </div>
             <div class="grid grid-cols-2 gap-4">
               <div class="flex flex-col gap-2">
                 <label class="text-xs font-semibold text-zinc-400">{{ $t('proactive.imapFolder') }}</label>
-                <input v-model="newJob.trigger_metadata.imap_folder" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" placeholder="INBOX" />
+                <input v-model="newJob.trigger_metadata.imap_folder" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" :placeholder="$t('proactive.imapFolderPlaceholder')" />
               </div>
               <div class="flex flex-col gap-2">
                 <label class="text-xs font-semibold text-zinc-400">{{ $t('proactive.imapPort') }}</label>
-                <input v-model.number="newJob.trigger_metadata.imap_port" type="number" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" placeholder="993" />
+                <input v-model.number="newJob.trigger_metadata.imap_port" type="number" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" :placeholder="$t('proactive.imapPortPlaceholder')" />
               </div>
             </div>
             <div class="flex flex-col gap-2">
               <label class="text-xs font-semibold text-zinc-400">{{ $t('proactive.emailUser') }}</label>
-              <input v-model="newJob.trigger_metadata.imap_user" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" placeholder="user@example.com" />
+              <input v-model="newJob.trigger_metadata.imap_user" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" :placeholder="$t('proactive.emailUserPlaceholder')" />
               <span v-if="formErrors.imap_user" class="text-red-400 text-xs mt-1 block">{{ formErrors.imap_user }}</span>
             </div>
             <div class="flex flex-col gap-2">

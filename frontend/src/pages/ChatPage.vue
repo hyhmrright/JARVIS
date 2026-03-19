@@ -226,11 +226,11 @@
         <div class="space-y-1">
           <router-link to="/proactive" class="flex items-center gap-3 px-2 py-1.5 rounded text-xs text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all">
             <Zap class="w-3.5 h-3.5" />
-            <span>Automations</span>
+            <span>{{ $t('chat.automations') }}</span>
           </router-link>
           <router-link to="/settings" class="flex items-center gap-3 px-2 py-1.5 rounded text-xs text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all">
             <Settings class="w-3.5 h-3.5" />
-            <span>Settings</span>
+            <span>{{ $t('chat.settings') }}</span>
           </router-link>
         </div>
         

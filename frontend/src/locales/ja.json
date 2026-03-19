@@ -78,7 +78,8 @@
     "imageTooLarge": "「{name}」は 4 MB を超えています",
     "templateApplyNewError": "新しい会話へのテンプレート適用に失敗しました",
     "deleteMessageError": "メッセージの削除に失敗しました",
-    "copyError": "コピーに失敗しました"
+    "copyError": "コピーに失敗しました",
+    "automations": "オートメーション"
   },
   "usage": {
     "title": "利用統計",
@@ -271,6 +272,12 @@
     "imapHost": "IMAPホスト",
     "emailUser": "メールユーザー",
     "appPassword": "アプリパスワード",
+    "taskPlaceholder": "例：Apple の最新ニュースを確認して要約する",
+    "urlPlaceholder": "https://...",
+    "imapHostPlaceholder": "imap.gmail.com",
+    "imapFolderPlaceholder": "INBOX",
+    "imapPortPlaceholder": "993",
+    "emailUserPlaceholder": "user@example.com",
     "validation": {
       "taskRequired": "タスク指示を入力してください",
       "urlRequired": "URLを入力してください",

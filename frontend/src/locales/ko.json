@@ -78,7 +78,8 @@
     "imageTooLarge": "\"{name}\"이(가) 4 MB를 초과합니다",
     "templateApplyNewError": "새 대화에 템플릿 적용 실패",
     "deleteMessageError": "메시지 삭제에 실패했습니다",
-    "copyError": "복사에 실패했습니다"
+    "copyError": "복사에 실패했습니다",
+    "automations": "자동화"
   },
   "usage": {
     "title": "사용량 통계",
@@ -271,6 +272,12 @@
     "imapHost": "IMAP 호스트",
     "emailUser": "이메일 사용자",
     "appPassword": "앱 비밀번호",
+    "taskPlaceholder": "예: Apple 뉴스 확인 및 요약",
+    "urlPlaceholder": "https://...",
+    "imapHostPlaceholder": "imap.gmail.com",
+    "imapFolderPlaceholder": "INBOX",
+    "imapPortPlaceholder": "993",
+    "emailUserPlaceholder": "user@example.com",
     "validation": {
       "taskRequired": "작업 지시를 입력해 주세요",
       "urlRequired": "URL을 입력해 주세요",

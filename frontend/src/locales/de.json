@@ -78,7 +78,8 @@
     "imageTooLarge": "\"{name}\" überschreitet 4 MB",
     "templateApplyNewError": "Vorlage konnte nicht auf neues Gespräch angewendet werden",
     "deleteMessageError": "Nachricht konnte nicht gelöscht werden",
-    "copyError": "Kopieren fehlgeschlagen"
+    "copyError": "Kopieren fehlgeschlagen",
+    "automations": "Automatisierungen"
   },
   "usage": {
     "title": "Nutzungsstatistik",
@@ -271,6 +272,12 @@
     "imapHost": "IMAP-Host",
     "emailUser": "E-Mail-Benutzer",
     "appPassword": "App-Passwort",
+    "taskPlaceholder": "z.B. Überprüfe Apple-News und fasse zusammen",
+    "urlPlaceholder": "https://...",
+    "imapHostPlaceholder": "imap.gmail.com",
+    "imapFolderPlaceholder": "INBOX",
+    "imapPortPlaceholder": "993",
+    "emailUserPlaceholder": "user@example.com",
     "validation": {
       "taskRequired": "Aufgabenanweisung ist erforderlich",
       "urlRequired": "URL ist erforderlich",

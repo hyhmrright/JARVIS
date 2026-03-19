@@ -78,7 +78,8 @@
     "imageTooLarge": "\"{name}\" exceeds 4 MB",
     "templateApplyNewError": "Failed to apply template to new conversation",
     "deleteMessageError": "Failed to delete message",
-    "copyError": "Failed to copy"
+    "copyError": "Failed to copy",
+    "automations": "Automations"
   },
   "usage": {
     "title": "Usage Statistics",
@@ -236,6 +237,12 @@
     "imapHost": "IMAP Host",
     "emailUser": "Email User",
     "appPassword": "App Password",
+    "taskPlaceholder": "e.g. Check for new Apple news and summarize",
+    "urlPlaceholder": "https://...",
+    "imapHostPlaceholder": "imap.gmail.com",
+    "imapFolderPlaceholder": "INBOX",
+    "imapPortPlaceholder": "993",
+    "emailUserPlaceholder": "user@example.com",
     "validation": {
       "taskRequired": "Task prompt is required",
       "urlRequired": "URL is required",
