@@ -92,7 +92,13 @@
     "loading": "加载中...",
     "noData": "暂无使用数据",
     "chartTitle": "近 {days} 天输出 Token 用量",
-    "providerShare": "模型提供商分布"
+    "providerShare": "模型提供商分布",
+    "estimatedCost": "预估费用 (USD)",
+    "costBreakdown": "各供应商费用明细",
+    "provider": "供应商",
+    "inputPrice": "输入单价",
+    "outputPrice": "输出单价",
+    "pricingNote": "基于公开参考价格估算，实际费用以供应商账单为准。"
   },
   "documents": {
     "title": "知识库",

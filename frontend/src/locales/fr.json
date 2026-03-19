@@ -92,7 +92,13 @@
     "loading": "Chargement...",
     "noData": "Aucune donnée d'utilisation",
     "chartTitle": "Tokens de sortie — {days} derniers jours",
-    "providerShare": "Répartition par fournisseur"
+    "providerShare": "Répartition par fournisseur",
+    "estimatedCost": "Coût estimé (USD)",
+    "costBreakdown": "Détail des coûts par fournisseur",
+    "provider": "Fournisseur",
+    "inputPrice": "Prix entrée",
+    "outputPrice": "Prix sortie",
+    "pricingNote": "Estimations basées sur les tarifs publics approximatifs. Les coûts réels peuvent varier."
   },
   "documents": {
     "title": "Base de connaissances",

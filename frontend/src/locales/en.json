@@ -92,7 +92,13 @@
     "loading": "Loading...",
     "noData": "No usage data available",
     "chartTitle": "Output Token Usage — Last {days} Days",
-    "providerShare": "Provider Distribution"
+    "providerShare": "Provider Distribution",
+    "estimatedCost": "Est. Cost (USD)",
+    "costBreakdown": "Cost Breakdown by Provider",
+    "provider": "Provider",
+    "inputPrice": "Input Price",
+    "outputPrice": "Output Price",
+    "pricingNote": "Estimates based on approximate public pricing. Actual costs may vary."
   },
   "documents": {
     "title": "Knowledge Base",

@@ -17,6 +17,10 @@
           <div class="stat-value">{{ totalMessages }}</div>
           <div class="stat-label">{{ $t("usage.messages") }}</div>
         </div>
+        <div class="glass-card stat-card">
+          <div class="stat-value">~${{ estimatedCost.toFixed(4) }}</div>
+          <div class="stat-label">{{ $t("usage.estimatedCost") }}</div>
+        </div>
       </div>
 
       <div class="content-body animate-fade-in">
@@ -55,6 +59,33 @@
               <VChart :option="pieOptions" autoresize />
             </div>
           </div>
+        </div>
+
+        <!-- Cost Breakdown -->
+        <div v-if="costByProvider.length > 0" class="glass-card chart-section cost-breakdown-card">
+          <h2 class="chart-header">{{ $t("usage.costBreakdown") }}</h2>
+          <table class="cost-table">
+            <thead>
+              <tr>
+                <th>{{ $t("usage.provider") }}</th>
+                <th class="cost-num">{{ $t("usage.inputPrice") }}</th>
+                <th class="cost-num">{{ $t("usage.outputPrice") }}</th>
+                <th class="cost-num">{{ $t("usage.estimatedCost") }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in costByProvider" :key="row.provider">
+                <td>
+                  <span class="provider-dot" :style="{ background: row.pricing.color }"></span>
+                  {{ row.provider }}
+                </td>
+                <td class="cost-num cost-dim">${{ row.pricing.in.toFixed(2) }}/1M</td>
+                <td class="cost-num cost-dim">${{ row.pricing.out.toFixed(2) }}/1M</td>
+                <td class="cost-num">${{ row.cost.toFixed(4) }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="pricing-note">{{ $t("usage.pricingNote") }}</p>
         </div>
       </div>
     </div>
@@ -95,6 +126,8 @@ interface DayData {
   messages: number;
 }
 
+interface ProviderMeta { color: string; in: number; out: number }
+
 const { t } = useI18n();
 
 const days = ref(30);
@@ -111,14 +144,36 @@ const TOOLTIP_STYLE = {
   textStyle: { color: "#d4d4d8" },
 } as const;
 
-const PROVIDER_COLORS: Record<string, string> = {
-  deepseek: "#6366f1",
-  openai: "#10b981",
-  anthropic: "#f59e0b",
-  zhipuai: "#3b82f6",
-  ollama: "#ec4899",
-  unknown: "#6b7280",
+// Single source of truth for provider metadata (color + pricing in USD per 1M tokens)
+// Prices last verified 2026-03. Check provider dashboards before updating.
+const PROVIDERS: Record<string, ProviderMeta> & { unknown: ProviderMeta } = {
+  deepseek:  { color: "#6366f1", in: 0.14, out: 0.28  },
+  openai:    { color: "#10b981", in: 2.50, out: 10.00 },
+  anthropic: { color: "#f59e0b", in: 3.00, out: 15.00 },
+  zhipuai:   { color: "#3b82f6", in: 0.14, out: 0.14  },
+  ollama:    { color: "#ec4899", in: 0,    out: 0      },
+  unknown:   { color: "#6b7280", in: 0,    out: 0      },
 };
+
+const costByProvider = computed(() => {
+  const result: Record<string, number> = {};
+  for (const d of dailyData.value) {
+    const meta = PROVIDERS[d.provider];
+    if (!meta) {
+      if (import.meta.env.DEV) console.warn(`[UsagePage] Unknown provider: "${d.provider}" — excluded from cost estimate`);
+      continue;
+    }
+    result[d.provider] = (result[d.provider] ?? 0) + (d.tokens_in * meta.in + d.tokens_out * meta.out) / 1_000_000;
+  }
+  return Object.entries(result)
+    .sort((a, b) => b[1] - a[1])
+    // PROVIDERS[provider] is guaranteed to exist: the for-loop above skips unknown providers
+    .map(([provider, cost]) => ({ provider, cost, pricing: PROVIDERS[provider] as ProviderMeta }));
+});
+
+const estimatedCost = computed(() =>
+  costByProvider.value.reduce((sum, row) => sum + row.cost, 0),
+);
 
 const chartOptions = computed(() => {
   const dates = [...new Set(dailyData.value.map(d => d.day))].sort();
@@ -130,7 +185,7 @@ const chartOptions = computed(() => {
     type: "line",
     smooth: true,
     symbol: "none",
-    lineStyle: { color: PROVIDER_COLORS[provider] ?? "#6b7280", width: 2 },
+    lineStyle: { color: (PROVIDERS[provider] ?? PROVIDERS.unknown).color, width: 2 },
     data: dates.map(date =>
       dailyData.value
         .filter(d => d.day === date && d.provider === provider)
@@ -200,7 +255,7 @@ const pieOptions = computed(() => {
         .map(([name, value]) => ({
           name,
           value,
-          itemStyle: { color: PROVIDER_COLORS[name] ?? "#6b7280" },
+          itemStyle: { color: (PROVIDERS[name] ?? PROVIDERS.unknown).color },
         })),
       label: { show: false },
       emphasis: { label: { show: true, fontSize: 12, color: "#e4e4e7" } },
@@ -233,7 +288,8 @@ onMounted(fetchUsage);
 .page-container { height: 100vh; display: flex; flex-direction: column; background: var(--bg-primary); }
 .page-content { flex: 1; padding: 2rem; overflow-y: auto; max-width: 1000px; width: 100%; margin: 0 auto; }
 
-.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
+@media (max-width: 640px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
 .stat-card { padding: 1.5rem; text-align: center; }
 .stat-card.highlight { border-color: var(--accent); }
 .stat-value { font-size: 2.25rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.5rem; }
@@ -250,6 +306,16 @@ onMounted(fetchUsage);
 .chart-header { font-size: 1rem; font-weight: 700; margin-bottom: 2.5rem; color: var(--text-primary); }
 
 .state-placeholder { height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; color: var(--text-muted); }
+
+.cost-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.cost-table th { text-align: left; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; padding: 0 0 0.75rem; border-bottom: 1px solid var(--border); }
+.cost-table td { padding: 0.6rem 0; border-bottom: 1px solid var(--border); color: var(--text-primary); }
+.cost-table tr:last-child td { border-bottom: none; }
+.cost-num { text-align: right; }
+.cost-dim { color: var(--text-muted); }
+.provider-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.5rem; vertical-align: middle; }
+.pricing-note { margin-top: 1rem; font-size: 0.75rem; color: var(--text-muted); }
+.cost-breakdown-card { margin-top: 1.5rem; }
 
 .animate-fade-in { animation: fadeIn 0.4s ease-out; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

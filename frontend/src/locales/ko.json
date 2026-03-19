@@ -92,7 +92,13 @@
     "loading": "로딩 중...",
     "noData": "사용 데이터가 없습니다",
     "chartTitle": "최근 {days}일 출력 토큰 사용량",
-    "providerShare": "공급자 분포"
+    "providerShare": "공급자 분포",
+    "estimatedCost": "예상 비용 (USD)",
+    "costBreakdown": "공급자별 비용 내역",
+    "provider": "공급자",
+    "inputPrice": "입력 단가",
+    "outputPrice": "출력 단가",
+    "pricingNote": "공개 참조 가격 기준 추정치입니다. 실제 비용은 공급자마다 다를 수 있습니다."
   },
   "documents": {
     "title": "지식 베이스",

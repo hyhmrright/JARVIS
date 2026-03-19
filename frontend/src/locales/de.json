@@ -92,7 +92,13 @@
     "loading": "Wird geladen...",
     "noData": "Keine Nutzungsdaten vorhanden",
     "chartTitle": "Ausgabe-Token — letzte {days} Tage",
-    "providerShare": "Anbieterverteilung"
+    "providerShare": "Anbieterverteilung",
+    "estimatedCost": "Geschätzte Kosten (USD)",
+    "costBreakdown": "Kostenaufschlüsselung nach Anbieter",
+    "provider": "Anbieter",
+    "inputPrice": "Eingabepreis",
+    "outputPrice": "Ausgabepreis",
+    "pricingNote": "Schätzungen basieren auf ungefähren öffentlichen Preisen. Tatsächliche Kosten können abweichen."
   },
   "documents": {
     "title": "Wissensdatenbank",
