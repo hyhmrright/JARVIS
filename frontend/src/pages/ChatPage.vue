@@ -96,63 +96,118 @@
         </template>
         <!-- Normal conversation list -->
         <template v-else>
+          <!-- Tag filter bar -->
+          <div v-if="activeTagFilter" class="flex items-center gap-1 px-3 pb-2 flex-wrap">
+            <span class="text-[9px] text-zinc-500 uppercase tracking-wider">Filter:</span>
+            <button
+              class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] bg-indigo-600 text-white"
+              @click="activeTagFilter = null"
+            >
+              {{ activeTagFilter }} ×
+            </button>
+          </div>
           <div
-            v-for="c in chat.conversations"
+            v-for="c in filteredConversations"
             :key="c.id"
             :class="[
-              'group flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors relative',
+              'group flex flex-col rounded-md cursor-pointer transition-colors relative',
               chat.currentConvId === c.id ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
             ]"
             @click="selectConversation(c.id)"
           >
-            <MessageSquare class="w-3.5 h-3.5 flex-shrink-0" />
-            <input
-              v-if="renamingConvId === c.id"
-              :ref="setRenameInput"
-              v-model="renameValue"
-              class="text-xs flex-1 bg-zinc-700 text-zinc-100 rounded px-1 outline-none min-w-0"
-              maxlength="255"
-              @keydown.enter.stop="commitRename(c.id)"
-              @keydown.escape.stop.prevent="renamingConvId = null"
-              @blur="commitRename(c.id)"
-              @click.stop
-            />
-            <span
-              v-else
-              class="text-xs truncate flex-1"
-              @dblclick.stop="startRename(c)"
-            >{{ c.title }}</span>
-            <button
-              class="p-0.5 rounded transition-opacity"
-              :class="c.is_pinned ? 'text-yellow-400 opacity-100' : 'text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100'"
-              :title="c.is_pinned ? 'Unpin' : 'Pin'"
-              @click.stop="togglePin(c.id)"
-            >
-              <Pin class="w-3 h-3" :class="c.is_pinned ? 'fill-current' : ''" />
-            </button>
-            <div class="relative opacity-0 group-hover:opacity-100">
+            <!-- Main row -->
+            <div class="flex items-center gap-3 px-3 py-2">
+              <MessageSquare class="w-3.5 h-3.5 flex-shrink-0" />
+              <input
+                v-if="renamingConvId === c.id"
+                :ref="setRenameInput"
+                v-model="renameValue"
+                class="text-xs flex-1 bg-zinc-700 text-zinc-100 rounded px-1 outline-none min-w-0"
+                maxlength="255"
+                @keydown.enter.stop="commitRename(c.id)"
+                @keydown.escape.stop.prevent="renamingConvId = null"
+                @blur="commitRename(c.id)"
+                @click.stop
+              />
+              <span
+                v-else
+                class="text-xs truncate flex-1"
+                @dblclick.stop="startRename(c)"
+              >{{ c.title }}</span>
               <button
-                class="p-1 hover:text-zinc-200"
-                title="Export"
-                @click.stop="exportMenuConvId = exportMenuConvId === c.id ? null : c.id"
+                class="p-0.5 rounded transition-opacity"
+                :class="c.is_pinned ? 'text-yellow-400 opacity-100' : 'text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100'"
+                :title="c.is_pinned ? 'Unpin' : 'Pin'"
+                @click.stop="togglePin(c.id)"
               >
-                <Download class="w-3 h-3" />
+                <Pin class="w-3 h-3" :class="c.is_pinned ? 'fill-current' : ''" />
               </button>
-              <div
-                v-if="exportMenuConvId === c.id"
-                class="absolute right-0 top-6 z-50 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl py-1 w-36"
+              <button
+                class="opacity-0 group-hover:opacity-100 p-1 hover:text-indigo-400 text-zinc-500"
+                title="Add tag"
+                @click.stop="tagInputConvId = tagInputConvId === c.id ? null : c.id; tagInputValue = ''"
               >
-                <button class="w-full text-left px-3 py-1.5 text-[11px] text-zinc-300 hover:bg-zinc-800 hover:text-white" @click.stop="downloadExport(c.id, c.title, 'md')">Markdown (.md)</button>
-                <button class="w-full text-left px-3 py-1.5 text-[11px] text-zinc-300 hover:bg-zinc-800 hover:text-white" @click.stop="downloadExport(c.id, c.title, 'json')">JSON</button>
-                <button class="w-full text-left px-3 py-1.5 text-[11px] text-zinc-300 hover:bg-zinc-800 hover:text-white" @click.stop="downloadExport(c.id, c.title, 'txt')">Plain text (.txt)</button>
+                <Tag class="w-3 h-3" />
+              </button>
+              <div class="relative opacity-0 group-hover:opacity-100">
+                <button
+                  class="p-1 hover:text-zinc-200"
+                  title="Export"
+                  @click.stop="exportMenuConvId = exportMenuConvId === c.id ? null : c.id"
+                >
+                  <Download class="w-3 h-3" />
+                </button>
+                <div
+                  v-if="exportMenuConvId === c.id"
+                  class="absolute right-0 top-6 z-50 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl py-1 w-36"
+                >
+                  <button class="w-full text-left px-3 py-1.5 text-[11px] text-zinc-300 hover:bg-zinc-800 hover:text-white" @click.stop="downloadExport(c.id, c.title, 'md')">Markdown (.md)</button>
+                  <button class="w-full text-left px-3 py-1.5 text-[11px] text-zinc-300 hover:bg-zinc-800 hover:text-white" @click.stop="downloadExport(c.id, c.title, 'json')">JSON</button>
+                  <button class="w-full text-left px-3 py-1.5 text-[11px] text-zinc-300 hover:bg-zinc-800 hover:text-white" @click.stop="downloadExport(c.id, c.title, 'txt')">Plain text (.txt)</button>
+                </div>
+              </div>
+              <button
+                class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400"
+                @click.stop="chat.deleteConversation(c.id)"
+              >
+                <Trash2 class="w-3 h-3" />
+              </button>
+            </div>
+            <!-- Tags row -->
+            <div v-if="c.tags.length > 0 || tagInputConvId === c.id" class="flex flex-wrap items-center gap-1 px-8 pb-1.5" @click.stop>
+              <div
+                v-for="tag in c.tags"
+                :key="tag"
+                class="inline-flex items-center rounded bg-zinc-700 hover:bg-zinc-600 transition-colors overflow-hidden"
+              >
+                <button
+                  class="px-1.5 py-0.5 text-[9px]"
+                  :class="activeTagFilter === tag ? 'text-indigo-400' : 'text-zinc-400'"
+                  @click.stop="setTagFilter(tag)"
+                >{{ tag }}</button>
+                <button
+                  :aria-label="`Remove tag ${tag}`"
+                  class="px-1 py-0.5 text-[9px] text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                  @click.stop="handleRemoveTag(c.id, tag)"
+                >×</button>
+              </div>
+              <!-- Inline tag input -->
+              <div v-if="tagInputConvId === c.id" class="flex items-center gap-1">
+                <input
+                  v-model="tagInputValue"
+                  class="text-[9px] px-1 py-0.5 bg-zinc-700 text-zinc-200 rounded outline-none w-16 focus:ring-1 focus:ring-indigo-500"
+                  placeholder="new tag"
+                  maxlength="100"
+                  autofocus
+                  @keydown.enter.stop="handleAddTag(c.id)"
+                  @keydown.escape.stop="tagInputConvId = null; tagInputValue = ''"
+                  @click.stop
+                />
+                <button class="text-indigo-400 hover:text-indigo-300" @click.stop="handleAddTag(c.id)">
+                  <Plus class="w-3 h-3" />
+                </button>
               </div>
             </div>
-            <button
-              class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400"
-              @click.stop="chat.deleteConversation(c.id)"
-            >
-              <Trash2 class="w-3 h-3" />
-            </button>
           </div>
         </template>
       </nav>
@@ -657,7 +712,8 @@ import {
   PanelLeft, SquarePen, Copy, RotateCcw,
   Mic, ArrowUp, Square, ShieldAlert, Share2, MessageSquare,
   Volume2, Layout, Image, X, ChevronDown,
-  Search, Download, Sparkles, Pin, Bookmark, BookmarkCheck, ThumbsUp, ThumbsDown
+  Search, Download, Sparkles, Pin, Bookmark, BookmarkCheck, ThumbsUp, ThumbsDown,
+  Tag, Plus
 } from "lucide-vue-next";
 
 import LiveCanvas from "@/components/LiveCanvas.vue";
@@ -729,6 +785,42 @@ interface BookmarkedMessage {
 }
 const bookmarkMode = ref(false);
 const bookmarkedMessages = ref<BookmarkedMessage[]>([]);
+
+// Tags
+const activeTagFilter = ref<string | null>(null);
+const tagInputConvId = ref<string | null>(null);
+const tagInputValue = ref("");
+
+const filteredConversations = computed(() =>
+  activeTagFilter.value
+    ? chat.conversations.filter((c) => c.tags.includes(activeTagFilter.value!))
+    : chat.conversations,
+);
+
+const setTagFilter = (tag: string) => {
+  activeTagFilter.value = activeTagFilter.value === tag ? null : tag;
+};
+
+const handleAddTag = async (convId: string) => {
+  const tag = tagInputValue.value.trim();
+  if (!tag) { tagInputConvId.value = null; return; }
+  try {
+    await chat.addTag(convId, tag);
+  } catch {
+    toast.error("Failed to add tag");
+  }
+  tagInputValue.value = "";
+  tagInputConvId.value = null;
+};
+
+const handleRemoveTag = async (convId: string, tag: string) => {
+  try {
+    await chat.removeTag(convId, tag);
+    if (activeTagFilter.value === tag) activeTagFilter.value = null;
+  } catch {
+    toast.error("Failed to remove tag");
+  }
+};
 
 const toggleBookmarkMode = async () => {
   bookmarkMode.value = !bookmarkMode.value;

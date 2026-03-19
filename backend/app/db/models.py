@@ -177,6 +177,34 @@ class Conversation(Base):
         order_by="Message.created_at",
         foreign_keys="Message.conversation_id",
     )
+    tags: Mapped[list["ConversationTag"]] = relationship(
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        order_by="ConversationTag.tag",
+    )
+
+
+class ConversationTag(Base):
+    __tablename__ = "conversation_tags"
+    __table_args__ = (
+        UniqueConstraint("conversation_id", "tag", name="uq_conversation_tags"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    tag: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    conversation: Mapped["Conversation"] = relationship(back_populates="tags")
 
 
 class AgentSession(Base):

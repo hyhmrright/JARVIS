@@ -8,12 +8,19 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user, get_current_user_optional
-from app.db.models import Conversation, Message, SharedConversation, User
+from app.db.models import (
+    Conversation,
+    ConversationTag,
+    Message,
+    SharedConversation,
+    User,
+)
 from app.db.session import get_db
 
 logger = structlog.get_logger(__name__)
@@ -31,6 +38,7 @@ class ConversationOut(BaseModel):
     active_leaf_id: uuid.UUID | None = None
     is_pinned: bool = False
     updated_at: datetime | None = None
+    tags: list[str] = []
     model_config = {"from_attributes": True}
 
 
@@ -66,7 +74,16 @@ async def create_conversation(
         conv_id=str(conv.id),
         title=conv.title,
     )
-    return conv
+    # New conversations always have zero tags; construct explicitly to avoid
+    # lazy-loading the relationship on an async session (MissingGreenlet).
+    return ConversationOut(
+        id=conv.id,
+        title=conv.title,
+        active_leaf_id=conv.active_leaf_id,
+        is_pinned=conv.is_pinned,
+        updated_at=conv.updated_at,
+        tags=[],
+    )
 
 
 @router.get("", response_model=list[ConversationOut])
@@ -77,9 +94,20 @@ async def list_conversations(
     rows = await db.scalars(
         select(Conversation)
         .where(Conversation.user_id == user.id)
+        .options(selectinload(Conversation.tags))
         .order_by(Conversation.is_pinned.desc(), Conversation.updated_at.desc())
     )
-    return rows.all()
+    return [
+        ConversationOut(
+            id=c.id,
+            title=c.title,
+            active_leaf_id=c.active_leaf_id,
+            is_pinned=c.is_pinned,
+            updated_at=c.updated_at,
+            tags=[t.tag for t in c.tags],
+        )
+        for c in rows.all()
+    ]
 
 
 class MessageOut(BaseModel):
@@ -202,6 +230,23 @@ async def list_bookmarked_messages(
         )
         for msg, title in rows.all()
     ]
+
+
+@router.get("/tags", response_model=list[str])
+async def list_user_tags(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[str]:
+    """Return all distinct tags used by the current user (for autocomplete)."""
+    rows = await db.execute(
+        select(ConversationTag.tag)
+        .join(Conversation, Conversation.id == ConversationTag.conversation_id)
+        .where(Conversation.user_id == user.id)
+        .distinct()
+        .order_by(ConversationTag.tag)
+        .limit(500)
+    )
+    return list(rows.scalars().all())
 
 
 @router.get("/{conv_id}/export")
@@ -540,3 +585,86 @@ async def share_conversation(
             ) from None
         return {"token": existing.share_token}
     return {"token": new_share.share_token}
+
+
+# ── Tag endpoints ─────────────────────────────────────────────────────────────
+
+_MAX_TAGS_PER_CONVERSATION = 20
+
+
+def _normalize_tag(v: str) -> str:
+    return v.lower().strip()
+
+
+class AddTagRequest(BaseModel):
+    tag: str = Field(..., max_length=100)
+
+    @field_validator("tag")
+    @classmethod
+    def normalize(cls, v: str) -> str:
+        v = _normalize_tag(v)
+        if not v or "," in v or any(c.isspace() for c in v):
+            raise ValueError("tag must be non-empty and contain no spaces or commas")
+        return v
+
+
+@router.post("/{conv_id}/tags", response_model=list[str], status_code=201)
+async def add_tag(
+    conv_id: uuid.UUID,
+    body: AddTagRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[str]:
+    conv = await db.scalar(
+        select(Conversation).where(
+            Conversation.id == conv_id, Conversation.user_id == user.id
+        )
+    )
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    # Soft limit check — same pattern as keys.py/_MAX_KEYS_PER_USER.
+    # A TOCTOU race could allow slightly more than the cap under concurrent
+    # requests, but _MAX_TAGS_PER_CONVERSATION is a UX limit, not security.
+    tag_count = await db.scalar(
+        select(func.count(ConversationTag.id)).where(
+            ConversationTag.conversation_id == conv_id
+        )
+    )
+    if (tag_count or 0) >= _MAX_TAGS_PER_CONVERSATION:
+        raise HTTPException(
+            status_code=422,
+            detail=f"A conversation may have at most {_MAX_TAGS_PER_CONVERSATION} tags",
+        )
+    db.add(ConversationTag(conversation_id=conv_id, tag=body.tag))
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()  # tag already exists — idempotent
+    rows = await db.scalars(
+        select(ConversationTag.tag)
+        .where(ConversationTag.conversation_id == conv_id)
+        .order_by(ConversationTag.tag)
+    )
+    return list(rows.all())
+
+
+@router.delete("/{conv_id}/tags/{tag}", status_code=204)
+async def remove_tag(
+    conv_id: uuid.UUID,
+    tag: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    ct = await db.scalar(
+        select(ConversationTag)
+        .join(Conversation, Conversation.id == ConversationTag.conversation_id)
+        .where(
+            ConversationTag.conversation_id == conv_id,
+            ConversationTag.tag == _normalize_tag(tag),
+            Conversation.user_id == user.id,
+        )
+    )
+    if not ct:
+        raise HTTPException(status_code=404, detail="Tag not found")
+    await db.delete(ct)
+    await db.commit()

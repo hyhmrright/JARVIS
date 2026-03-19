@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import select
 
 from app.core.security import decode_access_token
-from app.db.models import Conversation, Message
+from app.db.models import Conversation, ConversationTag, Message
 
 
 def _user_id(auth_client) -> uuid.UUID:
@@ -736,3 +736,195 @@ async def test_rate_human_message_returns_404(auth_client, db_session):
         json={"rating": 1},
     )
     assert resp.status_code == 404
+
+
+# ── Tag tests ─────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.anyio
+async def test_add_and_list_tags(auth_client, db_session):
+    user_id = _user_id(auth_client)
+    conv = Conversation(user_id=user_id, title="Tagged Conv")
+    db_session.add(conv)
+    await db_session.commit()
+
+    resp = await auth_client.post(
+        f"/api/conversations/{conv.id}/tags", json={"tag": "work"}
+    )
+    assert resp.status_code == 201
+    assert "work" in resp.json()
+
+    # Tags also appear in the conversation list
+    resp = await auth_client.get("/api/conversations")
+    found = next((c for c in resp.json() if c["id"] == str(conv.id)), None)
+    assert found is not None
+    assert "work" in found["tags"]
+
+
+@pytest.mark.anyio
+async def test_add_tag_normalises_to_lowercase(auth_client, db_session):
+    user_id = _user_id(auth_client)
+    conv = Conversation(user_id=user_id, title="Case Test")
+    db_session.add(conv)
+    await db_session.commit()
+
+    resp = await auth_client.post(
+        f"/api/conversations/{conv.id}/tags", json={"tag": "Work"}
+    )
+    assert resp.status_code == 201
+    assert "work" in resp.json()
+
+
+@pytest.mark.anyio
+async def test_add_duplicate_tag_is_idempotent(auth_client, db_session):
+    user_id = _user_id(auth_client)
+    conv = Conversation(user_id=user_id, title="Dup Tag")
+    db_session.add(conv)
+    await db_session.commit()
+
+    await auth_client.post(f"/api/conversations/{conv.id}/tags", json={"tag": "ai"})
+    resp = await auth_client.post(
+        f"/api/conversations/{conv.id}/tags", json={"tag": "ai"}
+    )
+    assert resp.status_code == 201
+    assert resp.json().count("ai") == 1
+
+
+@pytest.mark.anyio
+async def test_remove_tag(auth_client, db_session):
+    user_id = _user_id(auth_client)
+    conv = Conversation(user_id=user_id, title="Remove Tag")
+    db_session.add(conv)
+    await db_session.flush()
+    db_session.add(ConversationTag(conversation_id=conv.id, tag="research"))
+    await db_session.commit()
+
+    resp = await auth_client.delete(f"/api/conversations/{conv.id}/tags/research")
+    assert resp.status_code == 204
+
+    # Tag gone from conversation list
+    resp = await auth_client.get("/api/conversations")
+    found = next((c for c in resp.json() if c["id"] == str(conv.id)), None)
+    assert found is not None
+    assert "research" not in found["tags"]
+
+
+@pytest.mark.anyio
+async def test_remove_nonexistent_tag_returns_404(auth_client, db_session):
+    user_id = _user_id(auth_client)
+    conv = Conversation(user_id=user_id, title="No Tag")
+    db_session.add(conv)
+    await db_session.commit()
+
+    resp = await auth_client.delete(f"/api/conversations/{conv.id}/tags/ghost")
+    assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_list_user_tags(auth_client, db_session):
+    user_id = _user_id(auth_client)
+    conv1 = Conversation(user_id=user_id, title="C1")
+    conv2 = Conversation(user_id=user_id, title="C2")
+    db_session.add_all([conv1, conv2])
+    await db_session.flush()
+    db_session.add(ConversationTag(conversation_id=conv1.id, tag="alpha"))
+    db_session.add(ConversationTag(conversation_id=conv2.id, tag="beta"))
+    await db_session.commit()
+
+    resp = await auth_client.get("/api/conversations/tags")
+    assert resp.status_code == 200
+    tags = resp.json()
+    assert "alpha" in tags
+    assert "beta" in tags
+
+
+@pytest.mark.anyio
+async def test_add_tag_wrong_user_returns_404(
+    auth_client, second_user_auth_headers, db_session
+):
+    user2_id = _uid_from_headers(second_user_auth_headers)
+    conv = Conversation(user_id=user2_id, title="Private")
+    db_session.add(conv)
+    await db_session.commit()
+
+    resp = await auth_client.post(
+        f"/api/conversations/{conv.id}/tags", json={"tag": "secret"}
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_remove_tag_wrong_user_returns_404(
+    auth_client, second_user_auth_headers, db_session
+):
+    user2_id = _uid_from_headers(second_user_auth_headers)
+    conv = Conversation(user_id=user2_id, title="Private")
+    db_session.add(conv)
+    await db_session.flush()
+    db_session.add(ConversationTag(conversation_id=conv.id, tag="secret"))
+    await db_session.commit()
+
+    resp = await auth_client.delete(f"/api/conversations/{conv.id}/tags/secret")
+    assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_list_conversations_includes_tags(auth_client, db_session):
+    user_id = _user_id(auth_client)
+    conv = Conversation(user_id=user_id, title="Tag Test Conv")
+    db_session.add(conv)
+    await db_session.flush()
+    db_session.add(ConversationTag(conversation_id=conv.id, tag="mytag"))
+    await db_session.commit()
+
+    resp = await auth_client.get("/api/conversations")
+    assert resp.status_code == 200
+    found = next((c for c in resp.json() if c["id"] == str(conv.id)), None)
+    assert found is not None
+    assert "mytag" in found["tags"]
+
+
+@pytest.mark.anyio
+async def test_list_user_tags_excludes_other_users(
+    auth_client, second_user_auth_headers, db_session
+):
+    user2_id = _uid_from_headers(second_user_auth_headers)
+    conv2 = Conversation(user_id=user2_id, title="Other User Conv")
+    db_session.add(conv2)
+    await db_session.flush()
+    db_session.add(ConversationTag(conversation_id=conv2.id, tag="other-user-tag"))
+    await db_session.commit()
+
+    resp = await auth_client.get("/api/conversations/tags")
+    assert resp.status_code == 200
+    assert "other-user-tag" not in resp.json()
+
+
+@pytest.mark.anyio
+async def test_add_tag_over_limit_returns_422(auth_client, db_session):
+    user_id = _user_id(auth_client)
+    conv = Conversation(user_id=user_id, title="Full Tags Conv")
+    db_session.add(conv)
+    await db_session.flush()
+    db_session.add_all(
+        [ConversationTag(conversation_id=conv.id, tag=f"tag{i:02d}") for i in range(20)]
+    )
+    await db_session.commit()
+
+    resp = await auth_client.post(
+        f"/api/conversations/{conv.id}/tags", json={"tag": "overflow"}
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("bad_tag", ["bad tag", "a,b", "", "\ttab", "new\nline"])
+async def test_add_invalid_tag_returns_422(auth_client, db_session, bad_tag):
+    user_id = _user_id(auth_client)
+    conv = Conversation(user_id=user_id, title="Validation Conv")
+    db_session.add(conv)
+    await db_session.commit()
+    resp = await auth_client.post(
+        f"/api/conversations/{conv.id}/tags", json={"tag": bad_tag}
+    )
+    assert resp.status_code == 422

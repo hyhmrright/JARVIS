@@ -28,7 +28,7 @@ interface Message {
   user_rating?: 1 | -1 | null;
 }
 
-interface Conversation { id: string; title: string; active_leaf_id?: string | null; is_pinned: boolean; updated_at?: string }
+interface Conversation { id: string; title: string; active_leaf_id?: string | null; is_pinned: boolean; updated_at?: string; tags: string[] }
 
 function applyModelMeta(msg: Message, data: Record<string, unknown>) {
   if (msg.role !== "ai") return;
@@ -227,6 +227,23 @@ export const useChatStore = defineStore("chat", {
         conv.title = prev;
         throw err;
       }
+    },
+
+    async addTag(convId: string, tag: string): Promise<void> {
+      const conv = this.conversations.find((c) => c.id === convId);
+      if (!conv) return;
+      const { data } = await client.post<string[]>(
+        `/conversations/${convId}/tags`,
+        { tag },
+      );
+      conv.tags = data;
+    },
+
+    async removeTag(convId: string, tag: string): Promise<void> {
+      const conv = this.conversations.find((c) => c.id === convId);
+      if (!conv) return;
+      await client.delete(`/conversations/${convId}/tags/${encodeURIComponent(tag)}`);
+      conv.tags = conv.tags.filter((t) => t !== tag);
     },
 
     async regenerate(messageId: string) {
