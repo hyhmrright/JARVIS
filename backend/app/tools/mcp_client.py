@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import json
 from dataclasses import dataclass, field
 from typing import Any
@@ -21,55 +23,118 @@ class MCPServerConfig:
     env: dict[str, str] | None = None
 
 
+class _MCPConnectionPool:
+    """Persistent connection pool for MCP stdio servers.
+
+    Keeps one subprocess per server alive across tool invocations to avoid
+    repeated startup overhead (~500 ms per call with per-invocation spawning).
+    """
+
+    def __init__(self) -> None:
+        self._sessions: dict[str, Any] = {}  # name → ClientSession
+        self._exit_stacks: dict[str, contextlib.AsyncExitStack] = {}
+        self._init_locks: dict[str, asyncio.Lock] = {}
+
+    def _init_lock(self, key: str) -> asyncio.Lock:
+        return self._init_locks.setdefault(key, asyncio.Lock())
+
+    async def get_session(self, config: MCPServerConfig) -> Any:
+        """Return an open ClientSession, creating one if needed."""
+        key = config.name
+        if key in self._sessions:
+            return self._sessions[key]
+        async with self._init_lock(key):
+            if key in self._sessions:
+                return self._sessions[key]
+            session = await self._open(config)
+            self._sessions[key] = session
+            return session
+
+    async def _open(self, config: MCPServerConfig) -> Any:
+        from mcp import ClientSession, StdioServerParameters
+        from mcp.client.stdio import stdio_client
+
+        stack = contextlib.AsyncExitStack()
+        server_params = StdioServerParameters(
+            command=config.command,
+            args=config.args,
+            env=config.env,
+        )
+        read, write = await stack.enter_async_context(stdio_client(server_params))
+        session = await stack.enter_async_context(ClientSession(read, write))
+        await session.initialize()
+        self._exit_stacks[config.name] = stack
+        logger.info("mcp_session_opened", server=config.name)
+        return session
+
+    async def invalidate(self, key: str) -> None:
+        """Remove a stale session; next call will reconnect."""
+        async with self._init_lock(key):
+            self._sessions.pop(key, None)
+            stack = self._exit_stacks.pop(key, None)
+            if stack:
+                try:
+                    await stack.aclose()
+                except Exception:
+                    pass
+
+    async def close_all(self) -> None:
+        """Close all persistent connections; called on app shutdown."""
+        keys = list(self._exit_stacks.keys())
+        for key in keys:
+            stack = self._exit_stacks.pop(key, None)
+            if stack:
+                try:
+                    await stack.aclose()
+                except Exception:
+                    pass
+        self._sessions.clear()
+        logger.info("mcp_pool_closed", server_count=len(keys))
+
+
+mcp_connection_pool = _MCPConnectionPool()
+
+
 async def create_mcp_tools(configs: list[MCPServerConfig]) -> list[BaseTool]:
     """Connect to MCP servers and return their tools as LangChain tools.
 
-    Returns empty list if configs is empty or all connections fail.
+    Connections are opened in parallel. Returns empty list if configs is
+    empty or all connections fail.
     """
     if not configs:
         return []
 
-    tools: list[BaseTool] = []
-    for config in configs:
+    async def _safe_load(config: MCPServerConfig) -> list[BaseTool]:
         try:
             server_tools = await _load_tools_from_server(config)
-            tools.extend(server_tools)
             logger.info(
                 "mcp_tools_loaded",
                 server=config.name,
                 tool_count=len(server_tools),
             )
+            return server_tools
         except Exception:
             logger.warning(
                 "mcp_server_connect_failed", server=config.name, exc_info=True
             )
-    return tools
+            return []
+
+    results = await asyncio.gather(*(_safe_load(c) for c in configs))
+    return [tool for server_tools in results for tool in server_tools]
 
 
 async def _load_tools_from_server(config: MCPServerConfig) -> list[BaseTool]:
-    from mcp import ClientSession, StdioServerParameters
-    from mcp.client.stdio import stdio_client
-
-    server_params = StdioServerParameters(
-        command=config.command,
-        args=config.args,
-        env=config.env,
-    )
-    async with stdio_client(server_params) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            result = await session.list_tools()
-            # Capture tool metadata only — the session closes after this block,
-            # so each tool invocation must open its own connection (see TODO below).
-            return [
-                _make_langchain_tool(
-                    t.name,
-                    getattr(t, "description", "") or t.name,
-                    getattr(t, "inputSchema", None) or {},
-                    config,
-                )
-                for t in result.tools
-            ]
+    session = await mcp_connection_pool.get_session(config)
+    result = await session.list_tools()
+    return [
+        _make_langchain_tool(
+            t.name,
+            getattr(t, "description", "") or t.name,
+            getattr(t, "inputSchema", None) or {},
+            config,
+        )
+        for t in result.tools
+    ]
 
 
 def _build_args_schema(input_schema: dict[str, Any]) -> type[BaseModel]:
@@ -104,32 +169,18 @@ def _make_langchain_tool(
     input_schema: dict[str, Any],
     config: MCPServerConfig,
 ) -> BaseTool:
-    """Wrap a single MCP tool as a LangChain StructuredTool.
-
-    TODO: Opening a new stdio process per invocation is wasteful. A future
-    optimisation should keep a persistent subprocess pool per server config.
-    """
+    """Wrap a single MCP tool as a LangChain StructuredTool."""
     args_schema = _build_args_schema(input_schema)
 
     async def _invoke(**kwargs: Any) -> str:
         try:
-            from mcp import ClientSession, StdioServerParameters
-            from mcp.client.stdio import stdio_client
-
-            server_params = StdioServerParameters(
-                command=config.command,
-                args=config.args,
-                env=config.env,
-            )
-            async with stdio_client(server_params) as (read, write):
-                async with ClientSession(read, write) as session:
-                    await session.initialize()
-                    result = await session.call_tool(tool_name, arguments=kwargs)
-                    parts = [
-                        c.text for c in result.content if hasattr(c, "text") and c.text
-                    ]
-                    return "\n".join(parts) or "(no output)"
+            session = await mcp_connection_pool.get_session(config)
+            result = await session.call_tool(tool_name, arguments=kwargs)
+            parts = [c.text for c in result.content if hasattr(c, "text") and c.text]
+            return "\n".join(parts) or "(no output)"
         except Exception as exc:
+            # Invalidate so the next call reopens a fresh connection.
+            await mcp_connection_pool.invalidate(config.name)
             return f"MCP tool error ({tool_name}): {exc}"
 
     return StructuredTool.from_function(

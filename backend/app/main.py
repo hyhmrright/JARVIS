@@ -53,6 +53,7 @@ from app.plugins.loader import (
     load_all_plugins,
 )
 from app.scheduler.runner import start_scheduler, stop_scheduler
+from app.tools.mcp_client import mcp_connection_pool
 
 configure_logging()
 logger = structlog.get_logger(__name__)
@@ -186,6 +187,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: C901
     await stop_scheduler()
     await channel_registry.stop_all()
     await deactivate_all_plugins(plugin_registry)
+    await mcp_connection_pool.close_all()
     await close_qdrant_client()
     logger.info("Shutting down.")
 

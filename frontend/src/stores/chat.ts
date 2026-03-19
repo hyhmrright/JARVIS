@@ -94,6 +94,10 @@ export const useChatStore = defineStore("chat", {
       const { data } = await client.get("/conversations");
       this.conversations = data;
     },
+    async _reloadMessages(convId: string): Promise<void> {
+      const { data } = await client.get<Message[]>(`/conversations/${convId}/messages`);
+      this.messages = data;
+    },
     async selectConversation(convId: string) {
       this.currentConvId = convId;
       this.messages = [];
@@ -102,8 +106,7 @@ export const useChatStore = defineStore("chat", {
       const conv = this.conversations.find((c) => c.id === convId);
       this.activeLeafId = conv?.active_leaf_id ?? null;
       try {
-        const { data } = await client.get<Message[]>(`/conversations/${convId}/messages`);
-        this.messages = data;
+        await this._reloadMessages(convId);
       } catch (err) {
         console.error("[chat] selectConversation failed", err);
         this.currentConvId = null;
@@ -365,7 +368,21 @@ export const useChatStore = defineStore("chat", {
         }
       } catch (err: any) {
         if (err.name === "AbortError") {
-          // User intentionally cancelled — do not show error toast
+          // User intentionally cancelled. Backend may have saved a partial AI
+          // message — reload to get its ID so subsequent messages attach correctly.
+          if (this.currentConvId) {
+            const convId = this.currentConvId;
+            for (const delay of [0, 200, 500]) {
+              if (delay > 0) await new Promise((r) => setTimeout(r, delay));
+              try {
+                await this._reloadMessages(convId);
+                if (this.messages.at(-1)?.role === "ai" && this.messages.at(-1)?.id) break;
+              } catch (reloadErr) {
+                console.warn("[chat] post-cancel message reload failed", reloadErr);
+                break;
+              }
+            }
+          }
           return;
         }
         const aiMsg = this.messages[this.messages.length - 1];
