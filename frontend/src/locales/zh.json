@@ -52,7 +52,9 @@
     "toolResult": "工具结果",
     "toolRunning": "执行中...",
     "usage": "用量统计",
-    "stopGenerating": "停止生成"
+    "stopGenerating": "停止生成",
+    "enterpriseGuard": "企业安全防护已启用",
+    "encrypted": "端到端加密"
   },
   "usage": {
     "title": "用量统计",
@@ -76,7 +78,17 @@
     "uploadedTitle": "已上传文档",
     "deleteConfirm": "确定要删除此文档？",
     "deleteSuccess": "文档已删除",
-    "deleteError": "删除失败，请重试"
+    "deleteError": "删除失败，请重试",
+    "fromUrl": "从 URL 导入",
+    "ingestUrlTitle": "添加网页到知识库",
+    "ingestUrlAdd": "添加页面",
+    "ingestUrlAdding": "添加中...",
+    "filterPlaceholder": "按名称过滤…",
+    "urlPlaceholder": "https://example.com/article",
+    "noMatch": "未找到匹配\"{query}\"的文档",
+    "workspaceOptional": "添加到工作区（可选）",
+    "urlInvalid": "请输入有效的 URL（例如 https://example.com）",
+    "ingestUrlError": "网页导入失败"
   },
   "settings": {
     "title": "设置",

@@ -52,7 +52,9 @@
     "toolResult": "Werkzeugergebnis",
     "toolRunning": "Wird ausgeführt...",
     "usage": "Nutzungsstatistik",
-    "stopGenerating": "Generierung stoppen"
+    "stopGenerating": "Generierung stoppen",
+    "enterpriseGuard": "Enterprise Guard aktiv",
+    "encrypted": "Ende-zu-Ende verschlüsselt"
   },
   "usage": {
     "title": "Nutzungsstatistik",
@@ -76,7 +78,17 @@
     "uploadedTitle": "Hochgeladene Dokumente",
     "deleteConfirm": "Dieses Dokument löschen?",
     "deleteSuccess": "Dokument gelöscht",
-    "deleteError": "Löschen fehlgeschlagen, bitte erneut versuchen"
+    "deleteError": "Löschen fehlgeschlagen, bitte erneut versuchen",
+    "fromUrl": "Von URL",
+    "ingestUrlTitle": "Webseite zur Wissensdatenbank hinzufügen",
+    "ingestUrlAdd": "Hinzufügen",
+    "ingestUrlAdding": "Wird hinzugefügt...",
+    "filterPlaceholder": "Nach Name filtern…",
+    "urlPlaceholder": "https://example.com/article",
+    "noMatch": "Keine Dokumente für \"{query}\" gefunden",
+    "workspaceOptional": "Zum Arbeitsbereich hinzufügen (optional)",
+    "urlInvalid": "Bitte eine gültige URL eingeben (z. B. https://example.com)",
+    "ingestUrlError": "Seite konnte nicht importiert werden"
   },
   "settings": {
     "title": "Einstellungen",

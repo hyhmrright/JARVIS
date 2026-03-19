@@ -52,7 +52,9 @@
     "toolResult": "Tool Result",
     "toolRunning": "Running...",
     "usage": "Usage",
-    "stopGenerating": "Stop generating"
+    "stopGenerating": "Stop generating",
+    "enterpriseGuard": "Enterprise Guard Active",
+    "encrypted": "End-to-End Encrypted"
   },
   "usage": {
     "title": "Usage Statistics",
@@ -76,7 +78,17 @@
     "uploadedTitle": "Uploaded Documents",
     "deleteConfirm": "Delete this document?",
     "deleteSuccess": "Document deleted",
-    "deleteError": "Delete failed, please try again"
+    "deleteError": "Delete failed, please try again",
+    "fromUrl": "From URL",
+    "ingestUrlTitle": "Add Web Page to Knowledge Base",
+    "ingestUrlAdd": "Add Page",
+    "ingestUrlAdding": "Adding...",
+    "filterPlaceholder": "Filter by name…",
+    "urlPlaceholder": "https://example.com/article",
+    "noMatch": "No documents match \"{query}\"",
+    "workspaceOptional": "Add to workspace (optional)",
+    "urlInvalid": "Please enter a valid URL (e.g. https://example.com)",
+    "ingestUrlError": "Failed to ingest URL"
   },
   "settings": {
     "title": "Settings",

@@ -23,7 +23,7 @@
           @click="openUrlModal"
         >
           <Link class="w-3.5 h-3.5" />
-          From URL
+          {{ $t('documents.fromUrl') }}
         </button>
       </div>
 
@@ -67,7 +67,7 @@
             <input
               v-model="docSearch"
               type="text"
-              placeholder="Filter by name…"
+              :placeholder="$t('documents.filterPlaceholder')"
               class="bg-zinc-900 border border-zinc-800 rounded-md px-2 py-1 text-xs text-zinc-200 placeholder:text-zinc-600 outline-none focus:border-zinc-600 w-40"
             />
           </div>
@@ -96,7 +96,7 @@
             </button>
           </div>
           <p v-if="filteredDocuments.length === 0 && docSearch" class="text-xs text-zinc-500 col-span-full py-4 text-center">
-            No documents match "{{ docSearch }}"
+            {{ $t('documents.noMatch', { query: docSearch }) }}
           </p>
         </div>
       </section>
@@ -121,35 +121,35 @@
       @click.self="showUrlModal = false"
     >
       <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-md shadow-xl">
-        <h3 class="text-sm font-semibold text-zinc-100 mb-4">Add Web Page to Knowledge Base</h3>
+        <h3 class="text-sm font-semibold text-zinc-100 mb-4">{{ $t('documents.ingestUrlTitle') }}</h3>
         <input
           v-model="urlInput"
           type="url"
-          placeholder="https://example.com/article"
+          :placeholder="$t('documents.urlPlaceholder')"
           class="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 mb-4"
           @keydown.enter="handleIngestUrl"
         />
         <div class="mb-4">
-          <label class="block text-xs text-zinc-400 mb-1.5">Add to workspace (optional)</label>
+          <label class="block text-xs text-zinc-400 mb-1.5">{{ $t('documents.workspaceOptional') }}</label>
           <select
             v-model="urlWorkspaceId"
             class="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200 outline-none focus:ring-1 focus:ring-zinc-500"
           >
-            <option :value="null">Personal (no workspace)</option>
+            <option :value="null">{{ $t('workspace.personal') }}</option>
             <option v-for="ws in workspace.workspaces" :key="ws.id" :value="ws.id">{{ ws.name }}</option>
           </select>
         </div>
         <p v-if="urlError" class="text-xs text-red-400 mb-3">{{ urlError }}</p>
         <div class="flex justify-end gap-2">
           <button class="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-100" @click="showUrlModal = false">
-            Cancel
+            {{ $t('common.cancel') }}
           </button>
           <button
             :disabled="!urlInput || urlIngesting"
             class="px-4 py-1.5 text-xs bg-white text-black rounded-md disabled:opacity-30 hover:bg-zinc-200"
             @click="handleIngestUrl"
           >
-            {{ urlIngesting ? 'Adding...' : 'Add Page' }}
+            {{ urlIngesting ? $t('documents.ingestUrlAdding') : $t('documents.ingestUrlAdd') }}
           </button>
         </div>
       </div>
@@ -212,7 +212,7 @@ const handleIngestUrl = async () => {
   try {
     new URL(urlInput.value);
   } catch {
-    urlError.value = "Please enter a valid URL (e.g. https://example.com)";
+    urlError.value = t("documents.urlInvalid");
     return;
   }
   urlIngesting.value = true;
@@ -224,7 +224,7 @@ const handleIngestUrl = async () => {
     await fetchDocuments();
   } catch (e: unknown) {
     const err = e as { response?: { data?: { detail?: string } } };
-    urlError.value = err?.response?.data?.detail ?? "Failed to ingest URL";
+    urlError.value = err?.response?.data?.detail ?? t("documents.ingestUrlError");
   } finally {
     urlIngesting.value = false;
   }

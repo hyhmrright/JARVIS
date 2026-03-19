@@ -713,9 +713,9 @@
               </div>
             </div>
             <div v-if="availableModels.length > 1" class="w-1 h-1 bg-zinc-800 rounded-full"></div>
-            <span>Enterprise Guard Active</span>
+            <span>{{ $t('chat.enterpriseGuard') }}</span>
             <div class="w-1 h-1 bg-zinc-800 rounded-full"></div>
-            <span>End-to-End Encrypted</span>
+            <span>{{ $t('chat.encrypted') }}</span>
           </div>
         </div>
       </div>

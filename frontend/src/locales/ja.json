@@ -52,7 +52,9 @@
     "toolResult": "ツール結果",
     "toolRunning": "実行中...",
     "usage": "利用統計",
-    "stopGenerating": "生成を停止"
+    "stopGenerating": "生成を停止",
+    "enterpriseGuard": "エンタープライズガード有効",
+    "encrypted": "エンドツーエンド暗号化"
   },
   "usage": {
     "title": "利用統計",
@@ -76,7 +78,17 @@
     "uploadedTitle": "アップロード済みドキュメント",
     "deleteConfirm": "このドキュメントを削除しますか？",
     "deleteSuccess": "ドキュメントが削除されました",
-    "deleteError": "削除に失敗しました。再試行してください"
+    "deleteError": "削除に失敗しました。再試行してください",
+    "fromUrl": "URL から取得",
+    "ingestUrlTitle": "ウェブページをナレッジベースに追加",
+    "ingestUrlAdd": "追加",
+    "ingestUrlAdding": "追加中...",
+    "filterPlaceholder": "名前で絞り込み…",
+    "urlPlaceholder": "https://example.com/article",
+    "noMatch": "「{query}」に一致するドキュメントはありません",
+    "workspaceOptional": "ワークスペースに追加（任意）",
+    "urlInvalid": "有効な URL を入力してください（例: https://example.com）",
+    "ingestUrlError": "ページの取り込みに失敗しました"
   },
   "settings": {
     "title": "設定",

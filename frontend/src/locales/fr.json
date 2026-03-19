@@ -52,7 +52,9 @@
     "toolResult": "Résultat de l'outil",
     "toolRunning": "En cours...",
     "usage": "Statistiques",
-    "stopGenerating": "Arrêter la génération"
+    "stopGenerating": "Arrêter la génération",
+    "enterpriseGuard": "Protection entreprise active",
+    "encrypted": "Chiffrement de bout en bout"
   },
   "usage": {
     "title": "Statistiques d'utilisation",
@@ -76,7 +78,17 @@
     "uploadedTitle": "Documents téléchargés",
     "deleteConfirm": "Supprimer ce document ?",
     "deleteSuccess": "Document supprimé",
-    "deleteError": "Échec de la suppression, veuillez réessayer"
+    "deleteError": "Échec de la suppression, veuillez réessayer",
+    "fromUrl": "Depuis URL",
+    "ingestUrlTitle": "Ajouter une page web à la base de connaissances",
+    "ingestUrlAdd": "Ajouter",
+    "ingestUrlAdding": "Ajout en cours...",
+    "filterPlaceholder": "Filtrer par nom…",
+    "urlPlaceholder": "https://example.com/article",
+    "noMatch": "Aucun document ne correspond à \"{query}\"",
+    "workspaceOptional": "Ajouter à un espace (optionnel)",
+    "urlInvalid": "Veuillez saisir une URL valide (ex. https://example.com)",
+    "ingestUrlError": "Échec de l'importation de la page"
   },
   "settings": {
     "title": "Paramètres",

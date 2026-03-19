@@ -52,7 +52,9 @@
     "toolResult": "도구 결과",
     "toolRunning": "실행 중...",
     "usage": "사용량 통계",
-    "stopGenerating": "생성 중지"
+    "stopGenerating": "생성 중지",
+    "enterpriseGuard": "엔터프라이즈 가드 활성화",
+    "encrypted": "종단간 암호화"
   },
   "usage": {
     "title": "사용량 통계",
@@ -76,7 +78,17 @@
     "uploadedTitle": "업로드된 문서",
     "deleteConfirm": "이 문서를 삭제하시겠습니까?",
     "deleteSuccess": "문서가 삭제되었습니다",
-    "deleteError": "삭제에 실패했습니다. 다시 시도해 주세요"
+    "deleteError": "삭제에 실패했습니다. 다시 시도해 주세요",
+    "fromUrl": "URL에서 추가",
+    "ingestUrlTitle": "웹 페이지를 지식 베이스에 추가",
+    "ingestUrlAdd": "추가",
+    "ingestUrlAdding": "추가 중...",
+    "filterPlaceholder": "이름으로 필터…",
+    "urlPlaceholder": "https://example.com/article",
+    "noMatch": "\"{query}\"에 일치하는 문서가 없습니다",
+    "workspaceOptional": "워크스페이스에 추가 (선택)",
+    "urlInvalid": "유효한 URL을 입력해 주세요 (예: https://example.com)",
+    "ingestUrlError": "페이지 가져오기에 실패했습니다"
   },
   "settings": {
     "title": "설정",
