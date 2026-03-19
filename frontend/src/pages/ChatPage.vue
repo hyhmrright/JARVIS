@@ -741,6 +741,7 @@ onUnmounted(() => {
   if (approvalTickInterval) clearInterval(approvalTickInterval);
   window.removeEventListener("resize", handleResize);
   window.removeEventListener("keydown", handleGlobalKeydown);
+  messagesEl.value?.removeEventListener("click", handleCodeCopy);
 });
 
 watch(searchQuery, (q) => {
@@ -1112,14 +1113,18 @@ const suggestions = [
   { text: 'Deep Memory Search', sub: 'Search offline conversation logs', prompt: 'Search local memory for project roadmap' }
 ];
 
+const escHtml = (s: string) =>
+  s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+
 marked.use({
   breaks: true,
   renderer: {
     code({ text, lang }: { text: string; lang?: string }): string {
-      if (lang && hljs.getLanguage(lang)) {
-        return `<pre><code class="hljs language-${lang}">${hljs.highlight(text, { language: lang }).value}</code></pre>\n`;
-      }
-      return `<pre><code class="hljs">${hljs.highlightAuto(text).value}</code></pre>\n`;
+      const langLabel = lang ? `<span class="code-lang-label">${escHtml(lang)}</span>` : "";
+      const highlighted = lang && hljs.getLanguage(lang)
+        ? hljs.highlight(text, { language: lang }).value
+        : hljs.highlightAuto(text).value;
+      return `<div class="code-block-wrapper"><div class="code-block-header">${langLabel}<button class="copy-code-btn" aria-label="Copy code">Copy</button></div><pre><code class="hljs${lang ? ` language-${escHtml(lang)}` : ""}">${highlighted}</code></pre></div>\n`;
     },
   },
 });
@@ -1238,17 +1243,43 @@ const scrollToBottom = async function(): Promise<void> {
   }
 };
 
+const _copyTimers = new WeakMap<Element, number>();
+const handleCodeCopy = (e: MouseEvent) => {
+  const btn = (e.target as HTMLElement).closest(".copy-code-btn");
+  if (!btn) return;
+  const code = btn.closest(".code-block-wrapper")?.querySelector("pre code");
+  if (!code) return;
+  navigator.clipboard.writeText(code.textContent ?? "").then(() => {
+    if (!btn.isConnected) return;
+    btn.textContent = "Copied!";
+    clearTimeout(_copyTimers.get(btn));
+    _copyTimers.set(btn, window.setTimeout(() => {
+      if (btn.isConnected) btn.textContent = "Copy";
+    }, 2000));
+  }).catch(() => {
+    toast.error("Failed to copy");
+  });
+};
+
 watch(() => chat.messages.length, scrollToBottom);
 watch(() => chat.streaming, (isStreaming) => { if (isStreaming) scrollToBottom(); });
 onMounted(async () => {
   window.addEventListener("resize", handleResize);
   window.addEventListener("keydown", handleGlobalKeydown);
+  await nextTick();
+  messagesEl.value?.addEventListener("click", handleCodeCopy);
   await chat.loadConversations();
   await fetchPersonas();
 });
 </script>
 
 <style scoped>
+.markdown-body :deep(.code-block-wrapper) { position: relative; margin: 1.5rem 0; border: 1px solid #27272a; border-radius: 6px; overflow: hidden; }
+.markdown-body :deep(.code-block-header) { display: flex; align-items: center; justify-content: space-between; background: #111; padding: 0.35rem 0.75rem; border-bottom: 1px solid #27272a; min-height: 28px; }
+.markdown-body :deep(.code-lang-label) { font-family: 'JetBrains Mono', monospace; font-size: 0.7em; color: #71717a; text-transform: lowercase; }
+.markdown-body :deep(.copy-code-btn) { margin-left: auto; font-size: 0.7em; font-weight: 600; color: #71717a; background: transparent; border: none; cursor: pointer; padding: 0.1rem 0.4rem; border-radius: 3px; transition: color 0.15s; }
+.markdown-body :deep(.copy-code-btn:hover) { color: #e4e4e7; }
+.markdown-body :deep(.code-block-wrapper pre) { background: #000; padding: 1.25rem; margin: 0; border-radius: 0; border: none; overflow-x: auto; }
 .markdown-body :deep(pre) { background: #000; padding: 1.25rem; border-radius: 6px; margin: 1.5rem 0; border: 1px solid #27272a; overflow-x: auto; }
 .markdown-body :deep(code) { font-family: 'JetBrains Mono', monospace; font-size: 0.85em; }
 .markdown-body :deep(p) { margin-bottom: 1.5rem; }
