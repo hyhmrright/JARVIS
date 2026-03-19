@@ -68,7 +68,17 @@
       "writing": "写作助手",
       "complex": "主控 Agent",
       "simple": "Agent"
-    }
+    },
+    "removeTagError": "删除标签失败",
+    "ratingError": "保存评分失败",
+    "exportError": "导出失败",
+    "pinError": "置顶操作失败",
+    "titleEmptyError": "标题不能为空",
+    "templateApplyError": "应用模板失败",
+    "imageTooLarge": "「{name}」超过 4 MB",
+    "templateApplyNewError": "对新会话应用模板失败",
+    "deleteMessageError": "删除消息失败",
+    "copyError": "复制失败"
   },
   "usage": {
     "title": "用量统计",

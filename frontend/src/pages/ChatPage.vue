@@ -873,7 +873,7 @@ const handleRemoveTag = async (convId: string, tag: string) => {
     await chat.removeTag(convId, tag);
     if (activeTagFilter.value === tag) activeTagFilter.value = null;
   } catch {
-    toast.error("Failed to remove tag");
+    toast.error(t("chat.removeTagError"));
   }
 };
 
@@ -898,7 +898,7 @@ const handleRateMessage = async (msgId: string, rating: 1 | -1 | null) => {
   try {
     await chat.rateMessage(msgId, rating);
   } catch {
-    toast.error("Failed to save rating");
+    toast.error(t("chat.ratingError"));
   }
 };
 
@@ -1030,7 +1030,7 @@ const downloadExport = async (convId: string, title: string, format: "md" | "jso
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 0);
   } catch {
-    toast.error("Export failed");
+    toast.error(t("chat.exportError"));
   }
 };
 
@@ -1038,7 +1038,7 @@ const togglePin = async (convId: string) => {
   try {
     await chat.togglePinConversation(convId);
   } catch {
-    toast.error("Failed to update pin");
+    toast.error(t("chat.pinError"));
   }
 };
 
@@ -1063,7 +1063,7 @@ const commitRename = async (convId: string) => {
   const title = renameValue.value.trim();
   renamingConvId.value = null;
   if (!title) {
-    toast.error("Title cannot be empty");
+    toast.error(t("chat.titleEmptyError"));
     return;
   }
   const conv = chat.conversations.find((c) => c.id === convId);
@@ -1085,7 +1085,7 @@ const applyTemplate = async (template: PromptTemplate) => {
       await patchConversation(chat.currentConvId, { persona_override: template.system_prompt });
       toast.success(t("chat.templateApplied"));
     } catch {
-      toast.error("Failed to apply template");
+      toast.error(t("chat.templateApplyError"));
     }
   } else {
     pendingSystemPrompt.value = template.system_prompt;
@@ -1134,7 +1134,7 @@ const addImages = (files: File[]) => {
       break;
     }
     if (file.size > MAX_IMAGE_BYTES) {
-      toast.error(`"${file.name}" exceeds 4 MB`);
+      toast.error(t("chat.imageTooLarge", { name: file.name }));
       continue;
     }
     accepted++;
@@ -1314,10 +1314,8 @@ const playTTS = async function(text: string): Promise<void> {
   }
 };
 
-const agentLabel = (agent: string): string => {
-  const key = `chat.agents.${agent}` as Parameters<typeof te>[0];
-  return te(key) ? t(key) : agent;
-};
+const agentLabel = (agent: string): string =>
+  te(`chat.agents.${agent}`) ? t(`chat.agents.${agent}`) : agent;
 
 const openSources = ref(new Set<string>());
 const toggleSources = (msgId: string) => {
@@ -1434,7 +1432,7 @@ const handleSend = async function(): Promise<void> {
       await patchConversation(data.id, { persona_override: templatePrompt });
       pendingSystemPrompt.value = null;
     } catch {
-      toast.error("Failed to apply template to new conversation");
+      toast.error(t("chat.templateApplyNewError"));
       // Restore so the user can retry without re-selecting the template
       pendingSystemPrompt.value = templatePrompt;
     }
@@ -1457,7 +1455,7 @@ const handleDeleteMessage = async function(msgId: string): Promise<void> {
   try {
     await chat.removeMessage(msgId);
   } catch {
-    toast.error("Failed to delete message");
+    toast.error(t("chat.deleteMessageError"));
   }
 };
 
@@ -1504,7 +1502,7 @@ const handleCodeCopy = (e: MouseEvent) => {
       if (btn.isConnected) btn.textContent = "Copy";
     }, 2000));
   }).catch(() => {
-    toast.error("Failed to copy");
+    toast.error(t("chat.copyError"));
   });
 };
 

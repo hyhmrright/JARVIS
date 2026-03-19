@@ -68,7 +68,17 @@
       "writing": "Schreib-Agent",
       "complex": "Supervisor",
       "simple": "Agent"
-    }
+    },
+    "removeTagError": "Tag konnte nicht entfernt werden",
+    "ratingError": "Bewertung konnte nicht gespeichert werden",
+    "exportError": "Export fehlgeschlagen",
+    "pinError": "Anheften fehlgeschlagen",
+    "titleEmptyError": "Titel darf nicht leer sein",
+    "templateApplyError": "Vorlage konnte nicht angewendet werden",
+    "imageTooLarge": "\"{name}\" überschreitet 4 MB",
+    "templateApplyNewError": "Vorlage konnte nicht auf neues Gespräch angewendet werden",
+    "deleteMessageError": "Nachricht konnte nicht gelöscht werden",
+    "copyError": "Kopieren fehlgeschlagen"
   },
   "usage": {
     "title": "Nutzungsstatistik",

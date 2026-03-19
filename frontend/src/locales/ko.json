@@ -68,7 +68,17 @@
       "writing": "라이팅 에이전트",
       "complex": "수퍼바이저",
       "simple": "에이전트"
-    }
+    },
+    "removeTagError": "태그 삭제에 실패했습니다",
+    "ratingError": "평가 저장에 실패했습니다",
+    "exportError": "내보내기에 실패했습니다",
+    "pinError": "고정 업데이트에 실패했습니다",
+    "titleEmptyError": "제목을 입력해 주세요",
+    "templateApplyError": "템플릿 적용에 실패했습니다",
+    "imageTooLarge": "\"{name}\"이(가) 4 MB를 초과합니다",
+    "templateApplyNewError": "새 대화에 템플릿 적용 실패",
+    "deleteMessageError": "메시지 삭제에 실패했습니다",
+    "copyError": "복사에 실패했습니다"
   },
   "usage": {
     "title": "사용량 통계",

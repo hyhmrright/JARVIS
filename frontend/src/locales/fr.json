@@ -68,7 +68,17 @@
       "writing": "Agent rédaction",
       "complex": "Superviseur",
       "simple": "Agent"
-    }
+    },
+    "removeTagError": "Échec de la suppression du tag",
+    "ratingError": "Échec de l'enregistrement de l'évaluation",
+    "exportError": "Échec de l'export",
+    "pinError": "Échec de la mise à jour de l'épingle",
+    "titleEmptyError": "Le titre ne peut pas être vide",
+    "templateApplyError": "Échec de l'application du modèle",
+    "imageTooLarge": "« {name} » dépasse 4 Mo",
+    "templateApplyNewError": "Échec de l'application du modèle à la nouvelle conversation",
+    "deleteMessageError": "Échec de la suppression du message",
+    "copyError": "Échec de la copie"
   },
   "usage": {
     "title": "Statistiques d'utilisation",

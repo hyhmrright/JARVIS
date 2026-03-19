@@ -68,7 +68,17 @@
       "writing": "ライティングエージェント",
       "complex": "スーパーバイザー",
       "simple": "エージェント"
-    }
+    },
+    "removeTagError": "タグの削除に失敗しました",
+    "ratingError": "評価の保存に失敗しました",
+    "exportError": "エクスポートに失敗しました",
+    "pinError": "ピン留めの更新に失敗しました",
+    "titleEmptyError": "タイトルを入力してください",
+    "templateApplyError": "テンプレートの適用に失敗しました",
+    "imageTooLarge": "「{name}」は 4 MB を超えています",
+    "templateApplyNewError": "新しい会話へのテンプレート適用に失敗しました",
+    "deleteMessageError": "メッセージの削除に失敗しました",
+    "copyError": "コピーに失敗しました"
   },
   "usage": {
     "title": "利用統計",

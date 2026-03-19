@@ -68,7 +68,17 @@
       "writing": "Writing Agent",
       "complex": "Supervisor",
       "simple": "Agent"
-    }
+    },
+    "removeTagError": "Failed to remove tag",
+    "ratingError": "Failed to save rating",
+    "exportError": "Export failed",
+    "pinError": "Failed to update pin",
+    "titleEmptyError": "Title cannot be empty",
+    "templateApplyError": "Failed to apply template",
+    "imageTooLarge": "\"{name}\" exceeds 4 MB",
+    "templateApplyNewError": "Failed to apply template to new conversation",
+    "deleteMessageError": "Failed to delete message",
+    "copyError": "Failed to copy"
   },
   "usage": {
     "title": "Usage Statistics",
