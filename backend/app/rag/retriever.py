@@ -1,4 +1,5 @@
 import asyncio
+import string
 from dataclasses import dataclass
 from typing import Any
 
@@ -13,6 +14,10 @@ logger = structlog.get_logger(__name__)
 
 _DEFAULT_TOP_K = 5
 _DEFAULT_SCORE_THRESHOLD = 0.7
+_RERANK_CANDIDATE_MULTIPLIER = 3
+_VECTOR_WEIGHT = 0.7
+_KEYWORD_WEIGHT = 0.3
+_PUNCT_TRANSLATOR = str.maketrans("", "", string.punctuation)
 
 
 @dataclass
@@ -20,6 +25,46 @@ class RetrievedChunk:
     document_name: str
     content: str
     score: float
+
+
+def _tokenize(text: str) -> set[str]:
+    """Lowercase and strip punctuation, returning a set of word tokens."""
+    return {w for w in text.lower().translate(_PUNCT_TRANSLATOR).split() if w}
+
+
+def _keyword_score(query: str, text: str) -> float:
+    """Compute keyword overlap: fraction of *unique* query words found in text.
+
+    Both query and text are tokenized into sets (lower-cased, punctuation
+    stripped), so duplicate query tokens are deduplicated before scoring.
+    Result is always in [0, 1].
+    """
+    query_words = _tokenize(query)
+    if not query_words:
+        return 0.0
+    text_words = _tokenize(text)
+    if not text_words:
+        return 0.0
+    overlap = query_words & text_words
+    return len(overlap) / len(query_words)
+
+
+def _rerank(
+    chunks: list[RetrievedChunk], query: str, top_k: int
+) -> list[RetrievedChunk]:
+    """Sort chunks by combined score and return top_k, updating chunk.score.
+
+    Combined score = 70% vector score + 30% keyword overlap.
+    chunk.score is updated to the combined score so that displayed
+    relevance values are consistent with the final ranking order.
+    """
+    for chunk in chunks:
+        chunk.score = (
+            _VECTOR_WEIGHT * chunk.score
+            + _KEYWORD_WEIGHT * _keyword_score(query, chunk.content)
+        )
+    chunks.sort(key=lambda c: c.score, reverse=True)
+    return chunks[:top_k]
 
 
 def _hits_to_chunks(hits: list[Any]) -> list[RetrievedChunk]:
@@ -52,12 +97,12 @@ async def retrieve_context(
         hits = await client.search(  # type: ignore[attr-defined]
             collection_name=collection,
             query_vector=query_vec,
-            limit=top_k,
+            limit=top_k * _RERANK_CANDIDATE_MULTIPLIER,
             score_threshold=score_threshold,
         )
 
-        # TODO: add real cross-encoder reranking here
-        return _hits_to_chunks(hits)
+        candidates = _hits_to_chunks(hits)
+        return _rerank(candidates, query, top_k)
 
     except UnexpectedResponse as exc:
         if exc.status_code == 404:
@@ -79,7 +124,7 @@ async def retrieve_context_multi(
 ) -> list[RetrievedChunk]:
     """Search user personal collection plus workspace collections.
 
-    Returns merged results sorted by score descending.
+    Returns merged results sorted by combined score descending.
     Returns empty list (never raises) on any error.
     """
     collection_names = [user_collection_name(user_id)]
@@ -92,6 +137,10 @@ async def retrieve_context_multi(
 
         async def _search_one(collection_name: str) -> list[RetrievedChunk]:
             try:
+                # Per-collection limit is top_k (not multiplied): the aggregate
+                # across N collections already provides N*top_k candidates for
+                # the reranker, so applying the full multiplier per collection
+                # would compound quadratically with the number of collections.
                 hits = await client.search(  # type: ignore[attr-defined]
                     collection_name=collection_name,
                     query_vector=query_vec,
@@ -119,8 +168,7 @@ async def retrieve_context_multi(
         all_chunks: list[RetrievedChunk] = [
             chunk for per_col in results for chunk in per_col
         ]
-        all_chunks.sort(key=lambda c: c.score, reverse=True)
-        return all_chunks[:top_k]
+        return _rerank(all_chunks, query, top_k)
     except Exception:
         logger.warning(
             "retriever_multi_unexpected_error", user_id=user_id, exc_info=True
