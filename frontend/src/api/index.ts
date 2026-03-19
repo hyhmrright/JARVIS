@@ -23,7 +23,7 @@ export const exportConversation = (convId: string, format: "md" | "json" | "txt"
 // PATCH conversation
 export const patchConversation = (
   convId: string,
-  data: { persona_override?: string | null },
+  data: { title?: string; persona_override?: string | null },
 ) => client.patch(`/conversations/${convId}`, data);
 
 // Toggle pin on a conversation

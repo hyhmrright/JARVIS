@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import client from "@/api/client";
-import { pinConversation } from "@/api";
+import { pinConversation, patchConversation } from "@/api";
 import { useAuthStore } from "@/stores/auth";
 
 interface ToolCall {
@@ -150,6 +150,19 @@ export const useChatStore = defineStore("chat", {
       }
     },
 
+
+    async renameConversation(convId: string, title: string) {
+      const conv = this.conversations.find((c) => c.id === convId);
+      if (!conv) return;
+      const prev = conv.title;
+      conv.title = title;
+      try {
+        await patchConversation(convId, { title });
+      } catch (err) {
+        conv.title = prev;
+        throw err;
+      }
+    },
 
     async regenerate(messageId: string) {
       if (!this.currentConvId || !messageId) return;

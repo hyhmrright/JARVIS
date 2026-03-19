@@ -7,7 +7,7 @@ from typing import Any, Literal
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,7 +39,15 @@ class ActiveLeafUpdate(BaseModel):
 
 
 class ConversationUpdate(BaseModel):
+    title: str | None = Field(None, min_length=1, max_length=255)
     persona_override: str | None = None
+
+    @field_validator("title")
+    @classmethod
+    def title_not_blank(cls, v: str | None) -> str | None:
+        if v is not None and not v.strip():
+            raise ValueError("title must not be blank or whitespace-only")
+        return v
 
 
 @router.post("", response_model=ConversationOut, status_code=201)
@@ -313,7 +321,7 @@ async def update_conversation(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Update mutable conversation fields (currently: persona_override)."""
+    """Update mutable conversation fields (title, persona_override)."""
     conv = await db.scalar(
         select(Conversation).where(
             Conversation.id == conv_id, Conversation.user_id == user.id
@@ -321,7 +329,10 @@ async def update_conversation(
     )
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    conv.persona_override = body.persona_override
+    if "title" in body.model_fields_set and body.title:
+        conv.title = body.title.strip()
+    if "persona_override" in body.model_fields_set:
+        conv.persona_override = body.persona_override
     await db.commit()
 
 

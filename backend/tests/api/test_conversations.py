@@ -222,6 +222,74 @@ async def test_patch_conversation_clears_persona(auth_client, db_session):
 
 
 @pytest.mark.anyio
+async def test_patch_conversation_renames_title(auth_client, db_session):
+    from app.core.security import decode_access_token
+
+    token = auth_client.headers["Authorization"].split(" ")[1]
+    user_id = decode_access_token(token)
+    conv = Conversation(user_id=user_id, title="Old Title")
+    db_session.add(conv)
+    await db_session.commit()
+    resp = await auth_client.patch(
+        f"/api/conversations/{conv.id}",
+        json={"title": "New Title"},
+    )
+    assert resp.status_code == 204
+    await db_session.refresh(conv)
+    assert conv.title == "New Title"
+
+
+@pytest.mark.anyio
+async def test_patch_conversation_empty_title_returns_422(auth_client, db_session):
+    from app.core.security import decode_access_token
+
+    token = auth_client.headers["Authorization"].split(" ")[1]
+    user_id = decode_access_token(token)
+    conv = Conversation(user_id=user_id, title="Keep This")
+    db_session.add(conv)
+    await db_session.commit()
+    resp = await auth_client.patch(
+        f"/api/conversations/{conv.id}",
+        json={"title": ""},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_patch_conversation_whitespace_title_returns_422(auth_client, db_session):
+    from app.core.security import decode_access_token
+
+    token = auth_client.headers["Authorization"].split(" ")[1]
+    user_id = decode_access_token(token)
+    conv = Conversation(user_id=user_id, title="Keep This")
+    db_session.add(conv)
+    await db_session.commit()
+    resp = await auth_client.patch(
+        f"/api/conversations/{conv.id}",
+        json={"title": "   "},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_patch_conversation_omitting_title_preserves_it(auth_client, db_session):
+    from app.core.security import decode_access_token
+
+    token = auth_client.headers["Authorization"].split(" ")[1]
+    user_id = decode_access_token(token)
+    conv = Conversation(user_id=user_id, title="Unchanged")
+    db_session.add(conv)
+    await db_session.commit()
+    resp = await auth_client.patch(
+        f"/api/conversations/{conv.id}",
+        json={"persona_override": "tutor"},
+    )
+    assert resp.status_code == 204
+    await db_session.refresh(conv)
+    assert conv.title == "Unchanged"
+
+
+@pytest.mark.anyio
 async def test_messages_include_tool_calls_field(auth_client, db_session):
     from typing import Any
 

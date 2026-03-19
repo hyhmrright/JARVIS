@@ -68,7 +68,22 @@
             @click="chat.selectConversation(c.id)"
           >
             <MessageSquare class="w-3.5 h-3.5 flex-shrink-0" />
-            <span class="text-xs truncate flex-1">{{ c.title }}</span>
+            <input
+              v-if="renamingConvId === c.id"
+              :ref="setRenameInput"
+              v-model="renameValue"
+              class="text-xs flex-1 bg-zinc-700 text-zinc-100 rounded px-1 outline-none min-w-0"
+              maxlength="255"
+              @keydown.enter.stop="commitRename(c.id)"
+              @keydown.escape.stop.prevent="renamingConvId = null"
+              @blur="commitRename(c.id)"
+              @click.stop
+            />
+            <span
+              v-else
+              class="text-xs truncate flex-1"
+              @dblclick.stop="startRename(c)"
+            >{{ c.title }}</span>
             <button
               class="p-0.5 rounded transition-opacity"
               :class="c.is_pinned ? 'text-yellow-400 opacity-100' : 'text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100'"
@@ -671,6 +686,39 @@ const togglePin = async (convId: string) => {
     await chat.togglePinConversation(convId);
   } catch {
     toast.error("Failed to update pin");
+  }
+};
+
+// Inline conversation rename
+const renamingConvId = ref<string | null>(null);
+const renameValue = ref("");
+// Plain mutable variable — Vue's :ref function ref sets this each render
+ 
+let renameInputEl: HTMLInputElement | null = null;
+const setRenameInput = (el: unknown) => { renameInputEl = el as HTMLInputElement | null; };
+
+const startRename = (c: { id: string; title: string }) => {
+  renamingConvId.value = c.id;
+  renameValue.value = c.title;
+  nextTick(() => renameInputEl?.select());
+};
+
+const commitRename = async (convId: string) => {
+  // Guard: Escape already cleared renamingConvId (keydown fires before blur),
+  // or Enter+blur causes double invocation — both are rejected here.
+  if (renamingConvId.value !== convId) return;
+  const title = renameValue.value.trim();
+  renamingConvId.value = null;
+  if (!title) {
+    toast.error("Title cannot be empty");
+    return;
+  }
+  const conv = chat.conversations.find((c) => c.id === convId);
+  if (!conv || title === conv.title) return;
+  try {
+    await chat.renameConversation(convId, title);
+  } catch {
+    toast.error("Failed to rename conversation");
   }
 };
 
