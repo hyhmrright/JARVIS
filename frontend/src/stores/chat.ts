@@ -246,7 +246,7 @@ export const useChatStore = defineStore("chat", {
       conv.tags = conv.tags.filter((t) => t !== tag);
     },
 
-    async regenerate(messageId: string) {
+    async regenerate(messageId: string, modelOverride?: string) {
       if (!this.currentConvId || !messageId) return;
       this.streaming = true;
       try {
@@ -254,7 +254,7 @@ export const useChatStore = defineStore("chat", {
         const response = await fetch("/api/chat/regenerate", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
-          body: JSON.stringify({ conversation_id: this.currentConvId, message_id: messageId })
+          body: JSON.stringify({ conversation_id: this.currentConvId, message_id: messageId, model_override: modelOverride ?? undefined })
         });
         if (!response.ok) throw new Error("Regenerate failed");
         
@@ -319,7 +319,7 @@ export const useChatStore = defineStore("chat", {
       await this.sendMessage(`[CONSENT:${approved ? 'ALLOW' : 'DENY'}] ${callInfo.name}`);
     },
 
-    async sendMessage(content: string, imageUrls?: string[], parentId?: string, personaId?: string) {
+    async sendMessage(content: string, imageUrls?: string[], parentId?: string, personaId?: string, modelOverride?: string) {
       if (!this.currentConvId) {
         const title = content.slice(0, 30) + (content.length > 30 ? "..." : "");
         const { data } = await client.post("/conversations", { title });
@@ -357,6 +357,7 @@ export const useChatStore = defineStore("chat", {
             image_urls: imageUrls,
             parent_message_id: actualParentId,
             persona_id: personaId,
+            model_override: modelOverride ?? undefined,
           }),
           signal: controller.signal,
         });

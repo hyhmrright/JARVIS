@@ -2,6 +2,7 @@ import asyncio
 import json
 import uuid
 from collections.abc import AsyncGenerator
+from dataclasses import replace as dc_replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -30,6 +31,7 @@ from app.agent.router import classify_task
 from app.agent.state import AgentState
 from app.agent.supervisor import SupervisorState, create_supervisor_graph
 from app.api.deps import get_current_user, get_llm_config
+from app.api.settings import PROVIDER_MODELS
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.metrics import llm_requests_total
@@ -315,6 +317,7 @@ class ChatRequest(BaseModel):
     parent_message_id: uuid.UUID | None = None
     persona_id: uuid.UUID | None = None
     workflow_dsl: dict | None = None
+    model_override: str | None = Field(None, max_length=100)
 
     @field_validator("image_urls")
     @classmethod
@@ -338,6 +341,14 @@ async def chat_stream(  # noqa: C901
     db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
     llm = await get_llm_config(user=user, db=db, workspace_id=body.workspace_id)
+    if body.model_override:
+        allowed = PROVIDER_MODELS.get(llm.provider, [])
+        if allowed and body.model_override not in allowed:
+            raise HTTPException(
+                status_code=400,
+                detail=f"model '{body.model_override}' not valid for '{llm.provider}'",
+            )
+        llm = dc_replace(llm, model_name=body.model_override)
     user_content = sanitize_user_input(body.content)
     is_consent = user_content.startswith("[CONSENT:")
     approved: bool | None = None
@@ -736,6 +747,7 @@ class RegenerateRequest(BaseModel):
     conversation_id: uuid.UUID
     message_id: uuid.UUID
     workspace_id: uuid.UUID | None = None
+    model_override: str | None = Field(None, max_length=100)
 
 
 @router.post("/regenerate")
@@ -747,6 +759,14 @@ async def chat_regenerate(  # noqa: C901
     db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
     llm = await get_llm_config(user=user, db=db, workspace_id=body.workspace_id)
+    if body.model_override:
+        allowed = PROVIDER_MODELS.get(llm.provider, [])
+        if allowed and body.model_override not in allowed:
+            raise HTTPException(
+                status_code=400,
+                detail=f"model '{body.model_override}' not valid for '{llm.provider}'",
+            )
+        llm = dc_replace(llm, model_name=body.model_override)
 
     conv = await db.scalar(
         select(Conversation).where(

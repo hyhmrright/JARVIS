@@ -199,6 +199,67 @@ async def test_chat_regenerate_updates_agent_session_status(auth_client, db_sess
 
 
 @pytest.mark.asyncio
+async def test_model_override_replaces_model_name(auth_client, db_session):
+    """model_override in the request body should shadow the user's settings model."""
+    from app.core.security import decode_access_token
+
+    token = auth_client.headers.get("Authorization").split(" ")[1]
+    user_id = uuid.UUID(decode_access_token(token))
+    conv = Conversation(user_id=user_id, title="Override Test")
+    db_session.add(conv)
+    await db_session.commit()
+
+    captured_model: list[str] = []
+
+    base_llm = ResolvedLLMConfig(
+        provider="deepseek",
+        model_name="deepseek-chat",
+        api_key="sk-test",
+        api_keys=["sk-test"],
+        enabled_tools=None,
+        persona_override=None,
+        raw_keys={},
+        base_url=None,
+    )
+
+    async def mock_astream(*args, **kwargs):
+        yield {"llm": {"messages": [AIMessage(content="overridden")]}}
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+
+    def capture_build_graph(llm_config, *args, **kwargs):
+        captured_model.append(llm_config.model_name)
+        return mock_graph
+
+    with (
+        patch("app.api.chat.get_llm_config", new_callable=AsyncMock) as mock_get_llm,
+        patch("app.api.chat.classify_task", new_callable=AsyncMock) as mock_classify,
+        patch("app.api.chat._build_expert_graph", side_effect=capture_build_graph),
+        patch("app.api.chat.compact_messages", new_callable=AsyncMock) as mock_compact,
+        patch("app.api.chat.build_rag_context", new_callable=AsyncMock) as mock_rag,
+    ):
+        mock_get_llm.return_value = base_llm
+        mock_classify.return_value = "main"
+        mock_compact.side_effect = lambda msgs, **kwargs: msgs
+        mock_rag.return_value = ""
+
+        resp = await auth_client.post(
+            "/api/chat/stream",
+            json={
+                "conversation_id": str(conv.id),
+                "content": "hello",
+                "model_override": "deepseek-reasoner",
+            },
+        )
+        assert resp.status_code == 200
+        async for _ in resp.aiter_text():
+            pass
+
+    assert captured_model and captured_model[0] == "deepseek-reasoner"
+
+
+@pytest.mark.asyncio
 async def test_chat_regenerate(auth_client, db_session):
     from app.core.security import decode_access_token
 

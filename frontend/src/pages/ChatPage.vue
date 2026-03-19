@@ -483,7 +483,7 @@
                 <button 
                   v-if="msg.role === 'ai' && !chat.streaming" 
                   class="text-[10px] font-medium hover:text-zinc-300 flex items-center gap-1.5 transition-colors" 
-                  @click="chat.regenerate(msg.id)"
+                  @click="chat.regenerate(msg.id, activeModel ?? undefined)"
                 >
                   <RotateCcw class="w-3 h-3" />
                   Regenerate
@@ -668,6 +668,41 @@
             </div>
           </div>
           <div class="mt-4 flex justify-center items-center gap-4 text-[9px] font-bold text-zinc-600 uppercase tracking-widest">
+            <!-- Model picker -->
+            <div v-if="availableModels.length > 1" class="relative">
+              <button
+                class="flex items-center gap-1 hover:text-zinc-400 transition-colors"
+                :class="activeModel ? 'text-indigo-500' : ''"
+                @click="showModelPicker = !showModelPicker"
+              >
+                <Cpu class="w-2.5 h-2.5" />
+                {{ activeModel || userDefaultModel || 'Default' }}
+                <ChevronDown class="w-2.5 h-2.5" />
+              </button>
+              <!-- Dropdown -->
+              <div
+                v-if="showModelPicker"
+                class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-50 py-1 min-w-[180px]"
+              >
+                <button
+                  v-if="activeModel"
+                  class="w-full text-left px-3 py-1.5 text-[11px] text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+                  @click="activeModel = null; showModelPicker = false"
+                >
+                  ↩ Use default ({{ userDefaultModel }})
+                </button>
+                <button
+                  v-for="m in availableModels"
+                  :key="m"
+                  class="w-full text-left px-3 py-1.5 text-[11px] transition-colors"
+                  :class="(activeModel || userDefaultModel) === m ? 'text-indigo-400 bg-zinc-800' : 'text-zinc-300 hover:bg-zinc-800'"
+                  @click="activeModel = m === userDefaultModel ? null : m; showModelPicker = false"
+                >
+                  {{ m }}
+                </button>
+              </div>
+            </div>
+            <div v-if="availableModels.length > 1" class="w-1 h-1 bg-zinc-800 rounded-full"></div>
             <span>Enterprise Guard Active</span>
             <div class="w-1 h-1 bg-zinc-800 rounded-full"></div>
             <span>End-to-End Encrypted</span>
@@ -695,6 +730,8 @@
 
     <!-- Export menu close backdrop -->
     <div v-if="exportMenuConvId" class="fixed inset-0 z-40" @click="exportMenuConvId = null" />
+    <!-- Model picker close backdrop -->
+    <div v-if="showModelPicker" class="fixed inset-0 z-40" @click="showModelPicker = false" />
   </div>
 </template>
 
@@ -711,7 +748,7 @@ import {
   Trash2, Zap, Settings, LogOut,
   PanelLeft, SquarePen, Copy, RotateCcw,
   Mic, ArrowUp, Square, ShieldAlert, Share2, MessageSquare,
-  Volume2, Layout, Image, X, ChevronDown,
+  Volume2, Layout, Image, X, ChevronDown, Cpu,
   Search, Download, Sparkles, Pin, Bookmark, BookmarkCheck, ThumbsUp, ThumbsDown,
   Tag, Plus
 } from "lucide-vue-next";
@@ -761,6 +798,12 @@ const selectSearchResult = (convId: string) => {
 };
 const exportMenuConvId = ref<string | null>(null);
 const pendingSystemPrompt = ref<string | null>(null);
+
+// Model picker
+const userDefaultModel = ref("");
+const availableModels = ref<string[]>([]);
+const activeModel = ref<string | null>(null); // null = use user default
+const showModelPicker = ref(false);
 
 // Search state
 const searchMode = ref(false);
@@ -922,6 +965,7 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
   }
   // Escape → close search, share overlay, export dropdown, or sidebar on mobile
   if (e.key === "Escape") {
+    if (showModelPicker.value) { showModelPicker.value = false; return; }
     if (searchMode.value) { clearSearch(); return; }
     if (shareUrl.value) { shareUrl.value = null; return; }
     if (exportMenuConvId.value) { exportMenuConvId.value = null; return; }
@@ -1389,7 +1433,7 @@ const handleSend = async function(): Promise<void> {
     }
   }
 
-  await chat.sendMessage(msg, images.length > 0 ? images : undefined, undefined, personaId || undefined);
+  await chat.sendMessage(msg, images.length > 0 ? images : undefined, undefined, personaId || undefined, activeModel.value || undefined);
 };
 
 const handleEnter = function(e: KeyboardEvent): void {
@@ -1459,13 +1503,29 @@ const handleCodeCopy = (e: MouseEvent) => {
 
 watch(() => chat.messages.length, scrollToBottom);
 watch(() => chat.streaming, (isStreaming) => { if (isStreaming) scrollToBottom(); });
+watch(() => chat.currentConvId, () => { activeModel.value = null; });
+async function loadModelOptions() {
+  if (availableModels.value.length > 0) return; // already loaded this session
+  try {
+    const [settingsRes, modelsRes] = await Promise.all([
+      client.get("/settings"),
+      client.get<Record<string, string[]>>("/settings/models"),
+    ]);
+    const provider = settingsRes.data.model_provider ?? "";
+    userDefaultModel.value = settingsRes.data.model_name ?? "";
+    availableModels.value = modelsRes.data[provider] ?? [];
+  } catch {
+    // non-critical; fallback to no picker
+  }
+}
+
 onMounted(async () => {
   window.addEventListener("resize", handleResize);
   window.addEventListener("keydown", handleGlobalKeydown);
   await nextTick();
   messagesEl.value?.addEventListener("click", handleCodeCopy);
   await chat.loadConversations();
-  await fetchPersonas();
+  await Promise.all([fetchPersonas(), loadModelOptions()]);
 });
 </script>
 
