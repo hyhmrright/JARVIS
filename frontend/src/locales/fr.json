@@ -361,6 +361,23 @@
     "deleteConfirm": "Supprimer le persona « {name} » ?",
     "deleteError": "Échec de la suppression du persona."
   },
+  "skillMarket": {
+    "ecosystem": "Écosystème JARVIS",
+    "title": "Marché des compétences",
+    "description": "Découvrez et installez des capacités IA spécialisées. De l'analyse de code à l'écriture créative, étendez votre assistant en un clic.",
+    "searchPlaceholder": "Rechercher des compétences...",
+    "installFromUrl": "Installer depuis une URL",
+    "back": "Retour",
+    "categoryAll": "Tout",
+    "tryAgain": "Réessayer",
+    "noResults": "Aucune compétence trouvée pour votre recherche.",
+    "installing": "Installation...",
+    "installPersonal": "Installer (Personnel)",
+    "installSystem": "Installer (Système)",
+    "fetchError": "Échec de la récupération des compétences depuis le registre.",
+    "installSuccess": "« {name} » installé avec succès.",
+    "installError": "Échec de l'installation."
+  },
   "memory": {
     "confirmClear": "Effacer tous les souvenirs IA ? Cette action est irréversible.",
     "loadError": "Échec du chargement des souvenirs",

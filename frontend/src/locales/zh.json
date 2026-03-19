@@ -361,6 +361,23 @@
     "deleteConfirm": "删除 Persona「{name}」？",
     "deleteError": "删除 Persona 失败。"
   },
+  "skillMarket": {
+    "ecosystem": "JARVIS 生态",
+    "title": "技能市场",
+    "description": "探索并安装专业 AI 能力。从代码分析到创意写作，一键扩展你的助手。",
+    "searchPlaceholder": "搜索技能...",
+    "installFromUrl": "从 URL 安装",
+    "back": "返回",
+    "categoryAll": "全部",
+    "tryAgain": "重试",
+    "noResults": "未找到匹配的技能。",
+    "installing": "安装中...",
+    "installPersonal": "安装（个人）",
+    "installSystem": "安装（全局）",
+    "fetchError": "从注册表获取技能失败。",
+    "installSuccess": "「{name}」安装成功。",
+    "installError": "安装失败。"
+  },
   "memory": {
     "confirmClear": "确定要清除所有 AI 记忆吗？此操作不可恢复。",
     "loadError": "加载记忆失败",

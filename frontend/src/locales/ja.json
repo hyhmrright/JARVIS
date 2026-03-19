@@ -361,6 +361,23 @@
     "deleteConfirm": "ペルソナ「{name}」を削除しますか？",
     "deleteError": "ペルソナの削除に失敗しました。"
   },
+  "skillMarket": {
+    "ecosystem": "JARVIS エコシステム",
+    "title": "スキルマーケット",
+    "description": "専門的な AI 能力を発見してインストールします。コード分析からクリエイティブライティングまで、ワンクリックでアシスタントを拡張できます。",
+    "searchPlaceholder": "スキルを検索...",
+    "installFromUrl": "URL からインストール",
+    "back": "戻る",
+    "categoryAll": "すべて",
+    "tryAgain": "再試行",
+    "noResults": "検索に一致するスキルが見つかりません。",
+    "installing": "インストール中...",
+    "installPersonal": "インストール（個人）",
+    "installSystem": "インストール（システム全体）",
+    "fetchError": "レジストリからスキルの取得に失敗しました。",
+    "installSuccess": "「{name}」のインストールに成功しました。",
+    "installError": "インストールに失敗しました。"
+  },
   "memory": {
     "confirmClear": "全ての AI メモリを削除しますか？元に戻せません。",
     "loadError": "メモリの読み込みに失敗しました",

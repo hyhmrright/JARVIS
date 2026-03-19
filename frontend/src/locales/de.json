@@ -361,6 +361,23 @@
     "deleteConfirm": "Persona \"{name}\" löschen?",
     "deleteError": "Persona konnte nicht gelöscht werden."
   },
+  "skillMarket": {
+    "ecosystem": "JARVIS-Ökosystem",
+    "title": "Skill-Markt",
+    "description": "Entdecken und installieren Sie spezialisierte KI-Fähigkeiten. Von der Code-Analyse bis zum kreativen Schreiben – erweitern Sie Ihren Assistenten mit einem Klick.",
+    "searchPlaceholder": "Skills suchen...",
+    "installFromUrl": "Von URL installieren",
+    "back": "Zurück",
+    "categoryAll": "Alle",
+    "tryAgain": "Erneut versuchen",
+    "noResults": "Keine Skills gefunden, die Ihrer Suche entsprechen.",
+    "installing": "Wird installiert...",
+    "installPersonal": "Installieren (Persönlich)",
+    "installSystem": "Installieren (Systemweit)",
+    "fetchError": "Skills konnten nicht aus der Registry abgerufen werden.",
+    "installSuccess": "\"{name}\" erfolgreich installiert.",
+    "installError": "Installation fehlgeschlagen."
+  },
   "memory": {
     "confirmClear": "Alle KI-Erinnerungen löschen? Dies kann nicht rückgängig gemacht werden.",
     "loadError": "Erinnerungen konnten nicht geladen werden",

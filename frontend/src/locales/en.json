@@ -361,6 +361,23 @@
     "deleteConfirm": "Delete persona \"{name}\"?",
     "deleteError": "Failed to delete persona."
   },
+  "skillMarket": {
+    "ecosystem": "JARVIS ecosystem",
+    "title": "Skill Market",
+    "description": "Discover and install specialized AI capabilities. From code analysis to creative writing, extend your assistant with a single click.",
+    "searchPlaceholder": "Search skills...",
+    "installFromUrl": "Install from URL",
+    "back": "Back",
+    "categoryAll": "All",
+    "tryAgain": "Try Again",
+    "noResults": "No skills found matching your search.",
+    "installing": "Installing...",
+    "installPersonal": "Install (Personal)",
+    "installSystem": "Install (System-wide)",
+    "fetchError": "Failed to fetch skills from registry.",
+    "installSuccess": "\"{name}\" installed successfully.",
+    "installError": "Installation failed."
+  },
   "memory": {
     "confirmClear": "Clear all AI memories? This cannot be undone.",
     "loadError": "Failed to load memories",

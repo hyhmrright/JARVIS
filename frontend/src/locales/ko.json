@@ -361,6 +361,23 @@
     "deleteConfirm": "페르소나 \"{name}\"를 삭제하시겠습니까?",
     "deleteError": "페르소나 삭제 실패."
   },
+  "skillMarket": {
+    "ecosystem": "JARVIS 생태계",
+    "title": "스킬 마켓",
+    "description": "전문 AI 기능을 발견하고 설치하세요. 코드 분석부터 창의적 글쓰기까지, 클릭 한 번으로 어시스턴트를 확장하세요.",
+    "searchPlaceholder": "스킬 검색...",
+    "installFromUrl": "URL에서 설치",
+    "back": "뒤로",
+    "categoryAll": "전체",
+    "tryAgain": "다시 시도",
+    "noResults": "검색과 일치하는 스킬이 없습니다.",
+    "installing": "설치 중...",
+    "installPersonal": "설치 (개인)",
+    "installSystem": "설치 (시스템 전체)",
+    "fetchError": "레지스트리에서 스킬을 가져오지 못했습니다.",
+    "installSuccess": "\"{name}\" 설치 완료.",
+    "installError": "설치 실패."
+  },
   "memory": {
     "confirmClear": "모든 AI 기억을 지우시겠습니까? 되돌릴 수 없습니다.",
     "loadError": "기억 로드 실패",

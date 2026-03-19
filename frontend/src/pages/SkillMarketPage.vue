@@ -8,12 +8,11 @@
             class="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white"
           >
             <Zap class="h-3.5 w-3.5" />
-            JARVIS ecosystem
+            {{ $t("skillMarket.ecosystem") }}
           </div>
-          <h1 class="text-4xl font-bold tracking-tight text-white">Skill Market</h1>
+          <h1 class="text-4xl font-bold tracking-tight text-white">{{ $t("skillMarket.title") }}</h1>
           <p class="max-w-lg text-sm text-zinc-500">
-            Discover and install specialized AI capabilities. From code analysis to creative
-            writing, extend your assistant with a single click.
+            {{ $t("skillMarket.description") }}
           </p>
         </div>
 
@@ -23,7 +22,7 @@
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="Search skills..."
+              :placeholder="$t('skillMarket.searchPlaceholder')"
               class="w-64 rounded-lg border border-zinc-800 bg-zinc-900 py-2 pl-10 pr-4 text-sm text-white transition-colors focus:border-zinc-600 focus:outline-none"
             />
           </div>
@@ -31,13 +30,13 @@
             class="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-300 transition-all hover:bg-zinc-700"
             @click="showInstallModal = true"
           >
-            + Install from URL
+            + {{ $t("skillMarket.installFromUrl") }}
           </button>
           <router-link
             to="/plugins"
             class="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-300 transition-all hover:bg-zinc-700"
           >
-            BACK
+            {{ $t("skillMarket.back") }}
           </router-link>
         </div>
       </header>
@@ -55,7 +54,7 @@
           "
           @click="activeCategory = cat"
         >
-          {{ cat === '__all__' ? 'All' : cat }}
+          {{ cat === '__all__' ? $t('skillMarket.categoryAll') : cat }}
         </button>
       </div>
 
@@ -73,13 +72,13 @@
         <ShieldAlert class="mx-auto h-12 w-12 text-red-500" />
         <p class="font-medium text-red-400">{{ error }}</p>
         <button class="text-sm text-zinc-500 underline hover:text-white" @click="loadSkills">
-          Try Again
+          {{ $t("skillMarket.tryAgain") }}
         </button>
       </div>
 
       <!-- Empty State -->
       <div v-else-if="filteredSkills.length === 0" class="py-20 text-center">
-        <p class="text-zinc-500">No skills found matching your search.</p>
+        <p class="text-zinc-500">{{ $t("skillMarket.noResults") }}</p>
       </div>
 
       <!-- Skill Grid -->
@@ -136,11 +135,11 @@
                 <div
                   class="h-3 w-3 animate-spin rounded-full border-2 border-black/20 border-t-black"
                 ></div>
-                Installing...
+                {{ $t("skillMarket.installing") }}
               </template>
               <template v-else>
                 <Download class="h-3.5 w-3.5" />
-                Install (Personal)
+                {{ $t("skillMarket.installPersonal") }}
               </template>
             </button>
             <button
@@ -150,7 +149,7 @@
               @click="installSkill(skill, 'system')"
             >
               <Download class="h-3.5 w-3.5" />
-              Install (System-wide)
+              {{ $t("skillMarket.installSystem") }}
             </button>
           </div>
         </div>
@@ -168,12 +167,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { Zap, Search, Box, User, Download, ShieldAlert } from "lucide-vue-next";
 import { useAuthStore } from "@/stores/auth";
 import { marketApi } from "@/api/plugins";
 import type { MarketSkillOut } from "@/api/plugins";
 import InstallFromUrlModal from "@/components/InstallFromUrlModal.vue";
 
+const { t } = useI18n();
 const auth = useAuthStore();
 const isAdmin = computed(() => auth.isAdmin);
 
@@ -216,7 +217,7 @@ async function loadSkills() {
   try {
     skills.value = (await marketApi.listSkills()).data;
   } catch (err: unknown) {
-    error.value = "Failed to fetch skills from registry.";
+    error.value = t("skillMarket.fetchError");
     console.error(err);
   } finally {
     loading.value = false;
@@ -231,11 +232,11 @@ async function installSkill(skill: MarketSkillOut, scope: "personal" | "system")
       type: skill.type,
       scope,
     });
-    alert(`"${skill.name}" installed successfully.`);
+    alert(t("skillMarket.installSuccess", { name: skill.name }));
   } catch (err: unknown) {
     const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data
       ?.detail;
-    alert(typeof detail === "string" ? detail : "Installation failed.");
+    alert(typeof detail === "string" ? detail : t("skillMarket.installError"));
     console.error(err);
   } finally {
     installingId.value = null;
