@@ -54,7 +54,21 @@
     "usage": "Statistiques",
     "stopGenerating": "Arrêter la génération",
     "enterpriseGuard": "Protection entreprise active",
-    "encrypted": "Chiffrement de bout en bout"
+    "encrypted": "Chiffrement de bout en bout",
+    "searchPlaceholder": "Rechercher des conversations...",
+    "newTagPlaceholder": "nouveau tag",
+    "addTagError": "Échec de l'ajout du tag",
+    "renameError": "Échec du renommage de la conversation",
+    "templateApplied": "Modèle appliqué",
+    "templateAppliedNew": "Modèle appliqué — sera utilisé à la prochaine conversation",
+    "maxImagesError": "Maximum {count} images par message",
+    "agents": {
+      "code": "Agent code",
+      "research": "Agent recherche",
+      "writing": "Agent rédaction",
+      "complex": "Superviseur",
+      "simple": "Agent"
+    }
   },
   "usage": {
     "title": "Statistiques d'utilisation",
@@ -88,7 +102,11 @@
     "noMatch": "Aucun document ne correspond à \"{query}\"",
     "workspaceOptional": "Ajouter à un espace (optionnel)",
     "urlInvalid": "Veuillez saisir une URL valide (ex. https://example.com)",
-    "ingestUrlError": "Échec de l'importation de la page"
+    "ingestUrlError": "Échec de l'importation de la page",
+    "vectorStoreTitle": "Base vectorielle",
+    "vectorStoreDesc": "Les documents sont automatiquement découpés et indexés dans Qdrant pour la recherche RAG.",
+    "privacyTitle": "Confidentialité",
+    "privacyDesc": "Tous les fichiers sont traités localement ou dans votre sandbox cloud privé."
   },
   "settings": {
     "title": "Paramètres",

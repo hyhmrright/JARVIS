@@ -104,12 +104,12 @@
       <!-- Knowledge Base Status -->
       <section class="info-grid animate-fade-in mt-8">
         <div class="glass-card info-card">
-          <h4 class="info-title">Vector Store</h4>
-          <p class="info-desc">Documents are automatically chunked and indexed in Qdrant for RAG-based retrieval.</p>
+          <h4 class="info-title">{{ $t('documents.vectorStoreTitle') }}</h4>
+          <p class="info-desc">{{ $t('documents.vectorStoreDesc') }}</p>
         </div>
         <div class="glass-card info-card">
-          <h4 class="info-title">Privacy</h4>
-          <p class="info-desc">All files are processed locally or in your private cloud sandbox environment.</p>
+          <h4 class="info-title">{{ $t('documents.privacyTitle') }}</h4>
+          <p class="info-desc">{{ $t('documents.privacyDesc') }}</p>
         </div>
       </section>
     </div>

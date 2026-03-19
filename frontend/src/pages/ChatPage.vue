@@ -28,7 +28,7 @@
             ref="searchInputEl"
             v-model="searchQuery"
             type="text"
-            placeholder="Search conversations..."
+            :placeholder="$t('chat.searchPlaceholder')"
             class="flex-1 bg-zinc-800 rounded-md px-2 py-1 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none mr-2"
           />
           <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors" @click="clearSearch">
@@ -196,7 +196,7 @@
                 <input
                   v-model="tagInputValue"
                   class="text-[9px] px-1 py-0.5 bg-zinc-700 text-zinc-200 rounded outline-none w-16 focus:ring-1 focus:ring-indigo-500"
-                  placeholder="new tag"
+                  :placeholder="$t('chat.newTagPlaceholder')"
                   maxlength="100"
                   autofocus
                   @keydown.enter.stop="handleAddTag(c.id)"
@@ -747,6 +747,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useChatStore } from "@/stores/chat";
 import { useAuthStore } from "@/stores/auth";
@@ -771,6 +772,7 @@ import client from "@/api/client";
 import { searchConversations, exportConversation, patchConversation } from "@/api";
 import { useToast } from "@/composables/useToast";
 
+const { t, te } = useI18n();
 const chat = useChatStore();
 const auth = useAuthStore();
 const router = useRouter();
@@ -860,7 +862,7 @@ const handleAddTag = async (convId: string) => {
   try {
     await chat.addTag(convId, tag);
   } catch {
-    toast.error("Failed to add tag");
+    toast.error(t("chat.addTagError"));
   }
   tagInputValue.value = "";
   tagInputConvId.value = null;
@@ -1069,7 +1071,7 @@ const commitRename = async (convId: string) => {
   try {
     await chat.renameConversation(convId, title);
   } catch {
-    toast.error("Failed to rename conversation");
+    toast.error(t("chat.renameError"));
   }
 };
 
@@ -1081,13 +1083,13 @@ const applyTemplate = async (template: PromptTemplate) => {
   if (chat.currentConvId) {
     try {
       await patchConversation(chat.currentConvId, { persona_override: template.system_prompt });
-      toast.success("Template applied");
+      toast.success(t("chat.templateApplied"));
     } catch {
       toast.error("Failed to apply template");
     }
   } else {
     pendingSystemPrompt.value = template.system_prompt;
-    toast.info("Template applied — will be used when you start chatting");
+    toast.info(t("chat.templateAppliedNew"));
   }
 };
 
@@ -1128,7 +1130,7 @@ const addImages = (files: File[]) => {
   let accepted = 0;
   for (const file of files) {
     if (selectedImages.value.length + accepted >= MAX_IMAGES) {
-      toast.error(`Maximum ${MAX_IMAGES} images per message`);
+      toast.error(t("chat.maxImagesError", { count: MAX_IMAGES }));
       break;
     }
     if (file.size > MAX_IMAGE_BYTES) {
@@ -1312,15 +1314,10 @@ const playTTS = async function(text: string): Promise<void> {
   }
 };
 
-const AGENT_LABELS: Record<string, string> = {
-  code: "Code Agent",
-  research: "Research Agent",
-  writing: "Writing Agent",
-  complex: "Supervisor",
-  simple: "Agent",
+const agentLabel = (agent: string): string => {
+  const key = `chat.agents.${agent}` as Parameters<typeof te>[0];
+  return te(key) ? t(key) : agent;
 };
-
-const agentLabel = (agent: string): string => AGENT_LABELS[agent] ?? agent;
 
 const openSources = ref(new Set<string>());
 const toggleSources = (msgId: string) => {

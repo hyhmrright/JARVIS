@@ -54,7 +54,21 @@
     "usage": "사용량 통계",
     "stopGenerating": "생성 중지",
     "enterpriseGuard": "엔터프라이즈 가드 활성화",
-    "encrypted": "종단간 암호화"
+    "encrypted": "종단간 암호화",
+    "searchPlaceholder": "대화 검색...",
+    "newTagPlaceholder": "새 태그",
+    "addTagError": "태그 추가에 실패했습니다",
+    "renameError": "대화 이름 변경에 실패했습니다",
+    "templateApplied": "템플릿이 적용되었습니다",
+    "templateAppliedNew": "템플릿이 설정되었습니다 — 새 대화 시작 시 사용됩니다",
+    "maxImagesError": "메시지당 최대 {count}개의 이미지",
+    "agents": {
+      "code": "코드 에이전트",
+      "research": "리서치 에이전트",
+      "writing": "라이팅 에이전트",
+      "complex": "수퍼바이저",
+      "simple": "에이전트"
+    }
   },
   "usage": {
     "title": "사용량 통계",
@@ -88,7 +102,11 @@
     "noMatch": "\"{query}\"에 일치하는 문서가 없습니다",
     "workspaceOptional": "워크스페이스에 추가 (선택)",
     "urlInvalid": "유효한 URL을 입력해 주세요 (예: https://example.com)",
-    "ingestUrlError": "페이지 가져오기에 실패했습니다"
+    "ingestUrlError": "페이지 가져오기에 실패했습니다",
+    "vectorStoreTitle": "벡터 스토어",
+    "vectorStoreDesc": "문서는 자동으로 청크로 분할되어 RAG 검색을 위해 Qdrant에 인덱싱됩니다.",
+    "privacyTitle": "개인정보 보호",
+    "privacyDesc": "모든 파일은 로컬 또는 개인 클라우드 샌드박스 환경에서 처리됩니다."
   },
   "settings": {
     "title": "설정",

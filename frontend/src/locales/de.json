@@ -54,7 +54,21 @@
     "usage": "Nutzungsstatistik",
     "stopGenerating": "Generierung stoppen",
     "enterpriseGuard": "Enterprise Guard aktiv",
-    "encrypted": "Ende-zu-Ende verschlüsselt"
+    "encrypted": "Ende-zu-Ende verschlüsselt",
+    "searchPlaceholder": "Gespräche suchen...",
+    "newTagPlaceholder": "Neues Tag",
+    "addTagError": "Tag konnte nicht hinzugefügt werden",
+    "renameError": "Umbenennen fehlgeschlagen",
+    "templateApplied": "Vorlage angewendet",
+    "templateAppliedNew": "Vorlage gesetzt — wird beim nächsten neuen Chat verwendet",
+    "maxImagesError": "Maximal {count} Bilder pro Nachricht",
+    "agents": {
+      "code": "Code-Agent",
+      "research": "Recherche-Agent",
+      "writing": "Schreib-Agent",
+      "complex": "Supervisor",
+      "simple": "Agent"
+    }
   },
   "usage": {
     "title": "Nutzungsstatistik",
@@ -88,7 +102,11 @@
     "noMatch": "Keine Dokumente für \"{query}\" gefunden",
     "workspaceOptional": "Zum Arbeitsbereich hinzufügen (optional)",
     "urlInvalid": "Bitte eine gültige URL eingeben (z. B. https://example.com)",
-    "ingestUrlError": "Seite konnte nicht importiert werden"
+    "ingestUrlError": "Seite konnte nicht importiert werden",
+    "vectorStoreTitle": "Vektorspeicher",
+    "vectorStoreDesc": "Dokumente werden automatisch in Chunks aufgeteilt und in Qdrant für die RAG-Suche indexiert.",
+    "privacyTitle": "Datenschutz",
+    "privacyDesc": "Alle Dateien werden lokal oder in Ihrer privaten Cloud-Sandbox-Umgebung verarbeitet."
   },
   "settings": {
     "title": "Einstellungen",

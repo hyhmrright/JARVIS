@@ -54,7 +54,21 @@
     "usage": "用量统计",
     "stopGenerating": "停止生成",
     "enterpriseGuard": "企业安全防护已启用",
-    "encrypted": "端到端加密"
+    "encrypted": "端到端加密",
+    "searchPlaceholder": "搜索会话...",
+    "newTagPlaceholder": "新标签",
+    "addTagError": "添加标签失败",
+    "renameError": "重命名失败",
+    "templateApplied": "模板已应用",
+    "templateAppliedNew": "模板已设置 — 下次新建会话时生效",
+    "maxImagesError": "每条消息最多 {count} 张图片",
+    "agents": {
+      "code": "代码助手",
+      "research": "研究助手",
+      "writing": "写作助手",
+      "complex": "主控 Agent",
+      "simple": "Agent"
+    }
   },
   "usage": {
     "title": "用量统计",
@@ -88,7 +102,11 @@
     "noMatch": "未找到匹配\"{query}\"的文档",
     "workspaceOptional": "添加到工作区（可选）",
     "urlInvalid": "请输入有效的 URL（例如 https://example.com）",
-    "ingestUrlError": "网页导入失败"
+    "ingestUrlError": "网页导入失败",
+    "vectorStoreTitle": "向量存储",
+    "vectorStoreDesc": "文档会自动分块并索引到 Qdrant，供 RAG 检索使用。",
+    "privacyTitle": "隐私保护",
+    "privacyDesc": "所有文件在本地或您的私有云沙箱环境中处理。"
   },
   "settings": {
     "title": "设置",

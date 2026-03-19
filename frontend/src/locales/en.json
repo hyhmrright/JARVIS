@@ -54,7 +54,21 @@
     "usage": "Usage",
     "stopGenerating": "Stop generating",
     "enterpriseGuard": "Enterprise Guard Active",
-    "encrypted": "End-to-End Encrypted"
+    "encrypted": "End-to-End Encrypted",
+    "searchPlaceholder": "Search conversations...",
+    "newTagPlaceholder": "new tag",
+    "addTagError": "Failed to add tag",
+    "renameError": "Failed to rename conversation",
+    "templateApplied": "Template applied",
+    "templateAppliedNew": "Template applied — will be used when you start chatting",
+    "maxImagesError": "Maximum {count} images per message",
+    "agents": {
+      "code": "Code Agent",
+      "research": "Research Agent",
+      "writing": "Writing Agent",
+      "complex": "Supervisor",
+      "simple": "Agent"
+    }
   },
   "usage": {
     "title": "Usage Statistics",
@@ -88,7 +102,11 @@
     "noMatch": "No documents match \"{query}\"",
     "workspaceOptional": "Add to workspace (optional)",
     "urlInvalid": "Please enter a valid URL (e.g. https://example.com)",
-    "ingestUrlError": "Failed to ingest URL"
+    "ingestUrlError": "Failed to ingest URL",
+    "vectorStoreTitle": "Vector Store",
+    "vectorStoreDesc": "Documents are automatically chunked and indexed in Qdrant for RAG-based retrieval.",
+    "privacyTitle": "Privacy",
+    "privacyDesc": "All files are processed locally or in your private cloud sandbox environment."
   },
   "settings": {
     "title": "Settings",
