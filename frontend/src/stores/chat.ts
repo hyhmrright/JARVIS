@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import client from "@/api/client";
-import { pinConversation, patchConversation } from "@/api";
+import { pinConversation, patchConversation, deleteMessage } from "@/api";
 import { useAuthStore } from "@/stores/auth";
 
 interface ToolCall {
@@ -130,6 +130,20 @@ export const useChatStore = defineStore("chat", {
         }
       } catch (err) {
         console.error("[chat] deleteConversation failed", err);
+      }
+    },
+    async removeMessage(msgId: string): Promise<void> {
+      if (!this.currentConvId) return;
+      const prev = [...this.messages];
+      this.messages = this.messages.filter((m) => m.id !== msgId);
+      if (this.activeLeafId === msgId) this.activeLeafId = null;
+      try {
+        await deleteMessage(this.currentConvId, msgId);
+        // Reload to fix any broken ancestor chains in the message tree
+        await this._reloadMessages(this.currentConvId);
+      } catch {
+        this.messages = prev;
+        throw new Error("Failed to delete message");
       }
     },
     async togglePinConversation(convId: string) {

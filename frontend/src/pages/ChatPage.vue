@@ -326,8 +326,11 @@
                 <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Edit" @click="startEdit(msg)">
                   <SquarePen class="w-3 h-3" />
                 </button>
+                <button v-if="msg.id && !chat.streaming" class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500 hover:text-red-400" title="Delete" @click="handleDeleteMessage(msg.id)">
+                  <Trash2 class="w-3 h-3" />
+                </button>
               </div>
-              
+
               <!-- HITL Security Box -->
               <div v-if="msg.pending_tool_call" class="mt-8 p-6 bg-zinc-950 border border-white/10 rounded-lg space-y-5 max-w-md shadow-2xl">
                 <div class="flex items-center justify-between">
@@ -411,7 +414,7 @@
 
               <!-- Message Actions -->
               <div v-if="msg.role === 'ai' && msg.content" class="absolute -bottom-8 left-8 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Copy" @click="copyText(msg.content)">
+                <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Copy" @click="copyToClipboard(msg.content)">
                   <Copy class="w-3 h-3" />
                 </button>
                 <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Regenerate" @click="regenerate(idx)">
@@ -419,6 +422,9 @@
                 </button>
                 <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" :class="{ 'text-emerald-400': isPlayingTTS === msg.content }" title="Read Aloud" @click="playTTS(msg.content)">
                   <Volume2 class="w-3 h-3" />
+                </button>
+                <button v-if="msg.id && !chat.streaming" class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500 hover:text-red-400" title="Delete" @click="handleDeleteMessage(msg.id)">
+                  <Trash2 class="w-3 h-3" />
                 </button>
               </div>
             </div>
@@ -856,10 +862,18 @@ const handleShare = async () => {
   }
 };
 
-const copyShareUrl = () => {
+const copyToClipboard = async function(text: string, successMsg = "Copied", errorMsg = "Failed to copy"): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success(successMsg);
+  } catch {
+    toast.error(errorMsg);
+  }
+};
+
+const copyShareUrl = async function(): Promise<void> {
   if (shareUrl.value) {
-    navigator.clipboard.writeText(shareUrl.value);
-    // Could add a toast here
+    await copyToClipboard(shareUrl.value, "Link copied", "Failed to copy link");
     setTimeout(() => {
       shareUrl.value = null;
     }, 3000);
@@ -1072,8 +1086,13 @@ const handleEnter = function(e: KeyboardEvent): void {
   handleSend();
 };
 
-const copyText = function(text: string): void {
-  navigator.clipboard.writeText(text);
+const handleDeleteMessage = async function(msgId: string): Promise<void> {
+  if (!window.confirm("Delete this message permanently?")) return;
+  try {
+    await chat.removeMessage(msgId);
+  } catch {
+    toast.error("Failed to delete message");
+  }
 };
 
 const regenerate = async function(idx: number): Promise<void> {

@@ -269,6 +269,35 @@ async def list_messages(
     return rows.all()
 
 
+@router.delete("/{conv_id}/messages/{msg_id}", status_code=204)
+async def delete_message(
+    conv_id: uuid.UUID,
+    msg_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    conv = await db.scalar(
+        select(Conversation).where(
+            Conversation.id == conv_id, Conversation.user_id == user.id
+        )
+    )
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    msg = await db.scalar(
+        select(Message).where(Message.id == msg_id, Message.conversation_id == conv_id)
+    )
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+    await db.delete(msg)
+    await db.commit()
+    logger.info(
+        "message_deleted",
+        user_id=str(user.id),
+        conv_id=str(conv_id),
+        msg_id=str(msg_id),
+    )
+
+
 @router.delete("/{conv_id}", status_code=204)
 async def delete_conversation(
     conv_id: uuid.UUID,

@@ -1,6 +1,7 @@
 import uuid
 
 import pytest
+from sqlalchemy import select
 
 from app.core.security import decode_access_token
 from app.db.models import Conversation, Message
@@ -469,4 +470,80 @@ async def test_share_wrong_user_returns_404(
 
     # Try to share as first user (auth_client)
     resp = await auth_client.post(f"/api/conversations/{conv.id}/share")
+    assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# DELETE /conversations/{conv_id}/messages/{msg_id}
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_delete_message_returns_204(auth_client, db_session):
+    """Happy path: owner can delete their own message."""
+    user_id = _user_id(auth_client)
+    conv = Conversation(user_id=user_id, title="Del msg test")
+    db_session.add(conv)
+    await db_session.flush()
+    msg = Message(conversation_id=conv.id, role="human", content="to be deleted")
+    db_session.add(msg)
+    await db_session.commit()
+
+    resp = await auth_client.delete(f"/api/conversations/{conv.id}/messages/{msg.id}")
+    assert resp.status_code == 204
+
+    # Verify message is gone
+    remaining = await db_session.scalars(
+        select(Message).where(Message.conversation_id == conv.id)
+    )
+    assert not any(m.id == msg.id for m in remaining.all())
+
+
+@pytest.mark.anyio
+async def test_delete_message_wrong_user_returns_404(
+    auth_client, second_user_auth_headers, db_session
+):
+    """User A cannot delete messages from User B's conversation (IDOR check)."""
+    user2_id = _uid_from_headers(second_user_auth_headers)
+    conv = Conversation(user_id=user2_id, title="User B conv")
+    db_session.add(conv)
+    await db_session.flush()
+    msg = Message(conversation_id=conv.id, role="human", content="private")
+    db_session.add(msg)
+    await db_session.commit()
+
+    resp = await auth_client.delete(f"/api/conversations/{conv.id}/messages/{msg.id}")
+    assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_delete_message_wrong_conversation_returns_404(auth_client, db_session):
+    """msg_id that exists but belongs to a different conversation returns 404."""
+    user_id = _user_id(auth_client)
+    conv_a = Conversation(user_id=user_id, title="Conv A")
+    conv_b = Conversation(user_id=user_id, title="Conv B")
+    db_session.add_all([conv_a, conv_b])
+    await db_session.flush()
+    msg_in_b = Message(conversation_id=conv_b.id, role="human", content="in b")
+    db_session.add(msg_in_b)
+    await db_session.commit()
+
+    # Try to delete msg_in_b via conv_a's URL
+    resp = await auth_client.delete(
+        f"/api/conversations/{conv_a.id}/messages/{msg_in_b.id}"
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_delete_nonexistent_message_returns_404(auth_client, db_session):
+    """Deleting a message that doesn't exist returns 404."""
+    user_id = _user_id(auth_client)
+    conv = Conversation(user_id=user_id, title="Conv")
+    db_session.add(conv)
+    await db_session.commit()
+
+    resp = await auth_client.delete(
+        f"/api/conversations/{conv.id}/messages/{uuid.uuid4()}"
+    )
     assert resp.status_code == 404

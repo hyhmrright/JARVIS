@@ -30,6 +30,10 @@ export const patchConversation = (
 export const pinConversation = (convId: string) =>
   client.patch(`/conversations/${convId}/pin`);
 
+// Delete a single message
+export const deleteMessage = (convId: string, msgId: string) =>
+  client.delete(`/conversations/${convId}/messages/${msgId}`);
+
 // URL ingestion
 export const ingestDocumentUrl = (url: string, workspaceId?: string | null) =>
   client.post("/documents/ingest-url", { url, workspace_id: workspaceId ?? null });
