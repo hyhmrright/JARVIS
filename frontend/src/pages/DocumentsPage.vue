@@ -8,7 +8,7 @@
         <select
           v-model="selectedWorkspaceId"
           class="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm text-zinc-200 outline-none"
-          @change="fetchDocuments"
+          @change="() => fetchDocuments(true)"
         >
           <option :value="null">{{ $t("workspace.personal") }}</option>
           <option v-for="ws in workspace.workspaces" :key="ws.id" :value="ws.id">
@@ -56,9 +56,24 @@
 
       <!-- Document List -->
       <section v-if="documents.length > 0" class="documents-list-section animate-fade-in">
-        <h3 class="section-title">{{ $t("documents.uploadedTitle") }}</h3>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="section-title mb-0">{{ $t("documents.uploadedTitle") }}</h3>
+          <div class="flex items-center gap-3">
+            <!-- Stats summary -->
+            <span class="text-[11px] text-zinc-500">
+              <template v-if="docSearch.trim()">{{ filteredDocuments.length }} of {{ documents.length }}</template><template v-else>{{ documents.length }}</template> docs · {{ totalChunks }} chunks · {{ formatBytes(totalBytes) }}
+            </span>
+            <!-- Search input -->
+            <input
+              v-model="docSearch"
+              type="text"
+              placeholder="Filter by name…"
+              class="bg-zinc-900 border border-zinc-800 rounded-md px-2 py-1 text-xs text-zinc-200 placeholder:text-zinc-600 outline-none focus:border-zinc-600 w-40"
+            />
+          </div>
+        </div>
         <div class="documents-grid">
-          <div v-for="doc in documents" :key="doc.id" class="glass-card doc-card">
+          <div v-for="doc in filteredDocuments" :key="doc.id" class="glass-card doc-card">
             <div class="doc-icon">
               {{ doc.file_type === 'pdf' ? '📄' : doc.file_type === 'docx' ? '📝' : '📝' }}
             </div>
@@ -72,6 +87,9 @@
               <Trash2 class="w-4 h-4" />
             </button>
           </div>
+          <p v-if="filteredDocuments.length === 0 && docSearch" class="text-xs text-zinc-500 col-span-full py-4 text-center">
+            No documents match "{{ docSearch }}"
+          </p>
         </div>
       </section>
 
@@ -132,7 +150,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { Trash2, Link } from "lucide-vue-next";
 import client from "@/api/client";
@@ -157,6 +175,15 @@ const uploading = ref(false);
 const uploadProgress = ref(0);
 const documents = ref<DocumentItem[]>([]);
 const selectedWorkspaceId = ref<string | null>(null);
+const docSearch = ref("");
+
+const filteredDocuments = computed(() => {
+  const q = docSearch.value.trim().toLowerCase();
+  return q ? documents.value.filter((d) => d.filename.toLowerCase().includes(q)) : documents.value;
+});
+// KB stats always reflect the full collection, not just the filtered view
+const totalChunks = computed(() => documents.value.reduce((s, d) => s + d.chunk_count, 0));
+const totalBytes = computed(() => documents.value.reduce((s, d) => s + d.file_size_bytes, 0));
 
 const showUrlModal = ref(false);
 const urlInput = ref("");
@@ -202,7 +229,8 @@ function formatBytes(bytes: number) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-async function fetchDocuments() {
+async function fetchDocuments(resetSearch = false) {
+  if (resetSearch) docSearch.value = "";
   try {
     const url = selectedWorkspaceId.value
       ? `/documents?workspace_id=${selectedWorkspaceId.value}`
