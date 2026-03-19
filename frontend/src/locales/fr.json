@@ -378,7 +378,9 @@
     "saveError": "Échec de l'enregistrement du persona.",
     "deleteConfirm": "Supprimer le persona « {name} » ?",
     "deleteError": "Échec de la suppression du persona.",
-    "editPersona": "Modifier le persona"
+    "editPersona": "Modifier le persona",
+    "searchPlaceholder": "Rechercher des personas...",
+    "noMatch": "Aucun persona ne correspond à « {query} »"
   },
   "workflowStudio": {
     "title": "Studio de workflows",
@@ -431,5 +433,22 @@
   },
   "liveCanvas": {
     "codeCopied": "Code copié dans le presse-papier !"
+  },
+  "workflows": {
+    "automations": "Automatisations",
+    "title": "Workflows",
+    "description": "Construisez et gérez des workflows IA automatisés avec des pipelines de nœuds visuels.",
+    "create": "Nouveau workflow",
+    "emptyTitle": "Aucun workflow pour l'instant",
+    "emptyDesc": "Créez votre premier workflow automatisé pour commencer.",
+    "createNow": "Créer maintenant",
+    "noDescription": "Aucune description fournie.",
+    "nodesLabel": "Nœuds",
+    "nodeCount": "{count} nœud(s)",
+    "searchPlaceholder": "Rechercher des workflows...",
+    "noMatch": "Aucun workflow ne correspond à « {query} »",
+    "loadError": "Impossible de charger les workflows.",
+    "deleteConfirm": "Supprimer le workflow « {name} » ?",
+    "deleteError": "Impossible de supprimer le workflow."
   }
 }

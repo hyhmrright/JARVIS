@@ -3,7 +3,7 @@ from typing import Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,9 +17,9 @@ router = APIRouter(prefix="/api/personas", tags=["personas"])
 
 
 class PersonaCreate(BaseModel):
-    name: str
-    description: str | None = None
-    system_prompt: str
+    name: str = Field(min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+    system_prompt: str = Field(min_length=1, max_length=8000)
 
 
 class PersonaOut(BaseModel):

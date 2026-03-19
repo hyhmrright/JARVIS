@@ -378,7 +378,9 @@
     "saveError": "保存 Persona 失败。",
     "deleteConfirm": "删除 Persona「{name}」？",
     "deleteError": "删除 Persona 失败。",
-    "editPersona": "编辑角色"
+    "editPersona": "编辑角色",
+    "searchPlaceholder": "搜索角色...",
+    "noMatch": "没有匹配「{query}」的角色"
   },
   "workflowStudio": {
     "title": "工作流工作室",
@@ -431,5 +433,22 @@
   },
   "liveCanvas": {
     "codeCopied": "代码已复制到剪贴板！"
+  },
+  "workflows": {
+    "automations": "自动化",
+    "title": "工作流",
+    "description": "通过可视化节点管道构建和管理自动化 AI 工作流。",
+    "create": "新建工作流",
+    "emptyTitle": "暂无工作流",
+    "emptyDesc": "创建您的第一个自动化工作流开始使用。",
+    "createNow": "立即创建",
+    "noDescription": "暂无描述。",
+    "nodesLabel": "节点",
+    "nodeCount": "{count} 个节点",
+    "searchPlaceholder": "搜索工作流...",
+    "noMatch": "没有匹配 \"{query}\" 的工作流",
+    "loadError": "加载工作流失败。",
+    "deleteConfirm": "删除工作流「{name}」？",
+    "deleteError": "删除工作流失败。"
   }
 }

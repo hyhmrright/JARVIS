@@ -378,7 +378,9 @@
     "saveError": "Persona konnte nicht gespeichert werden.",
     "deleteConfirm": "Persona \"{name}\" löschen?",
     "deleteError": "Persona konnte nicht gelöscht werden.",
-    "editPersona": "Persona bearbeiten"
+    "editPersona": "Persona bearbeiten",
+    "searchPlaceholder": "Personas suchen...",
+    "noMatch": "Keine Personas für \"{query}\" gefunden"
   },
   "workflowStudio": {
     "title": "Workflow-Studio",
@@ -431,5 +433,22 @@
   },
   "liveCanvas": {
     "codeCopied": "Code in die Zwischenablage kopiert!"
+  },
+  "workflows": {
+    "automations": "Automatisierungen",
+    "title": "Workflows",
+    "description": "Erstellen und verwalten Sie automatisierte KI-Workflows mit visuellen Node-Pipelines.",
+    "create": "Neuer Workflow",
+    "emptyTitle": "Noch keine Workflows",
+    "emptyDesc": "Erstellen Sie Ihren ersten automatisierten Workflow, um zu beginnen.",
+    "createNow": "Jetzt erstellen",
+    "noDescription": "Keine Beschreibung vorhanden.",
+    "nodesLabel": "Knoten",
+    "nodeCount": "{count} Knoten",
+    "searchPlaceholder": "Workflows suchen...",
+    "noMatch": "Keine Workflows für \"{query}\" gefunden",
+    "loadError": "Workflows konnten nicht geladen werden.",
+    "deleteConfirm": "Workflow \"{name}\" löschen?",
+    "deleteError": "Workflow konnte nicht gelöscht werden."
   }
 }

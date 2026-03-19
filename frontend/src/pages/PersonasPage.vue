@@ -23,6 +23,16 @@
         </button>
       </header>
 
+      <!-- Search -->
+      <div v-if="personas.length > 0 || query" class="mb-8">
+        <input
+          v-model="query"
+          type="text"
+          :placeholder="$t('personas.searchPlaceholder')"
+          class="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-zinc-600 transition-colors"
+        />
+      </div>
+
       <!-- Loading State -->
       <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div v-for="i in 4" :key="i" class="h-48 bg-zinc-900/50 rounded-2xl border border-zinc-800 animate-pulse"></div>
@@ -48,10 +58,15 @@
         </button>
       </div>
 
+      <!-- No search match -->
+      <div v-else-if="filtered.length === 0 && query" class="py-20 text-center text-zinc-500 text-sm">
+        {{ $t('personas.noMatch', { query }) }}
+      </div>
+
       <!-- Persona Grid -->
       <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div 
-          v-for="persona in personas" 
+        <div
+          v-for="persona in filtered"
           :key="persona.id"
           class="group bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col justify-between hover:border-zinc-600 transition-all duration-300"
         >
@@ -150,11 +165,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
-import { useI18n } from "vue-i18n";
-import { UserCircle, Plus, Trash2, Pencil, ShieldAlert, Smile, X } from "lucide-vue-next";
-import client from "@/api/client";
-import { useToast } from "@/composables/useToast";
+import { ref, computed, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { UserCircle, Plus, Trash2, Pencil, ShieldAlert, Smile, X } from 'lucide-vue-next';
+import client from '@/api/client';
+import { useToast } from '@/composables/useToast';
+import { useSearchFilter } from '@/composables/useSearchFilter';
 
 const { t } = useI18n();
 const { error: toastError } = useToast();
@@ -172,6 +188,7 @@ const saving = ref(false);
 const error = ref<string | null>(null);
 const showCreateModal = ref(false);
 const editingPersona = ref<Persona | null>(null);
+const { query, filtered } = useSearchFilter(personas);
 
 const form = ref({
   name: "",

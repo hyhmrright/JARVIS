@@ -378,7 +378,9 @@
     "saveError": "ペルソナの保存に失敗しました。",
     "deleteConfirm": "ペルソナ「{name}」を削除しますか？",
     "deleteError": "ペルソナの削除に失敗しました。",
-    "editPersona": "ペルソナを編集"
+    "editPersona": "ペルソナを編集",
+    "searchPlaceholder": "ペルソナを検索...",
+    "noMatch": "「{query}」に一致するペルソナがありません"
   },
   "workflowStudio": {
     "title": "ワークフロースタジオ",
@@ -431,5 +433,22 @@
   },
   "liveCanvas": {
     "codeCopied": "コードをクリップボードにコピーしました！"
+  },
+  "workflows": {
+    "automations": "オートメーション",
+    "title": "ワークフロー",
+    "description": "ビジュアルノードパイプラインで自動化AIワークフローを構築・管理します。",
+    "create": "新規ワークフロー",
+    "emptyTitle": "ワークフローがありません",
+    "emptyDesc": "最初の自動化ワークフローを作成して始めましょう。",
+    "createNow": "今すぐ作成",
+    "noDescription": "説明がありません。",
+    "nodesLabel": "ノード",
+    "nodeCount": "{count} 個のノード",
+    "searchPlaceholder": "ワークフローを検索...",
+    "noMatch": "「{query}」に一致するワークフローがありません",
+    "loadError": "ワークフローの読み込みに失敗しました。",
+    "deleteConfirm": "ワークフロー「{name}」を削除しますか？",
+    "deleteError": "ワークフローの削除に失敗しました。"
   }
 }

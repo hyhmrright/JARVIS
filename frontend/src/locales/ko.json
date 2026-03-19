@@ -378,7 +378,9 @@
     "saveError": "페르소나 저장 실패.",
     "deleteConfirm": "페르소나 \"{name}\"를 삭제하시겠습니까?",
     "deleteError": "페르소나 삭제 실패.",
-    "editPersona": "페르소나 편집"
+    "editPersona": "페르소나 편집",
+    "searchPlaceholder": "페르소나 검색...",
+    "noMatch": "\"{query}\"와 일치하는 페르소나가 없습니다"
   },
   "workflowStudio": {
     "title": "워크플로우 스튜디오",
@@ -431,5 +433,22 @@
   },
   "liveCanvas": {
     "codeCopied": "코드가 클립보드에 복사되었습니다!"
+  },
+  "workflows": {
+    "automations": "자동화",
+    "title": "워크플로",
+    "description": "시각적 노드 파이프라인으로 자동화 AI 워크플로를 구축하고 관리합니다.",
+    "create": "새 워크플로",
+    "emptyTitle": "워크플로가 없습니다",
+    "emptyDesc": "첫 번째 자동화 워크플로를 만들어 시작하세요.",
+    "createNow": "지금 만들기",
+    "noDescription": "설명이 없습니다.",
+    "nodesLabel": "노드",
+    "nodeCount": "노드 {count}개",
+    "searchPlaceholder": "워크플로 검색...",
+    "noMatch": "\"{query}\"와 일치하는 워크플로가 없습니다",
+    "loadError": "워크플로를 불러오지 못했습니다.",
+    "deleteConfirm": "워크플로 \"{name}\"를 삭제하시겠습니까?",
+    "deleteError": "워크플로 삭제에 실패했습니다."
   }
 }

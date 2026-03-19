@@ -378,7 +378,9 @@
     "saveError": "Failed to save persona.",
     "deleteConfirm": "Delete persona \"{name}\"?",
     "deleteError": "Failed to delete persona.",
-    "editPersona": "Edit Persona"
+    "editPersona": "Edit Persona",
+    "searchPlaceholder": "Search personas...",
+    "noMatch": "No personas match \"{query}\""
   },
   "workflowStudio": {
     "title": "Workflow Studio",
@@ -431,5 +433,22 @@
   },
   "liveCanvas": {
     "codeCopied": "Code copied to clipboard!"
+  },
+  "workflows": {
+    "automations": "Automations",
+    "title": "Workflows",
+    "description": "Build and manage automated AI workflows with visual node-based pipelines.",
+    "create": "New Workflow",
+    "emptyTitle": "No workflows yet",
+    "emptyDesc": "Create your first automated workflow to get started.",
+    "createNow": "Create Now",
+    "noDescription": "No description provided.",
+    "nodesLabel": "Nodes",
+    "nodeCount": "{count} node(s)",
+    "searchPlaceholder": "Search workflows...",
+    "noMatch": "No workflows match \"{query}\"",
+    "loadError": "Failed to load workflows.",
+    "deleteConfirm": "Delete workflow \"{name}\"?",
+    "deleteError": "Failed to delete workflow."
   }
 }

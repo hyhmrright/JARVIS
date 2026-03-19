@@ -228,6 +228,10 @@
             <Zap class="w-3.5 h-3.5" />
             <span>{{ $t('chat.automations') }}</span>
           </router-link>
+          <router-link to="/workflows" class="flex items-center gap-3 px-2 py-1.5 rounded text-xs text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all">
+            <GitFork class="w-3.5 h-3.5" />
+            <span>{{ $t('workflows.title') }}</span>
+          </router-link>
           <router-link to="/settings" class="flex items-center gap-3 px-2 py-1.5 rounded text-xs text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all">
             <Settings class="w-3.5 h-3.5" />
             <span>{{ $t('chat.settings') }}</span>
@@ -761,7 +765,7 @@ import {
   Mic, ArrowUp, Square, ShieldAlert, Share2, MessageSquare,
   Volume2, Layout, Image, X, ChevronDown, Cpu,
   Search, Download, Sparkles, Pin, Bookmark, BookmarkCheck, ThumbsUp, ThumbsDown,
-  Tag, Plus
+  Tag, Plus, GitFork
 } from "lucide-vue-next";
 
 import LiveCanvas from "@/components/LiveCanvas.vue";
