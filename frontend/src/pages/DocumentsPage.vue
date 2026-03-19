@@ -82,6 +82,14 @@
               <p class="doc-meta">
                 {{ formatBytes(doc.file_size_bytes) }} • {{ doc.chunk_count }} chunks
               </p>
+              <a
+                v-if="doc.source_url"
+                :href="doc.source_url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="doc-source-url"
+                :title="doc.source_url"
+              >{{ doc.source_url }}</a>
             </div>
             <button class="doc-delete-btn" title="Delete Document" @click="deleteDocument(doc.id)">
               <Trash2 class="w-4 h-4" />
@@ -166,6 +174,7 @@ interface DocumentItem {
   file_size_bytes: number;
   chunk_count: number;
   created_at: string;
+  source_url: string | null;
 }
 
 const { t } = useI18n();
@@ -330,6 +339,8 @@ onMounted(() => {
 .doc-info { flex: 1; min-width: 0; }
 .doc-filename { font-size: 0.9rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .doc-meta { font-size: 0.75rem; color: var(--text-muted); }
+.doc-source-url { display: block; font-size: 0.7rem; color: var(--accent-light); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; margin-top: 2px; opacity: 0.7; }
+.doc-source-url:hover { opacity: 1; text-decoration: underline; }
 .doc-delete-btn { padding: 0.5rem; color: var(--text-muted); border-radius: 0.5rem; transition: all 0.2s; }
 .doc-delete-btn:hover { color: #f44336; background: rgba(244, 67, 54, 0.1); }
 

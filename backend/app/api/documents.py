@@ -86,12 +86,12 @@ def extract_text(content: bytes, file_type: str) -> str:
             return ""
 
 
-@router.get("")
+@router.get("", response_model=dict[str, list[DocumentOut]])
 async def list_documents(
     workspace_id: uuid.UUID | None = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, list[dict]]:
+) -> dict[str, list[DocumentOut]]:
     if workspace_id is not None:
         # Workspace listing: show all docs in this workspace to members.
         await _resolve_workspace_collection(workspace_id, user, db)
@@ -116,20 +116,7 @@ async def list_documents(
         )
     rows = await db.scalars(query)
     docs = rows.all()
-    return {
-        "documents": [
-            {
-                "id": str(d.id),
-                "filename": d.filename,
-                "file_type": d.file_type,
-                "file_size_bytes": d.file_size_bytes,
-                "chunk_count": d.chunk_count,
-                "created_at": d.created_at.isoformat(),
-                "workspace_id": str(d.workspace_id) if d.workspace_id else None,
-            }
-            for d in docs
-        ]
-    }
+    return {"documents": [DocumentOut.model_validate(d) for d in docs]}
 
 
 @router.delete("/{doc_id}", status_code=204)
