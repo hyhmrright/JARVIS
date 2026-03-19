@@ -10,7 +10,8 @@
     "networkError": "网络错误，请检查网络连接",
     "rateLimitError": "请求太频繁，请稍后再试",
     "copy": "复制",
-    "copied": "已复制！"
+    "copied": "已复制！",
+    "saving": "保存中..."
   },
   "login": {
     "title": "登录 JARVIS",
@@ -374,7 +375,8 @@
     "loadError": "加载 Persona 失败。",
     "saveError": "保存 Persona 失败。",
     "deleteConfirm": "删除 Persona「{name}」？",
-    "deleteError": "删除 Persona 失败。"
+    "deleteError": "删除 Persona 失败。",
+    "editPersona": "编辑角色"
   },
   "workflowStudio": {
     "title": "工作流工作室",
@@ -395,7 +397,9 @@
     "nodeOutputDesc": "向用户返回结果",
     "nodeStart": "开始",
     "workflowStart": "工作流开始",
-    "saveInfo": "工作流结构已记录到控制台。（后端集成即将推出）"
+    "saved": "工作流已保存。",
+    "saveError": "保存工作流失败。",
+    "loadError": "加载工作流失败。"
   },
   "skillMarket": {
     "ecosystem": "JARVIS 生态",

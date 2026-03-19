@@ -10,7 +10,8 @@
     "cancel": "キャンセル",
     "confirm": "確認",
     "copy": "コピー",
-    "copied": "コピー済み！"
+    "copied": "コピー済み！",
+    "saving": "保存中..."
   },
   "login": {
     "title": "JARVIS にログイン",
@@ -374,7 +375,8 @@
     "loadError": "ペルソナの読み込みに失敗しました。",
     "saveError": "ペルソナの保存に失敗しました。",
     "deleteConfirm": "ペルソナ「{name}」を削除しますか？",
-    "deleteError": "ペルソナの削除に失敗しました。"
+    "deleteError": "ペルソナの削除に失敗しました。",
+    "editPersona": "ペルソナを編集"
   },
   "workflowStudio": {
     "title": "ワークフロースタジオ",
@@ -395,7 +397,9 @@
     "nodeOutputDesc": "ユーザーに結果を返す",
     "nodeStart": "開始",
     "workflowStart": "ワークフロー開始",
-    "saveInfo": "ワークフロー構造がコンソールに記録されました。（バックエンド統合は近日公開）"
+    "saved": "ワークフローが保存されました。",
+    "saveError": "ワークフローの保存に失敗しました。",
+    "loadError": "ワークフローの読み込みに失敗しました。"
   },
   "skillMarket": {
     "ecosystem": "JARVIS エコシステム",

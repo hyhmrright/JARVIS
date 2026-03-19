@@ -10,7 +10,8 @@
     "cancel": "Abbrechen",
     "confirm": "Bestätigen",
     "copy": "Kopieren",
-    "copied": "Kopiert!"
+    "copied": "Kopiert!",
+    "saving": "Wird gespeichert..."
   },
   "login": {
     "title": "Bei JARVIS anmelden",
@@ -374,7 +375,8 @@
     "loadError": "Personas konnten nicht geladen werden.",
     "saveError": "Persona konnte nicht gespeichert werden.",
     "deleteConfirm": "Persona \"{name}\" löschen?",
-    "deleteError": "Persona konnte nicht gelöscht werden."
+    "deleteError": "Persona konnte nicht gelöscht werden.",
+    "editPersona": "Persona bearbeiten"
   },
   "workflowStudio": {
     "title": "Workflow-Studio",
@@ -395,7 +397,9 @@
     "nodeOutputDesc": "Ergebnis an den Benutzer zurückgeben",
     "nodeStart": "Start",
     "workflowStart": "Workflow-Start",
-    "saveInfo": "Workflow-Struktur in der Konsole protokolliert. (Backend-Integration folgt)"
+    "saved": "Workflow gespeichert.",
+    "saveError": "Workflow konnte nicht gespeichert werden.",
+    "loadError": "Workflow konnte nicht geladen werden."
   },
   "skillMarket": {
     "ecosystem": "JARVIS-Ökosystem",

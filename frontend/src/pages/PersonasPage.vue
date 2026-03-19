@@ -16,7 +16,7 @@
         
         <button 
           class="px-6 py-2.5 bg-white text-black rounded-xl text-sm font-black uppercase tracking-widest hover:bg-zinc-200 transition-all flex items-center gap-2"
-          @click="showCreateModal = true"
+          @click="openCreateModal"
         >
           <Plus class="w-4 h-4" />
           {{ $t("personas.create") }}
@@ -43,7 +43,7 @@
           <p class="text-white font-bold">{{ $t("personas.emptyTitle") }}</p>
           <p class="text-zinc-500 text-sm">{{ $t("personas.emptyDesc") }}</p>
         </div>
-        <button class="text-white text-xs font-black uppercase tracking-widest underline decoration-zinc-700 hover:decoration-white transition-all" @click="showCreateModal = true">
+        <button class="text-white text-xs font-black uppercase tracking-widest underline decoration-zinc-700 hover:decoration-white transition-all" @click="openCreateModal">
           {{ $t("personas.createNow") }}
         </button>
       </div>
@@ -60,9 +60,14 @@
               <div class="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center text-white group-hover:bg-white group-hover:text-black transition-colors">
                 <span class="text-lg font-bold">{{ persona.name.charAt(0) }}</span>
               </div>
-              <button class="p-2 text-zinc-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100" @click="deletePersona(persona)">
-                <Trash2 class="w-4 h-4" />
-              </button>
+              <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button class="p-2 text-zinc-600 hover:text-white transition-colors" @click="openEditModal(persona)">
+                  <Pencil class="w-4 h-4" />
+                </button>
+                <button class="p-2 text-zinc-600 hover:text-red-400 transition-colors" @click="deletePersona(persona)">
+                  <Trash2 class="w-4 h-4" />
+                </button>
+              </div>
             </div>
             
             <div>
@@ -82,12 +87,12 @@
     <!-- Create Modal -->
     <Teleport to="body">
       <div v-if="showCreateModal" class="fixed inset-0 z-50 flex items-center justify-center px-6">
-        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="showCreateModal = false"></div>
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="closeModal"></div>
         <div class="relative bg-zinc-950 border border-zinc-800 w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
           <div class="p-8 space-y-6">
             <div class="flex items-center justify-between">
-              <h2 class="text-xl font-bold text-white tracking-tight">{{ $t("personas.newPersona") }}</h2>
-              <button class="text-zinc-500 hover:text-white transition-colors" @click="showCreateModal = false">
+              <h2 class="text-xl font-bold text-white tracking-tight">{{ editingPersona ? $t("personas.editPersona") : $t("personas.newPersona") }}</h2>
+              <button class="text-zinc-500 hover:text-white transition-colors" @click="closeModal">
                 <X class="w-5 h-5" />
               </button>
             </div>
@@ -124,10 +129,10 @@
               </div>
             </div>
 
-            <button 
+            <button
               :disabled="!isFormValid || saving"
               class="w-full py-3 bg-white text-black rounded-xl text-xs font-black uppercase tracking-widest hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
-              @click="createPersona"
+              @click="editingPersona ? updatePersona() : createPersona()"
             >
               <template v-if="saving">
                 <div class="w-3 h-3 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>
@@ -147,7 +152,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
-import { UserCircle, Plus, Trash2, ShieldAlert, Smile, X } from "lucide-vue-next";
+import { UserCircle, Plus, Trash2, Pencil, ShieldAlert, Smile, X } from "lucide-vue-next";
 import client from "@/api/client";
 import { useToast } from "@/composables/useToast";
 
@@ -166,6 +171,7 @@ const loading = ref(true);
 const saving = ref(false);
 const error = ref<string | null>(null);
 const showCreateModal = ref(false);
+const editingPersona = ref<Persona | null>(null);
 
 const form = ref({
   name: "",
@@ -176,6 +182,24 @@ const form = ref({
 const isFormValid = computed(() => {
   return form.value.name.trim() && form.value.system_prompt.trim();
 });
+
+const closeModal = () => {
+  showCreateModal.value = false;
+  editingPersona.value = null;
+  form.value = { name: "", description: "", system_prompt: "" };
+};
+
+const openCreateModal = () => {
+  editingPersona.value = null;
+  form.value = { name: "", description: "", system_prompt: "" };
+  showCreateModal.value = true;
+};
+
+const openEditModal = (persona: Persona) => {
+  editingPersona.value = persona;
+  form.value = { name: persona.name, description: persona.description ?? "", system_prompt: persona.system_prompt };
+  showCreateModal.value = true;
+};
 
 const fetchPersonas = async () => {
   loading.value = true;
@@ -197,10 +221,25 @@ const createPersona = async () => {
   try {
     const { data } = await client.post("/personas", form.value);
     personas.value.push(data);
-    showCreateModal.value = false;
-    form.value = { name: "", description: "", system_prompt: "" };
+    closeModal();
   } catch (err) {
     console.error("Create failed:", err);
+    toastError(t("personas.saveError"));
+  } finally {
+    saving.value = false;
+  }
+};
+
+const updatePersona = async () => {
+  if (!isFormValid.value || saving.value || !editingPersona.value) return;
+  saving.value = true;
+  try {
+    const { data } = await client.put(`/personas/${editingPersona.value.id}`, form.value);
+    const idx = personas.value.findIndex(p => p.id === data.id);
+    if (idx !== -1) personas.value[idx] = data;
+    closeModal();
+  } catch (err) {
+    console.error("Update failed:", err);
     toastError(t("personas.saveError"));
   } finally {
     saving.value = false;

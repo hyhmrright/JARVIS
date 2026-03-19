@@ -59,6 +59,26 @@ async def create_persona(
     return new_persona
 
 
+@router.put("/{persona_id}", response_model=PersonaOut)
+async def update_persona(
+    persona_id: uuid.UUID,
+    body: PersonaCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    persona = await db.scalar(
+        select(Persona).where(Persona.id == persona_id, Persona.user_id == user.id)
+    )
+    if not persona:
+        raise HTTPException(status_code=404, detail="Persona not found")
+    persona.name = body.name
+    persona.description = body.description
+    persona.system_prompt = body.system_prompt
+    await db.commit()
+    await db.refresh(persona)
+    return persona
+
+
 @router.delete("/{persona_id}")
 async def delete_persona(
     persona_id: uuid.UUID,

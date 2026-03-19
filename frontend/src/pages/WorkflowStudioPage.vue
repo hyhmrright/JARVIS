@@ -15,12 +15,13 @@
         />
       </div>
       <div class="flex items-center gap-3">
-        <button 
-          class="px-4 py-1.5 bg-white text-black rounded-lg text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all flex items-center gap-2"
+        <button
+          class="px-4 py-1.5 bg-white text-black rounded-lg text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all flex items-center gap-2 disabled:opacity-50"
+          :disabled="saving || loadFailed"
           @click="onSave"
         >
           <Save class="w-3.5 h-3.5" />
-          {{ $t('workflowStudio.saveWorkflow') }}
+          {{ saving ? $t('common.saving') : $t('workflowStudio.saveWorkflow') }}
         </button>
         <router-link to="/" class="text-[11px] font-bold text-zinc-500 hover:text-white transition-colors">{{ $t('common.close') }}</router-link>
       </div>
@@ -102,8 +103,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, markRaw } from 'vue';
+import { ref, computed, markRaw, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRoute, useRouter } from 'vue-router';
 import { VueFlow, useVueFlow, type Elements, type Connection, type Edge, type Node } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
 import { Controls } from '@vue-flow/controls';
@@ -113,24 +115,39 @@ import ToolNode from '@/components/workflow/ToolNode.vue';
 import '@vue-flow/core/dist/style.css';
 import '@vue-flow/core/dist/theme-default.css';
 import { useToast } from '@/composables/useToast';
+import client from '@/api/client';
 
 const { t } = useI18n();
-const { success: toastSuccess } = useToast();
+const { success: toastSuccess, error: toastError } = useToast();
+const route = useRoute();
+const router = useRouter();
 
+const workflowId = ref<string | null>(null);
+const saving = ref(false);
+const loadFailed = ref(false);
 const workflowName = ref('');
 const elements = ref<Elements>([
   { id: '1', type: 'input', label: t('workflowStudio.nodeStart'), position: { x: 250, y: 100 }, data: { label: t('workflowStudio.workflowStart') } }
 ]);
 
-const { addNodes, addEdges, onNodeClick } = useVueFlow();
+const { addNodes, addEdges, onNodeClick, project, toObject } = useVueFlow();
 const selectedNode = ref<Node | null>(null);
 
-const nodeTypes = computed(() => [
-  { type: 'llm', label: t('workflowStudio.nodeLlm'), icon: MessageSquare, description: t('workflowStudio.nodeLlmDesc') },
-  { type: 'tool', label: t('workflowStudio.nodeTool'), icon: Box, description: t('workflowStudio.nodeToolDesc') },
-  { type: 'condition', label: t('workflowStudio.nodeCondition'), icon: GitFork, description: t('workflowStudio.nodeConditionDesc') },
-  { type: 'output', label: t('workflowStudio.nodeOutput'), icon: Target, description: t('workflowStudio.nodeOutputDesc') },
-]);
+// Static part — icons never change; separate from reactive translations to avoid
+// reconstructing the array (and invalidating v-for keying) on every locale change.
+const nodeTypeMeta = [
+  { type: 'llm', icon: markRaw(MessageSquare) },
+  { type: 'tool', icon: markRaw(Box) },
+  { type: 'condition', icon: markRaw(GitFork) },
+  { type: 'output', icon: markRaw(Target) },
+] as const;
+
+const nodeTypes = computed(() => nodeTypeMeta.map(({ type, icon }) => ({
+  type,
+  icon,
+  label: t(`workflowStudio.node${type.charAt(0).toUpperCase() + type.slice(1)}`),
+  description: t(`workflowStudio.node${type.charAt(0).toUpperCase() + type.slice(1)}Desc`),
+})));
 
 const nodeTypeComponents = {
   llm: markRaw(LLMNode),
@@ -156,25 +173,67 @@ const onDrop = (event: DragEvent) => {
   const type = event.dataTransfer?.getData('application/vueflow');
   if (!type) return;
 
-  const position = { x: event.clientX - 300, y: event.clientY - 100 }; // Offset roughly
+  // Subtract the canvas bounding rect so project() receives canvas-relative
+  // coordinates rather than screen-absolute coordinates.
+  const canvasEl = document.querySelector('.vue-flow') as HTMLElement | null;
+  const { left = 0, top = 0 } = canvasEl?.getBoundingClientRect() ?? {};
+  const position = project({ x: event.clientX - left, y: event.clientY - top });
   const nodeLabel = nodeTypes.value.find((n) => n.type === type)?.label ?? type.toUpperCase();
-  const newNode = {
+  addNodes([{
     id: `node_${Date.now()}`,
     type,
     position,
     label: nodeLabel,
     data: { label: nodeLabel, model: 'gpt-4o', prompt: '' },
-  };
-  addNodes([newNode]);
+  }]);
 };
 
-const onSave = () => {
-  console.log('Saving Workflow:', {
-    name: workflowName.value,
-    elements: elements.value
-  });
-  toastSuccess(t('workflowStudio.saveInfo'));
+const onSave = async () => {
+  if (saving.value || loadFailed.value) return;
+  saving.value = true;
+  try {
+    // toObject() returns clean Node/Edge DTOs, stripping VueFlow-internal runtime
+    // fields (handleBounds, computedPosition, dragging, selected, etc.).
+    const { nodes, edges } = toObject();
+    const payload = {
+      name: workflowName.value || t('workflowStudio.untitledWorkflow'),
+      dsl: { nodes, edges },
+    };
+    if (workflowId.value) {
+      await client.put(`/workflows/${workflowId.value}`, payload);
+    } else {
+      const { data } = await client.post('/workflows', payload);
+      workflowId.value = data.id;
+      router.replace({ query: { id: data.id } });
+    }
+    toastSuccess(t('workflowStudio.saved'));
+  } catch (err) {
+    console.error('Workflow save failed:', err);
+    toastError(t('workflowStudio.saveError'));
+  } finally {
+    saving.value = false;
+  }
 };
+
+onMounted(async () => {
+  const id = route.query.id as string | undefined;
+  if (!id) return;
+  try {
+    const { data } = await client.get(`/workflows/${id}`);
+    workflowId.value = data.id;
+    workflowName.value = data.name;
+    // Restore from the clean nodes/edges DSL written by onSave.
+    if (data.dsl?.nodes?.length) {
+      elements.value = [...data.dsl.nodes, ...(data.dsl.edges ?? [])];
+    }
+  } catch (err) {
+    console.error('Workflow load failed:', err);
+    toastError(t('workflowStudio.loadError'));
+    // Prevent onSave from silently creating a new workflow when the requested
+    // workflow failed to load (e.g. deleted or belongs to another user).
+    loadFailed.value = true;
+  }
+});
 </script>
 
 <style>

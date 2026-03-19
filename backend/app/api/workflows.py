@@ -41,6 +41,20 @@ async def list_workflows(
     return rows.all()
 
 
+@router.get("/{workflow_id}", response_model=WorkflowOut)
+async def get_workflow(
+    workflow_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    workflow = await db.scalar(
+        select(Workflow).where(Workflow.id == workflow_id, Workflow.user_id == user.id)
+    )
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    return workflow
+
+
 @router.post("", response_model=WorkflowOut, status_code=201)
 async def create_workflow(
     body: WorkflowCreate,
@@ -57,6 +71,26 @@ async def create_workflow(
     await db.commit()
     await db.refresh(new_workflow)
     return new_workflow
+
+
+@router.put("/{workflow_id}", response_model=WorkflowOut)
+async def update_workflow(
+    workflow_id: uuid.UUID,
+    body: WorkflowCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    workflow = await db.scalar(
+        select(Workflow).where(Workflow.id == workflow_id, Workflow.user_id == user.id)
+    )
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    workflow.name = body.name
+    workflow.description = body.description
+    workflow.dsl = body.dsl
+    await db.commit()
+    await db.refresh(workflow)
+    return workflow
 
 
 @router.delete("/{workflow_id}")

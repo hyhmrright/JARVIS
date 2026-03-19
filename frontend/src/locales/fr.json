@@ -10,7 +10,8 @@
     "cancel": "Annuler",
     "confirm": "Confirmer",
     "copy": "Copier",
-    "copied": "Copié !"
+    "copied": "Copié !",
+    "saving": "Enregistrement..."
   },
   "login": {
     "title": "Connexion à JARVIS",
@@ -374,7 +375,8 @@
     "loadError": "Échec du chargement des personas.",
     "saveError": "Échec de l'enregistrement du persona.",
     "deleteConfirm": "Supprimer le persona « {name} » ?",
-    "deleteError": "Échec de la suppression du persona."
+    "deleteError": "Échec de la suppression du persona.",
+    "editPersona": "Modifier le persona"
   },
   "workflowStudio": {
     "title": "Studio de workflows",
@@ -395,7 +397,9 @@
     "nodeOutputDesc": "Retourner le résultat à l'utilisateur",
     "nodeStart": "Début",
     "workflowStart": "Début du workflow",
-    "saveInfo": "Structure du workflow enregistrée dans la console. (Intégration backend à venir)"
+    "saved": "Workflow enregistré.",
+    "saveError": "Échec de l'enregistrement du workflow.",
+    "loadError": "Échec du chargement du workflow."
   },
   "skillMarket": {
     "ecosystem": "Écosystème JARVIS",

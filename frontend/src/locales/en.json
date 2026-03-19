@@ -10,7 +10,8 @@
     "prev": "Previous",
     "next": "Next",
     "copy": "Copy",
-    "copied": "Copied!"
+    "copied": "Copied!",
+    "saving": "Saving..."
   },
   "login": {
     "title": "Login to JARVIS",
@@ -374,7 +375,8 @@
     "loadError": "Failed to load personas.",
     "saveError": "Failed to save persona.",
     "deleteConfirm": "Delete persona \"{name}\"?",
-    "deleteError": "Failed to delete persona."
+    "deleteError": "Failed to delete persona.",
+    "editPersona": "Edit Persona"
   },
   "workflowStudio": {
     "title": "Workflow Studio",
@@ -395,7 +397,9 @@
     "nodeOutputDesc": "Return result to user",
     "nodeStart": "Start",
     "workflowStart": "Workflow Start",
-    "saveInfo": "Workflow structure logged to console. (Backend integration coming soon)"
+    "saved": "Workflow saved.",
+    "saveError": "Failed to save workflow.",
+    "loadError": "Failed to load workflow."
   },
   "skillMarket": {
     "ecosystem": "JARVIS ecosystem",

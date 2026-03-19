@@ -10,7 +10,8 @@
     "cancel": "취소",
     "confirm": "확인",
     "copy": "복사",
-    "copied": "복사됨!"
+    "copied": "복사됨!",
+    "saving": "저장 중..."
   },
   "login": {
     "title": "JARVIS 로그인",
@@ -374,7 +375,8 @@
     "loadError": "페르소나 불러오기 실패.",
     "saveError": "페르소나 저장 실패.",
     "deleteConfirm": "페르소나 \"{name}\"를 삭제하시겠습니까?",
-    "deleteError": "페르소나 삭제 실패."
+    "deleteError": "페르소나 삭제 실패.",
+    "editPersona": "페르소나 편집"
   },
   "workflowStudio": {
     "title": "워크플로우 스튜디오",
@@ -395,7 +397,9 @@
     "nodeOutputDesc": "사용자에게 결과 반환",
     "nodeStart": "시작",
     "workflowStart": "워크플로우 시작",
-    "saveInfo": "워크플로우 구조가 콘솔에 기록되었습니다. (백엔드 통합 예정)"
+    "saved": "워크플로우가 저장되었습니다.",
+    "saveError": "워크플로우 저장에 실패했습니다.",
+    "loadError": "워크플로우 로드에 실패했습니다."
   },
   "skillMarket": {
     "ecosystem": "JARVIS 생태계",
