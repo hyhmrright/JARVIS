@@ -138,7 +138,25 @@
     "toolPermissions": "ツール権限",
     "toolPermissionsDescription": "AIアシスタントが使用できるツールを有効・無効にします。",
     "installedPlugins": "インストール済みプラグイン",
-    "pluginTools": "{count} 個のツール"
+    "pluginTools": "{count} 個のツール",
+    "addAnotherKey": "キーを追加",
+    "profileSection": "プロフィール",
+    "displayNameLabel": "表示名",
+    "displayNamePlaceholder": "お名前（任意）",
+    "saveProfile": "プロフィールを保存",
+    "changePasswordSection": "パスワード変更",
+    "currentPassword": "現在のパスワード",
+    "newPassword": "新しいパスワード",
+    "newPasswordPlaceholder": "8文字以上",
+    "confirmNewPassword": "新しいパスワード（確認）",
+    "confirmPasswordPlaceholder": "新しいパスワードを再入力",
+    "updatePassword": "パスワードを更新",
+    "profileSaved": "プロフィールを更新しました。",
+    "passwordSaved": "パスワードを更新しました。",
+    "profileSaveError": "プロフィールの保存に失敗しました。",
+    "pwAllFieldsRequired": "すべてのフィールドを入力してください。",
+    "pwMismatch": "新しいパスワードが一致しません。",
+    "pwChangeError": "パスワードの変更に失敗しました。"
   },
   "plugins": {
     "title": "プラグイン管理",
@@ -153,7 +171,18 @@
     "no_config": "設定項目はありません",
     "load_error": "設定の読み込みに失敗しました",
     "save_error": "設定の保存に失敗しました",
-    "delete_error": "設定の削除に失敗しました"
+    "delete_error": "設定の削除に失敗しました",
+    "systemInstalledSection": "システムインストール済みプラグイン",
+    "personalInstalledSection": "マイプラグイン",
+    "uninstallConfirm": "このプラグインをアンインストールしますか？",
+    "uninstallError": "アンインストールに失敗しました",
+    "browseMarket": "マーケットを見る",
+    "reload": "プラグインを再読み込み",
+    "reload_error": "プラグインの再読み込みに失敗しました。バックエンドのログを確認してください。",
+    "requires": "依存",
+    "uninstall": "アンインストール",
+    "badgeSystem": "システム",
+    "badgePersonal": "個人"
   },
   "validation": {
     "emailRequired": "メールアドレスを入力してください",
@@ -302,6 +331,7 @@
   "memory": {
     "confirmClear": "全ての AI メモリを削除しますか？元に戻せません。",
     "loadError": "メモリの読み込みに失敗しました",
-    "deleteError": "メモリの削除に失敗しました"
+    "deleteError": "メモリの削除に失敗しました",
+    "clearAll": "すべて削除"
   }
 }

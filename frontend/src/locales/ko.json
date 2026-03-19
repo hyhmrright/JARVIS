@@ -138,7 +138,25 @@
     "toolPermissions": "도구 권한",
     "toolPermissionsDescription": "AI 어시스턴트가 사용할 수 있는 도구를 활성화하거나 비활성화합니다.",
     "installedPlugins": "설치된 플러그인",
-    "pluginTools": "{count}개 도구"
+    "pluginTools": "{count}개 도구",
+    "addAnotherKey": "키 추가",
+    "profileSection": "프로필",
+    "displayNameLabel": "표시 이름",
+    "displayNamePlaceholder": "이름 (선택사항)",
+    "saveProfile": "프로필 저장",
+    "changePasswordSection": "비밀번호 변경",
+    "currentPassword": "현재 비밀번호",
+    "newPassword": "새 비밀번호",
+    "newPasswordPlaceholder": "최소 8자",
+    "confirmNewPassword": "새 비밀번호 확인",
+    "confirmPasswordPlaceholder": "새 비밀번호 재입력",
+    "updatePassword": "비밀번호 업데이트",
+    "profileSaved": "프로필이 업데이트되었습니다.",
+    "passwordSaved": "비밀번호가 업데이트되었습니다.",
+    "profileSaveError": "프로필 저장에 실패했습니다.",
+    "pwAllFieldsRequired": "모든 필드를 입력해 주세요.",
+    "pwMismatch": "새 비밀번호가 일치하지 않습니다.",
+    "pwChangeError": "비밀번호 변경에 실패했습니다."
   },
   "plugins": {
     "title": "플러그인 관리",
@@ -153,7 +171,18 @@
     "no_config": "설정 항목이 없습니다",
     "load_error": "설정 로드에 실패했습니다",
     "save_error": "설정 저장에 실패했습니다",
-    "delete_error": "설정 삭제에 실패했습니다"
+    "delete_error": "설정 삭제에 실패했습니다",
+    "systemInstalledSection": "시스템 설치 플러그인",
+    "personalInstalledSection": "내 설치 플러그인",
+    "uninstallConfirm": "이 플러그인을 제거하시겠습니까?",
+    "uninstallError": "제거에 실패했습니다",
+    "browseMarket": "마켓 보기",
+    "reload": "플러그인 새로고침",
+    "reload_error": "플러그인 새로고침에 실패했습니다. 백엔드 로그를 확인하세요.",
+    "requires": "필요",
+    "uninstall": "제거",
+    "badgeSystem": "시스템",
+    "badgePersonal": "개인"
   },
   "validation": {
     "emailRequired": "이메일 주소를 입력해 주세요",
@@ -302,6 +331,7 @@
   "memory": {
     "confirmClear": "모든 AI 기억을 지우시겠습니까? 되돌릴 수 없습니다.",
     "loadError": "기억 로드 실패",
-    "deleteError": "기억 삭제 실패"
+    "deleteError": "기억 삭제 실패",
+    "clearAll": "모두 삭제"
   }
 }

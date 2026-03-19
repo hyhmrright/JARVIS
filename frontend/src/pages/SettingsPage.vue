@@ -72,7 +72,7 @@
               </div>
               
               <button type="button" class="w-full py-2.5 border border-dashed border-zinc-700 text-zinc-500 text-xs font-medium rounded-lg hover:border-zinc-500 hover:text-zinc-300 transition-colors" @click="apiKeys.push('')">
-                + Add Another Key
+                + {{ $t("settings.addAnotherKey") }}
               </button>
               
               <div v-if="existingKeyCount > 0" class="text-[11px] text-emerald-400 mt-2 font-medium">
@@ -261,7 +261,7 @@
               class="text-xs font-medium px-3 py-1.5 bg-red-600/10 text-red-400 rounded-lg hover:bg-red-600/20 transition-colors"
               @click="handleClearAllMemories"
             >
-              Clear All
+              {{ $t("memory.clearAll") }}
             </button>
           </div>
           <p class="text-xs text-zinc-500 mb-4">Facts the AI has remembered about you across conversations.</p>
@@ -341,17 +341,17 @@
 
       <!-- Profile (outside main form) -->
       <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm mt-8">
-        <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-6">Profile</h3>
+        <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-6">{{ $t("settings.profileSection") }}</h3>
         <div class="space-y-4 max-w-sm">
           <div class="flex flex-col gap-2">
-            <label class="text-xs font-semibold text-zinc-400">Display Name</label>
+            <label class="text-xs font-semibold text-zinc-400">{{ $t("settings.displayNameLabel") }}</label>
             <input
               v-model="profileName"
               type="text"
               maxlength="100"
               autocomplete="name"
               class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600"
-              placeholder="Your name (optional)"
+              :placeholder="$t('settings.displayNamePlaceholder')"
             />
           </div>
           <p v-if="profileError" class="text-xs text-red-400">{{ profileError }}</p>
@@ -361,17 +361,17 @@
             :disabled="profileSaving"
             @click="saveProfile"
           >
-            {{ profileSaving ? "Saving…" : "Save Profile" }}
+            {{ profileSaving ? $t("settings.saving") : $t("settings.saveProfile") }}
           </button>
         </div>
       </section>
 
       <!-- Change Password (outside main form to avoid accidental submit) -->
       <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm mt-8">
-        <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-6">Change Password</h3>
+        <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-6">{{ $t("settings.changePasswordSection") }}</h3>
         <div class="space-y-4 max-w-sm">
           <div class="flex flex-col gap-2">
-            <label class="text-xs font-semibold text-zinc-400">Current Password</label>
+            <label class="text-xs font-semibold text-zinc-400">{{ $t("settings.currentPassword") }}</label>
             <input
               v-model="pwCurrent"
               type="password"
@@ -381,23 +381,23 @@
             />
           </div>
           <div class="flex flex-col gap-2">
-            <label class="text-xs font-semibold text-zinc-400">New Password</label>
+            <label class="text-xs font-semibold text-zinc-400">{{ $t("settings.newPassword") }}</label>
             <input
               v-model="pwNew"
               type="password"
               autocomplete="new-password"
               class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600"
-              placeholder="Min. 8 characters"
+              :placeholder="$t('settings.newPasswordPlaceholder')"
             />
           </div>
           <div class="flex flex-col gap-2">
-            <label class="text-xs font-semibold text-zinc-400">Confirm New Password</label>
+            <label class="text-xs font-semibold text-zinc-400">{{ $t("settings.confirmNewPassword") }}</label>
             <input
               v-model="pwConfirm"
               type="password"
               autocomplete="new-password"
               class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600"
-              placeholder="Repeat new password"
+              :placeholder="$t('settings.confirmPasswordPlaceholder')"
             />
           </div>
           <p v-if="pwError" class="text-xs text-red-400">{{ pwError }}</p>
@@ -407,7 +407,7 @@
             :disabled="pwSaving"
             @click="changePassword"
           >
-            {{ pwSaving ? "Saving…" : "Update Password" }}
+            {{ pwSaving ? $t("settings.saving") : $t("settings.updatePassword") }}
           </button>
         </div>
       </section>
@@ -426,12 +426,12 @@
     </Transition>
     <Transition name="fade">
       <div v-if="profileSaved" class="fixed bottom-32 left-1/2 -translate-x-1/2 px-6 py-3 bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-full text-sm font-medium backdrop-blur-md z-50">
-        Profile updated successfully.
+        {{ $t("settings.profileSaved") }}
       </div>
     </Transition>
     <Transition name="fade">
       <div v-if="pwSaved" class="fixed bottom-20 left-1/2 -translate-x-1/2 px-6 py-3 bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-full text-sm font-medium backdrop-blur-md z-50">
-        Password updated successfully.
+        {{ $t("settings.passwordSaved") }}
       </div>
     </Transition>
     <Transition name="fade">
@@ -508,7 +508,7 @@ const saveProfile = async () => {
     profileSaved.value = true;
     setTimeout(() => { profileSaved.value = false; }, 3000);
   } catch (err: any) {
-    profileError.value = err?.response?.data?.detail ?? "Failed to save profile.";
+    profileError.value = err?.response?.data?.detail ?? t("settings.profileSaveError");
   } finally {
     profileSaving.value = false;
   }
@@ -525,11 +525,11 @@ const pwError = ref("");
 const changePassword = async () => {
   pwError.value = "";
   if (!pwCurrent.value || !pwNew.value || !pwConfirm.value) {
-    pwError.value = "Please fill in all fields.";
+    pwError.value = t("settings.pwAllFieldsRequired");
     return;
   }
   if (pwNew.value !== pwConfirm.value) {
-    pwError.value = "New passwords do not match.";
+    pwError.value = t("settings.pwMismatch");
     return;
   }
   pwSaving.value = true;
@@ -544,7 +544,7 @@ const changePassword = async () => {
     pwSaved.value = true;
     setTimeout(() => { pwSaved.value = false; }, 3000);
   } catch (err: any) {
-    pwError.value = err?.response?.data?.detail ?? "Failed to change password.";
+    pwError.value = err?.response?.data?.detail ?? t("settings.pwChangeError");
   } finally {
     pwSaving.value = false;
   }

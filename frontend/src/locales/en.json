@@ -138,7 +138,25 @@
     "toolPermissions": "Tool Permissions",
     "toolPermissionsDescription": "Enable or disable tools available to the AI assistant.",
     "installedPlugins": "Installed Plugins",
-    "pluginTools": "{count} tool(s)"
+    "pluginTools": "{count} tool(s)",
+    "addAnotherKey": "Add Another Key",
+    "profileSection": "Profile",
+    "displayNameLabel": "Display Name",
+    "displayNamePlaceholder": "Your name (optional)",
+    "saveProfile": "Save Profile",
+    "changePasswordSection": "Change Password",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "newPasswordPlaceholder": "Min. 8 characters",
+    "confirmNewPassword": "Confirm New Password",
+    "confirmPasswordPlaceholder": "Repeat new password",
+    "updatePassword": "Update Password",
+    "profileSaved": "Profile updated successfully.",
+    "passwordSaved": "Password updated successfully.",
+    "profileSaveError": "Failed to save profile.",
+    "pwAllFieldsRequired": "Please fill in all fields.",
+    "pwMismatch": "New passwords do not match.",
+    "pwChangeError": "Failed to change password."
   },
   "plugins": {
     "title": "Plugin Management",
@@ -156,7 +174,15 @@
     "delete_error": "Failed to delete config, please try again",
     "reload": "Reload Plugins",
     "reload_error": "Failed to reload plugins, check backend logs",
-    "requires": "Requires"
+    "requires": "Requires",
+    "browseMarket": "Browse Market",
+    "uninstall": "Uninstall",
+    "badgeSystem": "system",
+    "badgePersonal": "personal",
+    "systemInstalledSection": "System Installed Plugins",
+    "personalInstalledSection": "My Installed Plugins",
+    "uninstallConfirm": "Are you sure you want to uninstall this plugin?",
+    "uninstallError": "Uninstall failed"
   },
   "validation": {
     "emailRequired": "Please enter your email address",
@@ -305,6 +331,7 @@
   "memory": {
     "confirmClear": "Clear all AI memories? This cannot be undone.",
     "loadError": "Failed to load memories",
-    "deleteError": "Failed to delete memory"
+    "deleteError": "Failed to delete memory",
+    "clearAll": "Clear All"
   }
 }

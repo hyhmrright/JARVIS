@@ -138,7 +138,25 @@
     "toolPermissions": "Permissions des outils",
     "toolPermissionsDescription": "Activer ou désactiver les outils disponibles pour l'assistant IA.",
     "installedPlugins": "Plugins installés",
-    "pluginTools": "{count} outil(s)"
+    "pluginTools": "{count} outil(s)",
+    "addAnotherKey": "Ajouter une autre clé",
+    "profileSection": "Profil",
+    "displayNameLabel": "Nom d'affichage",
+    "displayNamePlaceholder": "Votre nom (facultatif)",
+    "saveProfile": "Enregistrer le profil",
+    "changePasswordSection": "Changer le mot de passe",
+    "currentPassword": "Mot de passe actuel",
+    "newPassword": "Nouveau mot de passe",
+    "newPasswordPlaceholder": "Min. 8 caractères",
+    "confirmNewPassword": "Confirmer le nouveau mot de passe",
+    "confirmPasswordPlaceholder": "Répéter le nouveau mot de passe",
+    "updatePassword": "Mettre à jour le mot de passe",
+    "profileSaved": "Profil mis à jour avec succès.",
+    "passwordSaved": "Mot de passe mis à jour avec succès.",
+    "profileSaveError": "Échec de l'enregistrement du profil.",
+    "pwAllFieldsRequired": "Veuillez remplir tous les champs.",
+    "pwMismatch": "Les nouveaux mots de passe ne correspondent pas.",
+    "pwChangeError": "Échec du changement de mot de passe."
   },
   "plugins": {
     "title": "Gestion des plugins",
@@ -153,7 +171,18 @@
     "no_config": "Aucune entrée de configuration",
     "load_error": "Échec du chargement de la configuration",
     "save_error": "Échec de l'enregistrement de la configuration",
-    "delete_error": "Échec de la suppression de la configuration"
+    "delete_error": "Échec de la suppression de la configuration",
+    "systemInstalledSection": "Plugins système installés",
+    "personalInstalledSection": "Mes plugins installés",
+    "uninstallConfirm": "Désinstaller ce plugin ?",
+    "uninstallError": "Échec de la désinstallation",
+    "browseMarket": "Explorer le marché",
+    "reload": "Recharger les plugins",
+    "reload_error": "Échec du rechargement des plugins, vérifiez les logs backend.",
+    "requires": "Requiert",
+    "uninstall": "Désinstaller",
+    "badgeSystem": "système",
+    "badgePersonal": "personnel"
   },
   "validation": {
     "emailRequired": "Veuillez saisir votre adresse e-mail",
@@ -302,6 +331,7 @@
   "memory": {
     "confirmClear": "Effacer tous les souvenirs IA ? Cette action est irréversible.",
     "loadError": "Échec du chargement des souvenirs",
-    "deleteError": "Échec de la suppression du souvenir"
+    "deleteError": "Échec de la suppression du souvenir",
+    "clearAll": "Tout effacer"
   }
 }

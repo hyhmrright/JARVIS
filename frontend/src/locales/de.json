@@ -138,7 +138,25 @@
     "toolPermissions": "Werkzeugberechtigungen",
     "toolPermissionsDescription": "Aktivieren oder deaktivieren Sie die Werkzeuge, die dem KI-Assistenten zur Verfügung stehen.",
     "installedPlugins": "Installierte Plugins",
-    "pluginTools": "{count} Werkzeug(e)"
+    "pluginTools": "{count} Werkzeug(e)",
+    "addAnotherKey": "Weiteren Schlüssel hinzufügen",
+    "profileSection": "Profil",
+    "displayNameLabel": "Anzeigename",
+    "displayNamePlaceholder": "Ihr Name (optional)",
+    "saveProfile": "Profil speichern",
+    "changePasswordSection": "Passwort ändern",
+    "currentPassword": "Aktuelles Passwort",
+    "newPassword": "Neues Passwort",
+    "newPasswordPlaceholder": "Mindestens 8 Zeichen",
+    "confirmNewPassword": "Neues Passwort bestätigen",
+    "confirmPasswordPlaceholder": "Neues Passwort wiederholen",
+    "updatePassword": "Passwort aktualisieren",
+    "profileSaved": "Profil erfolgreich aktualisiert.",
+    "passwordSaved": "Passwort erfolgreich aktualisiert.",
+    "profileSaveError": "Profil konnte nicht gespeichert werden.",
+    "pwAllFieldsRequired": "Bitte füllen Sie alle Felder aus.",
+    "pwMismatch": "Die neuen Passwörter stimmen nicht überein.",
+    "pwChangeError": "Passwort konnte nicht geändert werden."
   },
   "plugins": {
     "title": "Plugin-Verwaltung",
@@ -153,7 +171,18 @@
     "no_config": "Keine Konfigurationseinträge",
     "load_error": "Fehler beim Laden der Konfiguration",
     "save_error": "Fehler beim Speichern der Konfiguration",
-    "delete_error": "Fehler beim Löschen der Konfiguration"
+    "delete_error": "Fehler beim Löschen der Konfiguration",
+    "systemInstalledSection": "Systeminstallierte Plugins",
+    "personalInstalledSection": "Meine installierten Plugins",
+    "uninstallConfirm": "Dieses Plugin deinstallieren?",
+    "uninstallError": "Deinstallation fehlgeschlagen",
+    "browseMarket": "Marktplatz durchsuchen",
+    "reload": "Plugins neu laden",
+    "reload_error": "Fehler beim Neuladen der Plugins, Backend-Logs prüfen.",
+    "requires": "Benötigt",
+    "uninstall": "Deinstallieren",
+    "badgeSystem": "System",
+    "badgePersonal": "Persönlich"
   },
   "validation": {
     "emailRequired": "Bitte geben Sie Ihre E-Mail-Adresse ein",
@@ -302,6 +331,7 @@
   "memory": {
     "confirmClear": "Alle KI-Erinnerungen löschen? Dies kann nicht rückgängig gemacht werden.",
     "loadError": "Erinnerungen konnten nicht geladen werden",
-    "deleteError": "Erinnerung konnte nicht gelöscht werden"
+    "deleteError": "Erinnerung konnte nicht gelöscht werden",
+    "clearAll": "Alle löschen"
   }
 }

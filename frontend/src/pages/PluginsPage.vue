@@ -4,7 +4,7 @@
       <h1>{{ t("plugins.title") }}</h1>
       <div class="header-actions">
         <router-link to="/market" class="market-btn">
-          {{ t("plugins.browseMarket") || 'Browse Market' }}
+          {{ t("plugins.browseMarket") }}
         </router-link>
         <button class="reload-btn" @click="handleReload">
           {{ t("plugins.reload") }}
@@ -51,7 +51,7 @@
 
     <!-- System Installed Plugins -->
     <section v-if="isAdmin && systemInstalled.length > 0" class="installed-section">
-      <h2 class="section-title">System Installed Plugins</h2>
+      <h2 class="section-title">{{ $t("plugins.systemInstalledSection") }}</h2>
       <div class="plugin-list">
         <div
           v-for="item in systemInstalled"
@@ -60,12 +60,12 @@
         >
           <div class="plugin-header">
             <h3>{{ item.name }}</h3>
-            <span class="installed-badge system-badge">system</span>
+            <span class="installed-badge system-badge">{{ $t("plugins.badgeSystem") }}</span>
           </div>
           <p class="description">{{ item.type }}</p>
           <p class="description small">{{ item.install_url }}</p>
           <button class="delete-btn uninstall-btn" @click="uninstallInstalledPlugin(item.id)">
-            Uninstall
+            {{ $t("plugins.uninstall") }}
           </button>
         </div>
       </div>
@@ -73,7 +73,7 @@
 
     <!-- My Installed Plugins -->
     <section v-if="personalInstalled.length > 0" class="installed-section">
-      <h2 class="section-title">My Installed Plugins</h2>
+      <h2 class="section-title">{{ $t("plugins.personalInstalledSection") }}</h2>
       <div class="plugin-list">
         <div
           v-for="item in personalInstalled"
@@ -82,12 +82,12 @@
         >
           <div class="plugin-header">
             <h3>{{ item.name }}</h3>
-            <span class="installed-badge personal-badge">personal</span>
+            <span class="installed-badge personal-badge">{{ $t("plugins.badgePersonal") }}</span>
           </div>
           <p class="description">{{ item.type }}</p>
           <p class="description small">{{ item.install_url }}</p>
           <button class="delete-btn uninstall-btn" @click="uninstallInstalledPlugin(item.id)">
-            Uninstall
+            {{ $t("plugins.uninstall") }}
           </button>
         </div>
       </div>
@@ -206,14 +206,14 @@ async function loadInstalled() {
 }
 
 async function uninstallInstalledPlugin(id: string) {
-  if (!confirm("Are you sure you want to uninstall this plugin?")) return;
+  if (!confirm(t("plugins.uninstallConfirm"))) return;
   try {
     await marketApi.uninstall(id);
     await loadInstalled();
   } catch (err: unknown) {
     const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data
       ?.detail;
-    alert(typeof detail === "string" ? detail : "Uninstall failed.");
+    alert(typeof detail === "string" ? detail : t("plugins.uninstallError"));
   }
 }
 
