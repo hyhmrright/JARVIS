@@ -261,6 +261,8 @@
     "testFailed": "Échec du test, veuillez réessayer",
     "history": "Historique d'exécution",
     "noHistory": "Aucun historique d'exécution",
+    "editTask": "Modifier la tâche",
+    "deleteTask": "Supprimer la tâche",
     "deleteConfirm": "Supprimer cette tâche de surveillance ?",
     "neverRun": "Jamais exécuté",
     "duration": "Durée",

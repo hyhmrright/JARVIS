@@ -261,6 +261,8 @@
     "testFailed": "测试失败，请稍后重试",
     "history": "执行历史",
     "noHistory": "暂无执行记录",
+    "editTask": "编辑任务",
+    "deleteTask": "删除任务",
     "deleteConfirm": "删除此监控任务？",
     "neverRun": "从未运行",
     "duration": "耗时",

@@ -368,6 +368,7 @@ async def list_messages(
         select(Message)
         .where(Message.conversation_id == conv_id)
         .order_by(Message.created_at)
+        .limit(500)
     )
     return rows.all()
 

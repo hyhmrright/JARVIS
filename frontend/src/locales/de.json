@@ -261,6 +261,8 @@
     "testFailed": "Test fehlgeschlagen, bitte erneut versuchen",
     "history": "Ausführungsverlauf",
     "noHistory": "Keine Ausführungsaufzeichnungen",
+    "editTask": "Aufgabe bearbeiten",
+    "deleteTask": "Aufgabe löschen",
     "deleteConfirm": "Diese Überwachungsaufgabe löschen?",
     "neverRun": "Nie ausgeführt",
     "duration": "Dauer",

@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 import httpx
 import structlog
 from bs4 import BeautifulSoup
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 from qdrant_client.models import FieldCondition, Filter, MatchValue
 from sqlalchemy import select
@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import ResolvedLLMConfig, get_current_user, get_llm_config
 from app.core.config import settings
+from app.core.limiter import limiter
 from app.core.security import resolve_api_key
 from app.db.models import Document, User, UserSettings, Workspace, WorkspaceMember
 from app.db.session import get_db
@@ -155,7 +156,9 @@ async def delete_document(
 
 
 @router.post("", status_code=201, response_model=DocumentOut)
+@limiter.limit("10/minute")
 async def upload_document(
+    request: Request,
     file: UploadFile = File(...),
     workspace_id: uuid.UUID | None = None,
     user: User = Depends(get_current_user),
@@ -261,7 +264,9 @@ def _extract_page_text(html_bytes: bytes, url: str = "") -> tuple[str, str]:
 
 
 @router.post("/ingest-url", response_model=DocumentOut, status_code=201)
+@limiter.limit("10/minute")
 async def ingest_url(
+    request: Request,
     body: IngestUrlRequest,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

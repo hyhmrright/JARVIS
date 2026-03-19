@@ -220,6 +220,8 @@
     "testFailed": "Test failed, please try again",
     "history": "Execution History",
     "noHistory": "No execution records",
+    "editTask": "Edit Task",
+    "deleteTask": "Delete Task",
     "deleteConfirm": "Delete this monitoring task?",
     "neverRun": "Never run",
     "duration": "Duration",

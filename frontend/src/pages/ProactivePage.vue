@@ -106,7 +106,10 @@
                   <span v-if="testing[job.id]">⏳</span>
                   <span v-else>▶</span>
                 </button>
-                <button class="text-zinc-500 hover:text-red-400 transition-colors text-sm p-1" title="Delete Task" @click.stop="deleteJob(job.id)">
+                <button class="text-zinc-500 hover:text-zinc-200 transition-colors text-sm p-1" :title="$t('proactive.editTask')" @click.stop="openEditModal(job)">
+                  ✏️
+                </button>
+                <button class="text-zinc-500 hover:text-red-400 transition-colors text-sm p-1" :title="$t('proactive.deleteTask')" @click.stop="deleteJob(job.id)">
                   🗑
                 </button>
               </div>
@@ -116,11 +119,11 @@
       </div>
     </div>
 
-    <!-- Add Task Modal -->
+    <!-- Add/Edit Task Modal -->
     <div v-if="showAddModal" class="fixed inset-0 bg-zinc-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in" @click.self="closeModal()">
       <div class="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
-          <h3 class="text-sm font-bold text-zinc-100 tracking-wide">{{ $t('proactive.addTask') }}</h3>
+          <h3 class="text-sm font-bold text-zinc-100 tracking-wide">{{ editingJob ? $t('proactive.editTask') : $t('proactive.addTask') }}</h3>
           <button class="text-zinc-500 hover:text-zinc-300 transition-colors" @click="closeModal()">✕</button>
         </div>
 
@@ -157,7 +160,7 @@
 
             <div class="flex flex-col gap-2">
               <label class="text-xs font-semibold text-zinc-400">{{ $t('proactive.triggerType') }}</label>
-              <select v-model="newJob.trigger_type" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors">
+              <select v-model="newJob.trigger_type" :disabled="!!editingJob" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 <option value="cron">{{ $t('proactive.triggerTypes.cron') }}</option>
                 <option value="web_watcher">{{ $t('proactive.triggerTypes.web_watcher') }}</option>
                 <option value="semantic_watcher">{{ $t('proactive.triggerTypes.semantic_watcher') }}</option>
@@ -222,7 +225,7 @@
 
         <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-zinc-800 bg-zinc-950/50">
           <button class="px-5 py-2.5 text-xs font-bold text-zinc-400 hover:text-zinc-200 transition-colors" @click="closeModal()">{{ $t('common.cancel') }}</button>
-          <button :disabled="!newJob.task.trim()" class="px-5 py-2.5 bg-white text-black text-xs font-bold rounded-lg hover:bg-zinc-200 transition-colors disabled:opacity-40" @click="saveJob">{{ $t('common.confirm') }}</button>
+          <button :disabled="!newJob.task.trim()" class="px-5 py-2.5 bg-white text-black text-xs font-bold rounded-lg hover:bg-zinc-200 transition-colors disabled:opacity-40" @click="editingJob ? updateJob() : saveJob()">{{ $t('common.confirm') }}</button>
         </div>
       </div>
     </div>
@@ -265,7 +268,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import client from '@/api/client'
 import PageHeader from '@/components/PageHeader.vue'
@@ -301,6 +304,7 @@ interface JobExecution {
 
 const jobs = ref<CronJob[]>([])
 const showAddModal = ref(false)
+const editingJob = ref<CronJob | null>(null)
 
 const intervalValue = ref(30)
 const intervalUnit = ref('m')
@@ -312,9 +316,15 @@ const newJob = ref({
   trigger_metadata: {} as Record<string, unknown>,
 })
 
+// Guard flag: prevents the interval watcher from overwriting newJob.schedule
+// while openEditModal is populating the form from an existing job.
+let suppressScheduleWatch = false
+
 // UI 状态与 @every 协议字符串的转换
 watch([intervalValue, intervalUnit], () => {
-  newJob.value.schedule = `@every ${intervalValue.value}${intervalUnit.value}`
+  if (!suppressScheduleWatch) {
+    newJob.value.schedule = `@every ${intervalValue.value}${intervalUnit.value}`
+  }
 }, { immediate: true })
 
 function formatSchedule(schedule: string): string {
@@ -398,10 +408,33 @@ function validateForm(): boolean {
 
 function closeModal() {
   showAddModal.value = false
+  editingJob.value = null
   formErrors.value = {}
   intervalValue.value = 30
   intervalUnit.value = 'm'
   newJob.value = { task: '', schedule: '@every 30m', trigger_type: 'cron', trigger_metadata: {} }
+}
+
+async function openEditModal(job: CronJob) {
+  suppressScheduleWatch = true
+  editingJob.value = job
+  newJob.value = {
+    task: job.task,
+    schedule: job.schedule,
+    trigger_type: job.trigger_type,
+    trigger_metadata: job.trigger_metadata ? { ...job.trigger_metadata } : {},
+  }
+  // Parse interval from schedule string for the UI controls
+  const match = job.schedule.match(/@every (\d+)([smhd])/)
+  if (match) {
+    intervalValue.value = parseInt(match[1])
+    intervalUnit.value = match[2]
+  }
+  // Wait for Vue's async watcher queue to flush before releasing the guard,
+  // so the deferred interval watcher cannot overwrite the loaded schedule.
+  await nextTick()
+  suppressScheduleWatch = false
+  showAddModal.value = true
 }
 
 // Test trigger state
@@ -458,6 +491,17 @@ const deleteJob = async (id: string) => {
   }
 }
 
+function handleCronError(err: unknown) {
+  const status = (err as { response?: { status?: number } })?.response?.status
+  if (status === 422) {
+    const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+    const msg = typeof detail === 'string' ? detail.split('\n')[0] : t('proactive.saveError')
+    toastError(msg)
+  } else {
+    toastError(t('proactive.saveError'))
+  }
+}
+
 const saveJob = async () => {
   if (!validateForm()) return
   try {
@@ -469,14 +513,22 @@ const saveJob = async () => {
     closeModal()
     await fetchJobs()
   } catch (err: unknown) {
-    const status = (err as { response?: { status?: number } })?.response?.status
-    if (status === 422) {
-      const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
-      const msg = typeof detail === 'string' ? detail.split('\n')[0] : t('proactive.saveError')
-      toastError(msg)
-    } else {
-      toastError(t('proactive.saveError'))
-    }
+    handleCronError(err)
+  }
+}
+
+const updateJob = async () => {
+  if (!editingJob.value || !validateForm()) return
+  try {
+    await client.put(`/cron/${editingJob.value.id}`, {
+      task: newJob.value.task,
+      schedule: newJob.value.schedule,
+      trigger_metadata: newJob.value.trigger_metadata,
+    })
+    closeModal()
+    await fetchJobs()
+  } catch (err: unknown) {
+    handleCronError(err)
   }
 }
 

@@ -261,6 +261,8 @@
     "testFailed": "テストに失敗しました。再試行してください",
     "history": "実行履歴",
     "noHistory": "実行記録がありません",
+    "editTask": "タスクを編集",
+    "deleteTask": "タスクを削除",
     "deleteConfirm": "この監視タスクを削除しますか？",
     "neverRun": "未実行",
     "duration": "所要時間",
