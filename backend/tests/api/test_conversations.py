@@ -607,3 +607,43 @@ async def test_list_bookmarked_messages(auth_client, db_session):
     ids = [r["id"] for r in resp.json()]
     assert str(bookmarked.id) in ids
     assert str(normal.id) not in ids
+
+
+@pytest.mark.anyio
+async def test_bookmark_wrong_user_returns_404(
+    auth_client, second_user_auth_headers, db_session
+):
+    """User cannot bookmark a message in another user's conversation."""
+    user2_id = _uid_from_headers(second_user_auth_headers)
+    conv = Conversation(user_id=user2_id, title="Private")
+    db_session.add(conv)
+    await db_session.flush()
+    msg = Message(conversation_id=conv.id, role="ai", content="Secret")
+    db_session.add(msg)
+    await db_session.commit()
+
+    resp = await auth_client.patch(
+        f"/api/conversations/{conv.id}/messages/{msg.id}/bookmark"
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_bookmarked_endpoint_excludes_other_user_messages(
+    auth_client, second_user_auth_headers, db_session
+):
+    """GET /bookmarked only returns the current user's bookmarked messages."""
+    user2_id = _uid_from_headers(second_user_auth_headers)
+    conv2 = Conversation(user_id=user2_id, title="Other User Conv")
+    db_session.add(conv2)
+    await db_session.flush()
+    other_msg = Message(
+        conversation_id=conv2.id, role="ai", content="Other", is_bookmarked=True
+    )
+    db_session.add(other_msg)
+    await db_session.commit()
+
+    resp = await auth_client.get("/api/conversations/bookmarked")
+    assert resp.status_code == 200
+    ids = [r["id"] for r in resp.json()]
+    assert str(other_msg.id) not in ids
