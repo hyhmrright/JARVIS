@@ -261,6 +261,7 @@ class Message(Base):
     tokens_input: Mapped[int | None] = mapped_column(Integer)
     tokens_output: Mapped[int | None] = mapped_column(Integer)
     image_urls: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    is_bookmarked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

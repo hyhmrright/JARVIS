@@ -44,6 +44,14 @@
             <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors" title="Search" @click="searchMode = true">
               <Search class="w-4 h-4 text-zinc-400" />
             </button>
+            <button
+              class="p-1.5 hover:bg-zinc-800 rounded transition-colors"
+              :class="bookmarkMode ? 'text-amber-400' : ''"
+              title="Bookmarks"
+              @click="toggleBookmarkMode"
+            >
+              <Bookmark class="w-4 h-4" :class="bookmarkMode ? 'text-amber-400' : 'text-zinc-400'" />
+            </button>
             <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors" title="New Chat" @click="chat.newConversation">
               <SquarePen class="w-4 h-4 text-zinc-400" />
             </button>
@@ -68,6 +76,22 @@
           </div>
           <div v-if="searchResults.length === 0" class="px-3 py-6 text-center text-[10px] text-zinc-600">
             No results
+          </div>
+        </template>
+        <!-- Bookmarks panel -->
+        <template v-else-if="bookmarkMode">
+          <div class="px-3 pb-2 text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">Bookmarks</div>
+          <div v-if="bookmarkedMessages.length === 0" class="px-3 py-6 text-center text-[10px] text-zinc-600">
+            No bookmarks yet
+          </div>
+          <div
+            v-for="bm in bookmarkedMessages"
+            :key="bm.id"
+            class="group flex flex-col gap-0.5 px-3 py-2 rounded-md cursor-pointer transition-colors text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+            @click="openBookmark(bm)"
+          >
+            <div class="text-[10px] text-zinc-600 truncate">{{ bm.conv_title }}</div>
+            <div class="text-xs line-clamp-2 text-zinc-400">{{ bm.content }}</div>
           </div>
         </template>
         <!-- Normal conversation list -->
@@ -469,6 +493,16 @@
                 <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" :class="{ 'text-emerald-400': isPlayingTTS === msg.content }" title="Read Aloud" @click="playTTS(msg.content)">
                   <Volume2 class="w-3 h-3" />
                 </button>
+                <button
+                  v-if="msg.id"
+                  class="p-1.5 hover:bg-zinc-800 rounded transition-colors"
+                  :class="msg.is_bookmarked ? 'text-amber-400' : 'text-zinc-500'"
+                  :title="msg.is_bookmarked ? 'Remove bookmark' : 'Bookmark'"
+                  @click="handleToggleBookmark(msg.id)"
+                >
+                  <BookmarkCheck v-if="msg.is_bookmarked" class="w-3 h-3" />
+                  <Bookmark v-else class="w-3 h-3" />
+                </button>
                 <button v-if="msg.id && !chat.streaming" class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500 hover:text-red-400" title="Delete" @click="handleDeleteMessage(msg.id)">
                   <Trash2 class="w-3 h-3" />
                 </button>
@@ -604,7 +638,7 @@ import {
   PanelLeft, SquarePen, Copy, RotateCcw,
   Mic, ArrowUp, Square, ShieldAlert, Share2, MessageSquare,
   Volume2, Layout, Image, X, ChevronDown,
-  Search, Download, Sparkles, Pin
+  Search, Download, Sparkles, Pin, Bookmark, BookmarkCheck
 } from "lucide-vue-next";
 
 import LiveCanvas from "@/components/LiveCanvas.vue";
@@ -663,6 +697,44 @@ const clearSearch = () => {
   searchMode.value = false;
   searchQuery.value = "";
   searchResults.value = [];
+};
+
+// Bookmarks
+interface BookmarkedMessage {
+  id: string;
+  conv_id: string;
+  conv_title: string;
+  role: string;
+  content: string;
+  created_at: string;
+}
+const bookmarkMode = ref(false);
+const bookmarkedMessages = ref<BookmarkedMessage[]>([]);
+
+const toggleBookmarkMode = async () => {
+  bookmarkMode.value = !bookmarkMode.value;
+  if (bookmarkMode.value) {
+    const { data } = await client.get<BookmarkedMessage[]>("/conversations/bookmarked");
+    bookmarkedMessages.value = data;
+  }
+};
+
+const openBookmark = async (bm: BookmarkedMessage) => {
+  bookmarkMode.value = false;
+  await selectConversation(bm.conv_id);
+};
+
+const handleToggleBookmark = async (msgId: string) => {
+  const isNowBookmarked = await chat.toggleBookmark(msgId);
+  if (!bookmarkMode.value) return;
+  if (isNowBookmarked) {
+    // Added: re-fetch to get conv_title
+    const { data } = await client.get<BookmarkedMessage[]>("/conversations/bookmarked");
+    bookmarkedMessages.value = data;
+  } else {
+    // Removed: filter locally (no network needed)
+    bookmarkedMessages.value = bookmarkedMessages.value.filter((bm) => bm.id !== msgId);
+  }
 };
 
 let searchTimer: ReturnType<typeof setTimeout> | undefined;

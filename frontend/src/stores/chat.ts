@@ -24,6 +24,7 @@ interface Message {
   tokens_input?: number | null;
   tokens_output?: number | null;
   created_at?: string | null;
+  is_bookmarked?: boolean;
 }
 
 interface Conversation { id: string; title: string; active_leaf_id?: string | null; is_pinned: boolean; updated_at?: string }
@@ -177,6 +178,24 @@ export const useChatStore = defineStore("chat", {
       }
     },
 
+
+    async toggleBookmark(msgId: string): Promise<boolean | undefined> {
+      if (!this.currentConvId) return;
+      const msg = this.messages.find((m) => m.id === msgId);
+      if (!msg) return;
+      const prev = msg.is_bookmarked;
+      msg.is_bookmarked = !prev;
+      try {
+        const { data } = await client.patch<{ is_bookmarked: boolean }>(
+          `/conversations/${this.currentConvId}/messages/${msgId}/bookmark`,
+        );
+        msg.is_bookmarked = data.is_bookmarked;
+        return data.is_bookmarked;
+      } catch (err) {
+        msg.is_bookmarked = prev;
+        throw err;
+      }
+    },
 
     async renameConversation(convId: string, title: string) {
       const conv = this.conversations.find((c) => c.id === convId);

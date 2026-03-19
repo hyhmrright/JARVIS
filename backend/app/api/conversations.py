@@ -94,7 +94,13 @@ class MessageOut(BaseModel):
     model_name: str | None = None
     tokens_input: int | None = None
     tokens_output: int | None = None
+    is_bookmarked: bool = False
     model_config = {"from_attributes": True}
+
+
+class BookmarkedMessageOut(MessageOut):
+    conv_id: uuid.UUID
+    conv_title: str
 
 
 class SearchResult(BaseModel):
@@ -169,6 +175,32 @@ async def search_conversations(
             )
         )
     return results[:limit]
+
+
+@router.get("/bookmarked", response_model=list[BookmarkedMessageOut])
+async def list_bookmarked_messages(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[BookmarkedMessageOut]:
+    """Return all bookmarked messages for the current user, newest first."""
+    rows = await db.execute(
+        select(Message, Conversation.title)
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .where(
+            Conversation.user_id == user.id,
+            Message.is_bookmarked == True,  # noqa: E712
+        )
+        .order_by(Message.created_at.desc())
+        .limit(200)
+    )
+    return [
+        BookmarkedMessageOut(
+            **MessageOut.model_validate(msg).model_dump(),
+            conv_id=msg.conversation_id,
+            conv_title=title,
+        )
+        for msg, title in rows.all()
+    ]
 
 
 @router.get("/{conv_id}/export")
@@ -271,6 +303,38 @@ async def list_messages(
         .order_by(Message.created_at)
     )
     return rows.all()
+
+
+@router.patch("/{conv_id}/messages/{msg_id}/bookmark", response_model=MessageOut)
+async def toggle_bookmark(
+    conv_id: uuid.UUID,
+    msg_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> MessageOut:
+    """Toggle the bookmark flag on a message."""
+    conv = await db.scalar(
+        select(Conversation).where(
+            Conversation.id == conv_id, Conversation.user_id == user.id
+        )
+    )
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    msg = await db.scalar(
+        select(Message).where(Message.id == msg_id, Message.conversation_id == conv_id)
+    )
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+    msg.is_bookmarked = not msg.is_bookmarked
+    await db.commit()
+    await db.refresh(msg)
+    logger.info(
+        "message_bookmark_toggled",
+        user_id=str(user.id),
+        msg_id=str(msg_id),
+        is_bookmarked=msg.is_bookmarked,
+    )
+    return msg
 
 
 @router.delete("/{conv_id}/messages/{msg_id}", status_code=204)

@@ -547,3 +547,63 @@ async def test_delete_nonexistent_message_returns_404(auth_client, db_session):
         f"/api/conversations/{conv.id}/messages/{uuid.uuid4()}"
     )
     assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_bookmark_toggle(auth_client, db_session):
+    """Bookmarking a message toggles is_bookmarked and returns updated message."""
+    user_id = _user_id(auth_client)
+    conv = Conversation(user_id=user_id, title="Bookmark Test")
+    db_session.add(conv)
+    await db_session.flush()
+    msg = Message(conversation_id=conv.id, role="ai", content="Important answer")
+    db_session.add(msg)
+    await db_session.commit()
+
+    # Toggle ON
+    resp = await auth_client.patch(
+        f"/api/conversations/{conv.id}/messages/{msg.id}/bookmark"
+    )
+    assert resp.status_code == 200
+    assert resp.json()["is_bookmarked"] is True
+
+    # Toggle OFF
+    resp = await auth_client.patch(
+        f"/api/conversations/{conv.id}/messages/{msg.id}/bookmark"
+    )
+    assert resp.status_code == 200
+    assert resp.json()["is_bookmarked"] is False
+
+
+@pytest.mark.anyio
+async def test_bookmark_nonexistent_returns_404(auth_client, db_session):
+    user_id = _user_id(auth_client)
+    conv = Conversation(user_id=user_id, title="Conv")
+    db_session.add(conv)
+    await db_session.commit()
+
+    resp = await auth_client.patch(
+        f"/api/conversations/{conv.id}/messages/{uuid.uuid4()}/bookmark"
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_list_bookmarked_messages(auth_client, db_session):
+    """GET /conversations/bookmarked returns only bookmarked messages."""
+    user_id = _user_id(auth_client)
+    conv = Conversation(user_id=user_id, title="My Conv")
+    db_session.add(conv)
+    await db_session.flush()
+    bookmarked = Message(
+        conversation_id=conv.id, role="ai", content="Starred", is_bookmarked=True
+    )
+    normal = Message(conversation_id=conv.id, role="ai", content="Not starred")
+    db_session.add_all([bookmarked, normal])
+    await db_session.commit()
+
+    resp = await auth_client.get("/api/conversations/bookmarked")
+    assert resp.status_code == 200
+    ids = [r["id"] for r in resp.json()]
+    assert str(bookmarked.id) in ids
+    assert str(normal.id) not in ids
