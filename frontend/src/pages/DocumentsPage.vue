@@ -20,7 +20,7 @@
       <div class="flex items-center gap-2 mb-3">
         <button
           class="flex items-center gap-2 px-3 py-1.5 text-xs rounded-md bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors"
-          @click="showUrlModal = true"
+          @click="openUrlModal"
         >
           <Link class="w-3.5 h-3.5" />
           From URL
@@ -103,6 +103,16 @@
           class="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 mb-4"
           @keydown.enter="handleIngestUrl"
         />
+        <div class="mb-4">
+          <label class="block text-xs text-zinc-400 mb-1.5">Add to workspace (optional)</label>
+          <select
+            v-model="urlWorkspaceId"
+            class="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200 outline-none focus:ring-1 focus:ring-zinc-500"
+          >
+            <option :value="null">Personal (no workspace)</option>
+            <option v-for="ws in workspace.workspaces" :key="ws.id" :value="ws.id">{{ ws.name }}</option>
+          </select>
+        </div>
         <p v-if="urlError" class="text-xs text-red-400 mb-3">{{ urlError }}</p>
         <div class="flex justify-end gap-2">
           <button class="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-100" @click="showUrlModal = false">
@@ -152,13 +162,19 @@ const showUrlModal = ref(false);
 const urlInput = ref("");
 const urlIngesting = ref(false);
 const urlError = ref("");
+const urlWorkspaceId = ref<string | null>(null);
+
+const openUrlModal = () => {
+  urlWorkspaceId.value = selectedWorkspaceId.value;
+  showUrlModal.value = true;
+};
 
 const handleIngestUrl = async () => {
   if (!urlInput.value) return;
   urlIngesting.value = true;
   urlError.value = "";
   try {
-    await ingestDocumentUrl(urlInput.value, selectedWorkspaceId.value);
+    await ingestDocumentUrl(urlInput.value, urlWorkspaceId.value);
     showUrlModal.value = false;
     urlInput.value = "";
     await fetchDocuments();

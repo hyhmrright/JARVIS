@@ -69,13 +69,23 @@
           >
             <MessageSquare class="w-3.5 h-3.5 flex-shrink-0" />
             <span class="text-xs truncate flex-1">{{ c.title }}</span>
-            <button
-              class="opacity-0 group-hover:opacity-100 p-1 hover:text-zinc-200"
-              title="Export"
-              @click.stop="exportConv(c.id, c.title)"
-            >
-              <Download class="w-3 h-3" />
-            </button>
+            <div class="relative opacity-0 group-hover:opacity-100">
+              <button
+                class="p-1 hover:text-zinc-200"
+                title="Export"
+                @click.stop="exportMenuConvId = exportMenuConvId === c.id ? null : c.id"
+              >
+                <Download class="w-3 h-3" />
+              </button>
+              <div
+                v-if="exportMenuConvId === c.id"
+                class="absolute right-0 top-6 z-50 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl py-1 w-36"
+              >
+                <button class="w-full text-left px-3 py-1.5 text-[11px] text-zinc-300 hover:bg-zinc-800 hover:text-white" @click.stop="downloadExport(c.id, c.title, 'md')">Markdown (.md)</button>
+                <button class="w-full text-left px-3 py-1.5 text-[11px] text-zinc-300 hover:bg-zinc-800 hover:text-white" @click.stop="downloadExport(c.id, c.title, 'json')">JSON</button>
+                <button class="w-full text-left px-3 py-1.5 text-[11px] text-zinc-300 hover:bg-zinc-800 hover:text-white" @click.stop="downloadExport(c.id, c.title, 'txt')">Plain text (.txt)</button>
+              </div>
+            </div>
             <button
               class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400"
               @click.stop="chat.deleteConversation(c.id)"
@@ -132,7 +142,7 @@
           <h2 class="text-xs font-semibold text-zinc-100 tracking-tight">{{ currentConvTitle }}</h2>
         </div>
         <div class="flex items-center gap-3">
-          <button 
+          <button
             v-if="activeCanvasContent"
             :class="['p-1.5 rounded transition-colors', canvasVisible ? 'bg-zinc-100 text-zinc-950' : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800']"
             title="Toggle Canvas"
@@ -140,7 +150,14 @@
           >
             <Layout class="w-4 h-4" />
           </button>
-          <button 
+          <button
+            class="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded transition-colors"
+            title="Prompt Templates"
+            @click="showTemplates = true"
+          >
+            <Sparkles class="w-4 h-4" />
+          </button>
+          <button
             class="text-zinc-500 hover:text-zinc-300 transition-colors relative"
             :disabled="sharing"
             @click="handleShare"
@@ -198,13 +215,23 @@
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <button 
+                <button
                   v-for="s in suggestions" :key="s.text"
                   class="p-4 rounded-xl border border-zinc-800 bg-zinc-950/50 hover:bg-zinc-800 hover:border-zinc-700 transition-all text-left group"
                   @click="input = s.prompt"
                 >
                   <div class="text-[13px] font-semibold text-zinc-200 group-hover:text-white">{{ s.text }}</div>
                   <div class="text-[11px] text-zinc-500 mt-1">{{ s.sub }}</div>
+                </button>
+              </div>
+
+              <div class="mt-6 flex justify-center">
+                <button
+                  class="flex items-center gap-2 px-4 py-2 rounded-lg border border-zinc-700 text-zinc-400 hover:text-zinc-100 hover:border-zinc-500 transition-all text-xs font-medium"
+                  @click="showTemplates = true"
+                >
+                  <Sparkles class="w-3.5 h-3.5" />
+                  Browse Templates
                 </button>
               </div>
             </div>
@@ -475,6 +502,9 @@
       @close="showTemplates = false"
       @select="applyTemplate"
     />
+
+    <!-- Export menu close backdrop -->
+    <div v-if="exportMenuConvId" class="fixed inset-0 z-40" @click="exportMenuConvId = null" />
   </div>
 </template>
 
@@ -514,6 +544,8 @@ const editInput = ref("");
 const fileInput = ref<HTMLInputElement>();
 const selectedImages = ref<string[]>([]);
 const sidebarCollapsed = ref(false);
+const exportMenuConvId = ref<string | null>(null);
+const pendingSystemPrompt = ref<string | null>(null);
 
 // Search state
 const searchMode = ref(false);
@@ -551,14 +583,19 @@ watch(searchMode, async (on) => {
   }
 });
 
-const exportConv = async (convId: string, title: string) => {
-  const resp = await exportConversation(convId, "md");
-  const url = URL.createObjectURL(resp.data as Blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${title}.md`;
-  a.click();
-  URL.revokeObjectURL(url);
+const downloadExport = async (convId: string, title: string, format: "md" | "json" | "txt") => {
+  exportMenuConvId.value = null;
+  try {
+    const resp = await exportConversation(convId, format);
+    const url = URL.createObjectURL(resp.data as Blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${title}.${format}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch {
+    toast.error("Export failed");
+  }
 };
 
 // Prompt template state
@@ -572,6 +609,9 @@ const applyTemplate = async (template: PromptTemplate) => {
     } catch {
       /* ignore */
     }
+  } else {
+    pendingSystemPrompt.value = template.system_prompt;
+    toast.info("Template applied — will be used when you start chatting");
   }
 };
 
@@ -875,6 +915,21 @@ const handleSend = async function(): Promise<void> {
   const personaId = selectedPersonaId.value;
   input.value = "";
   selectedImages.value = [];
+
+  // Apply pending template system prompt when starting a new conversation
+  if (pendingSystemPrompt.value && !chat.currentConvId) {
+    const title = msg.slice(0, 30) + (msg.length > 30 ? "..." : "");
+    try {
+      const { data } = await client.post("/conversations", { title });
+      chat.conversations.unshift(data);
+      chat.currentConvId = data.id;
+      await patchConversation(data.id, { persona_override: pendingSystemPrompt.value });
+    } catch {
+      /* ignore pre-create errors; sendMessage will handle conversation creation */
+    }
+    pendingSystemPrompt.value = null;
+  }
+
   await chat.sendMessage(msg, images.length > 0 ? images : undefined, undefined, personaId || undefined);
 };
 
