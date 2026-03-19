@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.compressor import compact_messages
 from app.agent.graph import create_graph
-from app.agent.persona import build_system_prompt
+from app.agent.persona import build_system_prompt, format_memories_for_prompt
 from app.agent.router import classify_task
 from app.agent.state import AgentState
 from app.agent.supervisor import SupervisorState, create_supervisor_graph
@@ -35,7 +35,14 @@ from app.core.limiter import limiter
 from app.core.metrics import llm_requests_total
 from app.core.sanitizer import sanitize_user_input
 from app.core.security import resolve_api_key
-from app.db.models import AgentSession, Conversation, InstalledPlugin, Message, User
+from app.db.models import (
+    AgentSession,
+    Conversation,
+    InstalledPlugin,
+    Message,
+    User,
+    UserMemory,
+)
 from app.db.session import AsyncSessionLocal, get_db
 from app.plugins import plugin_registry
 from app.rag.context import build_rag_context
@@ -46,6 +53,23 @@ logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 _ROLE_TO_MESSAGE = {"human": HumanMessage, "ai": AIMessage}
+
+
+_MEMORY_PROMPT_LIMIT = 100
+
+
+async def _build_memory_message(
+    db: AsyncSession, user_id: uuid.UUID
+) -> SystemMessage | None:
+    """Load user memories and return a SystemMessage for prompt injection, or None."""
+    rows = await db.scalars(
+        select(UserMemory)
+        .where(UserMemory.user_id == user_id)
+        .order_by(UserMemory.category, UserMemory.key)
+        .limit(_MEMORY_PROMPT_LIMIT)
+    )
+    block = format_memories_for_prompt(list(rows.all()))
+    return SystemMessage(content=block) if block else None
 
 
 def _format_sse(payload: dict) -> str:
@@ -410,6 +434,11 @@ async def chat_stream(  # noqa: C901
     system_msg = SystemMessage(content=build_system_prompt(llm.persona_override))
     lc_messages = [system_msg, *lc_messages]
 
+    # Inject persistent user memories after the main system prompt
+    _mem_msg = await _build_memory_message(db, user.id)
+    if _mem_msg:
+        lc_messages = [lc_messages[0], _mem_msg, *lc_messages[1:]]
+
     # Detect first exchange (for auto title generation later)
     is_first_exchange = sum(1 for m in lc_messages if isinstance(m, HumanMessage)) == 1
 
@@ -768,6 +797,11 @@ async def chat_regenerate(  # noqa: C901
 
     system_msg = SystemMessage(content=build_system_prompt(llm.persona_override))
     lc_messages = [system_msg, *lc_messages]
+
+    # Inject persistent user memories after the main system prompt
+    _mem_msg = await _build_memory_message(db, user.id)
+    if _mem_msg:
+        lc_messages = [lc_messages[0], _mem_msg, *lc_messages[1:]]
 
     user_content = all_history[-1].content if all_history else ""
     openai_key = resolve_api_key("openai", llm.raw_keys)

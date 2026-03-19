@@ -473,6 +473,47 @@ class PluginConfig(Base):
     )
 
 
+class UserMemory(Base):
+    """Persistent key-value facts the AI stores on behalf of the user.
+
+    Written by the agent via the ``remember`` tool; read back and injected
+    into the system prompt so knowledge persists across conversations.
+    """
+
+    __tablename__ = "user_memories"
+    __table_args__ = (
+        UniqueConstraint("user_id", "key", name="uq_user_memories_user_key"),
+        CheckConstraint(
+            "category IN ('preference', 'fact', 'reminder', 'general')",
+            name="ck_user_memories_category",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    key: Mapped[str] = mapped_column(String(255), nullable=False)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[str] = mapped_column(
+        String(50), nullable=False, server_default="general", index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
 class AuditLog(Base):
     """Immutable record of security-relevant user actions."""
 

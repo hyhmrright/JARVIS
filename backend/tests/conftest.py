@@ -218,3 +218,24 @@ async def _suppress_worker_async_session():
     mock_session.commit = AsyncMock()
     with patch("app.worker.AsyncSessionLocal", return_value=mock_session):
         yield
+
+
+@pytest.fixture(autouse=True)
+async def _suppress_user_memory_tool_async_session():
+    """Mock AsyncSessionLocal in user_memory_tool to prevent cross-loop contamination.
+
+    The remember/recall tools open AsyncSessionLocal() directly. Those connections
+    bind to the calling event loop and are invalid in the next test's event loop,
+    causing asyncpg "Future attached to a different loop".
+    """
+    mock_session = MagicMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+    mock_session.execute = AsyncMock(return_value=MagicMock())
+    mock_session.commit = AsyncMock()
+    _scalars = MagicMock()
+    _scalars.all = MagicMock(return_value=[])
+    mock_session.scalars = AsyncMock(return_value=_scalars)
+    target = "app.tools.user_memory_tool.AsyncSessionLocal"
+    with patch(target, return_value=mock_session):
+        yield

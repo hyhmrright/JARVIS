@@ -1,6 +1,13 @@
 """JARVIS persona — system prompt injected into every LLM request."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from app.agent.skills import format_skills_for_prompt, load_skills
+
+if TYPE_CHECKING:
+    from app.db.models import UserMemory
 from app.core.config import settings
 
 JARVIS_PERSONA = """\
@@ -51,3 +58,15 @@ def build_system_prompt(user_override: str | None = None) -> str:
     skills = load_skills(settings.skills_dir)
     skills_block = format_skills_for_prompt(skills)
     return base + skills_block
+
+
+def format_memories_for_prompt(memories: list[UserMemory]) -> str:
+    """Format a list of UserMemory objects into a system prompt block.
+
+    Returns an empty string when the list is empty so callers can skip
+    injecting an empty SystemMessage.
+    """
+    if not memories:
+        return ""
+    lines = [f"- [{m.category}] {m.key}: {m.value}" for m in memories]
+    return "## 用户个人记忆（跨对话持久化）\n" + "\n".join(lines)

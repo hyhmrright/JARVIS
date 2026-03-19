@@ -15,6 +15,7 @@ from app.tools.memory_tool import read_memory_file, search_local_memory
 from app.tools.rag_tool import create_rag_search_tool
 from app.tools.search_tool import create_web_search_tool
 from app.tools.shell_tool import shell_exec
+from app.tools.user_memory_tool import create_user_memory_tools
 from app.tools.web_fetch_tool import web_fetch
 
 _TOOL_MAP = {
@@ -34,7 +35,7 @@ logger = structlog.get_logger(__name__)
 _SENSITIVE_TOOLS = ("shell", "code_exec", "file_delete", "file_write")
 
 
-def _resolve_tools(
+def _resolve_tools(  # noqa: C901
     enabled_tools: list[str] | None,
     *,
     user_id: str | None,
@@ -67,6 +68,9 @@ def _resolve_tools(
 
     if user_id and (enabled_tools is None or "file" in enabled_tools):
         tools.extend(create_file_tools(user_id))
+
+    if user_id and (enabled_tools is None or "memory" in enabled_tools):
+        tools.extend(create_user_memory_tools(user_id))
 
     if (
         enabled_tools is not None
@@ -152,18 +156,6 @@ def create_graph(  # noqa: C901
     async def call_llm(state: AgentState) -> dict:
         response = await llm_with_tools.ainvoke(state.messages)
         return {"messages": [response]}
-
-    def should_use_tool(state: AgentState) -> str:
-        last = state.messages[-1]
-        if not (hasattr(last, "tool_calls") and last.tool_calls):
-            return END
-        for tc in last.tool_calls:
-            if any(s in tc["name"] for s in _SENSITIVE_TOOLS):
-                if state.approved is None:
-                    return "approval"
-                if state.approved is False:
-                    return END
-        return "tools"
 
     async def ask_approval(state: AgentState) -> dict:
         last_msg = state.messages[-1]

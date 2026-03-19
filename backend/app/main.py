@@ -21,6 +21,7 @@ from app.api.gateway import router as gateway_router
 from app.api.invitations import router as invitations_router
 from app.api.keys import router as keys_router
 from app.api.logs import router as logs_router
+from app.api.memory import router as memory_router
 from app.api.organizations import router as organizations_router
 from app.api.personas import router as personas_router
 from app.api.plugins import router as plugins_router
@@ -215,6 +216,7 @@ app.include_router(cron_router)
 app.include_router(documents_router)
 app.include_router(settings_router)
 app.include_router(logs_router)
+app.include_router(memory_router)
 app.include_router(plugins_router)
 app.include_router(personas_router)
 app.include_router(public_router)
