@@ -9,11 +9,11 @@
           <h1 class="text-[13px] font-bold text-white tracking-tight truncate max-w-[200px] sm:max-w-md">
             {{ title }}
           </h1>
-          <span class="px-1.5 py-0.5 bg-zinc-800 text-zinc-500 rounded text-[9px] font-bold uppercase tracking-widest">Shared</span>
+          <span class="px-1.5 py-0.5 bg-zinc-800 text-zinc-500 rounded text-[9px] font-bold uppercase tracking-widest">{{ $t("sharedChat.badge") }}</span>
         </div>
         <div class="flex items-center gap-2">
           <router-link to="/" class="text-[11px] font-bold text-zinc-400 hover:text-white transition-colors">
-            GET JARVIS
+            {{ $t("sharedChat.getJarvis") }}
           </router-link>
         </div>
       </header>
@@ -23,7 +23,7 @@
         <div class="max-w-3xl mx-auto px-6 py-12 space-y-12">
           <div v-if="loading" class="flex flex-col items-center justify-center py-20 gap-4">
             <div class="w-5 h-5 border-2 border-white/10 border-t-white rounded-full animate-spin"></div>
-            <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Loading Conversation</span>
+            <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">{{ $t("sharedChat.loading") }}</span>
           </div>
 
           <div v-else-if="error" class="flex flex-col items-center justify-center py-20 gap-4 text-red-400">
@@ -44,7 +44,7 @@
                   msg.role === 'ai' ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-400']">
                   {{ msg.role === 'ai' ? 'J' : 'U' }}
                 </div>
-                <span class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">{{ msg.role === 'ai' ? 'Autonomous Agent' : 'User' }}</span>
+                <span class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">{{ msg.role === 'ai' ? $t('sharedChat.roleAI') : $t('sharedChat.roleUser') }}</span>
               </div>
 
               <!-- Content Column -->
@@ -60,7 +60,7 @@
       </div>
 
       <footer class="h-12 border-t border-white/5 flex items-center justify-center bg-zinc-950/50">
-        <p class="text-[10px] text-zinc-600 font-medium">Shared via JARVIS AI Assistant</p>
+        <p class="text-[10px] text-zinc-600 font-medium">{{ $t("sharedChat.footer") }}</p>
       </footer>
     </main>
   </div>
@@ -69,14 +69,16 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useRoute } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { marked } from "marked";
 import hljs from "highlight.js";
 import "highlight.js/styles/github-dark.css";
 import { ShieldAlert } from "lucide-vue-next";
 import client from "@/api/client";
 
+const { t } = useI18n();
 const route = useRoute();
-const title = ref("Shared Conversation");
+const title = ref(t("sharedChat.defaultTitle"));
 const messages = ref<any[]>([]);
 const loading = ref(true);
 const error = ref<string | null>(null);
@@ -103,7 +105,7 @@ onMounted(async () => {
     title.value = data.title;
     messages.value = data.messages;
   } catch (err: any) {
-    error.value = err.response?.data?.detail || "Failed to load shared conversation";
+    error.value = err.response?.data?.detail || t("sharedChat.loadError");
   } finally {
     loading.value = false;
   }

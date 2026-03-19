@@ -6,11 +6,11 @@
         <div class="space-y-2">
           <div class="flex items-center gap-2 text-[10px] font-black text-white tracking-[0.2em] uppercase">
             <UserCircle class="w-3.5 h-3.5" />
-            Agent Personalities
+            {{ $t("personas.agentPersonalities") }}
           </div>
-          <h1 class="text-4xl font-bold text-white tracking-tight">Personas</h1>
+          <h1 class="text-4xl font-bold text-white tracking-tight">{{ $t("personas.title") }}</h1>
           <p class="text-zinc-500 text-sm max-w-lg">
-            Define custom system prompts to give JARVIS a specific role, expertise, or personality.
+            {{ $t("personas.description") }}
           </p>
         </div>
         
@@ -19,7 +19,7 @@
           @click="showCreateModal = true"
         >
           <Plus class="w-4 h-4" />
-          Create Persona
+          {{ $t("personas.create") }}
         </button>
       </header>
 
@@ -40,11 +40,11 @@
           <Smile class="w-8 h-8" />
         </div>
         <div class="space-y-1">
-          <p class="text-white font-bold">No personas yet</p>
-          <p class="text-zinc-500 text-sm">Create your first custom AI personality to get started.</p>
+          <p class="text-white font-bold">{{ $t("personas.emptyTitle") }}</p>
+          <p class="text-zinc-500 text-sm">{{ $t("personas.emptyDesc") }}</p>
         </div>
         <button class="text-white text-xs font-black uppercase tracking-widest underline decoration-zinc-700 hover:decoration-white transition-all" @click="showCreateModal = true">
-          Create Now
+          {{ $t("personas.createNow") }}
         </button>
       </div>
 
@@ -67,11 +67,11 @@
             
             <div>
               <h3 class="text-lg font-bold text-white mb-1">{{ persona.name }}</h3>
-              <p class="text-zinc-500 text-xs line-clamp-2 leading-relaxed">{{ persona.description || 'No description provided.' }}</p>
+              <p class="text-zinc-500 text-xs line-clamp-2 leading-relaxed">{{ persona.description || $t('personas.noDescription') }}</p>
             </div>
 
             <div class="bg-black/40 rounded-lg p-3 border border-white/5">
-              <p class="text-[10px] text-zinc-600 font-black uppercase tracking-widest mb-1">System Prompt</p>
+              <p class="text-[10px] text-zinc-600 font-black uppercase tracking-widest mb-1">{{ $t("personas.systemPromptLabel") }}</p>
               <p class="text-[11px] text-zinc-400 font-mono line-clamp-3 leading-relaxed">{{ persona.system_prompt }}</p>
             </div>
           </div>
@@ -86,7 +86,7 @@
         <div class="relative bg-zinc-950 border border-zinc-800 w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
           <div class="p-8 space-y-6">
             <div class="flex items-center justify-between">
-              <h2 class="text-xl font-bold text-white tracking-tight">New Persona</h2>
+              <h2 class="text-xl font-bold text-white tracking-tight">{{ $t("personas.newPersona") }}</h2>
               <button class="text-zinc-500 hover:text-white transition-colors" @click="showCreateModal = false">
                 <X class="w-5 h-5" />
               </button>
@@ -94,31 +94,31 @@
 
             <div class="space-y-4">
               <div class="space-y-1.5">
-                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Name</label>
-                <input 
+                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{{ $t("personas.nameLabel") }}</label>
+                <input
                   v-model="form.name"
-                  type="text" 
-                  placeholder="e.g. Senior Python Developer"
+                  type="text"
+                  :placeholder="$t('personas.namePlaceholder')"
                   class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-zinc-600 transition-colors"
                 />
               </div>
 
               <div class="space-y-1.5">
-                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Description (Optional)</label>
-                <input 
+                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{{ $t("personas.descLabel") }}</label>
+                <input
                   v-model="form.description"
-                  type="text" 
-                  placeholder="Briefly describe what this persona is for..."
+                  type="text"
+                  :placeholder="$t('personas.descPlaceholder')"
                   class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-zinc-600 transition-colors"
                 />
               </div>
 
               <div class="space-y-1.5">
-                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest">System Prompt</label>
-                <textarea 
+                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{{ $t("personas.systemPromptLabel") }}</label>
+                <textarea
                   v-model="form.system_prompt"
                   rows="6"
-                  placeholder="You are a professional Python developer with 10 years of experience..."
+                  :placeholder="$t('personas.promptPlaceholder')"
                   class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-zinc-600 transition-colors resize-none font-mono"
                 ></textarea>
               </div>
@@ -131,10 +131,10 @@
             >
               <template v-if="saving">
                 <div class="w-3 h-3 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>
-                Saving...
+                {{ $t("personas.saving") }}
               </template>
               <template v-else>
-                Save Persona
+                {{ $t("personas.save") }}
               </template>
             </button>
           </div>
@@ -146,8 +146,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import { UserCircle, Plus, Trash2, ShieldAlert, Smile, X } from "lucide-vue-next";
 import client from "@/api/client";
+
+const { t } = useI18n();
 
 interface Persona {
   id: string;
@@ -179,7 +182,7 @@ const fetchPersonas = async () => {
     const { data } = await client.get("/personas");
     personas.value = data;
   } catch (err) {
-    error.value = "Failed to load personas.";
+    error.value = t("personas.loadError");
     console.error(err);
   } finally {
     loading.value = false;
@@ -196,19 +199,20 @@ const createPersona = async () => {
     form.value = { name: "", description: "", system_prompt: "" };
   } catch (err) {
     console.error("Create failed:", err);
-    alert("Failed to save persona.");
+    alert(t("personas.saveError"));
   } finally {
     saving.value = false;
   }
 };
 
 const deletePersona = async (persona: Persona) => {
-  if (!confirm(`Delete persona "${persona.name}"?`)) return;
+  if (!confirm(t("personas.deleteConfirm", { name: persona.name }))) return;
   try {
     await client.delete(`/personas/${persona.id}`);
     personas.value = personas.value.filter(p => p.id !== persona.id);
   } catch (err) {
     console.error("Delete failed:", err);
+    alert(t("personas.deleteError"));
   }
 };
 
