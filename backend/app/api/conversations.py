@@ -2,7 +2,7 @@ import json as _json
 import secrets
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -107,6 +107,7 @@ async def search_conversations(
             Conversation.title.ilike(pattern),
         )
         .order_by(Conversation.updated_at.desc())
+        .limit(limit)
     )
     title_convs = list(title_rows.scalars().all())
     title_ids = {c.id for c in title_convs}
@@ -121,6 +122,7 @@ async def search_conversations(
         )
         .order_by(Message.conversation_id, Message.created_at, Message.id)
         .distinct(Message.conversation_id)
+        .limit(limit)
     )
     msg_matches: dict[uuid.UUID, str] = {
         row.conversation_id: row.content for row in msg_rows.all()
@@ -158,7 +160,7 @@ async def search_conversations(
 @router.get("/{conv_id}/export")
 async def export_conversation(
     conv_id: uuid.UUID,
-    format: str = Query("md", pattern="^(md|json|txt)$"),
+    format: Literal["md", "json", "txt"] = Query("md"),
     token: str | None = Query(None, description="Share token for public access"),
     user: "User | None" = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),

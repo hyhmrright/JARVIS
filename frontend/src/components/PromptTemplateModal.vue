@@ -67,11 +67,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { X } from 'lucide-vue-next'
-import { PROMPT_TEMPLATES, type PromptTemplate } from '@/data/prompt-templates'
+import { PROMPT_TEMPLATES, PROMPT_CATEGORIES, type PromptTemplate } from '@/data/prompt-templates'
 
 defineEmits<{ close: []; select: [template: PromptTemplate] }>()
 
-const CATEGORIES = ['all', 'coding', 'analysis', 'writing', 'productivity', 'language'] as const
+const CATEGORIES = PROMPT_CATEGORIES
 const search = ref('')
 const activeCategory = ref<string>('all')
 

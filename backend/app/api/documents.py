@@ -301,12 +301,14 @@ async def ingest_url(
             raise HTTPException(
                 status_code=400, detail=f"Failed to fetch URL: {e}"
             ) from e
+        content_length = response.headers.get("content-length")
+        if content_length and int(content_length) > _MAX_URL_CONTENT_BYTES:
+            raise HTTPException(status_code=400, detail="Page too large (max 5 MB)")
         if len(response.content) > _MAX_URL_CONTENT_BYTES:
             raise HTTPException(status_code=400, detail="Page too large (max 5 MB)")
+        html_content = response.content
 
-    title, text = await asyncio.to_thread(
-        _extract_page_text, response.content, body.url
-    )
+    title, text = await asyncio.to_thread(_extract_page_text, html_content, body.url)
     if not text.strip():
         raise HTTPException(status_code=400, detail="No readable content found on page")
 

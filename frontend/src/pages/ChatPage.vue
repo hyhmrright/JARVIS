@@ -593,7 +593,7 @@ const downloadExport = async (convId: string, title: string, format: "md" | "jso
     a.href = url;
     a.download = `${title}.${format}`;
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   } catch {
     toast.error("Export failed");
   }
@@ -664,7 +664,7 @@ const addImages = (files: File[]) => {
     accepted++;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      if (ev.target?.result) {
+      if (ev.target?.result && selectedImages.value.length < MAX_IMAGES) {
         selectedImages.value.push(ev.target.result as string);
       }
     };
@@ -830,6 +830,8 @@ const toggleSources = (msgId: string) => {
 
 interface RagSource { name: string; score: number; snippet: string }
 
+const RAG_SOURCE_RE = /\[(\d+)\] Document: "([^"]+)" \(relevance: ([\d.]+)\)\n([\s\S]*?)(?=\[\d+\] Document:|$)/g;
+
 const getRagSources = (msg: { id?: string; role: string; tool_calls?: Array<{name: string; id?: string}> | null }): RagSource[] => {
   if (msg.role !== 'ai' || !msg.tool_calls) return [];
   const ragCall = msg.tool_calls.find((tc) => tc.name === 'rag_search');
@@ -839,7 +841,7 @@ const getRagSources = (msg: { id?: string; role: string; tool_calls?: Array<{nam
   if (msgIdx === -1) return [];
 
   const sources: RagSource[] = [];
-  const re = new RegExp('\\[(\\d+)\\] Document: "([^"]+)" \\(relevance: ([\\d.]+)\\)\\n([\\s\\S]*?)(?=\\[\\d+\\] Document:|$)', "g");
+  const re = new RegExp(RAG_SOURCE_RE.source, RAG_SOURCE_RE.flags);
   for (let i = msgIdx + 1; i < chat.messages.length; i++) {
     const m = chat.messages[i];
     if (m.role !== 'tool') break;
@@ -922,14 +924,16 @@ const handleSend = async function(): Promise<void> {
   if (pendingSystemPrompt.value && !chat.currentConvId) {
     const title = msg.slice(0, 30) + (msg.length > 30 ? "..." : "");
     const templatePrompt = pendingSystemPrompt.value;
-    pendingSystemPrompt.value = null;
     try {
       const { data } = await client.post("/conversations", { title });
       chat.conversations.unshift(data);
       chat.currentConvId = data.id;
       await patchConversation(data.id, { persona_override: templatePrompt });
+      pendingSystemPrompt.value = null;
     } catch {
       toast.error("Failed to apply template to new conversation");
+      // Restore so the user can retry without re-selecting the template
+      pendingSystemPrompt.value = templatePrompt;
     }
   }
 

@@ -1,6 +1,9 @@
+export const PROMPT_CATEGORIES = ['all', 'productivity', 'coding', 'writing', 'language', 'analysis'] as const
+export type PromptCategory = (typeof PROMPT_CATEGORIES)[number]
+
 export interface PromptTemplate {
   id: string
-  category: 'productivity' | 'coding' | 'writing' | 'language' | 'analysis'
+  category: Exclude<PromptCategory, 'all'>
   name: string
   description: string
   system_prompt: string
