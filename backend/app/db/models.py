@@ -232,6 +232,10 @@ class Message(Base):
             "role IN ('human', 'ai', 'tool', 'system')",
             name="ck_messages_role",
         ),
+        CheckConstraint(
+            "user_rating IN (-1, 1) OR user_rating IS NULL",
+            name="ck_messages_user_rating",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -264,6 +268,7 @@ class Message(Base):
     is_bookmarked: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
+    user_rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

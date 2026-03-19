@@ -95,6 +95,7 @@ class MessageOut(BaseModel):
     tokens_input: int | None = None
     tokens_output: int | None = None
     is_bookmarked: bool = False
+    user_rating: Literal[1, -1] | None = None
     model_config = {"from_attributes": True}
 
 
@@ -333,6 +334,46 @@ async def toggle_bookmark(
         user_id=str(user.id),
         msg_id=str(msg_id),
         is_bookmarked=msg.is_bookmarked,
+    )
+    return msg
+
+
+class RateMessageRequest(BaseModel):
+    # 1 = thumbs up, -1 = thumbs down, None = clear rating
+    rating: Literal[1, -1] | None = None
+
+
+@router.patch("/{conv_id}/messages/{msg_id}/rate", response_model=MessageOut)
+async def rate_message(
+    conv_id: uuid.UUID,
+    msg_id: uuid.UUID,
+    body: RateMessageRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> MessageOut:
+    """Set or clear a thumbs-up/thumbs-down rating on a message."""
+    msg = await db.scalar(
+        select(Message)
+        .join(Conversation, Conversation.id == Message.conversation_id)
+        .where(
+            Message.id == msg_id,
+            Message.conversation_id == conv_id,
+            Conversation.user_id == user.id,
+            Message.role == "ai",
+        )
+    )
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if msg.user_rating == body.rating:
+        return msg
+    msg.user_rating = body.rating
+    await db.commit()
+    await db.refresh(msg)
+    logger.info(
+        "message_rated",
+        user_id=str(user.id),
+        msg_id=str(msg_id),
+        rating=body.rating,
     )
     return msg
 

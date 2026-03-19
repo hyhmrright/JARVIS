@@ -25,6 +25,7 @@ interface Message {
   tokens_output?: number | null;
   created_at?: string | null;
   is_bookmarked?: boolean;
+  user_rating?: 1 | -1 | null;
 }
 
 interface Conversation { id: string; title: string; active_leaf_id?: string | null; is_pinned: boolean; updated_at?: string }
@@ -178,6 +179,24 @@ export const useChatStore = defineStore("chat", {
       }
     },
 
+
+    async rateMessage(msgId: string, rating: 1 | -1 | null): Promise<void> {
+      if (!this.currentConvId) return;
+      const msg = this.messages.find((m) => m.id === msgId);
+      if (!msg) return;
+      const prev = msg.user_rating;
+      msg.user_rating = rating;
+      try {
+        const { data } = await client.patch<{ user_rating: 1 | -1 | null }>(
+          `/conversations/${this.currentConvId}/messages/${msgId}/rate`,
+          { rating },
+        );
+        msg.user_rating = data.user_rating;
+      } catch (err) {
+        msg.user_rating = prev;
+        throw err;
+      }
+    },
 
     async toggleBookmark(msgId: string): Promise<boolean | undefined> {
       if (!this.currentConvId) return;

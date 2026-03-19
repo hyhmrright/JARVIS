@@ -647,3 +647,92 @@ async def test_bookmarked_endpoint_excludes_other_user_messages(
     assert resp.status_code == 200
     ids = [r["id"] for r in resp.json()]
     assert str(other_msg.id) not in ids
+
+
+@pytest.mark.anyio
+async def test_rate_message_thumbs_up(auth_client, db_session):
+    user_id = _user_id(auth_client)
+    conv = Conversation(user_id=user_id, title="Rate Test")
+    db_session.add(conv)
+    await db_session.flush()
+    msg = Message(conversation_id=conv.id, role="ai", content="Answer")
+    db_session.add(msg)
+    await db_session.commit()
+
+    resp = await auth_client.patch(
+        f"/api/conversations/{conv.id}/messages/{msg.id}/rate",
+        json={"rating": 1},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["user_rating"] == 1
+
+
+@pytest.mark.anyio
+async def test_rate_message_clear(auth_client, db_session):
+    user_id = _user_id(auth_client)
+    conv = Conversation(user_id=user_id, title="Rate Clear Test")
+    db_session.add(conv)
+    await db_session.flush()
+    msg = Message(conversation_id=conv.id, role="ai", content="Answer", user_rating=1)
+    db_session.add(msg)
+    await db_session.commit()
+
+    resp = await auth_client.patch(
+        f"/api/conversations/{conv.id}/messages/{msg.id}/rate",
+        json={"rating": None},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["user_rating"] is None
+
+
+@pytest.mark.anyio
+async def test_rate_message_invalid_value(auth_client, db_session):
+    user_id = _user_id(auth_client)
+    conv = Conversation(user_id=user_id, title="Rate Invalid")
+    db_session.add(conv)
+    await db_session.flush()
+    msg = Message(conversation_id=conv.id, role="ai", content="Answer")
+    db_session.add(msg)
+    await db_session.commit()
+
+    resp = await auth_client.patch(
+        f"/api/conversations/{conv.id}/messages/{msg.id}/rate",
+        json={"rating": 5},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_rate_message_wrong_user_returns_404(
+    auth_client, second_user_auth_headers, db_session
+):
+    user2_id = _uid_from_headers(second_user_auth_headers)
+    conv = Conversation(user_id=user2_id, title="Private")
+    db_session.add(conv)
+    await db_session.flush()
+    msg = Message(conversation_id=conv.id, role="ai", content="Secret")
+    db_session.add(msg)
+    await db_session.commit()
+
+    resp = await auth_client.patch(
+        f"/api/conversations/{conv.id}/messages/{msg.id}/rate",
+        json={"rating": 1},
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_rate_human_message_returns_404(auth_client, db_session):
+    user_id = _user_id(auth_client)
+    conv = Conversation(user_id=user_id, title="Human Msg Test")
+    db_session.add(conv)
+    await db_session.flush()
+    msg = Message(conversation_id=conv.id, role="human", content="My question")
+    db_session.add(msg)
+    await db_session.commit()
+
+    resp = await auth_client.patch(
+        f"/api/conversations/{conv.id}/messages/{msg.id}/rate",
+        json={"rating": 1},
+    )
+    assert resp.status_code == 404

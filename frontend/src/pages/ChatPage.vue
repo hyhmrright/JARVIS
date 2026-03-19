@@ -310,8 +310,8 @@
           <!-- Message Blocks -->
           <div
             v-for="(msg, idx) in chat.activeMessages"
-            :key="idx"
             :id="msg.id ? `msg-${msg.id}` : undefined"
+            :key="idx"
             class="flex flex-col gap-4 animate-in fade-in duration-700"
           >
             <!-- Sender Label -->
@@ -488,6 +488,24 @@
                 <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Copy" @click="copyToClipboard(msg.content)">
                   <Copy class="w-3 h-3" />
                 </button>
+                <button
+                  v-if="msg.id && !chat.streaming"
+                  class="p-1.5 hover:bg-zinc-800 rounded transition-colors"
+                  :class="msg.user_rating === 1 ? 'text-emerald-400' : 'text-zinc-500'"
+                  title="Good response"
+                  @click="handleRateMessage(msg.id, msg.user_rating === 1 ? null : 1)"
+                >
+                  <ThumbsUp class="w-3 h-3" />
+                </button>
+                <button
+                  v-if="msg.id && !chat.streaming"
+                  class="p-1.5 hover:bg-zinc-800 rounded transition-colors"
+                  :class="msg.user_rating === -1 ? 'text-red-400' : 'text-zinc-500'"
+                  title="Bad response"
+                  @click="handleRateMessage(msg.id, msg.user_rating === -1 ? null : -1)"
+                >
+                  <ThumbsDown class="w-3 h-3" />
+                </button>
                 <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Regenerate" @click="regenerate(idx)">
                   <RotateCcw class="w-3 h-3" />
                 </button>
@@ -639,7 +657,7 @@ import {
   PanelLeft, SquarePen, Copy, RotateCcw,
   Mic, ArrowUp, Square, ShieldAlert, Share2, MessageSquare,
   Volume2, Layout, Image, X, ChevronDown,
-  Search, Download, Sparkles, Pin, Bookmark, BookmarkCheck
+  Search, Download, Sparkles, Pin, Bookmark, BookmarkCheck, ThumbsUp, ThumbsDown
 } from "lucide-vue-next";
 
 import LiveCanvas from "@/components/LiveCanvas.vue";
@@ -727,6 +745,14 @@ const openBookmark = async (bm: BookmarkedMessage) => {
   await selectConversation(bm.conv_id);
   await nextTick();
   document.getElementById(`msg-${bm.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+};
+
+const handleRateMessage = async (msgId: string, rating: 1 | -1 | null) => {
+  try {
+    await chat.rateMessage(msgId, rating);
+  } catch {
+    toast.error("Failed to save rating");
+  }
 };
 
 const handleToggleBookmark = async (msgId: string) => {
