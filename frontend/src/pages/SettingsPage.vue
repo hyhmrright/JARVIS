@@ -164,17 +164,22 @@
               class="flex items-center justify-between bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3"
             >
               <div class="min-w-0">
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
                   <span class="text-sm font-medium text-zinc-200 truncate">{{ key.name }}</span>
                   <span
                     class="text-[10px] px-1.5 py-0.5 rounded font-mono"
                     :class="key.scope === 'readonly' ? 'bg-amber-500/20 text-amber-400' : 'bg-green-500/20 text-green-400'"
                   >{{ key.scope }}</span>
+                  <span
+                    v-if="key.expires_at"
+                    class="text-[10px] px-1.5 py-0.5 rounded font-sans"
+                    :class="isExpiringSoon(key.expires_at) ? 'bg-red-500/20 text-red-400' : 'bg-zinc-700/60 text-zinc-400'"
+                  >{{ $t('apiKeys.expires') }} {{ new Date(key.expires_at).toLocaleDateString(locale) }}</span>
                 </div>
                 <div class="text-xs text-zinc-500 font-mono mt-0.5">
                   {{ key.prefix }}••••••••
-                  <span v-if="key.last_used_at" class="ml-3 font-sans">
-                    {{ $t('apiKeys.lastUsed') }}: {{ new Date(key.last_used_at).toLocaleDateString() }}
+                  <span class="ml-3 font-sans" :class="key.last_used_at ? 'text-zinc-500' : 'text-zinc-600 italic'">
+                    {{ key.last_used_at ? `${$t('apiKeys.lastUsed')}: ${keyRelativeTime(key.last_used_at)}` : $t('apiKeys.neverUsed') }}
                   </span>
                 </div>
               </div>
@@ -665,6 +670,30 @@ function copyKey(): void {
     keysCopied.value = true;
     setTimeout(() => (keysCopied.value = false), 2000);
   }
+}
+
+const EXPIRY_WARNING_MS = 7 * 24 * 60 * 60 * 1000;
+
+function isExpiringSoon(expiresAt: string): boolean {
+  return new Date(expiresAt).getTime() - Date.now() < EXPIRY_WARNING_MS;
+}
+
+function keyRelativeTime(dateStr: string): string {
+  const rtf = new Intl.RelativeTimeFormat(locale.value, { numeric: "auto" });
+  const diffSecs = Math.round((new Date(dateStr).getTime() - Date.now()) / 1000);
+  const absSecs = Math.abs(diffSecs);
+  const sign = diffSecs < 0 ? -1 : 1;
+  if (absSecs < 60) return rtf.format(diffSecs, "second");
+  const absMins = Math.floor(absSecs / 60);
+  if (absMins < 60) return rtf.format(sign * absMins, "minute");
+  const absHours = Math.floor(absMins / 60);
+  if (absHours < 24) return rtf.format(sign * absHours, "hour");
+  const absDays = Math.floor(absHours / 24);
+  if (absDays < 30) return rtf.format(sign * absDays, "day");
+  const absMonths = Math.floor(absDays / 30);
+  return absMonths < 12
+    ? rtf.format(sign * absMonths, "month")
+    : rtf.format(sign * Math.floor(absMonths / 12), "year");
 }
 
 onMounted(async () => {

@@ -235,6 +235,8 @@
     "scopeReadonly": "읽기 전용",
     "empty": "API 키가 없습니다",
     "lastUsed": "마지막 사용",
+    "neverUsed": "사용 안 함",
+    "expires": "만료",
     "revoke": "폐기",
     "confirmDelete": "이 API 키를 폐기하시겠습니까? 되돌릴 수 없습니다.",
     "revealTitle": "새 API 키",

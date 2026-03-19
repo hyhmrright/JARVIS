@@ -235,6 +235,8 @@
     "scopeReadonly": "Nur Lesezugriff",
     "empty": "Keine API-Schlüssel vorhanden",
     "lastUsed": "Zuletzt verwendet",
+    "neverUsed": "Nie verwendet",
+    "expires": "Ablauf",
     "revoke": "Widerrufen",
     "confirmDelete": "Diesen API-Schlüssel widerrufen? Dies kann nicht rückgängig gemacht werden.",
     "revealTitle": "Ihr neuer API-Schlüssel",

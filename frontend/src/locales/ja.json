@@ -235,6 +235,8 @@
     "scopeReadonly": "読み取り専用",
     "empty": "APIキーがありません",
     "lastUsed": "最終使用",
+    "neverUsed": "未使用",
+    "expires": "有効期限",
     "revoke": "失効",
     "confirmDelete": "このAPIキーを失効させますか？元に戻せません。",
     "revealTitle": "新しいAPIキー",

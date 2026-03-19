@@ -235,6 +235,8 @@
     "scopeReadonly": "Lecture seule",
     "empty": "Aucune clé API",
     "lastUsed": "Dernière utilisation",
+    "neverUsed": "Jamais utilisée",
+    "expires": "Exp",
     "revoke": "Révoquer",
     "confirmDelete": "Révoquer cette clé API ? Cette action est irréversible.",
     "revealTitle": "Votre nouvelle clé API",

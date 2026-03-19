@@ -238,6 +238,8 @@
     "scopeReadonly": "Read-only access",
     "empty": "No API keys yet",
     "lastUsed": "Last used",
+    "neverUsed": "Never used",
+    "expires": "Exp",
     "revoke": "Revoke",
     "confirmDelete": "Revoke this API key? This cannot be undone.",
     "revealTitle": "Your New API Key",
