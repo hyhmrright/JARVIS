@@ -177,13 +177,17 @@
       "active": "有効",
       "disabled": "無効",
       "enable": "有効化",
-      "disable": "無効化"
+      "disable": "無効化",
+      "roleUpdateError": "ユーザーロールの更新に失敗しました",
+      "statusUpdateError": "ユーザーステータスの更新に失敗しました"
     },
     "plugins": {
       "tools": "ツール数",
       "install": "プラグインをインストール",
       "installTitle": "プラグインのインストール",
-      "installDesc": "プラグインPythonファイルの生URLを入力してください（例：GitHubから）"
+      "installDesc": "プラグインPythonファイルの生URLを入力してください（例：GitHubから）",
+      "toggleError": "プラグインの切り替えに失敗しました",
+      "installError": "プラグインのインストールに失敗しました"
     },
     "stats": {
       "users": "総ユーザー数",
@@ -226,6 +230,18 @@
     "changeSummary": "変更サマリー",
     "agentReply": "エージェント応答",
     "saveError": "作成に失敗しました。しばらくしてから再試行してください",
+    "executionFrequency": "実行頻度",
+    "every": "毎",
+    "unitSeconds": "秒",
+    "unitMinutes": "分",
+    "unitHours": "時間",
+    "unitDays": "日",
+    "runOnce": "1回実行",
+    "scheduleEvery": "{value}{unit}ごと",
+    "urlToWatch": "監視する URL",
+    "imapHost": "IMAPホスト",
+    "emailUser": "メールユーザー",
+    "appPassword": "アプリパスワード",
     "validation": {
       "taskRequired": "タスク指示を入力してください",
       "urlRequired": "URLを入力してください",

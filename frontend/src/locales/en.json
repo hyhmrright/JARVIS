@@ -198,6 +198,18 @@
     "changeSummary": "Change Summary",
     "agentReply": "Agent Reply",
     "saveError": "Failed to create task, please try again",
+    "executionFrequency": "Execution Frequency",
+    "every": "Every",
+    "unitSeconds": "seconds",
+    "unitMinutes": "minutes",
+    "unitHours": "hours",
+    "unitDays": "days",
+    "runOnce": "run once",
+    "scheduleEvery": "Every {value} {unit}",
+    "urlToWatch": "URL to watch",
+    "imapHost": "IMAP Host",
+    "emailUser": "Email User",
+    "appPassword": "App Password",
     "validation": {
       "taskRequired": "Task prompt is required",
       "urlRequired": "URL is required",
@@ -223,13 +235,17 @@
       "active": "Active",
       "disabled": "Disabled",
       "enable": "Enable",
-      "disable": "Disable"
+      "disable": "Disable",
+      "roleUpdateError": "Failed to update user role",
+      "statusUpdateError": "Failed to update user status"
     },
     "plugins": {
       "tools": "Tools",
       "install": "Install Plugin",
       "installTitle": "Install Plugin",
-      "installDesc": "Enter the raw URL of the plugin Python file (e.g. from GitHub)"
+      "installDesc": "Enter the raw URL of the plugin Python file (e.g. from GitHub)",
+      "toggleError": "Failed to toggle plugin",
+      "installError": "Failed to install plugin"
     },
     "stats": {
       "users": "Total Users",

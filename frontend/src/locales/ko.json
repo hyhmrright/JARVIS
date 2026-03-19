@@ -177,13 +177,17 @@
       "active": "활성",
       "disabled": "비활성",
       "enable": "활성화",
-      "disable": "비활성화"
+      "disable": "비활성화",
+      "roleUpdateError": "사용자 역할 업데이트에 실패했습니다",
+      "statusUpdateError": "사용자 상태 업데이트에 실패했습니다"
     },
     "plugins": {
       "tools": "도구 수",
       "install": "플러그인 설치",
       "installTitle": "플러그인 설치",
-      "installDesc": "플러그인 Python 파일의 원본 URL을 입력하세요 (예: GitHub에서)"
+      "installDesc": "플러그인 Python 파일의 원본 URL을 입력하세요 (예: GitHub에서)",
+      "toggleError": "플러그인 전환에 실패했습니다",
+      "installError": "플러그인 설치에 실패했습니다"
     },
     "stats": {
       "users": "총 사용자 수",
@@ -226,6 +230,18 @@
     "changeSummary": "변경 요약",
     "agentReply": "에이전트 응답",
     "saveError": "작업 생성에 실패했습니다. 잠시 후 다시 시도해 주세요",
+    "executionFrequency": "실행 빈도",
+    "every": "매",
+    "unitSeconds": "초",
+    "unitMinutes": "분",
+    "unitHours": "시간",
+    "unitDays": "일",
+    "runOnce": "한 번 실행",
+    "scheduleEvery": "{value}{unit}마다",
+    "urlToWatch": "감시할 URL",
+    "imapHost": "IMAP 호스트",
+    "emailUser": "이메일 사용자",
+    "appPassword": "앱 비밀번호",
     "validation": {
       "taskRequired": "작업 지시를 입력해 주세요",
       "urlRequired": "URL을 입력해 주세요",

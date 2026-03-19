@@ -133,9 +133,9 @@
 
           <div class="space-y-4">
             <div class="flex flex-col gap-2">
-              <label class="text-xs font-semibold text-zinc-400">执行频率</label>
+              <label class="text-xs font-semibold text-zinc-400">{{ $t('proactive.executionFrequency') }}</label>
               <div class="flex items-center gap-3">
-                <span class="text-sm text-zinc-500">每隔</span>
+                <span class="text-sm text-zinc-500">{{ $t('proactive.every') }}</span>
                 <input
                   v-model.number="intervalValue"
                   type="number"
@@ -146,12 +146,12 @@
                   v-model="intervalUnit"
                   class="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-600 transition-colors"
                 >
-                  <option value="s">秒</option>
-                  <option value="m">分钟</option>
-                  <option value="h">小时</option>
-                  <option value="d">天</option>
+                  <option value="s">{{ $t('proactive.unitSeconds') }}</option>
+                  <option value="m">{{ $t('proactive.unitMinutes') }}</option>
+                  <option value="h">{{ $t('proactive.unitHours') }}</option>
+                  <option value="d">{{ $t('proactive.unitDays') }}</option>
                 </select>
-                <span class="text-sm text-zinc-500">运行一次</span>
+                <span class="text-sm text-zinc-500">{{ $t('proactive.runOnce') }}</span>
               </div>
             </div>
 
@@ -168,7 +168,7 @@
 
           <!-- web_watcher fields -->
           <div v-if="newJob.trigger_type === 'web_watcher'" class="flex flex-col gap-2 animate-in fade-in slide-in-from-top-2">
-            <label class="text-xs font-semibold text-zinc-400">URL to watch</label>
+            <label class="text-xs font-semibold text-zinc-400">{{ $t('proactive.urlToWatch') }}</label>
             <input v-model="newJob.trigger_metadata.url" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" placeholder="https://..." />
             <span v-if="formErrors.url" class="text-red-400 text-xs mt-1 block">{{ formErrors.url }}</span>
           </div>
@@ -176,7 +176,7 @@
           <!-- semantic_watcher fields -->
           <div v-if="newJob.trigger_type === 'semantic_watcher'" class="space-y-4 animate-in fade-in slide-in-from-top-2">
             <div class="flex flex-col gap-2">
-              <label class="text-xs font-semibold text-zinc-400">URL to watch</label>
+              <label class="text-xs font-semibold text-zinc-400">{{ $t('proactive.urlToWatch') }}</label>
               <input v-model="newJob.trigger_metadata.url" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" placeholder="https://..." />
               <span v-if="formErrors.url" class="text-red-400 text-xs mt-1 block">{{ formErrors.url }}</span>
             </div>
@@ -194,7 +194,7 @@
           <!-- email fields -->
           <div v-if="newJob.trigger_type === 'email'" class="space-y-4 animate-in fade-in slide-in-from-top-2">
             <div class="flex flex-col gap-2">
-              <label class="text-xs font-semibold text-zinc-400">IMAP Host</label>
+              <label class="text-xs font-semibold text-zinc-400">{{ $t('proactive.imapHost') }}</label>
               <input v-model="newJob.trigger_metadata.imap_host" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" placeholder="imap.gmail.com" />
               <span v-if="formErrors.imap_host" class="text-red-400 text-xs mt-1 block">{{ formErrors.imap_host }}</span>
             </div>
@@ -209,12 +209,12 @@
               </div>
             </div>
             <div class="flex flex-col gap-2">
-              <label class="text-xs font-semibold text-zinc-400">Email User</label>
+              <label class="text-xs font-semibold text-zinc-400">{{ $t('proactive.emailUser') }}</label>
               <input v-model="newJob.trigger_metadata.imap_user" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" placeholder="user@example.com" />
               <span v-if="formErrors.imap_user" class="text-red-400 text-xs mt-1 block">{{ formErrors.imap_user }}</span>
             </div>
             <div class="flex flex-col gap-2">
-              <label class="text-xs font-semibold text-zinc-400">App Password</label>
+              <label class="text-xs font-semibold text-zinc-400">{{ $t('proactive.appPassword') }}</label>
               <input v-model="newJob.trigger_metadata.imap_password" type="password" class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors" />
             </div>
           </div>
@@ -323,8 +323,13 @@ function formatSchedule(schedule: string): string {
     if (match) {
       const value = match[1]
       const unit = match[2]
-      const unitMap: Record<string, string> = { s: '秒', m: '分', h: '时', d: '天' }
-      return `每 ${value} ${unitMap[unit]}`
+      const unitMap: Record<string, string> = {
+        s: t('proactive.unitSeconds'),
+        m: t('proactive.unitMinutes'),
+        h: t('proactive.unitHours'),
+        d: t('proactive.unitDays'),
+      }
+      return t('proactive.scheduleEvery', { value, unit: unitMap[unit] })
     }
   }
   return schedule // 如果是标准 Cron 则原样显示
@@ -514,7 +519,7 @@ async function toggleHistory(jobId: string) {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString('zh-CN', {
+  return new Date(iso).toLocaleString(undefined, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',

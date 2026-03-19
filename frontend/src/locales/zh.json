@@ -162,13 +162,17 @@
       "active": "激活",
       "disabled": "禁用",
       "enable": "启用",
-      "disable": "禁用"
+      "disable": "禁用",
+      "roleUpdateError": "更新用户角色失败",
+      "statusUpdateError": "更新用户状态失败"
     },
     "plugins": {
       "tools": "工具数",
       "install": "安装新插件",
       "installTitle": "安装插件",
-      "installDesc": "输入插件 Python 文件的原始 URL（如来自 GitHub）"
+      "installDesc": "输入插件 Python 文件的原始 URL（如来自 GitHub）",
+      "toggleError": "切换插件状态失败",
+      "installError": "安装插件失败"
     },
     "stats": {
       "users": "总用户数",
@@ -229,6 +233,18 @@
     "changeSummary": "变化摘要",
     "agentReply": "Agent 回复",
     "saveError": "创建失败，请稍后重试",
+    "executionFrequency": "执行频率",
+    "every": "每隔",
+    "unitSeconds": "秒",
+    "unitMinutes": "分钟",
+    "unitHours": "小时",
+    "unitDays": "天",
+    "runOnce": "运行一次",
+    "scheduleEvery": "每 {value} {unit}",
+    "urlToWatch": "监控 URL",
+    "imapHost": "IMAP 主机",
+    "emailUser": "邮箱用户名",
+    "appPassword": "应用密码",
     "validation": {
       "taskRequired": "请输入任务指令",
       "urlRequired": "请输入监控 URL",

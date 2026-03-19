@@ -177,13 +177,17 @@
       "active": "Aktiv",
       "disabled": "Deaktiviert",
       "enable": "Aktivieren",
-      "disable": "Deaktivieren"
+      "disable": "Deaktivieren",
+      "roleUpdateError": "Aktualisierung der Benutzerrolle fehlgeschlagen",
+      "statusUpdateError": "Aktualisierung des Benutzerstatus fehlgeschlagen"
     },
     "plugins": {
       "tools": "Werkzeuge",
       "install": "Plugin installieren",
       "installTitle": "Plugin installieren",
-      "installDesc": "Geben Sie die URL der Python-Datei des Plugins ein (z. B. von GitHub)"
+      "installDesc": "Geben Sie die URL der Python-Datei des Plugins ein (z. B. von GitHub)",
+      "toggleError": "Plugin-Umschalten fehlgeschlagen",
+      "installError": "Plugin-Installation fehlgeschlagen"
     },
     "stats": {
       "users": "Gesamtbenutzer",
@@ -226,6 +230,18 @@
     "changeSummary": "Änderungszusammenfassung",
     "agentReply": "Agent-Antwort",
     "saveError": "Erstellung fehlgeschlagen, bitte später erneut versuchen",
+    "executionFrequency": "Ausführungsintervall",
+    "every": "Alle",
+    "unitSeconds": "Sekunden",
+    "unitMinutes": "Minuten",
+    "unitHours": "Stunden",
+    "unitDays": "Tage",
+    "runOnce": "einmal ausführen",
+    "scheduleEvery": "Alle {value} {unit}",
+    "urlToWatch": "Zu überwachende URL",
+    "imapHost": "IMAP-Host",
+    "emailUser": "E-Mail-Benutzer",
+    "appPassword": "App-Passwort",
     "validation": {
       "taskRequired": "Aufgabenanweisung ist erforderlich",
       "urlRequired": "URL ist erforderlich",

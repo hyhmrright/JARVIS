@@ -146,16 +146,18 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import adminApi, { AdminUser, SystemStats } from '@/api/admin';
 import PageHeader from '@/components/PageHeader.vue';
 import { useToast } from '@/composables/useToast';
 
 const tabs = [
-  { id: 'users', label: 'Users' },
-  { id: 'plugins', label: 'Plugins' },
-  { id: 'stats', label: 'Stats' },
+  { id: 'users' },
+  { id: 'plugins' },
+  { id: 'stats' },
 ];
 
+const { t } = useI18n();
 const { error: toastError } = useToast();
 const currentTab = ref('users');
 const users = ref<AdminUser[]>([]);
@@ -180,18 +182,18 @@ const handleRoleChange = async (userId: string, role: string) => {
   try {
     await adminApi.updateUser(userId, { role });
     await fetchUsers();
-  } catch (err) { console.error(err); }
+  } catch { toastError(t('admin.users.roleUpdateError')); }
 };
 
 const toggleUserStatus = async (user: AdminUser) => {
   try {
     await adminApi.updateUser(user.id, { is_active: !user.is_active });
     await fetchUsers();
-  } catch (err) { console.error(err); }
+  } catch { toastError(t('admin.users.statusUpdateError')); }
 };
 
 const togglePlugin = async (pluginId: string, enable: boolean) => {
-  try { await adminApi.enablePlugin(pluginId, enable); } catch (err) { console.error(err); }
+  try { await adminApi.enablePlugin(pluginId, enable); } catch { toastError(t('admin.plugins.toggleError')); }
 };
 
 const handleInstall = async () => {
@@ -200,7 +202,7 @@ const handleInstall = async () => {
     showAddModal.value = false;
     installUrl.value = '';
     await fetchPlugins();
-  } catch { toastError('Failed to install plugin'); }
+  } catch { toastError(t('admin.plugins.installError')); }
 };
 
 watch(currentTab, (newTab) => {

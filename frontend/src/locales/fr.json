@@ -177,13 +177,17 @@
       "active": "Actif",
       "disabled": "Désactivé",
       "enable": "Activer",
-      "disable": "Désactiver"
+      "disable": "Désactiver",
+      "roleUpdateError": "Échec de la mise à jour du rôle",
+      "statusUpdateError": "Échec de la mise à jour du statut"
     },
     "plugins": {
       "tools": "Outils",
       "install": "Installer un plugin",
       "installTitle": "Installer un plugin",
-      "installDesc": "Entrez l'URL brute du fichier Python du plugin (ex : depuis GitHub)"
+      "installDesc": "Entrez l'URL brute du fichier Python du plugin (ex : depuis GitHub)",
+      "toggleError": "Échec de la bascule du plugin",
+      "installError": "Échec de l'installation du plugin"
     },
     "stats": {
       "users": "Utilisateurs totaux",
@@ -226,6 +230,18 @@
     "changeSummary": "Résumé des modifications",
     "agentReply": "Réponse de l'agent",
     "saveError": "Échec de la création, veuillez réessayer",
+    "executionFrequency": "Fréquence d'exécution",
+    "every": "Toutes les",
+    "unitSeconds": "secondes",
+    "unitMinutes": "minutes",
+    "unitHours": "heures",
+    "unitDays": "jours",
+    "runOnce": "exécuter une fois",
+    "scheduleEvery": "Toutes les {value} {unit}",
+    "urlToWatch": "URL à surveiller",
+    "imapHost": "Hôte IMAP",
+    "emailUser": "Utilisateur e-mail",
+    "appPassword": "Mot de passe d'application",
     "validation": {
       "taskRequired": "L'instruction de tâche est requise",
       "urlRequired": "L'URL est requise",
