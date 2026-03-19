@@ -10,8 +10,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_db
-from app.db.models import Conversation, Message, User, WorkspaceMember
+from app.api.deps import get_current_user, get_db, require_workspace_member
+from app.db.models import Conversation, Message, User
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/usage", tags=["usage"])
@@ -39,15 +39,7 @@ async def get_usage_summary(
     ).join(Conversation, Message.conversation_id == Conversation.id)
 
     if workspace_id:
-        # Verify membership
-        membership = await db.scalar(
-            select(WorkspaceMember).where(
-                WorkspaceMember.workspace_id == workspace_id,
-                WorkspaceMember.user_id == user.id,
-            )
-        )
-        if not membership:
-            return {"error": "Not a workspace member"}
+        await require_workspace_member(workspace_id, user, db)
         stmt = stmt.where(Conversation.workspace_id == workspace_id)
     else:
         stmt = stmt.where(Conversation.user_id == user.id)
