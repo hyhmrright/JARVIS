@@ -69,6 +69,22 @@ class ChangePasswordRequest(BaseModel):
     _check_new_bytes = field_validator("new_password")(_validate_password_bytes)
 
 
+class ProfileUpdateRequest(BaseModel):
+    display_name: str | None = Field(None, max_length=100)
+
+    @field_validator("display_name", mode="before")
+    @classmethod
+    def normalize_display_name(cls, v: object) -> object:
+        """Convert whitespace-only strings to None so the DB column stays clean."""
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
+
+
+class ProfileOut(BaseModel):
+    display_name: str | None = None
+
+
 @router.post("/register", response_model=TokenResponse, status_code=201)
 @limiter.limit("3/minute")
 async def register(
@@ -150,3 +166,19 @@ async def change_password(
     await db.commit()
     logger.info("password_changed", user_id=str(user.id))
     await log_action("user.change_password", user_id=user.id, request=request)
+
+
+@router.patch("/profile", response_model=ProfileOut)
+@limiter.limit("10/minute")
+async def update_profile(
+    request: Request,
+    body: ProfileUpdateRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ProfileOut:
+    """Update the current user's display name."""
+    user.display_name = body.display_name
+    await db.commit()
+    logger.info("profile_updated", user_id=str(user.id))
+    await log_action("user.update_profile", user_id=user.id, request=request)
+    return ProfileOut(display_name=user.display_name)

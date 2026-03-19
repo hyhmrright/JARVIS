@@ -334,6 +334,33 @@
         </div>
       </form>
 
+      <!-- Profile (outside main form) -->
+      <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm mt-8">
+        <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-6">Profile</h3>
+        <div class="space-y-4 max-w-sm">
+          <div class="flex flex-col gap-2">
+            <label class="text-xs font-semibold text-zinc-400">Display Name</label>
+            <input
+              v-model="profileName"
+              type="text"
+              maxlength="100"
+              autocomplete="name"
+              class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600"
+              placeholder="Your name (optional)"
+            />
+          </div>
+          <p v-if="profileError" class="text-xs text-red-400">{{ profileError }}</p>
+          <button
+            type="button"
+            class="w-full py-2.5 bg-zinc-700 text-white text-sm font-semibold rounded-lg hover:bg-zinc-600 transition-colors disabled:opacity-50"
+            :disabled="profileSaving"
+            @click="saveProfile"
+          >
+            {{ profileSaving ? "Saving…" : "Save Profile" }}
+          </button>
+        </div>
+      </section>
+
       <!-- Change Password (outside main form to avoid accidental submit) -->
       <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm mt-8">
         <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-6">Change Password</h3>
@@ -393,6 +420,11 @@
       </div>
     </Transition>
     <Transition name="fade">
+      <div v-if="profileSaved" class="fixed bottom-32 left-1/2 -translate-x-1/2 px-6 py-3 bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-full text-sm font-medium backdrop-blur-md z-50">
+        Profile updated successfully.
+      </div>
+    </Transition>
+    <Transition name="fade">
       <div v-if="pwSaved" class="fixed bottom-20 left-1/2 -translate-x-1/2 px-6 py-3 bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-full text-sm font-medium backdrop-blur-md z-50">
         Password updated successfully.
       </div>
@@ -414,9 +446,11 @@ import { SUPPORTED_LOCALES } from "@/i18n";
 import { listApiKeys, createApiKey, deleteApiKey } from "@/api/keys";
 import type { ApiKeyItem, ApiKeyCreateRequest } from "@/api/keys";
 import { useWorkspaceStore } from "@/stores/workspace";
+import { useAuthStore } from "@/stores/auth";
 
 const { locale, t } = useI18n();
 const workspace = useWorkspaceStore();
+const auth = useAuthStore();
 const wsProvider = ref("");
 const wsApiKey = ref("");
 
@@ -452,6 +486,27 @@ const toolRegistry = ref<ToolRegistry[]>([]);
 const saved = ref(false);
 const saving = ref(false);
 const saveError = ref(false);
+
+// Profile state
+const profileName = ref(auth.displayName ?? "");
+const profileSaving = ref(false);
+const profileError = ref("");
+const profileSaved = ref(false);
+
+const saveProfile = async () => {
+  if (profileName.value.trim() === (auth.displayName ?? "")) return;
+  profileError.value = "";
+  profileSaving.value = true;
+  try {
+    await auth.updateDisplayName(profileName.value.trim() || null);
+    profileSaved.value = true;
+    setTimeout(() => { profileSaved.value = false; }, 3000);
+  } catch (err: any) {
+    profileError.value = err?.response?.data?.detail ?? "Failed to save profile.";
+  } finally {
+    profileSaving.value = false;
+  }
+};
 
 // Change password state
 const pwCurrent = ref("");

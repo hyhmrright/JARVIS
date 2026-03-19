@@ -47,6 +47,16 @@ export const useAuthStore = defineStore("auth", {
         localStorage.setItem("displayName", data.display_name);
       }
     },
+    /** 更新显示名称并同步到本地存储 */
+    async updateDisplayName(displayName: string | null) {
+      const { data } = await client.patch("/auth/profile", { display_name: displayName });
+      this.displayName = data.display_name;
+      if (data.display_name) {
+        localStorage.setItem("displayName", data.display_name);
+      } else {
+        localStorage.removeItem("displayName");
+      }
+    },
     /** 登出，清除 token */
     logout() {
       this.token = null;

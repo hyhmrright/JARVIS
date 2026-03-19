@@ -80,3 +80,46 @@ async def test_change_password_requires_auth(client):
         json={"current_password": "password123", "new_password": "newpassword456"},
     )
     assert resp.status_code == 401
+
+
+async def test_update_profile_success(client, auth_client):
+    resp = await auth_client.patch(
+        "/api/auth/profile",
+        json={"display_name": "New Name"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["display_name"] == "New Name"
+
+
+async def test_update_profile_clear_name(client, auth_client):
+    resp = await auth_client.patch(
+        "/api/auth/profile",
+        json={"display_name": None},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["display_name"] is None
+
+
+async def test_update_profile_name_too_long(client, auth_client):
+    resp = await auth_client.patch(
+        "/api/auth/profile",
+        json={"display_name": "x" * 101},
+    )
+    assert resp.status_code == 422
+
+
+async def test_update_profile_whitespace_normalized(client, auth_client):
+    resp = await auth_client.patch(
+        "/api/auth/profile",
+        json={"display_name": "   "},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["display_name"] is None
+
+
+async def test_update_profile_requires_auth(client):
+    resp = await client.patch(
+        "/api/auth/profile",
+        json={"display_name": "hacker"},
+    )
+    assert resp.status_code == 401
