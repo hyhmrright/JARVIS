@@ -494,11 +494,12 @@ const profileError = ref("");
 const profileSaved = ref(false);
 
 const saveProfile = async () => {
-  if (profileName.value.trim() === (auth.displayName ?? "")) return;
+  if (profileName.value.trim() === (auth.displayName?.trim() ?? "")) return;
   profileError.value = "";
   profileSaving.value = true;
   try {
     await auth.updateDisplayName(profileName.value.trim() || null);
+    profileName.value = auth.displayName ?? "";  // reflect server-normalized value
     profileSaved.value = true;
     setTimeout(() => { profileSaved.value = false; }, 3000);
   } catch (err: any) {
