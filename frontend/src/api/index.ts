@@ -15,7 +15,7 @@ export const searchConversations = (q: string, limit = 20) =>
 
 // Conversation export (returns Blob)
 export const exportConversation = (convId: string, format: "md" | "json" | "txt") =>
-  client.get(`/conversations/${convId}/export`, {
+  client.get<Blob>(`/conversations/${convId}/export`, {
     params: { format },
     responseType: "blob",
   });

@@ -509,7 +509,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick, computed } from "vue";
+import { ref, onMounted, onUnmounted, watch, nextTick, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useChatStore } from "@/stores/chat";
 import { useAuthStore } from "@/stores/auth";
@@ -550,7 +550,7 @@ const pendingSystemPrompt = ref<string | null>(null);
 // Search state
 const searchMode = ref(false);
 const searchQuery = ref("");
-const searchResults = ref<Array<{ conv_id: string; title: string; snippet: string }>>([]);
+const searchResults = ref<Array<{ conv_id: string; title: string; snippet: string; updated_at: string }>>([]);
 const searchInputEl = ref<HTMLInputElement>();
 
 const clearSearch = () => {
@@ -560,6 +560,7 @@ const clearSearch = () => {
 };
 
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
+onUnmounted(() => clearTimeout(searchTimer));
 watch(searchQuery, (q) => {
   if (searchTimer) clearTimeout(searchTimer);
   if (q.length < 2) {
@@ -587,7 +588,7 @@ const downloadExport = async (convId: string, title: string, format: "md" | "jso
   exportMenuConvId.value = null;
   try {
     const resp = await exportConversation(convId, format);
-    const url = URL.createObjectURL(resp.data as Blob);
+    const url = URL.createObjectURL(resp.data);
     const a = document.createElement("a");
     a.href = url;
     a.download = `${title}.${format}`;
@@ -606,8 +607,9 @@ const applyTemplate = async (template: PromptTemplate) => {
   if (chat.currentConvId) {
     try {
       await patchConversation(chat.currentConvId, { persona_override: template.system_prompt });
+      toast.success("Template applied");
     } catch {
-      /* ignore */
+      toast.error("Failed to apply template");
     }
   } else {
     pendingSystemPrompt.value = template.system_prompt;
@@ -919,15 +921,16 @@ const handleSend = async function(): Promise<void> {
   // Apply pending template system prompt when starting a new conversation
   if (pendingSystemPrompt.value && !chat.currentConvId) {
     const title = msg.slice(0, 30) + (msg.length > 30 ? "..." : "");
+    const templatePrompt = pendingSystemPrompt.value;
+    pendingSystemPrompt.value = null;
     try {
       const { data } = await client.post("/conversations", { title });
       chat.conversations.unshift(data);
       chat.currentConvId = data.id;
-      await patchConversation(data.id, { persona_override: pendingSystemPrompt.value });
+      await patchConversation(data.id, { persona_override: templatePrompt });
     } catch {
-      /* ignore pre-create errors; sendMessage will handle conversation creation */
+      toast.error("Failed to apply template to new conversation");
     }
-    pendingSystemPrompt.value = null;
   }
 
   await chat.sendMessage(msg, images.length > 0 ? images : undefined, undefined, personaId || undefined);

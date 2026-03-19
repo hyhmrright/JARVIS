@@ -165,12 +165,20 @@ const urlError = ref("");
 const urlWorkspaceId = ref<string | null>(null);
 
 const openUrlModal = () => {
+  urlInput.value = "";
+  urlError.value = "";
   urlWorkspaceId.value = selectedWorkspaceId.value;
   showUrlModal.value = true;
 };
 
 const handleIngestUrl = async () => {
   if (!urlInput.value) return;
+  try {
+    new URL(urlInput.value);
+  } catch {
+    urlError.value = "Please enter a valid URL (e.g. https://example.com)";
+    return;
+  }
   urlIngesting.value = true;
   urlError.value = "";
   try {
