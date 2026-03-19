@@ -11,7 +11,8 @@
     "confirm": "확인",
     "copy": "복사",
     "copied": "복사됨!",
-    "saving": "저장 중..."
+    "saving": "저장 중...",
+    "clone": "복제"
   },
   "login": {
     "title": "JARVIS 로그인",
@@ -384,6 +385,7 @@
     "saveError": "페르소나 저장 실패.",
     "deleteConfirm": "페르소나 \"{name}\"를 삭제하시겠습니까?",
     "deleteError": "페르소나 삭제 실패.",
+    "cloneError": "페르소나 복제 실패.",
     "editPersona": "페르소나 편집",
     "searchPlaceholder": "페르소나 검색...",
     "noMatch": "\"{query}\"와 일치하는 페르소나가 없습니다"
@@ -455,6 +457,7 @@
     "noMatch": "\"{query}\"와 일치하는 워크플로가 없습니다",
     "loadError": "워크플로를 불러오지 못했습니다.",
     "deleteConfirm": "워크플로 \"{name}\"를 삭제하시겠습니까?",
-    "deleteError": "워크플로 삭제에 실패했습니다."
+    "deleteError": "워크플로 삭제에 실패했습니다.",
+    "cloneError": "워크플로 복제 실패."
   }
 }

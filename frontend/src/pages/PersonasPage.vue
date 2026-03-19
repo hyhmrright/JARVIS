@@ -76,6 +76,9 @@
                 <span class="text-lg font-bold">{{ persona.name.charAt(0) }}</span>
               </div>
               <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button class="p-2 text-zinc-600 hover:text-white transition-colors" :title="$t('common.clone')" @click="clonePersona(persona)">
+                  <Copy class="w-4 h-4" />
+                </button>
                 <button class="p-2 text-zinc-600 hover:text-white transition-colors" @click="openEditModal(persona)">
                   <Pencil class="w-4 h-4" />
                 </button>
@@ -167,7 +170,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { UserCircle, Plus, Trash2, Pencil, ShieldAlert, Smile, X } from 'lucide-vue-next';
+import { UserCircle, Plus, Trash2, Pencil, ShieldAlert, Smile, X, Copy } from 'lucide-vue-next';
 import client from '@/api/client';
 import { useToast } from '@/composables/useToast';
 import { useSearchFilter } from '@/composables/useSearchFilter';
@@ -260,6 +263,16 @@ const updatePersona = async () => {
     toastError(t("personas.saveError"));
   } finally {
     saving.value = false;
+  }
+};
+
+const clonePersona = async (persona: Persona) => {
+  try {
+    const { data } = await client.post(`/personas/${persona.id}/clone`);
+    personas.value.push(data);
+  } catch (err) {
+    console.error('Clone failed:', err);
+    toastError(t('personas.cloneError'));
   }
 };
 

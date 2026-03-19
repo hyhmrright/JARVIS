@@ -11,7 +11,8 @@
     "next": "Next",
     "copy": "Copy",
     "copied": "Copied!",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "clone": "Clone"
   },
   "login": {
     "title": "Login to JARVIS",
@@ -384,6 +385,7 @@
     "saveError": "Failed to save persona.",
     "deleteConfirm": "Delete persona \"{name}\"?",
     "deleteError": "Failed to delete persona.",
+    "cloneError": "Failed to clone persona.",
     "editPersona": "Edit Persona",
     "searchPlaceholder": "Search personas...",
     "noMatch": "No personas match \"{query}\""
@@ -455,6 +457,7 @@
     "noMatch": "No workflows match \"{query}\"",
     "loadError": "Failed to load workflows.",
     "deleteConfirm": "Delete workflow \"{name}\"?",
-    "deleteError": "Failed to delete workflow."
+    "deleteError": "Failed to delete workflow.",
+    "cloneError": "Failed to clone workflow."
   }
 }

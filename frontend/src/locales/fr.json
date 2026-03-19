@@ -11,7 +11,8 @@
     "confirm": "Confirmer",
     "copy": "Copier",
     "copied": "Copié !",
-    "saving": "Enregistrement..."
+    "saving": "Enregistrement...",
+    "clone": "Dupliquer"
   },
   "login": {
     "title": "Connexion à JARVIS",
@@ -384,6 +385,7 @@
     "saveError": "Échec de l'enregistrement du persona.",
     "deleteConfirm": "Supprimer le persona « {name} » ?",
     "deleteError": "Échec de la suppression du persona.",
+    "cloneError": "Échec de la duplication du persona.",
     "editPersona": "Modifier le persona",
     "searchPlaceholder": "Rechercher des personas...",
     "noMatch": "Aucun persona ne correspond à « {query} »"
@@ -455,6 +457,7 @@
     "noMatch": "Aucun workflow ne correspond à « {query} »",
     "loadError": "Impossible de charger les workflows.",
     "deleteConfirm": "Supprimer le workflow « {name} » ?",
-    "deleteError": "Impossible de supprimer le workflow."
+    "deleteError": "Impossible de supprimer le workflow.",
+    "cloneError": "Impossible de dupliquer le workflow."
   }
 }

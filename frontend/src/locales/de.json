@@ -11,7 +11,8 @@
     "confirm": "Bestätigen",
     "copy": "Kopieren",
     "copied": "Kopiert!",
-    "saving": "Wird gespeichert..."
+    "saving": "Wird gespeichert...",
+    "clone": "Duplizieren"
   },
   "login": {
     "title": "Bei JARVIS anmelden",
@@ -384,6 +385,7 @@
     "saveError": "Persona konnte nicht gespeichert werden.",
     "deleteConfirm": "Persona \"{name}\" löschen?",
     "deleteError": "Persona konnte nicht gelöscht werden.",
+    "cloneError": "Persona konnte nicht dupliziert werden.",
     "editPersona": "Persona bearbeiten",
     "searchPlaceholder": "Personas suchen...",
     "noMatch": "Keine Personas für \"{query}\" gefunden"
@@ -455,6 +457,7 @@
     "noMatch": "Keine Workflows für \"{query}\" gefunden",
     "loadError": "Workflows konnten nicht geladen werden.",
     "deleteConfirm": "Workflow \"{name}\" löschen?",
-    "deleteError": "Workflow konnte nicht gelöscht werden."
+    "deleteError": "Workflow konnte nicht gelöscht werden.",
+    "cloneError": "Workflow konnte nicht dupliziert werden."
   }
 }

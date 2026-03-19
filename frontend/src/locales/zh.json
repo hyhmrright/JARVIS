@@ -11,7 +11,8 @@
     "rateLimitError": "请求太频繁，请稍后再试",
     "copy": "复制",
     "copied": "已复制！",
-    "saving": "保存中..."
+    "saving": "保存中...",
+    "clone": "克隆"
   },
   "login": {
     "title": "登录 JARVIS",
@@ -384,6 +385,7 @@
     "saveError": "保存 Persona 失败。",
     "deleteConfirm": "删除 Persona「{name}」？",
     "deleteError": "删除 Persona 失败。",
+    "cloneError": "克隆角色失败。",
     "editPersona": "编辑角色",
     "searchPlaceholder": "搜索角色...",
     "noMatch": "没有匹配「{query}」的角色"
@@ -455,6 +457,7 @@
     "noMatch": "没有匹配 \"{query}\" 的工作流",
     "loadError": "加载工作流失败。",
     "deleteConfirm": "删除工作流「{name}」？",
-    "deleteError": "删除工作流失败。"
+    "deleteError": "删除工作流失败。",
+    "cloneError": "克隆工作流失败。"
   }
 }

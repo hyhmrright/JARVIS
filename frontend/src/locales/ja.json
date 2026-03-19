@@ -11,7 +11,8 @@
     "confirm": "確認",
     "copy": "コピー",
     "copied": "コピー済み！",
-    "saving": "保存中..."
+    "saving": "保存中...",
+    "clone": "複製"
   },
   "login": {
     "title": "JARVIS にログイン",
@@ -384,6 +385,7 @@
     "saveError": "ペルソナの保存に失敗しました。",
     "deleteConfirm": "ペルソナ「{name}」を削除しますか？",
     "deleteError": "ペルソナの削除に失敗しました。",
+    "cloneError": "ペルソナの複製に失敗しました。",
     "editPersona": "ペルソナを編集",
     "searchPlaceholder": "ペルソナを検索...",
     "noMatch": "「{query}」に一致するペルソナがありません"
@@ -455,6 +457,7 @@
     "noMatch": "「{query}」に一致するワークフローがありません",
     "loadError": "ワークフローの読み込みに失敗しました。",
     "deleteConfirm": "ワークフロー「{name}」を削除しますか？",
-    "deleteError": "ワークフローの削除に失敗しました。"
+    "deleteError": "ワークフローの削除に失敗しました。",
+    "cloneError": "ワークフローの複製に失敗しました。"
   }
 }

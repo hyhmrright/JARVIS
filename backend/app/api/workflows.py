@@ -1,19 +1,32 @@
+import copy
 import uuid
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.limiter import limiter
 from app.db.models import User, Workflow
 from app.db.session import get_db
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/workflows", tags=["workflows"])
+
+
+async def _get_workflow_or_404(
+    db: AsyncSession, workflow_id: uuid.UUID, user_id: uuid.UUID
+) -> Workflow:
+    workflow = await db.scalar(
+        select(Workflow).where(Workflow.id == workflow_id, Workflow.user_id == user_id)
+    )
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    return workflow
 
 
 class WorkflowCreate(BaseModel):
@@ -47,16 +60,13 @@ async def get_workflow(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    workflow = await db.scalar(
-        select(Workflow).where(Workflow.id == workflow_id, Workflow.user_id == user.id)
-    )
-    if not workflow:
-        raise HTTPException(status_code=404, detail="Workflow not found")
-    return workflow
+    return await _get_workflow_or_404(db, workflow_id, user.id)
 
 
 @router.post("", response_model=WorkflowOut, status_code=201)
+@limiter.limit("20/minute")
 async def create_workflow(
+    request: Request,
     body: WorkflowCreate,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -80,11 +90,7 @@ async def update_workflow(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    workflow = await db.scalar(
-        select(Workflow).where(Workflow.id == workflow_id, Workflow.user_id == user.id)
-    )
-    if not workflow:
-        raise HTTPException(status_code=404, detail="Workflow not found")
+    workflow = await _get_workflow_or_404(db, workflow_id, user.id)
     workflow.name = body.name
     workflow.description = body.description
     workflow.dsl = body.dsl
@@ -93,18 +99,35 @@ async def update_workflow(
     return workflow
 
 
+@router.post("/{workflow_id}/clone", response_model=WorkflowOut, status_code=201)
+@limiter.limit("20/minute")
+async def clone_workflow(
+    request: Request,
+    workflow_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    workflow = await _get_workflow_or_404(db, workflow_id, user.id)
+    base_name = workflow.name.removesuffix(" (copy)")
+    clone = Workflow(
+        user_id=user.id,
+        name=f"{base_name} (copy)",
+        description=workflow.description,
+        dsl=copy.deepcopy(workflow.dsl),
+    )
+    db.add(clone)
+    await db.commit()
+    await db.refresh(clone)
+    return clone
+
+
 @router.delete("/{workflow_id}")
 async def delete_workflow(
     workflow_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
-    workflow = await db.scalar(
-        select(Workflow).where(Workflow.id == workflow_id, Workflow.user_id == user.id)
-    )
-    if not workflow:
-        raise HTTPException(status_code=404, detail="Workflow not found")
-
+    workflow = await _get_workflow_or_404(db, workflow_id, user.id)
     await db.delete(workflow)
     await db.commit()
     return {"status": "ok"}

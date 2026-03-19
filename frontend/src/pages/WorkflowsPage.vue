@@ -74,6 +74,9 @@
                 <GitFork class="w-5 h-5" />
               </div>
               <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button class="p-2 text-zinc-600 hover:text-white transition-colors" :title="$t('common.clone')" @click="cloneWorkflow(wf)">
+                  <Copy class="w-4 h-4" />
+                </button>
                 <router-link :to="`/studio?id=${wf.id}`" class="p-2 text-zinc-600 hover:text-white transition-colors">
                   <Pencil class="w-4 h-4" />
                 </router-link>
@@ -102,7 +105,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { GitFork, Plus, Trash2, Pencil, ShieldAlert } from 'lucide-vue-next';
+import { GitFork, Plus, Trash2, Pencil, ShieldAlert, Copy } from 'lucide-vue-next';
 import client from '@/api/client';
 import { useToast } from '@/composables/useToast';
 import { useSearchFilter } from '@/composables/useSearchFilter';
@@ -133,6 +136,16 @@ const fetchWorkflows = async () => {
     console.error(err);
   } finally {
     loading.value = false;
+  }
+};
+
+const cloneWorkflow = async (wf: Workflow) => {
+  try {
+    const { data } = await client.post(`/workflows/${wf.id}/clone`);
+    workflows.value.push(data);
+  } catch (err) {
+    console.error('Clone failed:', err);
+    toastError(t('workflows.cloneError'));
   }
 };
 
