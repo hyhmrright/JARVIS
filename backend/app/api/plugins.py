@@ -40,13 +40,13 @@ class InstallRequest(BaseModel):
 
 
 class InstalledPluginOut(BaseModel):
-    id: str
+    id: uuid.UUID
     plugin_id: str
     name: str
     type: str
     install_url: str
     scope: str
-    installed_by: str | None
+    installed_by: uuid.UUID | None
     created_at: datetime
 
     model_config = {"from_attributes": True}

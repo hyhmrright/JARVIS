@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import ResolvedLLMConfig, get_current_user, get_llm_config
 from app.core.config import settings
 from app.core.security import resolve_api_key
-from app.db.models import Document, User, Workspace, WorkspaceMember
+from app.db.models import Document, User, UserSettings, Workspace, WorkspaceMember
 from app.db.session import get_db
 from app.infra.minio import get_minio_client
 from app.infra.qdrant import get_qdrant_client, user_collection_name
@@ -277,7 +277,6 @@ def _extract_page_text(html_bytes: bytes, url: str = "") -> tuple[str, str]:
 async def ingest_url(
     body: IngestUrlRequest,
     user: User = Depends(get_current_user),
-    llm: ResolvedLLMConfig = Depends(get_llm_config),
     db: AsyncSession = Depends(get_db),
 ) -> DocumentOut:
     """Fetch a web page and add it to the knowledge base."""
@@ -292,6 +291,21 @@ async def ingest_url(
 
     if workspace_id is not None:
         qdrant_collection = await _resolve_workspace_collection(workspace_id, user, db)
+
+    # Resolve OpenAI key before fetching the URL (fail fast).
+    user_settings = await db.scalar(
+        select(UserSettings).where(UserSettings.user_id == user.id)
+    )
+    raw_keys = user_settings.api_keys if user_settings else {}
+    openai_key = resolve_api_key("openai", raw_keys)
+    if not openai_key:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "OpenAI API key required for document embedding. "
+                "Configure it in Settings."
+            ),
+        )
 
     async with httpx.AsyncClient(follow_redirects=True, timeout=15.0) as client:
         try:
@@ -323,16 +337,6 @@ async def ingest_url(
         io.BytesIO(text_bytes),
         len(text_bytes),
     )
-
-    openai_key = resolve_api_key("openai", llm.raw_keys)
-    if not openai_key:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "OpenAI API key required for document embedding. "
-                "Configure it in Settings."
-            ),
-        )
 
     doc = Document(
         user_id=user.id,
