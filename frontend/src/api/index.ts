@@ -26,6 +26,10 @@ export const patchConversation = (
   data: { persona_override?: string | null },
 ) => client.patch(`/conversations/${convId}`, data);
 
+// Toggle pin on a conversation
+export const pinConversation = (convId: string) =>
+  client.patch(`/conversations/${convId}/pin`);
+
 // URL ingestion
 export const ingestDocumentUrl = (url: string, workspaceId?: string | null) =>
   client.post("/documents/ingest-url", { url, workspace_id: workspaceId ?? null });

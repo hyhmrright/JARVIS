@@ -29,6 +29,8 @@ class ConversationOut(BaseModel):
     id: uuid.UUID
     title: str
     active_leaf_id: uuid.UUID | None = None
+    is_pinned: bool = False
+    updated_at: datetime | None = None
     model_config = {"from_attributes": True}
 
 
@@ -67,7 +69,7 @@ async def list_conversations(
     rows = await db.scalars(
         select(Conversation)
         .where(Conversation.user_id == user.id)
-        .order_by(Conversation.updated_at.desc())
+        .order_by(Conversation.is_pinned.desc(), Conversation.updated_at.desc())
     )
     return rows.all()
 
@@ -321,6 +323,30 @@ async def update_conversation(
         raise HTTPException(status_code=404, detail="Conversation not found")
     conv.persona_override = body.persona_override
     await db.commit()
+
+
+@router.patch("/{conv_id}/pin", status_code=204)
+async def toggle_pin_conversation(
+    conv_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Toggle the pinned state of a conversation."""
+    conv = await db.scalar(
+        select(Conversation).where(
+            Conversation.id == conv_id, Conversation.user_id == user.id
+        )
+    )
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    conv.is_pinned = not conv.is_pinned
+    await db.commit()
+    logger.info(
+        "conversation_pin_toggled",
+        user_id=str(user.id),
+        conv_id=str(conv_id),
+        is_pinned=conv.is_pinned,
+    )
 
 
 @router.post("/{conv_id}/share", response_model=dict)

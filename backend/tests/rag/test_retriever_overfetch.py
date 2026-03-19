@@ -1,8 +1,10 @@
-"""Regression test: retriever must not overfetch from Qdrant."""
+"""Regression test: retriever overfetches candidates for reranking."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+from app.rag.retriever import _RERANK_CANDIDATE_MULTIPLIER
 
 
 def _make_mock_hits(n: int) -> list[MagicMock]:
@@ -18,17 +20,18 @@ def _make_mock_hits(n: int) -> list[MagicMock]:
 
 
 @pytest.mark.anyio
-async def test_retriever_uses_top_k_not_double() -> None:
-    """retrieve_context() must pass limit=top_k to Qdrant, not limit=top_k*2.
+async def test_retriever_overfetches_for_reranking() -> None:
+    """retrieve_context() fetches top_k * RERANK_CANDIDATE_MULTIPLIER candidates.
 
-    FAILS before fix: retriever calls client.search(limit=top_k * 2).
-    PASSES after fix: limit parameter equals top_k.
+    The retriever intentionally overfetches so the reranker has a larger
+    candidate pool to choose from, then returns at most top_k results.
     """
     from app.rag.retriever import retrieve_context
 
     top_k = 3
+    expected_limit = top_k * _RERANK_CANDIDATE_MULTIPLIER
     mock_client = MagicMock()
-    mock_client.search = AsyncMock(return_value=_make_mock_hits(top_k))
+    mock_client.search = AsyncMock(return_value=_make_mock_hits(expected_limit))
     mock_embedder = MagicMock()
     mock_embedder.aembed_query = AsyncMock(return_value=[0.1] * 1536)
 
@@ -42,10 +45,9 @@ async def test_retriever_uses_top_k_not_double() -> None:
                 top_k=top_k,
             )
 
-    # The Qdrant search must have been called with limit=top_k, not top_k*2
     actual_limit = mock_client.search.call_args.kwargs.get("limit", 0)
-    assert actual_limit == top_k, (
-        f"Expected search limit={top_k}, got {actual_limit}. "
-        "Retriever is overfetching with top_k * 2."
+    assert actual_limit == expected_limit, (
+        f"Expected search limit={expected_limit} "
+        f"(top_k * {_RERANK_CANDIDATE_MULTIPLIER}), got {actual_limit}."
     )
     assert len(results) <= top_k

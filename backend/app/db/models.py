@@ -158,6 +158,9 @@ class Conversation(Base):
     workspace_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True, index=True
     )
+    is_pinned: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default="false", index=True
+    )
     persona_override: Mapped[str | None] = mapped_column(Text)
     workflow_dsl: Mapped[dict | None] = mapped_column(JSONB)
     active_leaf_id: Mapped[uuid.UUID | None] = mapped_column(

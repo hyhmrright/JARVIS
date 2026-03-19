@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import client from "@/api/client";
+import { pinConversation } from "@/api";
 import { useAuthStore } from "@/stores/auth";
 
 interface ToolCall {
@@ -20,7 +21,7 @@ interface Message {
   pending_tool_call?: { name: string; args: any };
 }
 
-interface Conversation { id: string; title: string; active_leaf_id?: string | null }
+interface Conversation { id: string; title: string; active_leaf_id?: string | null; is_pinned: boolean; updated_at?: string }
 
 export const useChatStore = defineStore("chat", {
   state: () => ({
@@ -122,10 +123,27 @@ export const useChatStore = defineStore("chat", {
           this.currentConvId = null;
           this.messages = [];
           this.routingAgent = null;
-      this.activeLeafId = null;
+          this.activeLeafId = null;
         }
       } catch (err) {
         console.error("[chat] deleteConversation failed", err);
+      }
+    },
+    async togglePinConversation(convId: string) {
+      const conv = this.conversations.find((c) => c.id === convId);
+      if (!conv) return;
+      const prev = conv.is_pinned;
+      try {
+        await pinConversation(convId);
+        conv.is_pinned = !prev;
+        this.conversations.sort(
+          (a, b) =>
+            Number(b.is_pinned) - Number(a.is_pinned) ||
+            new Date(b.updated_at ?? 0).getTime() - new Date(a.updated_at ?? 0).getTime(),
+        );
+      } catch (err) {
+        conv.is_pinned = prev;
+        throw err;
       }
     },
 
@@ -206,7 +224,13 @@ export const useChatStore = defineStore("chat", {
       if (!this.currentConvId) {
         const title = content.slice(0, 30) + (content.length > 30 ? "..." : "");
         const { data } = await client.post("/conversations", { title });
-        this.conversations.unshift(data);
+        // Insert after any pinned conversations so ordering matches server
+        const firstUnpinned = this.conversations.findIndex((c) => !c.is_pinned);
+        if (firstUnpinned === -1) {
+          this.conversations.push(data);
+        } else {
+          this.conversations.splice(firstUnpinned, 0, data);
+        }
         this.currentConvId = data.id;
       }
 

@@ -69,6 +69,14 @@
           >
             <MessageSquare class="w-3.5 h-3.5 flex-shrink-0" />
             <span class="text-xs truncate flex-1">{{ c.title }}</span>
+            <button
+              class="p-0.5 rounded transition-opacity"
+              :class="c.is_pinned ? 'text-yellow-400 opacity-100' : 'text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100'"
+              :title="c.is_pinned ? 'Unpin' : 'Pin'"
+              @click.stop="togglePin(c.id)"
+            >
+              <Pin class="w-3 h-3" :class="c.is_pinned ? 'fill-current' : ''" />
+            </button>
             <div class="relative opacity-0 group-hover:opacity-100">
               <button
                 class="p-1 hover:text-zinc-200"
@@ -522,7 +530,7 @@ import {
   PanelLeft, SquarePen, Copy, RotateCcw,
   Mic, ArrowUp, Square, ShieldAlert, Share2, MessageSquare,
   Volume2, Layout, Image, X, ChevronDown,
-  Search, Download, Sparkles
+  Search, Download, Sparkles, Pin
 } from "lucide-vue-next";
 
 import LiveCanvas from "@/components/LiveCanvas.vue";
@@ -596,6 +604,14 @@ const downloadExport = async (convId: string, title: string, format: "md" | "jso
     setTimeout(() => URL.revokeObjectURL(url), 0);
   } catch {
     toast.error("Export failed");
+  }
+};
+
+const togglePin = async (convId: string) => {
+  try {
+    await chat.togglePinConversation(convId);
+  } catch {
+    toast.error("Failed to update pin");
   }
 };
 

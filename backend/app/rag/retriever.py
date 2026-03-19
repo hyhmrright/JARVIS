@@ -59,9 +59,8 @@ def _rerank(
     relevance values are consistent with the final ranking order.
     """
     for chunk in chunks:
-        chunk.score = (
-            _VECTOR_WEIGHT * chunk.score
-            + _KEYWORD_WEIGHT * _keyword_score(query, chunk.content)
+        chunk.score = _VECTOR_WEIGHT * chunk.score + _KEYWORD_WEIGHT * _keyword_score(
+            query, chunk.content
         )
     chunks.sort(key=lambda c: c.score, reverse=True)
     return chunks[:top_k]
@@ -135,16 +134,20 @@ async def retrieve_context_multi(
         embedder = get_embedder(openai_api_key)
         query_vec = await embedder.aembed_query(query)
 
+        # Per-collection limit scales down with collection count so total
+        # candidates ≈ top_k * _RERANK_CANDIDATE_MULTIPLIER regardless of N,
+        # but never below top_k per collection to preserve quality.
+        per_col_limit = max(
+            top_k,
+            top_k * _RERANK_CANDIDATE_MULTIPLIER // len(collection_names),
+        )
+
         async def _search_one(collection_name: str) -> list[RetrievedChunk]:
             try:
-                # Per-collection limit is top_k (not multiplied): the aggregate
-                # across N collections already provides N*top_k candidates for
-                # the reranker, so applying the full multiplier per collection
-                # would compound quadratically with the number of collections.
                 hits = await client.search(  # type: ignore[attr-defined]
                     collection_name=collection_name,
                     query_vector=query_vec,
-                    limit=top_k,
+                    limit=per_col_limit,
                     score_threshold=score_threshold,
                 )
                 return _hits_to_chunks(hits)
