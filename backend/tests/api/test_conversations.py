@@ -2,7 +2,20 @@ import uuid
 
 import pytest
 
+from app.core.security import decode_access_token
 from app.db.models import Conversation, Message
+
+
+def _user_id(auth_client) -> uuid.UUID:
+    """Extract the authenticated user's UUID from an auth_client fixture."""
+    token = auth_client.headers["Authorization"].split(" ")[1]
+    return uuid.UUID(decode_access_token(token))
+
+
+def _uid_from_headers(headers: dict) -> uuid.UUID:
+    """Extract a user UUID from a raw Authorization header dict."""
+    token = headers["Authorization"].split(" ")[1]
+    return uuid.UUID(decode_access_token(token))
 
 
 async def test_create_conversation(auth_client):
@@ -70,10 +83,8 @@ async def test_search_returns_empty_list_for_no_match(auth_client):
 
 @pytest.mark.anyio
 async def test_search_finds_conversation_by_title(auth_client, db_session):
-    from app.core.security import decode_access_token
 
-    token = auth_client.headers["Authorization"].split(" ")[1]
-    user_id = decode_access_token(token)
+    user_id = _user_id(auth_client)
     conv = Conversation(user_id=user_id, title="Python tutorials for beginners")
     db_session.add(conv)
     await db_session.commit()
@@ -89,10 +100,8 @@ async def test_search_finds_conversation_by_title(auth_client, db_session):
 
 @pytest.mark.anyio
 async def test_search_finds_by_message_content(auth_client, db_session):
-    from app.core.security import decode_access_token
 
-    token = auth_client.headers["Authorization"].split(" ")[1]
-    user_id = decode_access_token(token)
+    user_id = _user_id(auth_client)
     conv = Conversation(user_id=user_id, title="Generic conversation")
     db_session.add(conv)
     await db_session.flush()
@@ -110,10 +119,8 @@ async def test_search_finds_by_message_content(auth_client, db_session):
 
 @pytest.mark.anyio
 async def test_export_markdown_format(auth_client, db_session):
-    from app.core.security import decode_access_token
 
-    token = auth_client.headers["Authorization"].split(" ")[1]
-    user_id = decode_access_token(token)
+    user_id = _user_id(auth_client)
     conv = Conversation(user_id=user_id, title="My Export Test")
     db_session.add(conv)
     await db_session.flush()
@@ -133,10 +140,7 @@ async def test_export_markdown_format(auth_client, db_session):
 async def test_export_json_format(auth_client, db_session):
     import json as _json
 
-    from app.core.security import decode_access_token
-
-    token = auth_client.headers["Authorization"].split(" ")[1]
-    user_id = decode_access_token(token)
+    user_id = _user_id(auth_client)
     conv = Conversation(user_id=user_id, title="JSON Export")
     db_session.add(conv)
     await db_session.flush()
@@ -152,10 +156,8 @@ async def test_export_json_format(auth_client, db_session):
 
 @pytest.mark.anyio
 async def test_export_txt_format(auth_client, db_session):
-    from app.core.security import decode_access_token
 
-    token = auth_client.headers["Authorization"].split(" ")[1]
-    user_id = decode_access_token(token)
+    user_id = _user_id(auth_client)
     conv = Conversation(user_id=user_id, title="TXT Export")
     db_session.add(conv)
     await db_session.flush()
@@ -170,11 +172,9 @@ async def test_export_txt_format(auth_client, db_session):
 async def test_export_returns_404_for_wrong_user(
     auth_client, second_user_auth_headers, db_session
 ):
-    from app.core.security import decode_access_token
 
     # Create a conversation owned by second user
-    token2 = second_user_auth_headers["Authorization"].split(" ")[1]
-    user2_id = decode_access_token(token2)
+    user2_id = _uid_from_headers(second_user_auth_headers)
     conv = Conversation(user_id=user2_id, title="Private")
     db_session.add(conv)
     await db_session.commit()
@@ -185,10 +185,8 @@ async def test_export_returns_404_for_wrong_user(
 
 @pytest.mark.anyio
 async def test_patch_conversation_sets_persona(auth_client, db_session):
-    from app.core.security import decode_access_token
 
-    token = auth_client.headers["Authorization"].split(" ")[1]
-    user_id = decode_access_token(token)
+    user_id = _user_id(auth_client)
     conv = Conversation(user_id=user_id, title="Patch test")
     db_session.add(conv)
     await db_session.commit()
@@ -203,10 +201,8 @@ async def test_patch_conversation_sets_persona(auth_client, db_session):
 
 @pytest.mark.anyio
 async def test_patch_conversation_clears_persona(auth_client, db_session):
-    from app.core.security import decode_access_token
 
-    token = auth_client.headers["Authorization"].split(" ")[1]
-    user_id = decode_access_token(token)
+    user_id = _user_id(auth_client)
     conv = Conversation(
         user_id=user_id, title="Clear test", persona_override="Old value"
     )
@@ -223,10 +219,8 @@ async def test_patch_conversation_clears_persona(auth_client, db_session):
 
 @pytest.mark.anyio
 async def test_patch_conversation_renames_title(auth_client, db_session):
-    from app.core.security import decode_access_token
 
-    token = auth_client.headers["Authorization"].split(" ")[1]
-    user_id = decode_access_token(token)
+    user_id = _user_id(auth_client)
     conv = Conversation(user_id=user_id, title="Old Title")
     db_session.add(conv)
     await db_session.commit()
@@ -241,10 +235,8 @@ async def test_patch_conversation_renames_title(auth_client, db_session):
 
 @pytest.mark.anyio
 async def test_patch_conversation_empty_title_returns_422(auth_client, db_session):
-    from app.core.security import decode_access_token
 
-    token = auth_client.headers["Authorization"].split(" ")[1]
-    user_id = decode_access_token(token)
+    user_id = _user_id(auth_client)
     conv = Conversation(user_id=user_id, title="Keep This")
     db_session.add(conv)
     await db_session.commit()
@@ -257,10 +249,8 @@ async def test_patch_conversation_empty_title_returns_422(auth_client, db_sessio
 
 @pytest.mark.anyio
 async def test_patch_conversation_whitespace_title_returns_422(auth_client, db_session):
-    from app.core.security import decode_access_token
 
-    token = auth_client.headers["Authorization"].split(" ")[1]
-    user_id = decode_access_token(token)
+    user_id = _user_id(auth_client)
     conv = Conversation(user_id=user_id, title="Keep This")
     db_session.add(conv)
     await db_session.commit()
@@ -273,10 +263,8 @@ async def test_patch_conversation_whitespace_title_returns_422(auth_client, db_s
 
 @pytest.mark.anyio
 async def test_patch_conversation_omitting_title_preserves_it(auth_client, db_session):
-    from app.core.security import decode_access_token
 
-    token = auth_client.headers["Authorization"].split(" ")[1]
-    user_id = decode_access_token(token)
+    user_id = _user_id(auth_client)
     conv = Conversation(user_id=user_id, title="Unchanged")
     db_session.add(conv)
     await db_session.commit()
@@ -293,10 +281,7 @@ async def test_patch_conversation_omitting_title_preserves_it(auth_client, db_se
 async def test_messages_include_tool_calls_field(auth_client, db_session):
     from typing import Any
 
-    from app.core.security import decode_access_token
-
-    token = auth_client.headers["Authorization"].split(" ")[1]
-    user_id = decode_access_token(token)
+    user_id = _user_id(auth_client)
     conv = Conversation(user_id=user_id, title="Tool calls test")
     db_session.add(conv)
     await db_session.flush()
@@ -323,8 +308,6 @@ async def test_messages_include_tool_calls_field(auth_client, db_session):
 async def test_export_accessible_via_share_token(client, db_session):
     """Export should work for anonymous users who have a valid share token."""
     import uuid as _uuid
-
-    from app.core.security import decode_access_token
 
     # Register a user and create a conversation
     resp = await client.post(
@@ -356,3 +339,134 @@ async def test_export_accessible_via_share_token(client, db_session):
     )
     assert resp.status_code == 200
     assert "Shared Conversation" in resp.text
+
+
+# ---------------------------------------------------------------------------
+# Conversation pinning
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_pin_conversation(auth_client, db_session):
+    """Pinning a conversation sets is_pinned=True."""
+    uid = _user_id(auth_client)
+    conv = Conversation(user_id=uid, title="Pinnable")
+    db_session.add(conv)
+    await db_session.commit()
+
+    resp = await auth_client.patch(f"/api/conversations/{conv.id}/pin")
+    assert resp.status_code == 204
+    await db_session.refresh(conv)
+    assert conv.is_pinned is True
+
+
+@pytest.mark.anyio
+async def test_unpin_conversation(auth_client, db_session):
+    """Toggling pin twice resets is_pinned to False."""
+    uid = _user_id(auth_client)
+    conv = Conversation(user_id=uid, title="Toggle", is_pinned=True)
+    db_session.add(conv)
+    await db_session.commit()
+
+    resp = await auth_client.patch(f"/api/conversations/{conv.id}/pin")
+    assert resp.status_code == 204
+    await db_session.refresh(conv)
+    assert conv.is_pinned is False
+
+
+@pytest.mark.anyio
+async def test_pin_nonexistent_conversation_returns_404(auth_client):
+    resp = await auth_client.patch(f"/api/conversations/{uuid.uuid4()}/pin")
+    assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_pin_wrong_user_returns_404(
+    auth_client, second_user_auth_headers, db_session
+):
+    """User A cannot pin User B's conversation."""
+    # Create a conversation owned by second user
+    user2_id = _uid_from_headers(second_user_auth_headers)
+    conv = Conversation(user_id=user2_id, title="Private")
+    db_session.add(conv)
+    await db_session.commit()
+
+    # Try to pin as first user (auth_client)
+    resp = await auth_client.patch(f"/api/conversations/{conv.id}/pin")
+    assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_pinned_conversations_listed_first(auth_client, db_session):
+    """List endpoint returns pinned conversations before unpinned ones."""
+    uid = _user_id(auth_client)
+    normal = Conversation(user_id=uid, title="Normal")
+    pinned = Conversation(user_id=uid, title="Pinned", is_pinned=True)
+    db_session.add_all([normal, pinned])
+    await db_session.commit()
+
+    resp = await auth_client.get("/api/conversations")
+    assert resp.status_code == 200
+    # Filter to only the two conversations created in this test to avoid
+    # interference from other conversations that may exist in the session.
+    ids = {str(normal.id), str(pinned.id)}
+    ordered = [c for c in resp.json() if c["id"] in ids]
+    assert len(ordered) == 2
+    assert ordered[0]["id"] == str(pinned.id)
+
+
+# ---------------------------------------------------------------------------
+# Conversation sharing
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_share_conversation_returns_token(auth_client, db_session):
+    """POST /share returns a non-empty token."""
+    uid = _user_id(auth_client)
+    conv = Conversation(user_id=uid, title="Shareable")
+    db_session.add(conv)
+    await db_session.commit()
+
+    resp = await auth_client.post(f"/api/conversations/{conv.id}/share")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "token" in data
+    assert len(data["token"]) > 10
+
+
+@pytest.mark.anyio
+async def test_share_twice_returns_same_token(auth_client, db_session):
+    """Sharing the same conversation twice returns the existing token."""
+    uid = _user_id(auth_client)
+    conv = Conversation(user_id=uid, title="Re-share")
+    db_session.add(conv)
+    await db_session.commit()
+
+    resp1 = await auth_client.post(f"/api/conversations/{conv.id}/share")
+    resp2 = await auth_client.post(f"/api/conversations/{conv.id}/share")
+    assert resp1.status_code == 200
+    assert resp2.status_code == 200
+    assert resp1.json()["token"] == resp2.json()["token"]
+
+
+@pytest.mark.anyio
+async def test_share_nonexistent_conversation_returns_404(auth_client):
+    resp = await auth_client.post(f"/api/conversations/{uuid.uuid4()}/share")
+    assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_share_wrong_user_returns_404(
+    auth_client, second_user_auth_headers, db_session
+):
+    """User A cannot share User B's conversation."""
+    # Create a conversation owned by second user
+    user2_id = _uid_from_headers(second_user_auth_headers)
+    conv = Conversation(user_id=user2_id, title="Private conv")
+    db_session.add(conv)
+    await db_session.commit()
+
+    # Try to share as first user (auth_client)
+    resp = await auth_client.post(f"/api/conversations/{conv.id}/share")
+    assert resp.status_code == 404

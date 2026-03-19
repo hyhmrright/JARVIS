@@ -40,6 +40,7 @@ async def test_ingest_url_success(auth_client, db_session):
     mock_resp = MagicMock()
     mock_resp.content = html_content
     mock_resp.raise_for_status = MagicMock()
+    mock_resp.headers = {"content-type": "text/html; charset=utf-8"}
 
     with (
         patch("app.api.documents.httpx") as mock_httpx,
@@ -106,3 +107,76 @@ def test_extract_page_text_fallback_to_hostname():
     html = b"<html><body><p>No title here.</p></body></html>"
     title, text = _extract_page_text(html, "https://docs.example.org/page")
     assert title == "docs.example.org"
+
+
+def _make_mock_http_ctx(content: bytes, content_type: str = "text/html; charset=utf-8"):
+    """Helper: build a mock httpx.AsyncClient context for ingest-url tests."""
+    mock_resp = MagicMock()
+    mock_resp.content = content
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.headers = {"content-type": content_type}
+    mock_ctx = AsyncMock()
+    mock_ctx.__aenter__ = AsyncMock(return_value=mock_ctx)
+    mock_ctx.__aexit__ = AsyncMock(return_value=None)
+    mock_ctx.get = AsyncMock(return_value=mock_resp)
+    return mock_ctx
+
+
+@pytest.mark.anyio
+async def test_ingest_url_rejects_non_html_content_type(auth_client):
+    """PDF or JSON responses should be rejected with 400."""
+    with (
+        patch("app.api.documents.httpx") as mock_httpx,
+        patch("app.api.documents.resolve_api_key", return_value="sk-fake"),
+    ):
+        mock_httpx.AsyncClient.return_value = _make_mock_http_ctx(
+            b"%PDF-1.4 ...", "application/pdf"
+        )
+        resp = await auth_client.post(
+            "/api/documents/ingest-url",
+            json={"url": "https://example.com/doc.pdf"},
+        )
+    assert resp.status_code == 400
+    assert "non-text" in resp.json()["detail"]
+
+
+@pytest.mark.anyio
+async def test_ingest_url_accepts_plain_text_content_type(auth_client, db_session):
+    """text/plain responses should be accepted."""
+    with (
+        patch("app.api.documents.httpx") as mock_httpx,
+        patch(
+            "app.api.documents.asyncio.to_thread",
+            side_effect=[("plain.txt", "Hello world plain text content."), None],
+        ),
+        patch("app.api.documents.index_document", new=AsyncMock(return_value=2)),
+        patch("app.api.documents.resolve_api_key", return_value="sk-fake"),
+    ):
+        mock_httpx.AsyncClient.return_value = _make_mock_http_ctx(
+            b"Hello world plain text content.", "text/plain; charset=utf-8"
+        )
+        resp = await auth_client.post(
+            "/api/documents/ingest-url",
+            json={"url": "https://example.com/readme.txt"},
+        )
+    assert resp.status_code == 201
+
+
+@pytest.mark.anyio
+async def test_ingest_url_rejects_empty_page(auth_client):
+    """Pages with no readable content should return 400."""
+    with (
+        patch("app.api.documents.httpx") as mock_httpx,
+        patch(
+            "app.api.documents.asyncio.to_thread",
+            side_effect=[("example.com", "")],
+        ),
+        patch("app.api.documents.resolve_api_key", return_value="sk-fake"),
+    ):
+        mock_httpx.AsyncClient.return_value = _make_mock_http_ctx(b"<html></html>")
+        resp = await auth_client.post(
+            "/api/documents/ingest-url",
+            json={"url": "https://example.com/empty"},
+        )
+    assert resp.status_code == 400
+    assert "No readable content" in resp.json()["detail"]

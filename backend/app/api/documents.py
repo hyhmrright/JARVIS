@@ -315,6 +315,15 @@ async def ingest_url(
             raise HTTPException(
                 status_code=400, detail=f"Failed to fetch URL: {e}"
             ) from e
+        content_type = response.headers.get("content-type", "")
+        if not content_type.startswith("text/"):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"URL returned non-text content ({content_type!r}). "
+                    "Only HTML and plain-text pages are supported."
+                ),
+            )
         content_length = response.headers.get("content-length")
         if content_length and int(content_length) > _MAX_URL_CONTENT_BYTES:
             raise HTTPException(status_code=400, detail="Page too large (max 5 MB)")
