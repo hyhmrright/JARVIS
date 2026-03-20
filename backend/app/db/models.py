@@ -699,7 +699,7 @@ class WorkspaceMember(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    workspace: Mapped["Workspace"] = relationship("Workspace")
+    workspace: Mapped["Workspace"] = relationship("Workspace", overlaps="members")
     user: Mapped["User"] = relationship("User")
 
 
@@ -767,7 +767,7 @@ class WorkspaceSettings(Base):
         nullable=False,
     )
 
-    workspace: Mapped["Workspace"] = relationship("Workspace")
+    workspace: Mapped["Workspace"] = relationship("Workspace", overlaps="settings")
 
 
 class SharedConversation(Base):
