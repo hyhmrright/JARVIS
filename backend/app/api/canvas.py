@@ -77,6 +77,7 @@ async def canvas_stream(
                 user_id=str(user.id),
                 conv_id=norm_conv_id,
             )
+            yield 'event: error\ndata: {"type":"stream_error"}\n\n'
 
     return StreamingResponse(
         _generate(),
