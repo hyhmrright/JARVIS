@@ -9,7 +9,7 @@ import httpx
 import structlog
 from bs4 import BeautifulSoup
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from qdrant_client.models import FieldCondition, Filter, MatchValue
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -120,8 +120,35 @@ async def list_documents(
     return {"documents": [DocumentOut.model_validate(d) for d in docs]}
 
 
+class DocumentRename(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
+
+
+@router.patch("/{doc_id}", response_model=DocumentOut)
+@limiter.limit("30/minute")
+async def rename_document(
+    request: Request,
+    doc_id: uuid.UUID,
+    body: DocumentRename,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> DocumentOut:
+    doc = await db.get(Document, doc_id)
+    if not doc or doc.is_deleted:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if doc.workspace_id is not None:
+        await _resolve_workspace_collection(doc.workspace_id, user, db)
+    elif doc.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Document not found")
+    doc.filename = body.filename
+    await db.commit()
+    return DocumentOut.model_validate(doc)
+
+
 @router.delete("/{doc_id}", status_code=204)
+@limiter.limit("30/minute")
 async def delete_document(
+    request: Request,
     doc_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

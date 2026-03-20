@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func as sql_func
 from sqlalchemy import select
@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_workspace_member
 from app.core.config import settings
+from app.core.limiter import limiter
 from app.core.security import fernet_encrypt
 from app.db.models import CronJob, JobExecution, User
 from app.db.session import get_db
@@ -94,7 +95,9 @@ async def list_cron_jobs(
 
 
 @router.post("")
+@limiter.limit("10/minute")
 async def create_cron_job(  # noqa: C901
+    request: Request,
     data: CronJobCreate,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -167,7 +170,9 @@ async def create_cron_job(  # noqa: C901
 
 
 @router.delete("/{job_id}")
+@limiter.limit("30/minute")
 async def delete_cron_job(
+    request: Request,
     job_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -184,7 +189,9 @@ async def delete_cron_job(
 
 
 @router.patch("/{job_id}/toggle")
+@limiter.limit("30/minute")
 async def toggle_cron_job(
+    request: Request,
     job_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -211,7 +218,9 @@ async def toggle_cron_job(
 
 
 @router.put("/{job_id}")
+@limiter.limit("20/minute")
 async def update_cron_job(
+    request: Request,
     job_id: uuid.UUID,
     data: CronJobUpdate,
     user: User = Depends(get_current_user),
@@ -292,7 +301,9 @@ async def get_job_history(
 
 
 @router.post("/{job_id}/test", response_model=TestTriggerResponse)
+@limiter.limit("5/minute")
 async def test_trigger(
+    request: Request,
     job_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),

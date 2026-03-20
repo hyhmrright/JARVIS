@@ -6,12 +6,13 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.limiter import limiter
 from app.core.security import generate_api_key, hash_api_key
 from app.db.models import ApiKey, User
 from app.db.session import get_db
@@ -22,9 +23,13 @@ _MAX_KEYS_PER_USER = 10
 
 
 class ApiKeyCreate(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=100)
     scope: str = "full"
     expires_at: datetime | None = None
+
+
+class ApiKeyRename(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
 
 
 class ApiKeyCreateResponse(BaseModel):
@@ -45,10 +50,13 @@ class ApiKeyItem(BaseModel):
     expires_at: datetime | None
     last_used_at: datetime | None
     created_at: datetime
+    model_config = {"from_attributes": True}
 
 
 @router.post("", response_model=ApiKeyCreateResponse, status_code=201)
+@limiter.limit("10/minute")
 async def create_key(
+    request: Request,
     body: ApiKeyCreate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -108,22 +116,33 @@ async def list_keys(
         .order_by(ApiKey.created_at.desc())
     )
     keys = result.all()
-    return [
-        ApiKeyItem(
-            id=k.id,
-            name=k.name,
-            prefix=k.prefix,
-            scope=k.scope,
-            expires_at=k.expires_at,
-            last_used_at=k.last_used_at,
-            created_at=k.created_at,
-        )
-        for k in keys
-    ]
+    return [ApiKeyItem.model_validate(k) for k in keys]
+
+
+@router.patch("/{key_id}", response_model=ApiKeyItem)
+@limiter.limit("20/minute")
+async def rename_key(
+    request: Request,
+    key_id: uuid.UUID,
+    body: ApiKeyRename,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> Any:
+    """Rename an API key."""
+    api_key = await db.scalar(
+        select(ApiKey).where(ApiKey.id == key_id, ApiKey.user_id == user.id)
+    )
+    if not api_key:
+        raise HTTPException(status_code=404, detail="API key not found")
+    api_key.name = body.name
+    await db.commit()
+    return ApiKeyItem.model_validate(api_key)
 
 
 @router.delete("/{key_id}", status_code=204)
+@limiter.limit("30/minute")
 async def delete_key(
+    request: Request,
     key_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
