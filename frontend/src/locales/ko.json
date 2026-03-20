@@ -166,7 +166,14 @@
     "profileSaveError": "프로필 저장에 실패했습니다.",
     "pwAllFieldsRequired": "모든 필드를 입력해 주세요.",
     "pwMismatch": "새 비밀번호가 일치하지 않습니다.",
-    "pwChangeError": "비밀번호 변경에 실패했습니다."
+    "pwChangeError": "비밀번호 변경에 실패했습니다.",
+    "aiModelSection": "AI 모델 및 제공자",
+    "ollamaBaseUrl": "Ollama 기본 URL",
+    "ollamaDockerHint": "Docker 사용자: http://host.docker.internal:11434 사용",
+    "apiKeysSection": "API 키",
+    "apiKeysDescription": "{provider}의 키를 안전하게 관리",
+    "globalPreferences": "전역 설정",
+    "language": "언어"
   },
   "plugins": {
     "title": "플러그인 관리",

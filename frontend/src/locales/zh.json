@@ -166,7 +166,14 @@
     "profileSaveError": "保存资料失败。",
     "pwAllFieldsRequired": "请填写所有字段。",
     "pwMismatch": "两次输入的新密码不一致。",
-    "pwChangeError": "修改密码失败。"
+    "pwChangeError": "修改密码失败。",
+    "aiModelSection": "AI 模型与提供商",
+    "ollamaBaseUrl": "Ollama 基础 URL",
+    "ollamaDockerHint": "Docker 用户请使用：http://host.docker.internal:11434",
+    "apiKeysSection": "API 密钥",
+    "apiKeysDescription": "安全管理 {provider} 的密钥",
+    "globalPreferences": "全局偏好设置",
+    "language": "语言"
   },
   "validation": {
     "emailRequired": "请输入邮箱地址",

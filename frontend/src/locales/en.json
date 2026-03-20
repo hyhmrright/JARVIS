@@ -166,7 +166,14 @@
     "profileSaveError": "Failed to save profile.",
     "pwAllFieldsRequired": "Please fill in all fields.",
     "pwMismatch": "New passwords do not match.",
-    "pwChangeError": "Failed to change password."
+    "pwChangeError": "Failed to change password.",
+    "aiModelSection": "AI Model & Provider",
+    "ollamaBaseUrl": "Ollama Base URL",
+    "ollamaDockerHint": "Docker users: use http://host.docker.internal:11434",
+    "apiKeysSection": "API Keys",
+    "apiKeysDescription": "Securely manage your keys for {provider}",
+    "globalPreferences": "Global Preferences",
+    "language": "Language"
   },
   "plugins": {
     "title": "Plugin Management",

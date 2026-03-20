@@ -166,7 +166,14 @@
     "profileSaveError": "Échec de l'enregistrement du profil.",
     "pwAllFieldsRequired": "Veuillez remplir tous les champs.",
     "pwMismatch": "Les nouveaux mots de passe ne correspondent pas.",
-    "pwChangeError": "Échec du changement de mot de passe."
+    "pwChangeError": "Échec du changement de mot de passe.",
+    "aiModelSection": "Modèle & Fournisseur IA",
+    "ollamaBaseUrl": "URL de base Ollama",
+    "ollamaDockerHint": "Utilisateurs Docker : http://host.docker.internal:11434",
+    "apiKeysSection": "Clés API",
+    "apiKeysDescription": "Gérez vos clés pour {provider}",
+    "globalPreferences": "Préférences globales",
+    "language": "Langue"
   },
   "plugins": {
     "title": "Gestion des plugins",

@@ -166,7 +166,14 @@
     "profileSaveError": "Profil konnte nicht gespeichert werden.",
     "pwAllFieldsRequired": "Bitte füllen Sie alle Felder aus.",
     "pwMismatch": "Die neuen Passwörter stimmen nicht überein.",
-    "pwChangeError": "Passwort konnte nicht geändert werden."
+    "pwChangeError": "Passwort konnte nicht geändert werden.",
+    "aiModelSection": "KI-Modell & Anbieter",
+    "ollamaBaseUrl": "Ollama Basis-URL",
+    "ollamaDockerHint": "Docker-Nutzer: http://host.docker.internal:11434",
+    "apiKeysSection": "API-Schlüssel",
+    "apiKeysDescription": "Schlüssel für {provider} sicher verwalten",
+    "globalPreferences": "Globale Einstellungen",
+    "language": "Sprache"
   },
   "plugins": {
     "title": "Plugin-Verwaltung",

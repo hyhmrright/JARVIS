@@ -3,8 +3,9 @@
 from collections.abc import AsyncIterator
 
 import structlog
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 
 from app.api.deps import get_current_user
 from app.db.models import User
@@ -42,6 +43,12 @@ async def generate_pairing_code(
     within 15 minutes.
     """
     manager = PairingManager(redis)
-    code = await manager.generate_code(str(user.id))
+    try:
+        code = await manager.generate_code(str(user.id))
+    except RedisError as exc:
+        logger.exception("pairing_code_redis_error", user_id=str(user.id))
+        raise HTTPException(
+            status_code=503, detail="Pairing service temporarily unavailable"
+        ) from exc
     logger.info("pairing_code_endpoint_called", user_id=str(user.id))
     return {"code": code, "expires_in": PAIRING_CODE_TTL}

@@ -8,7 +8,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
           <!-- AI Model Config -->
           <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm">
-            <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-6">AI Model & Provider</h3>
+            <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-6">{{ $t('settings.aiModelSection') }}</h3>
             
             <div class="space-y-4">
               <div class="flex flex-col gap-2">
@@ -37,21 +37,21 @@
               </div>
 
               <div v-if="provider === 'ollama'" class="flex flex-col gap-2">
-                <label class="text-xs font-semibold text-zinc-400">Ollama Base URL</label>
+                <label class="text-xs font-semibold text-zinc-400">{{ $t('settings.ollamaBaseUrl') }}</label>
                 <input
                   v-model="ollamaBaseUrl"
                   class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors"
                   placeholder="http://localhost:11434"
                 />
-                <p class="text-[10px] text-zinc-500">Docker users: use http://host.docker.internal:11434</p>
+                <p class="text-[10px] text-zinc-500">{{ $t('settings.ollamaDockerHint') }}</p>
               </div>
             </div>
           </section>
 
           <!-- API Keys -->
           <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm">
-            <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-2">API Keys</h3>
-            <p class="text-xs text-zinc-500 mb-6">Securely manage your keys for {{ provider.toUpperCase() }}</p>
+            <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-2">{{ $t('settings.apiKeysSection') }}</h3>
+            <p class="text-xs text-zinc-500 mb-6">{{ $t('settings.apiKeysDescription', { provider: provider.toUpperCase() }) }}</p>
             
             <div class="space-y-3">
               <div v-for="(_, index) in apiKeys" :key="index" class="flex gap-2">
@@ -76,7 +76,7 @@
               </button>
               
               <div v-if="existingKeyCount > 0" class="text-[11px] text-emerald-400 mt-2 font-medium">
-                {{ $t("settings.existingKeys", { count: existingKeyCount }) }} active
+                {{ $t("settings.existingKeys", { count: existingKeyCount }) }}
               </div>
             </div>
           </section>
@@ -84,11 +84,11 @@
 
         <!-- Global Preferences -->
         <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm">
-          <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-6">Global Preferences</h3>
+          <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-6">{{ $t('settings.globalPreferences') }}</h3>
           
           <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div class="flex flex-col gap-2">
-              <label class="text-xs font-semibold text-zinc-400">Language / 语言</label>
+              <label class="text-xs font-semibold text-zinc-400">{{ $t('settings.language') }}</label>
               <select 
                 v-model="locale" 
                 class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors"
