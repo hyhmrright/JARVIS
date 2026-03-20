@@ -1,6 +1,9 @@
+import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+from app.db.models import Document
 
 
 @pytest.mark.anyio
@@ -180,3 +183,74 @@ async def test_ingest_url_rejects_empty_page(auth_client):
         )
     assert resp.status_code == 400
     assert "No readable content" in resp.json()["detail"]
+
+
+async def _create_test_document(db_session, user_id: uuid.UUID) -> uuid.UUID:
+    """Insert a minimal Document row directly into the test DB."""
+    doc = Document(
+        user_id=user_id,
+        filename="original.txt",
+        file_type="txt",
+        file_size_bytes=100,
+        qdrant_collection=f"user_{user_id}",
+        minio_object_key=f"{user_id}/{uuid.uuid4()}_original.txt",
+    )
+    db_session.add(doc)
+    await db_session.flush()
+    return doc.id
+
+
+async def _get_user_id(auth_client) -> uuid.UUID:
+    """Get the authenticated user's ID via the /api/auth/me endpoint."""
+    resp = await auth_client.get("/api/auth/me")
+    return uuid.UUID(resp.json()["id"])
+
+
+@pytest.mark.anyio
+async def test_rename_document(auth_client, db_session):
+    """Renaming a document updates its filename and returns the updated doc."""
+    user_id = await _get_user_id(auth_client)
+    doc_id = await _create_test_document(db_session, user_id)
+
+    resp = await auth_client.patch(
+        f"/api/documents/{doc_id}", json={"filename": "renamed.txt"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["filename"] == "renamed.txt"
+    assert resp.json()["id"] == str(doc_id)
+
+
+@pytest.mark.anyio
+async def test_rename_document_empty_name_rejected(auth_client, db_session):
+    """Empty filename should be rejected with 422."""
+    user_id = await _get_user_id(auth_client)
+    doc_id = await _create_test_document(db_session, user_id)
+
+    resp = await auth_client.patch(f"/api/documents/{doc_id}", json={"filename": ""})
+    assert resp.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_rename_nonexistent_document(auth_client):
+    """Renaming a non-existent document returns 404."""
+    resp = await auth_client.patch(
+        f"/api/documents/{uuid.uuid4()}", json={"filename": "x.txt"}
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_cannot_rename_other_users_document(auth_client, db_session, client):
+    """Renaming another user's document should return 404."""
+    from tests.conftest import _register_test_user
+
+    user_id = await _get_user_id(auth_client)
+    doc_id = await _create_test_document(db_session, user_id)
+
+    # Authenticate as a different user
+    token2 = await _register_test_user(client)
+    client.headers["Authorization"] = f"Bearer {token2}"
+    resp = await client.patch(
+        f"/api/documents/{doc_id}", json={"filename": "hacked.txt"}
+    )
+    assert resp.status_code == 404

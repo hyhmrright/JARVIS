@@ -28,5 +28,8 @@ export const createApiKey = (
   req: ApiKeyCreateRequest,
 ): Promise<ApiKeyCreateResponse> => api.post("/keys", req).then((r) => r.data);
 
+export const renameApiKey = (id: string, name: string): Promise<ApiKeyItem> =>
+  api.patch(`/keys/${id}`, { name }).then((r) => r.data);
+
 export const deleteApiKey = (id: string): Promise<void> =>
   api.delete(`/keys/${id}`);

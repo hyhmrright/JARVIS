@@ -37,3 +37,12 @@ export const deleteMessage = (convId: string, msgId: string) =>
 // URL ingestion
 export const ingestDocumentUrl = (url: string, workspaceId?: string | null) =>
   client.post("/documents/ingest-url", { url, workspace_id: workspaceId ?? null });
+
+// Rename a document
+export const renameDocument = (
+  docId: string,
+  filename: string,
+): Promise<{ id: string; filename: string; file_type: string; chunk_count: number }> =>
+  client
+    .patch(`/documents/${docId}`, { filename })
+    .then((r) => r.data);

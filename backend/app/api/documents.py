@@ -69,6 +69,10 @@ class DocumentOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class DocumentRename(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
+
+
 def extract_text(content: bytes, file_type: str) -> str:
     match file_type:
         case "txt" | "md":
@@ -120,10 +124,6 @@ async def list_documents(
     return {"documents": [DocumentOut.model_validate(d) for d in docs]}
 
 
-class DocumentRename(BaseModel):
-    filename: str = Field(min_length=1, max_length=255)
-
-
 @router.patch("/{doc_id}", response_model=DocumentOut)
 @limiter.limit("30/minute")
 async def rename_document(
@@ -134,11 +134,7 @@ async def rename_document(
     db: AsyncSession = Depends(get_db),
 ) -> DocumentOut:
     doc = await db.get(Document, doc_id)
-    if not doc or doc.is_deleted:
-        raise HTTPException(status_code=404, detail="Document not found")
-    if doc.workspace_id is not None:
-        await _resolve_workspace_collection(doc.workspace_id, user, db)
-    elif doc.user_id != user.id:
+    if not doc or doc.is_deleted or doc.user_id != user.id:
         raise HTTPException(status_code=404, detail="Document not found")
     doc.filename = body.filename
     await db.commit()

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -24,7 +24,7 @@ _MAX_KEYS_PER_USER = 10
 
 class ApiKeyCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
-    scope: str = "full"
+    scope: Literal["full", "readonly"] = "full"
     expires_at: datetime | None = None
 
 
@@ -64,14 +64,8 @@ async def create_key(
     """Create a new Personal Access Token.
 
     The raw key is returned **once** and never stored.
-    Raises 422 if scope is not 'full' or 'readonly'.
     Raises 409 if the user already has 10 active keys.
     """
-    if body.scope not in ("full", "readonly"):
-        raise HTTPException(
-            status_code=422, detail="scope must be 'full' or 'readonly'"
-        )
-
     count = await db.scalar(
         select(func.count()).select_from(ApiKey).where(ApiKey.user_id == user.id)
     )

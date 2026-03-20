@@ -151,6 +151,70 @@ async def test_cannot_delete_other_users_key(client: AsyncClient) -> None:
 
 
 @pytest.mark.anyio
+async def test_rename_key(auth_client: AsyncClient) -> None:
+    """Renaming a key updates its name and returns the updated key."""
+    create_resp = await auth_client.post(
+        "/api/keys", json={"name": "Old Name", "scope": "full"}
+    )
+    assert create_resp.status_code == 201
+    key_id = create_resp.json()["id"]
+
+    rename_resp = await auth_client.patch(
+        f"/api/keys/{key_id}", json={"name": "New Name"}
+    )
+    assert rename_resp.status_code == 200
+    assert rename_resp.json()["name"] == "New Name"
+    assert rename_resp.json()["id"] == key_id
+
+
+@pytest.mark.anyio
+async def test_rename_key_empty_name_rejected(auth_client: AsyncClient) -> None:
+    """Empty name should be rejected with 422."""
+    create_resp = await auth_client.post(
+        "/api/keys", json={"name": "Key", "scope": "full"}
+    )
+    key_id = create_resp.json()["id"]
+
+    resp = await auth_client.patch(f"/api/keys/{key_id}", json={"name": ""})
+    assert resp.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_rename_nonexistent_key(auth_client: AsyncClient) -> None:
+    """Renaming a non-existent key returns 404."""
+    resp = await auth_client.patch(
+        "/api/keys/00000000-0000-0000-0000-000000000000", json={"name": "X"}
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_cannot_rename_other_users_key(client: AsyncClient) -> None:
+    """Renaming another user's key should return 404."""
+    email_a = f"rna_{uuid.uuid4().hex[:8]}@example.com"
+    reg_a = await client.post(
+        "/api/auth/register",
+        json={"email": email_a, "password": "password123"},
+    )
+    token_a = reg_a.json()["access_token"]
+    client.headers["Authorization"] = f"Bearer {token_a}"
+    create_resp = await client.post(
+        "/api/keys", json={"name": "A Key", "scope": "full"}
+    )
+    key_id = create_resp.json()["id"]
+
+    email_b = f"rnb_{uuid.uuid4().hex[:8]}@example.com"
+    reg_b = await client.post(
+        "/api/auth/register",
+        json={"email": email_b, "password": "password123"},
+    )
+    token_b = reg_b.json()["access_token"]
+    client.headers["Authorization"] = f"Bearer {token_b}"
+    resp = await client.patch(f"/api/keys/{key_id}", json={"name": "Hacked"})
+    assert resp.status_code == 404
+
+
+@pytest.mark.anyio
 async def test_expired_pat_returns_401(client: AsyncClient) -> None:
     """A PAT with expires_at in the past should return 401."""
     import uuid
