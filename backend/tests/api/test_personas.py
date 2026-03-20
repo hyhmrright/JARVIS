@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 
 
@@ -127,7 +129,5 @@ async def test_clone_persona_ownership(auth_client, client):
 
 @pytest.mark.anyio
 async def test_clone_persona_not_found(auth_client):
-    import uuid
-
     resp = await auth_client.post(f"/api/personas/{uuid.uuid4()}/clone")
     assert resp.status_code == 404
