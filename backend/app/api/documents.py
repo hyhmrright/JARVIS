@@ -92,7 +92,9 @@ def extract_text(content: bytes, file_type: str) -> str:
 
 
 @router.get("", response_model=dict[str, list[DocumentOut]])
+@limiter.limit("60/minute")
 async def list_documents(
+    request: Request,
     workspace_id: uuid.UUID | None = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

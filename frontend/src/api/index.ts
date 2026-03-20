@@ -38,11 +38,17 @@ export const deleteMessage = (convId: string, msgId: string) =>
 export const ingestDocumentUrl = (url: string, workspaceId?: string | null) =>
   client.post("/documents/ingest-url", { url, workspace_id: workspaceId ?? null });
 
+export interface DocumentOut {
+  id: string;
+  filename: string;
+  file_type: string;
+  file_size_bytes: number;
+  chunk_count: number;
+  created_at: string;
+  source_url: string | null;
+  workspace_id: string | null;
+}
+
 // Rename a document
-export const renameDocument = (
-  docId: string,
-  filename: string,
-): Promise<{ id: string; filename: string; file_type: string; chunk_count: number }> =>
-  client
-    .patch(`/documents/${docId}`, { filename })
-    .then((r) => r.data);
+export const renameDocument = (docId: string, filename: string): Promise<DocumentOut> =>
+  client.patch<DocumentOut>(`/documents/${docId}`, { filename }).then((r) => r.data);

@@ -66,7 +66,9 @@ class TestTriggerResponse(BaseModel):
 
 
 @router.get("")
+@limiter.limit("60/minute")
 async def list_cron_jobs(
+    request: Request,
     workspace_id: uuid.UUID | None = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -265,7 +267,9 @@ async def update_cron_job(
 
 
 @router.get("/{job_id}/history", response_model=list[JobExecutionSchema])
+@limiter.limit("60/minute")
 async def get_job_history(
+    request: Request,
     job_id: uuid.UUID,
     limit: int = Query(default=20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
