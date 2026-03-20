@@ -76,7 +76,7 @@
                 <span class="text-lg font-bold">{{ persona.name.charAt(0) }}</span>
               </div>
               <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button class="p-2 text-zinc-600 hover:text-white transition-colors" :title="$t('common.clone')" @click="clonePersona(persona)">
+                <button class="p-2 text-zinc-600 hover:text-white transition-colors disabled:opacity-40" :title="$t('common.clone')" :disabled="isCloning(persona.id)" @click="clonePersona(persona)">
                   <Copy class="w-4 h-4" />
                 </button>
                 <button class="p-2 text-zinc-600 hover:text-white transition-colors" @click="openEditModal(persona)">
@@ -174,6 +174,7 @@ import { UserCircle, Plus, Trash2, Pencil, ShieldAlert, Smile, X, Copy } from 'l
 import client from '@/api/client';
 import { useToast } from '@/composables/useToast';
 import { useSearchFilter } from '@/composables/useSearchFilter';
+import { useCloning } from '@/composables/useCloning';
 
 const { t } = useI18n();
 const { error: toastError } = useToast();
@@ -188,6 +189,7 @@ interface Persona {
 const personas = ref<Persona[]>([]);
 const loading = ref(true);
 const saving = ref(false);
+const { isCloning, withCloning } = useCloning();
 const error = ref<string | null>(null);
 const showCreateModal = ref(false);
 const editingPersona = ref<Persona | null>(null);
@@ -267,13 +269,15 @@ const updatePersona = async () => {
 };
 
 const clonePersona = async (persona: Persona) => {
-  try {
-    const { data } = await client.post(`/personas/${persona.id}/clone`);
-    personas.value.push(data);
-  } catch (err) {
-    console.error('Clone failed:', err);
-    toastError(t('personas.cloneError'));
-  }
+  await withCloning(persona.id, async () => {
+    try {
+      const { data } = await client.post(`/personas/${persona.id}/clone`);
+      personas.value.push(data);
+    } catch (err) {
+      console.error('Clone failed:', err);
+      toastError(t('personas.cloneError'));
+    }
+  });
 };
 
 const deletePersona = async (persona: Persona) => {

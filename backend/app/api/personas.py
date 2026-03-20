@@ -74,7 +74,9 @@ async def create_persona(
 
 
 @router.put("/{persona_id}", response_model=PersonaOut)
+@limiter.limit("20/minute")
 async def update_persona(
+    request: Request,
     persona_id: uuid.UUID,
     body: PersonaCreate,
     user: User = Depends(get_current_user),
@@ -112,7 +114,9 @@ async def clone_persona(
 
 
 @router.delete("/{persona_id}")
+@limiter.limit("30/minute")
 async def delete_persona(
+    request: Request,
     persona_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

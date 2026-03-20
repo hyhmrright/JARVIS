@@ -84,7 +84,9 @@ async def create_workflow(
 
 
 @router.put("/{workflow_id}", response_model=WorkflowOut)
+@limiter.limit("20/minute")
 async def update_workflow(
+    request: Request,
     workflow_id: uuid.UUID,
     body: WorkflowCreate,
     user: User = Depends(get_current_user),
@@ -122,7 +124,9 @@ async def clone_workflow(
 
 
 @router.delete("/{workflow_id}")
+@limiter.limit("30/minute")
 async def delete_workflow(
+    request: Request,
     workflow_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

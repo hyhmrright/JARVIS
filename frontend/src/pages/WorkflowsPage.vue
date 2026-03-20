@@ -74,7 +74,7 @@
                 <GitFork class="w-5 h-5" />
               </div>
               <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button class="p-2 text-zinc-600 hover:text-white transition-colors" :title="$t('common.clone')" @click="cloneWorkflow(wf)">
+                <button class="p-2 text-zinc-600 hover:text-white transition-colors disabled:opacity-40" :title="$t('common.clone')" :disabled="isCloning(wf.id)" @click="cloneWorkflow(wf)">
                   <Copy class="w-4 h-4" />
                 </button>
                 <router-link :to="`/studio?id=${wf.id}`" class="p-2 text-zinc-600 hover:text-white transition-colors">
@@ -109,6 +109,7 @@ import { GitFork, Plus, Trash2, Pencil, ShieldAlert, Copy } from 'lucide-vue-nex
 import client from '@/api/client';
 import { useToast } from '@/composables/useToast';
 import { useSearchFilter } from '@/composables/useSearchFilter';
+import { useCloning } from '@/composables/useCloning';
 
 const { t } = useI18n();
 const { error: toastError } = useToast();
@@ -122,6 +123,7 @@ interface Workflow {
 
 const workflows = ref<Workflow[]>([]);
 const loading = ref(true);
+const { isCloning, withCloning } = useCloning();
 const error = ref<string | null>(null);
 const { query, filtered } = useSearchFilter(workflows);
 
@@ -140,13 +142,15 @@ const fetchWorkflows = async () => {
 };
 
 const cloneWorkflow = async (wf: Workflow) => {
-  try {
-    const { data } = await client.post(`/workflows/${wf.id}/clone`);
-    workflows.value.push(data);
-  } catch (err) {
-    console.error('Clone failed:', err);
-    toastError(t('workflows.cloneError'));
-  }
+  await withCloning(wf.id, async () => {
+    try {
+      const { data } = await client.post(`/workflows/${wf.id}/clone`);
+      workflows.value.push(data);
+    } catch (err) {
+      console.error('Clone failed:', err);
+      toastError(t('workflows.cloneError'));
+    }
+  });
 };
 
 const deleteWorkflow = async (wf: Workflow) => {
