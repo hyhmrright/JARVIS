@@ -40,8 +40,8 @@ gen_fernet_key() {
 }
 
 POSTGRES_PASSWORD=$(rand_password)
-MINIO_ROOT_USER="minioadmin"
-MINIO_ROOT_PASSWORD=$(rand_password)
+MINIO_ACCESS_KEY="minioadmin"
+MINIO_SECRET_KEY=$(rand_password)
 REDIS_PASSWORD=$(rand_password)
 JWT_SECRET=$(rand_password)
 ENCRYPTION_KEY=$(gen_fernet_key)
@@ -52,13 +52,17 @@ cat > "$ENV_FILE" <<EOF
 
 # Database
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+DATABASE_URL=postgresql+asyncpg://jarvis:${POSTGRES_PASSWORD}@localhost:5432/jarvis
 
-# Object storage
-MINIO_ROOT_USER=${MINIO_ROOT_USER}
-MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+# Object storage (MinIO)
+MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+MINIO_ENDPOINT=localhost:9000
+MINIO_BUCKET=jarvis-documents
 
 # Redis
 REDIS_PASSWORD=${REDIS_PASSWORD}
+REDIS_URL=redis://:${REDIS_PASSWORD}@localhost:6379
 
 # Authentication
 JWT_SECRET=${JWT_SECRET}
@@ -70,15 +74,14 @@ ENCRYPTION_KEY=${ENCRYPTION_KEY}
 GRAFANA_USER=admin
 GRAFANA_PASSWORD=${GRAFANA_PASSWORD}
 
-# LLM — fill in at least one key
+# LLM API Keys — fill in at least one key to enable chat
 DEEPSEEK_API_KEY=
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
 ZHIPUAI_API_KEY=
 
-# Composed URLs — for local dev (docker-compose overrides these with container hostnames)
-DATABASE_URL=postgresql+asyncpg://jarvis:${POSTGRES_PASSWORD}@localhost:5432/jarvis
-REDIS_URL=redis://:${REDIS_PASSWORD}@localhost:6379
+# Optional Tools
+TAVILY_API_KEY=
 EOF
 
 echo "✅  $ENV_FILE created. Open it and fill in at least one LLM API key."
