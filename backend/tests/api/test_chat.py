@@ -228,8 +228,9 @@ async def test_model_override_replaces_model_name(auth_client, db_session):
     mock_graph = MagicMock()
     mock_graph.astream = mock_astream
 
-    def capture_build_graph(llm_config, *args, **kwargs):
-        captured_model.append(llm_config.model_name)
+    def capture_build_graph(route, *args, **kwargs):
+        assert route == "main"
+        captured_model.append(kwargs["model"])
         return mock_graph
 
     with (

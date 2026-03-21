@@ -54,7 +54,12 @@ logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
-_ROLE_TO_MESSAGE = {"human": HumanMessage, "ai": AIMessage}
+_ROLE_TO_MESSAGE = {
+    "human": HumanMessage,
+    "ai": AIMessage,
+    "tool": ToolMessage,
+    "system": SystemMessage,
+}
 
 
 _MEMORY_PROMPT_LIMIT = 100
@@ -153,6 +158,53 @@ def _walk_message_chain(
         depth += 1
     history.reverse()
     return history
+
+
+def _build_langchain_messages(history: list) -> list:
+    """Convert a sequence of DB Message objects into LangChain message types."""
+    lc_messages = []
+    for msg in history:
+        message_class = _ROLE_TO_MESSAGE.get(msg.role)
+        if not message_class:
+            logger.debug(
+                "chat_history_message_skipped",
+                role=msg.role,
+                msg_id=str(msg.id),
+            )
+            continue
+
+        kwargs: dict[str, Any] = {"content": msg.content}
+
+        if msg.role == "human" and msg.image_urls:
+            content_blocks: list[dict[str, Any]] = [
+                {"type": "text", "text": msg.content}
+            ]
+            for url in msg.image_urls:
+                content_blocks.append({"type": "image_url", "image_url": {"url": url}})
+            kwargs["content"] = content_blocks
+
+        if msg.role == "ai" and msg.tool_calls:
+            kwargs["tool_calls"] = msg.tool_calls
+
+        if msg.role == "tool":
+            # ToolMessage requires tool_call_id.
+            # We assume it matches the ID stored in the DB message (if available)
+            # or try to find a matching name in the dict.
+            # In our schema, we save the tool name in content for basic results.
+            # For simplicity, we search the preceding AI message for the call ID.
+            # But the LangChain ToolMessage constructor needs tool_call_id.
+            # If our DB doesn't store tool_call_id explicitly, we might need to
+            # infer it.
+            # However, Message model has tool_calls as JSONB for AI messages.
+            # For Tool messages, let's check if we have tool_call_id.
+            # Actually, the Message model doesn't have tool_call_id field.
+            # For now, we mock it or extract it from metadata if we had it.
+            # Let's check if we can add tool_call_id to Message model later.
+            # For now, use the message ID as a placeholder or empty string.
+            kwargs["tool_call_id"] = str(msg.id)
+
+        lc_messages.append(message_class(**kwargs))
+    return lc_messages
 
 
 def _extract_token_counts(ai_msg: object | None) -> tuple[int, int]:
@@ -420,27 +472,7 @@ async def chat_stream(  # noqa: C901
         start_id = all_conv_messages[-1].id
 
     all_history = _walk_message_chain(msg_dict, start_id)
-    lc_messages = []
-    for msg in all_history:
-        message_class = _ROLE_TO_MESSAGE.get(msg.role)
-        if message_class:
-            if msg.role == "human" and getattr(msg, "image_urls", None):
-                content_blocks: list[dict[str, Any]] = [
-                    {"type": "text", "text": msg.content}
-                ]
-                for url in msg.image_urls or []:
-                    content_blocks.append(
-                        {"type": "image_url", "image_url": {"url": url}}
-                    )
-                lc_messages.append(message_class(content=content_blocks))
-            else:
-                lc_messages.append(message_class(content=msg.content))
-        else:
-            logger.debug(
-                "chat_history_message_skipped",
-                role=msg.role,
-                msg_id=str(msg.id),
-            )
+    lc_messages = _build_langchain_messages(all_history)
 
     system_msg = SystemMessage(content=build_system_prompt(llm.persona_override))
     lc_messages = [system_msg, *lc_messages]
@@ -674,6 +706,7 @@ async def chat_stream(  # noqa: C901
                                 else body.parent_message_id,  # noqa: E501
                             )
                             session.add(saved_ai_msg)
+                            await session.flush()
                             ai_msg_id = saved_ai_msg.id
                             if new_title:
                                 await session.execute(

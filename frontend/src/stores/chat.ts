@@ -78,6 +78,15 @@ export const useChatStore = defineStore("chat", {
       }
       return thread;
     },
+    activeLeafMessage(): Message | null {
+      const activeThread = this.activeMessages;
+      for (let i = activeThread.length - 1; i >= 0; i--) {
+        if (activeThread[i].id) {
+          return activeThread[i];
+        }
+      }
+      return null;
+    },
     getSiblings: (state) => (msg: Message) => {
       if (!msg.id) return [];
       return state.messages.filter(m => m.parent_id === msg.parent_id);
@@ -353,7 +362,7 @@ export const useChatStore = defineStore("chat", {
         this.currentConvId = data.id;
       }
 
-      const actualParentId = parentId || (this.activeMessages.length > 0 ? this.activeMessages[this.activeMessages.length - 1].id : undefined);
+      const actualParentId = parentId || this.activeLeafMessage?.id;
       let doneReceived = false;
 
       if (!content.startsWith("[CONSENT:")) {
@@ -434,6 +443,10 @@ export const useChatStore = defineStore("chat", {
                   }
                   if (aiMsg) applyModelMeta(aiMsg, data);
                   this.activeLeafId = data.ai_msg_id ?? null;
+                  const conv = this.conversations.find((c) => c.id === this.currentConvId);
+                  if (conv) {
+                    conv.active_leaf_id = data.ai_msg_id ?? null;
+                  }
                 } else if (data.type === "routing") {
                   this.routingAgent = data.agent;
                 } else if (data.type === "title_updated") {
