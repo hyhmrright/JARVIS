@@ -101,6 +101,38 @@ class _StreamRequest:
         return False
 
 
+class _PatchedChatSession:
+    def __init__(self, session):
+        self._session = session
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return None
+
+    def begin(self):
+        return self
+
+    def add(self, instance):
+        self._session.add(instance)
+
+    async def flush(self):
+        await self._session.flush()
+
+    async def scalar(self, *args, **kwargs):
+        return await self._session.scalar(*args, **kwargs)
+
+    async def execute(self, *args, **kwargs):
+        return await self._session.execute(*args, **kwargs)
+
+    async def get(self, *args, **kwargs):
+        return await self._session.get(*args, **kwargs)
+
+    async def commit(self):
+        await self._session.commit()
+
+
 async def _drain_streaming_response(response) -> str:
     chunks: list[str] = []
     for _ in range(16):
@@ -150,6 +182,10 @@ async def test_chat_stream_sets_parent_id(auth_client, db_session):
         patch("app.api.chat._build_expert_graph") as mock_build_graph,
         patch("app.api.chat.compact_messages", new_callable=AsyncMock) as mock_compact,
         patch("app.api.chat.build_rag_context", new_callable=AsyncMock) as mock_rag,
+        patch(
+            "app.api.chat.AsyncSessionLocal",
+            return_value=_PatchedChatSession(db_session),
+        ),
         patch(
             "app.agent.title_generator.generate_title",
             new=AsyncMock(return_value="Test Branching"),
@@ -223,6 +259,10 @@ async def test_chat_stream_uses_active_leaf_when_parent_missing(
         patch("app.api.chat._build_expert_graph") as mock_build_graph,
         patch("app.api.chat.compact_messages", new_callable=AsyncMock) as mock_compact,
         patch("app.api.chat.build_rag_context", new_callable=AsyncMock) as mock_rag,
+        patch(
+            "app.api.chat.AsyncSessionLocal",
+            return_value=_PatchedChatSession(db_session),
+        ),
         patch(
             "app.agent.title_generator.generate_title",
             new=AsyncMock(return_value="Active Leaf Fallback"),
@@ -300,6 +340,10 @@ async def test_chat_stream_persists_tool_transcript(auth_client, db_session):
         patch("app.api.chat._build_expert_graph") as mock_build_graph,
         patch("app.api.chat.compact_messages", new_callable=AsyncMock) as mock_compact,
         patch("app.api.chat.build_rag_context", new_callable=AsyncMock) as mock_rag,
+        patch(
+            "app.api.chat.AsyncSessionLocal",
+            return_value=_PatchedChatSession(db_session),
+        ),
         patch(
             "app.agent.title_generator.generate_title",
             new=AsyncMock(return_value="Tool Transcript"),
