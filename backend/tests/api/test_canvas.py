@@ -102,10 +102,13 @@ async def test_canvas_stream_valid_opens(db_session):
             assert conversation_id == str(conv_id)
             yield {"type": "canvas_render", "html": "<div>ok</div>", "title": "Canvas"}
 
-    with patch(
-        "app.api.canvas.AsyncSessionLocal",
-        return_value=_PatchedCanvasSession(db_session),
-    ), patch("app.api.canvas.get_canvas_bus", return_value=_FakeCanvasBus()):
+    with (
+        patch(
+            "app.api.canvas.AsyncSessionLocal",
+            return_value=_PatchedCanvasSession(db_session),
+        ),
+        patch("app.api.canvas.get_canvas_bus", return_value=_FakeCanvasBus()),
+    ):
         response = await canvas_stream(
             _FakeRequest(),
             str(conv_id),
