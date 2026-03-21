@@ -29,6 +29,38 @@ _SYNC_DATABASE_URL = (
 )
 
 
+class _PatchedChatSession:
+    def __init__(self, session: AsyncSession):
+        self._session = session
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return None
+
+    def begin(self):
+        return self
+
+    def add(self, instance):
+        self._session.add(instance)
+
+    async def flush(self):
+        await self._session.flush()
+
+    async def scalar(self, *args, **kwargs):
+        return await self._session.scalar(*args, **kwargs)
+
+    async def execute(self, *args, **kwargs):
+        return await self._session.execute(*args, **kwargs)
+
+    async def get(self, *args, **kwargs):
+        return await self._session.get(*args, **kwargs)
+
+    async def commit(self):
+        await self._session.commit()
+
+
 @pytest.fixture(scope="session")
 def anyio_backend():
     return "asyncio"
@@ -181,20 +213,26 @@ async def second_user_auth_headers(client) -> dict:
 
 
 @pytest.fixture(autouse=True)
-async def _suppress_chat_async_session():
-    mock_session = MagicMock()
-    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-    mock_session.__aexit__ = AsyncMock(return_value=None)
-    mock_session.begin = MagicMock(return_value=mock_session)
-    mock_session.scalar = AsyncMock(return_value=None)
-    _scalars = MagicMock()
-    _scalars.all = MagicMock(return_value=[])
-    _execute_result = MagicMock()
-    _execute_result.scalars = MagicMock(return_value=_scalars)
-    mock_session.execute = AsyncMock(return_value=_execute_result)
-    mock_session.add = MagicMock()
-    mock_session.flush = AsyncMock()
-    with patch("app.api.chat.AsyncSessionLocal", return_value=mock_session):
+async def _suppress_chat_async_session(request):
+    if "db_session" in request.fixturenames:
+        db_session = request.getfixturevalue("db_session")
+        patched_session = _PatchedChatSession(db_session)
+    else:
+        patched_session = MagicMock()
+        patched_session.__aenter__ = AsyncMock(return_value=patched_session)
+        patched_session.__aexit__ = AsyncMock(return_value=None)
+        patched_session.begin = MagicMock(return_value=patched_session)
+        patched_session.scalar = AsyncMock(return_value=None)
+        _scalars = MagicMock()
+        _scalars.all = MagicMock(return_value=[])
+        _execute_result = MagicMock()
+        _execute_result.scalars = MagicMock(return_value=_scalars)
+        patched_session.execute = AsyncMock(return_value=_execute_result)
+        patched_session.add = MagicMock()
+        patched_session.flush = AsyncMock()
+        patched_session.get = AsyncMock(return_value=None)
+
+    with patch("app.api.chat.AsyncSessionLocal", return_value=patched_session):
         yield
 
 

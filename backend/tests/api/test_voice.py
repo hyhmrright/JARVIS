@@ -57,16 +57,17 @@ async def test_transcribe_audio_calls_whisper():
 
 
 def test_voice_rejects_missing_token():
-    """WebSocket connection without token is rejected (missing required param)."""
+    """WebSocket connection without an auth frame is rejected."""
     from starlette.testclient import TestClient
 
     from app.main import app
 
     with _mock_app_lifespan():
         with TestClient(app) as tc:
-            with pytest.raises(Exception):  # noqa: B017
-                with tc.websocket_connect("/api/voice/stream"):
-                    pass
+            with tc.websocket_connect("/api/voice/stream") as ws:
+                ws.send_bytes(b"fake audio data")
+                with pytest.raises(Exception):  # noqa: B017
+                    ws.receive_json()
 
 
 def test_voice_sends_error_on_stt_failure():
@@ -75,7 +76,6 @@ def test_voice_sends_error_on_stt_failure():
 
     from starlette.testclient import TestClient
 
-    from app.api.deps import get_current_user_query_token
     from app.db.session import get_db
     from app.main import app
 
@@ -88,12 +88,15 @@ def test_voice_sends_error_on_stt_failure():
     async def _override_db():
         yield mock_db
 
-    app.dependency_overrides[get_current_user_query_token] = lambda: mock_user
     app.dependency_overrides[get_db] = _override_db
 
     try:
         with (
             _mock_app_lifespan(),
+            patch(
+                "app.api.voice.resolve_user_token",
+                new=AsyncMock(return_value=mock_user),
+            ),
             patch(
                 "app.api.voice.transcribe_audio",
                 new=AsyncMock(side_effect=Exception("STT failed")),
@@ -102,7 +105,8 @@ def test_voice_sends_error_on_stt_failure():
             patch("app.api.voice.create_graph"),
         ):
             with TestClient(app) as tc:
-                with tc.websocket_connect("/api/voice/stream?token=fake") as ws:
+                with tc.websocket_connect("/api/voice/stream") as ws:
+                    ws.send_json({"type": "auth", "token": "fake"})
                     ws.send_bytes(b"fake audio data")
                     msg = ws.receive_json()
             assert msg["type"] == "error"

@@ -1,17 +1,38 @@
 """Unit tests for chat.py helper functions: _load_tools, _sse_events_from_chunk, etc."""
 
+import asyncio
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, ToolMessage
+from sqlalchemy import select
 
 from app.api.chat import (
+    ChatRequest,
+    RegenerateRequest,
+    _build_langchain_messages,
     _load_tools,
     _sse_events_from_chunk,
+    chat_regenerate,
+    chat_stream,
 )
 from app.api.deps import ResolvedLLMConfig
 from app.db.models import Conversation, Message
+
+_RAW_CHAT_STREAM = getattr(chat_stream, "__wrapped__", chat_stream)
+_RAW_CHAT_REGENERATE = getattr(chat_regenerate, "__wrapped__", chat_regenerate)
+
+
+def _user_id_from_auth_client(auth_client) -> uuid.UUID:
+    from app.core.security import decode_access_token
+
+    token = auth_client.headers.get("Authorization").split(" ")[1]
+    return uuid.UUID(decode_access_token(token))
+
+
+def _user_stub(user_id: uuid.UUID):
+    return type("UserStub", (), {"id": user_id})()
 
 
 async def test_load_tools_both_when_enabled_tools_is_none():
@@ -58,13 +79,46 @@ def test_sse_events_from_chunk_with_existing_content():
     assert "!!!" in events[0]
 
 
+def test_build_langchain_messages_parses_serialized_tool_message():
+    tool_msg = Message(
+        conversation_id=uuid.uuid4(),
+        role="tool",
+        content='{"tool_call_id":"call_1","name":"web_search","content":"done"}',
+    )
+
+    lc_messages = _build_langchain_messages([tool_msg])
+
+    assert len(lc_messages) == 1
+    parsed = lc_messages[0]
+    assert isinstance(parsed, ToolMessage)
+    assert parsed.tool_call_id == "call_1"
+    assert parsed.name == "web_search"
+    assert parsed.content == "done"
+
+
+class _StreamRequest:
+    async def is_disconnected(self) -> bool:
+        return False
+
+
+async def _drain_streaming_response(response) -> str:
+    chunks: list[str] = []
+    for _ in range(16):
+        try:
+            chunk = await asyncio.wait_for(anext(response.body_iterator), timeout=0.5)
+        except StopAsyncIteration:
+            break
+        except TimeoutError:
+            break
+        chunks.append(chunk)
+        if '"type": "done"' in chunk or '"type":"done"' in chunk:
+            break
+    return "".join(chunks)
+
+
 @pytest.mark.asyncio
 async def test_chat_stream_sets_parent_id(auth_client, db_session):
-    from app.core.security import decode_access_token
-
-    token = auth_client.headers.get("Authorization").split(" ")[1]
-    user_id_str = decode_access_token(token)
-    user_id = uuid.UUID(user_id_str)
+    user_id = _user_id_from_auth_client(auth_client)
 
     conv = Conversation(user_id=user_id, title="Test Branching")
     db_session.add(conv)
@@ -96,6 +150,10 @@ async def test_chat_stream_sets_parent_id(auth_client, db_session):
         patch("app.api.chat._build_expert_graph") as mock_build_graph,
         patch("app.api.chat.compact_messages", new_callable=AsyncMock) as mock_compact,
         patch("app.api.chat.build_rag_context", new_callable=AsyncMock) as mock_rag,
+        patch(
+            "app.agent.title_generator.generate_title",
+            new=AsyncMock(return_value="Test Branching"),
+        ),
     ):
         mock_get_llm.return_value = mock_llm
         mock_classify.return_value = "main"
@@ -103,19 +161,181 @@ async def test_chat_stream_sets_parent_id(auth_client, db_session):
         mock_compact.side_effect = lambda msgs, **kwargs: msgs
         mock_rag.return_value = ""
 
-        resp = await auth_client.post("/api/chat/stream", json=payload)
-        assert resp.status_code == 200
-        async for _ in resp.aiter_text():
-            pass
+        response = await _RAW_CHAT_STREAM(
+            _StreamRequest(),
+            ChatRequest(**payload),
+            _user_stub(user_id),
+            db_session,
+        )
+        await _drain_streaming_response(response)
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_uses_active_leaf_when_parent_missing(
+    auth_client, db_session
+):
+    user_id = _user_id_from_auth_client(auth_client)
+
+    conv = Conversation(user_id=user_id, title="Active Leaf Fallback")
+    db_session.add(conv)
+    await db_session.flush()
+
+    first_human = Message(
+        conversation_id=conv.id,
+        role="human",
+        content="My name is Alice.",
+    )
+    db_session.add(first_human)
+    await db_session.flush()
+
+    first_ai = Message(
+        conversation_id=conv.id,
+        role="ai",
+        content="Your name is Alice.",
+        parent_id=first_human.id,
+    )
+    db_session.add(first_ai)
+    await db_session.flush()
+
+    conv.active_leaf_id = first_ai.id
+    await db_session.commit()
+
+    mock_llm = ResolvedLLMConfig(
+        provider="openai",
+        model_name="gpt-4o",
+        api_key="sk-test",
+        api_keys=["sk-test"],
+        enabled_tools=None,
+        persona_override=None,
+        raw_keys={},
+        base_url=None,
+    )
+
+    async def mock_astream(*args, **kwargs):
+        yield {"llm": {"messages": [AIMessage(content="You are Alice.")]}}
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+
+    with (
+        patch("app.api.chat.get_llm_config", new_callable=AsyncMock) as mock_get_llm,
+        patch("app.api.chat.classify_task", new_callable=AsyncMock) as mock_classify,
+        patch("app.api.chat._build_expert_graph") as mock_build_graph,
+        patch("app.api.chat.compact_messages", new_callable=AsyncMock) as mock_compact,
+        patch("app.api.chat.build_rag_context", new_callable=AsyncMock) as mock_rag,
+        patch(
+            "app.agent.title_generator.generate_title",
+            new=AsyncMock(return_value="Active Leaf Fallback"),
+        ),
+    ):
+        mock_get_llm.return_value = mock_llm
+        mock_classify.return_value = "main"
+        mock_build_graph.return_value = mock_graph
+        mock_compact.side_effect = lambda msgs, **kwargs: msgs
+        mock_rag.return_value = ""
+
+        response = await _RAW_CHAT_STREAM(
+            _StreamRequest(),
+            ChatRequest(conversation_id=conv.id, content="What is my name?"),
+            _user_stub(user_id),
+            db_session,
+        )
+        await _drain_streaming_response(response)
+
+    rows = await db_session.scalars(
+        select(Message)
+        .where(Message.conversation_id == conv.id)
+        .order_by(Message.created_at)
+    )
+    messages = rows.all()
+    assert messages[-2].role == "human"
+    assert messages[-2].parent_id == first_ai.id
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_persists_tool_transcript(auth_client, db_session):
+    user_id = _user_id_from_auth_client(auth_client)
+
+    conv = Conversation(user_id=user_id, title="Tool Transcript")
+    db_session.add(conv)
+    await db_session.commit()
+    await db_session.refresh(conv)
+
+    mock_llm = ResolvedLLMConfig(
+        provider="openai",
+        model_name="gpt-4o",
+        api_key="sk-test",
+        api_keys=["sk-test"],
+        enabled_tools=None,
+        persona_override=None,
+        raw_keys={},
+        base_url=None,
+    )
+
+    async def mock_astream(*args, **kwargs):
+        ai_tool = AIMessage(content="")
+        ai_tool.tool_calls = [
+            {"name": "web_search", "args": {"query": "alice"}, "id": "call_1"}
+        ]
+        yield {"llm": {"messages": [ai_tool]}}
+        yield {
+            "tools": {
+                "messages": [
+                    ToolMessage(
+                        content="Alice result",
+                        name="web_search",
+                        tool_call_id="call_1",
+                    )
+                ]
+            }
+        }
+        yield {"llm": {"messages": [AIMessage(content="Alice is your name.")]}}
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+
+    with (
+        patch("app.api.chat.get_llm_config", new_callable=AsyncMock) as mock_get_llm,
+        patch("app.api.chat.classify_task", new_callable=AsyncMock) as mock_classify,
+        patch("app.api.chat._build_expert_graph") as mock_build_graph,
+        patch("app.api.chat.compact_messages", new_callable=AsyncMock) as mock_compact,
+        patch("app.api.chat.build_rag_context", new_callable=AsyncMock) as mock_rag,
+        patch(
+            "app.agent.title_generator.generate_title",
+            new=AsyncMock(return_value="Tool Transcript"),
+        ),
+    ):
+        mock_get_llm.return_value = mock_llm
+        mock_classify.return_value = "main"
+        mock_build_graph.return_value = mock_graph
+        mock_compact.side_effect = lambda msgs, **kwargs: msgs
+        mock_rag.return_value = ""
+
+        response = await _RAW_CHAT_STREAM(
+            _StreamRequest(),
+            ChatRequest(conversation_id=conv.id, content="Search for Alice"),
+            _user_stub(user_id),
+            db_session,
+        )
+        await _drain_streaming_response(response)
+
+    rows = await db_session.scalars(
+        select(Message)
+        .where(Message.conversation_id == conv.id)
+        .order_by(Message.created_at)
+    )
+    messages = rows.all()
+    assert [msg.role for msg in messages] == ["human", "ai", "tool", "ai"]
+    assert messages[1].tool_calls is not None
+    assert messages[1].tool_calls[0]["name"] == "web_search"
+    assert '"tool_call_id": "call_1"' in messages[2].content
+    assert messages[3].parent_id == messages[2].id
 
 
 @pytest.mark.asyncio
 async def test_chat_regenerate_updates_agent_session_status(auth_client, db_session):
     """AgentSession status must be updated to 'completed' after regenerate stream."""
-    from app.core.security import decode_access_token
-
-    token = auth_client.headers.get("Authorization").split(" ")[1]
-    user_id = uuid.UUID(decode_access_token(token))
+    user_id = _user_id_from_auth_client(auth_client)
 
     conv = Conversation(user_id=user_id, title="Test AgentSession Lifecycle")
     db_session.add(conv)
@@ -184,13 +404,13 @@ async def test_chat_regenerate_updates_agent_session_status(auth_client, db_sess
         mock_compact.side_effect = lambda msgs, **kwargs: msgs
         mock_rag.return_value = ""
 
-        resp = await auth_client.post(
-            "/api/chat/regenerate",
-            json={"conversation_id": str(conv.id), "message_id": str(msg_ai.id)},
+        response = await _RAW_CHAT_REGENERATE(
+            _StreamRequest(),
+            RegenerateRequest(conversation_id=conv.id, message_id=msg_ai.id),
+            _user_stub(user_id),
+            db_session,
         )
-        assert resp.status_code == 200
-        async for _ in resp.aiter_text():
-            pass
+        await _drain_streaming_response(response)
 
     # execute() must have been called with an UPDATE targeting AgentSession
     from sqlalchemy.sql.dml import Update
@@ -201,10 +421,7 @@ async def test_chat_regenerate_updates_agent_session_status(auth_client, db_sess
 @pytest.mark.asyncio
 async def test_model_override_replaces_model_name(auth_client, db_session):
     """model_override in the request body should shadow the user's settings model."""
-    from app.core.security import decode_access_token
-
-    token = auth_client.headers.get("Authorization").split(" ")[1]
-    user_id = uuid.UUID(decode_access_token(token))
+    user_id = _user_id_from_auth_client(auth_client)
     conv = Conversation(user_id=user_id, title="Override Test")
     db_session.add(conv)
     await db_session.commit()
@@ -245,28 +462,24 @@ async def test_model_override_replaces_model_name(auth_client, db_session):
         mock_compact.side_effect = lambda msgs, **kwargs: msgs
         mock_rag.return_value = ""
 
-        resp = await auth_client.post(
-            "/api/chat/stream",
-            json={
-                "conversation_id": str(conv.id),
-                "content": "hello",
-                "model_override": "deepseek-reasoner",
-            },
+        response = await _RAW_CHAT_STREAM(
+            _StreamRequest(),
+            ChatRequest(
+                conversation_id=conv.id,
+                content="hello",
+                model_override="deepseek-reasoner",
+            ),
+            _user_stub(user_id),
+            db_session,
         )
-        assert resp.status_code == 200
-        async for _ in resp.aiter_text():
-            pass
+        await _drain_streaming_response(response)
 
     assert captured_model and captured_model[0] == "deepseek-reasoner"
 
 
 @pytest.mark.asyncio
 async def test_chat_regenerate(auth_client, db_session):
-    from app.core.security import decode_access_token
-
-    token = auth_client.headers.get("Authorization").split(" ")[1]
-    user_id_str = decode_access_token(token)
-    user_id = uuid.UUID(user_id_str)
+    user_id = _user_id_from_auth_client(auth_client)
 
     conv = Conversation(user_id=user_id, title="Test Reg")
     db_session.add(conv)
@@ -308,10 +521,10 @@ async def test_chat_regenerate(auth_client, db_session):
         mock_compact.side_effect = lambda msgs, **kwargs: msgs
         mock_rag.return_value = ""
 
-        resp = await auth_client.post(
-            "/api/chat/regenerate",
-            json={"conversation_id": str(conv.id), "message_id": str(msg_ai.id)},
+        response = await _RAW_CHAT_REGENERATE(
+            _StreamRequest(),
+            RegenerateRequest(conversation_id=conv.id, message_id=msg_ai.id),
+            _user_stub(user_id),
+            db_session,
         )
-        assert resp.status_code == 200
-        async for _ in resp.aiter_text():
-            pass
+        await _drain_streaming_response(response)

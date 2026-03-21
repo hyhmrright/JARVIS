@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 
-from app.api.deps import get_current_user_query_token
+from app.api.deps import get_current_user
 from app.db.models import Conversation, User
 from app.db.session import AsyncSessionLocal
 from app.tools.canvas_tool import get_canvas_bus
@@ -24,7 +24,7 @@ router = APIRouter(prefix="/api/canvas", tags=["canvas"])
 async def canvas_stream(
     request: Request,
     conversation_id: str,
-    user: User = Depends(get_current_user_query_token),
+    user: User = Depends(get_current_user),
 ) -> StreamingResponse:
     """SSE stream of canvas render events for a conversation.
 

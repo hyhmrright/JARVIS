@@ -25,34 +25,67 @@ const props = defineProps<{
 const isOpen = ref(false)
 const currentHtml = ref('')
 const currentTitle = ref('')
-let eventSource: EventSource | null = null
+let streamController: AbortController | null = null
 
-const connectCanvas = (convId: string) => {
-  if (eventSource) {
-    eventSource.close()
-    eventSource = null
+const connectCanvas = async (convId: string) => {
+  if (streamController) {
+    streamController.abort()
+    streamController = null
   }
   if (!convId) return
 
   const token = localStorage.getItem('token')
-  const url = `/api/canvas/stream/${convId}?token=${token}`
-  eventSource = new EventSource(url)
+  if (!token) return
 
-  eventSource.onmessage = (e: MessageEvent) => {
-    try {
-      const event = JSON.parse(e.data as string)
-      if (event.type === 'canvas_render') {
-        currentHtml.value = event.html as string
-        currentTitle.value = (event.title as string) || 'Canvas'
-        isOpen.value = true
+  const controller = new AbortController()
+  streamController = controller
+
+  try {
+    const response = await fetch(`/api/canvas/stream/${convId}`, {
+      headers: {
+        Accept: 'text/event-stream',
+        Authorization: `Bearer ${token}`,
+      },
+      signal: controller.signal,
+    })
+    if (!response.ok || !response.body) return
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+
+      const events = buffer.split('\n\n')
+      buffer = events.pop() ?? ''
+
+      for (const rawEvent of events) {
+        for (const line of rawEvent.split('\n')) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const event = JSON.parse(line.slice(6)) as Record<string, unknown>
+            if (event.type === 'canvas_render') {
+              currentHtml.value = String(event.html ?? '')
+              currentTitle.value = String(event.title ?? 'Canvas')
+              isOpen.value = true
+            }
+          } catch {
+            // Ignore malformed events
+          }
+        }
       }
-    } catch {
-      // Ignore malformed events
     }
-  }
-
-  eventSource.onerror = () => {
-    // Connection errors are expected (server restart, etc.) — reconnect is automatic
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      return
+    }
+  } finally {
+    if (streamController === controller) {
+      streamController = null
+    }
   }
 }
 
@@ -65,8 +98,8 @@ watch(
 )
 
 onUnmounted(() => {
-  eventSource?.close()
-  eventSource = null
+  streamController?.abort()
+  streamController = null
 })
 
 defineExpose({ isOpen })

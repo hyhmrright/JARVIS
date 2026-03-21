@@ -1,4 +1,5 @@
 import { ref } from 'vue';
+import i18n from '@/i18n';
 
 export function useVoiceStream() {
   const isActive = ref(false);
@@ -13,13 +14,16 @@ export function useVoiceStream() {
 
   const startSession = async () => {
     const token = localStorage.getItem('token');
+    if (!token) return;
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
-    socket = new WebSocket(`${protocol}//${host}/api/voice/stream?token=${token}`);
+    const locale = encodeURIComponent(String(i18n.global.locale.value || 'zh'));
+    socket = new WebSocket(`${protocol}//${host}/api/voice/stream?locale=${locale}`);
     socket.binaryType = 'blob';
 
     socket.onopen = () => {
       isActive.value = true;
+      socket?.send(JSON.stringify({ type: 'auth', token }));
       startRecording();
     };
 

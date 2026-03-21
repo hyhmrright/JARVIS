@@ -109,6 +109,7 @@ import { useI18n } from 'vue-i18n';
 import { Layout, X, ExternalLink } from 'lucide-vue-next';
 import { useToast } from '@/composables/useToast';
 import * as echarts from 'echarts';
+import { sanitizeHtml } from '@/utils/sanitizeHtml';
 
 const { t } = useI18n();
 const { success: toastSuccess } = useToast();
@@ -165,7 +166,9 @@ const codeHtml = computed(() => {
     }
   }
   const highlighted = hljs.highlightAuto(raw).value;
-  return `<pre class="h-full overflow-auto p-6 bg-[#0d1117] text-[#c9d1d9] font-mono text-sm leading-relaxed"><code class="hljs">${highlighted}</code></pre>`;
+  return sanitizeHtml(
+    `<pre class="h-full overflow-auto p-6 bg-[#0d1117] text-[#c9d1d9] font-mono text-sm leading-relaxed"><code class="hljs">${highlighted}</code></pre>`,
+  );
 });
 
 const copyCode = () => {

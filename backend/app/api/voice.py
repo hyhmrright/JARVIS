@@ -1,5 +1,6 @@
 """Voice WebSocket: JWT auth + Whisper STT + user LLM settings + edge-TTS."""
 
+import asyncio
 import io
 from dataclasses import dataclass
 from typing import Any
@@ -15,11 +16,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agent.graph import create_graph
 from app.agent.persona import build_system_prompt
 from app.agent.state import AgentState
-from app.api.deps import get_current_user_query_token
+from app.api.deps import resolve_user_token
 from app.core.config import settings
 from app.core.permissions import DEFAULT_ENABLED_TOOLS
 from app.core.security import resolve_api_key, resolve_api_keys
-from app.db.models import User, UserSettings
+from app.db.models import UserSettings
 from app.db.session import get_db
 from app.rag.context import build_rag_context
 
@@ -162,13 +163,13 @@ async def _handle_turn(
 async def voice_stream(
     websocket: WebSocket,
     locale: str = Query(default="zh"),
-    user: User = Depends(get_current_user_query_token),
     db: AsyncSession = Depends(get_db),
 ) -> None:
     """WebSocket for real-time voice interaction.
 
     Protocol:
-    - Client connects with ?token=<jwt>[&locale=<zh|en|ja|...>]
+    - Client connects with ?locale=<zh|en|ja|...>
+    - Client sends JSON auth frame: {"type":"auth","token":"<jwt-or-pat>"}
     - Client sends binary audio chunks (WebM)
     - Server sends JSON: {"type": "transcription", "text": "..."}
     - Server sends JSON: {"type": "ai_text_delta", "delta": "..."}
@@ -177,6 +178,22 @@ async def voice_stream(
     - Server sends JSON: {"type": "error", "message": "..."} on failure
     """
     await websocket.accept()
+    try:
+        auth_payload = await asyncio.wait_for(websocket.receive_json(), timeout=5)
+    except Exception:
+        await websocket.close(code=1008, reason="Authentication required")
+        return
+
+    if auth_payload.get("type") != "auth" or not auth_payload.get("token"):
+        await websocket.close(code=1008, reason="Authentication required")
+        return
+
+    try:
+        user = await resolve_user_token(str(auth_payload["token"]), db)
+    except Exception:
+        await websocket.close(code=1008, reason="Invalid token")
+        return
+
     logger.info("voice_websocket_connected", user_id=str(user.id))
 
     us = await db.scalar(select(UserSettings).where(UserSettings.user_id == user.id))

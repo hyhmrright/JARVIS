@@ -122,6 +122,15 @@ async def get_current_user(
     return await _resolve_user(credentials.credentials, db, request)
 
 
+async def resolve_user_token(
+    token: str,
+    db: AsyncSession,
+    request: Request = None,  # type: ignore[assignment]
+) -> User:
+    """Resolve a JWT or PAT token outside standard header/query dependencies."""
+    return await _resolve_user(token, db, request)
+
+
 _security_optional = HTTPBearer(auto_error=False)
 
 

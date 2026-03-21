@@ -378,7 +378,7 @@
 
           <!-- Message Blocks -->
           <div
-            v-for="(msg, idx) in chat.activeMessages"
+            v-for="(msg, idx) in visibleMessages"
             :id="msg.id ? `msg-${msg.id}` : undefined"
             :key="idx"
             class="flex flex-col gap-4 animate-in fade-in duration-700"
@@ -575,7 +575,7 @@
                 >
                   <ThumbsDown class="w-3 h-3" />
                 </button>
-                <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Regenerate" @click="regenerate(idx)">
+                <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" title="Regenerate" @click="regenerate(msg)">
                   <RotateCcw class="w-3 h-3" />
                 </button>
                 <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors text-zinc-500" :class="{ 'text-emerald-400': isPlayingTTS === msg.content }" title="Read Aloud" @click="playTTS(msg.content)">
@@ -758,6 +758,7 @@ import { useAuthStore } from "@/stores/auth";
 import { marked } from "marked";
 import hljs from "highlight.js";
 import "highlight.js/styles/github-dark.css";
+import { sanitizeHtml } from "@/utils/sanitizeHtml";
 
 import {
   Trash2, Zap, Settings, LogOut,
@@ -781,6 +782,9 @@ const chat = useChatStore();
 const auth = useAuthStore();
 const router = useRouter();
 const toast = useToast();
+const visibleMessages = computed(() =>
+  chat.activeMessages.filter((msg) => msg.role !== "tool"),
+);
 
 const input = ref("");
 const editingMessageId = ref<string | null>(null);
@@ -1408,7 +1412,7 @@ const renderMarkdown = (text: string) => {
     html = html.replace(`__THINK_BLOCK_${i}__`, blockHtml);
   });
   
-  return html;
+  return sanitizeHtml(html);
 };
 const hasHtml = (text: string) => /<html>[\s\S]*?<\/html>/.test(text);
 const hasCanvasData = (text: string) => {
@@ -1463,10 +1467,17 @@ const handleDeleteMessage = async function(msgId: string): Promise<void> {
   }
 };
 
-const regenerate = async function(idx: number): Promise<void> {
-  const prevHuman = chat.messages.slice(0, idx)
+const regenerate = async function(
+  targetMsg: { id?: string; role: string; content: string },
+): Promise<void> {
+  const msgIndex = visibleMessages.value.findIndex(
+    (msg) => msg === targetMsg || (targetMsg.id != null && msg.id === targetMsg.id),
+  );
+  if (msgIndex === -1) return;
+
+  const prevHuman = visibleMessages.value.slice(0, msgIndex)
     .reverse()
-    .find(m => m.role === 'human');
+    .find((m) => m.role === "human");
   if (prevHuman) {
     await chat.sendMessage(prevHuman.content);
   }

@@ -173,38 +173,66 @@ def _build_langchain_messages(history: list) -> list:
             )
             continue
 
-        kwargs: dict[str, Any] = {"content": msg.content}
-
-        if msg.role == "human" and msg.image_urls:
-            content_blocks: list[dict[str, Any]] = [
-                {"type": "text", "text": msg.content}
-            ]
-            for url in msg.image_urls:
-                content_blocks.append({"type": "image_url", "image_url": {"url": url}})
-            kwargs["content"] = content_blocks
-
-        if msg.role == "ai" and msg.tool_calls:
-            kwargs["tool_calls"] = msg.tool_calls
-
-        if msg.role == "tool":
-            # ToolMessage requires tool_call_id.
-            # We assume it matches the ID stored in the DB message (if available)
-            # or try to find a matching name in the dict.
-            # In our schema, we save the tool name in content for basic results.
-            # For simplicity, we search the preceding AI message for the call ID.
-            # But the LangChain ToolMessage constructor needs tool_call_id.
-            # If our DB doesn't store tool_call_id explicitly, we might need to
-            # infer it.
-            # However, Message model has tool_calls as JSONB for AI messages.
-            # For Tool messages, let's check if we have tool_call_id.
-            # Actually, the Message model doesn't have tool_call_id field.
-            # For now, we mock it or extract it from metadata if we had it.
-            # Let's check if we can add tool_call_id to Message model later.
-            # For now, use the message ID as a placeholder or empty string.
-            kwargs["tool_call_id"] = str(msg.id)
+        kwargs = _build_message_kwargs(msg)
 
         lc_messages.append(message_class(**kwargs))
     return lc_messages
+
+
+def _build_message_kwargs(msg: Message) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {"content": msg.content}
+
+    if msg.role == "human" and msg.image_urls:
+        content_blocks: list[dict[str, Any]] = [{"type": "text", "text": msg.content}]
+        for url in msg.image_urls:
+            content_blocks.append({"type": "image_url", "image_url": {"url": url}})
+        kwargs["content"] = content_blocks
+
+    if msg.role == "ai" and msg.tool_calls:
+        kwargs["tool_calls"] = msg.tool_calls
+
+    if msg.role == "tool":
+        kwargs.update(_build_tool_message_kwargs(msg))
+
+    return kwargs
+
+
+def _build_tool_message_kwargs(msg: Message) -> dict[str, Any]:
+    tool_payload: dict[str, Any] | None = None
+    try:
+        parsed = json.loads(msg.content)
+        if isinstance(parsed, dict):
+            tool_payload = parsed
+    except json.JSONDecodeError:
+        tool_payload = None
+
+    if not tool_payload:
+        return {"tool_call_id": str(msg.id)}
+
+    kwargs: dict[str, Any] = {
+        "content": str(tool_payload.get("content", msg.content)),
+        "tool_call_id": str(tool_payload.get("tool_call_id") or msg.id),
+    }
+    if tool_payload.get("name"):
+        kwargs["name"] = str(tool_payload["name"])
+    return kwargs
+
+
+def _tool_call_signature(tool_calls: list[dict[str, Any]]) -> tuple[str, ...]:
+    return tuple(
+        str(tc.get("id") or f"{tc.get('name', 'tool')}_{idx}")
+        for idx, tc in enumerate(tool_calls)
+    )
+
+
+def _serialize_tool_message(tool_msg: ToolMessage) -> str:
+    return json.dumps(
+        {
+            "tool_call_id": getattr(tool_msg, "tool_call_id", None),
+            "name": tool_msg.name,
+            "content": tool_msg.content,
+        }
+    )
 
 
 def _extract_token_counts(ai_msg: object | None) -> tuple[int, int]:
@@ -442,6 +470,8 @@ async def chat_stream(  # noqa: C901
             conv.workflow_dsl = body.workflow_dsl
             await db.commit()
 
+    parent_message_id = body.parent_message_id or conv.active_leaf_id
+
     human_msg_id = None
     if not is_consent:
         human_msg = Message(
@@ -449,7 +479,7 @@ async def chat_stream(  # noqa: C901
             role="human",
             content=user_content,
             image_urls=body.image_urls,
-            parent_id=body.parent_message_id,
+            parent_id=parent_message_id,
         )
         db.add(human_msg)
         await db.commit()
@@ -466,7 +496,7 @@ async def chat_stream(  # noqa: C901
     # Build tree
     msg_dict = {msg.id: msg for msg in all_conv_messages}
 
-    start_id = human_msg_id if not is_consent else body.parent_message_id
+    start_id = human_msg_id if not is_consent else parent_message_id
     # Fallback to the latest message if parent_id is missing
     if not start_id and all_conv_messages:
         start_id = all_conv_messages[-1].id
@@ -583,6 +613,9 @@ async def chat_stream(  # noqa: C901
         full_content = ""
         last_ai_msg = None
         stream_completed = False
+        persisted_parent_id = human_msg_id if not is_consent else parent_message_id
+        persisted_tool_batches: set[tuple[str, ...]] = set()
+        persisted_tool_results: set[str] = set()
 
         is_disconnected = False
 
@@ -652,6 +685,24 @@ async def chat_stream(  # noqa: C901
                 async for chunk in graph.astream(state):
                     if "llm" in chunk:
                         last_ai_msg = chunk["llm"]["messages"][-1]
+                        tool_calls = getattr(last_ai_msg, "tool_calls", None) or []
+                        signature = _tool_call_signature(tool_calls)
+                        if tool_calls and signature not in persisted_tool_batches:
+                            async with AsyncSessionLocal() as persist_sess:
+                                async with persist_sess.begin():
+                                    persisted_ai = Message(
+                                        conversation_id=conv_id,
+                                        role="ai",
+                                        content=str(
+                                            getattr(last_ai_msg, "content", "")
+                                        ),
+                                        tool_calls=tool_calls,
+                                        parent_id=persisted_parent_id,
+                                    )
+                                    persist_sess.add(persisted_ai)
+                                    await persist_sess.flush()
+                                    persisted_parent_id = persisted_ai.id
+                            persisted_tool_batches.add(signature)
                     if "tools" in chunk:
                         for tm in chunk["tools"]["messages"]:
                             if (
@@ -660,6 +711,25 @@ async def chat_stream(  # noqa: C901
                                 and (tm.name not in tools_used)
                             ):
                                 tools_used.append(tm.name)
+                            if isinstance(tm, ToolMessage):
+                                tool_call_id = str(
+                                    getattr(tm, "tool_call_id", None)
+                                    or f"tool_{len(persisted_tool_results)}"
+                                )
+                                if tool_call_id in persisted_tool_results:
+                                    continue
+                                async with AsyncSessionLocal() as persist_sess:
+                                    async with persist_sess.begin():
+                                        persisted_tool = Message(
+                                            conversation_id=conv_id,
+                                            role="tool",
+                                            content=_serialize_tool_message(tm),
+                                            parent_id=persisted_parent_id,
+                                        )
+                                        persist_sess.add(persisted_tool)
+                                        await persist_sess.flush()
+                                        persisted_parent_id = persisted_tool.id
+                                persisted_tool_results.add(tool_call_id)
                     events, full_content = _sse_events_from_chunk(
                         chunk, full_content, human_msg_id
                     )
@@ -701,19 +771,16 @@ async def chat_stream(  # noqa: C901
                                 model_name=llm.model_name,
                                 tokens_input=tokens_in,
                                 tokens_output=tokens_out,
-                                parent_id=human_msg_id
-                                if not is_consent
-                                else body.parent_message_id,  # noqa: E501
+                                parent_id=persisted_parent_id,
                             )
                             session.add(saved_ai_msg)
                             await session.flush()
                             ai_msg_id = saved_ai_msg.id
-                            if new_title:
-                                await session.execute(
-                                    update(Conversation)
-                                    .where(Conversation.id == conv_id)
-                                    .values(title=new_title)
-                                )
+                            saved_conv = await session.get(Conversation, conv_id)
+                            if saved_conv is not None:
+                                saved_conv.active_leaf_id = ai_msg_id
+                                if new_title:
+                                    saved_conv.title = new_title
                     logger.info(
                         "chat_stream_completed",
                         conv_id=str(conv_id),
@@ -830,27 +897,7 @@ async def chat_regenerate(  # noqa: C901
     # Trace back from target_msg's parent to reconstruct conversation history
     all_history = _walk_message_chain(msg_dict, target_msg.parent_id)
 
-    lc_messages = []
-    for msg in all_history:
-        message_class = _ROLE_TO_MESSAGE.get(msg.role)
-        if message_class:
-            if msg.role == "human" and getattr(msg, "image_urls", None):
-                content_blocks: list[dict[str, Any]] = [
-                    {"type": "text", "text": msg.content}
-                ]
-                for url in msg.image_urls or []:
-                    content_blocks.append(
-                        {"type": "image_url", "image_url": {"url": url}}
-                    )
-                lc_messages.append(message_class(content=content_blocks))
-            else:
-                lc_messages.append(message_class(content=msg.content))
-        else:
-            logger.debug(
-                "chat_history_message_skipped",
-                role=msg.role,
-                msg_id=str(msg.id),
-            )
+    lc_messages = _build_langchain_messages(all_history)
 
     system_msg = SystemMessage(content=build_system_prompt(llm.persona_override))
     lc_messages = [system_msg, *lc_messages]
@@ -885,6 +932,9 @@ async def chat_regenerate(  # noqa: C901
 
     async def generate() -> AsyncGenerator[str]:  # noqa: C901
         nonlocal lc_messages
+        persisted_parent_id = target_msg.parent_id
+        persisted_tool_batches: set[tuple[str, ...]] = set()
+        persisted_tool_results: set[str] = set()
 
         try:
             lc_messages = await compact_messages(
@@ -957,6 +1007,22 @@ async def chat_regenerate(  # noqa: C901
             async for chunk in graph.astream(state):
                 if "llm" in chunk:
                     last_ai_msg = chunk["llm"]["messages"][-1]
+                    tool_calls = getattr(last_ai_msg, "tool_calls", None) or []
+                    signature = _tool_call_signature(tool_calls)
+                    if tool_calls and signature not in persisted_tool_batches:
+                        async with AsyncSessionLocal() as persist_sess:
+                            async with persist_sess.begin():
+                                persisted_ai = Message(
+                                    conversation_id=conv_id,
+                                    role="ai",
+                                    content=str(getattr(last_ai_msg, "content", "")),
+                                    tool_calls=tool_calls,
+                                    parent_id=persisted_parent_id,
+                                )
+                                persist_sess.add(persisted_ai)
+                                await persist_sess.flush()
+                                persisted_parent_id = persisted_ai.id
+                        persisted_tool_batches.add(signature)
                 if "tools" in chunk:
                     for tm in chunk["tools"]["messages"]:
                         if (
@@ -965,6 +1031,25 @@ async def chat_regenerate(  # noqa: C901
                             and tm.name not in tools_used
                         ):
                             tools_used.append(tm.name)
+                        if isinstance(tm, ToolMessage):
+                            tool_call_id = str(
+                                getattr(tm, "tool_call_id", None)
+                                or f"tool_{len(persisted_tool_results)}"
+                            )
+                            if tool_call_id in persisted_tool_results:
+                                continue
+                            async with AsyncSessionLocal() as persist_sess:
+                                async with persist_sess.begin():
+                                    persisted_tool = Message(
+                                        conversation_id=conv_id,
+                                        role="tool",
+                                        content=_serialize_tool_message(tm),
+                                        parent_id=persisted_parent_id,
+                                    )
+                                    persist_sess.add(persisted_tool)
+                                    await persist_sess.flush()
+                                    persisted_parent_id = persisted_tool.id
+                            persisted_tool_results.add(tool_call_id)
                 events, full_content = _sse_events_from_chunk(chunk, full_content)
                 for event in events:
                     yield event
@@ -986,10 +1071,14 @@ async def chat_regenerate(  # noqa: C901
                                 model_name=llm.model_name,
                                 tokens_input=tokens_in,
                                 tokens_output=tokens_out,
-                                parent_id=target_msg.parent_id,
+                                parent_id=persisted_parent_id,
                             )
                             session.add(saved_regen_msg)
+                            await session.flush()
                             regen_ai_msg_id = saved_regen_msg.id
+                            saved_conv = await session.get(Conversation, conv_id)
+                            if saved_conv is not None:
+                                saved_conv.active_leaf_id = regen_ai_msg_id
                 except Exception:
                     logger.warning("regenerate_save_message_failed", exc_info=True)
             if regen_ai_msg_id and not stream_error:

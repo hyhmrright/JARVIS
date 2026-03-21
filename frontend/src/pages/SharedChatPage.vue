@@ -33,7 +33,7 @@
 
           <template v-else>
             <div
-              v-for="(msg, idx) in messages"
+              v-for="(msg, idx) in visibleMessages"
               :key="idx"
               class="flex flex-col gap-4 animate-in fade-in duration-700"
             >
@@ -67,7 +67,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { marked } from "marked";
@@ -75,6 +75,7 @@ import hljs from "highlight.js";
 import "highlight.js/styles/github-dark.css";
 import { ShieldAlert } from "lucide-vue-next";
 import client from "@/api/client";
+import { sanitizeHtml } from "@/utils/sanitizeHtml";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -83,8 +84,12 @@ const messages = ref<any[]>([]);
 const loading = ref(true);
 const error = ref<string | null>(null);
 const messagesEl = ref<HTMLElement>();
+const visibleMessages = computed(() =>
+  messages.value.filter((msg) => msg.role !== "tool" && msg.role !== "system"),
+);
 
-const renderMarkdown = (text: string) => (text ? marked.parse(text) : "");
+const renderMarkdown = (text: string) =>
+  text ? sanitizeHtml(marked.parse(text) as string) : "";
 
 onMounted(async () => {
   marked.use({
