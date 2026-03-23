@@ -126,31 +126,47 @@
           </div>
 
           <div class="mt-8 flex flex-col gap-2">
-            <button
-              :disabled="installingId === skill.id"
-              class="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-2.5 text-xs font-black uppercase tracking-widest text-black transition-all hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
-              @click="installSkill(skill, 'personal')"
-            >
-              <template v-if="installingId === skill.id">
-                <div
-                  class="h-3 w-3 animate-spin rounded-full border-2 border-black/20 border-t-black"
-                ></div>
-                {{ $t("skillMarket.installing") }}
-              </template>
-              <template v-else>
+            <template v-if="installedUrls.has(skill.install_url)">
+              <div
+                class="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-900/40 py-2.5 text-xs font-black uppercase tracking-widest text-emerald-400"
+              >
+                <Check class="h-3.5 w-3.5" />
+                {{ $t("skillMarket.installed") }}
+              </div>
+              <button
+                disabled
+                class="flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 py-2.5 text-xs font-black uppercase tracking-widest text-zinc-500 cursor-not-allowed"
+              >
+                {{ $t("skillMarket.alreadyInstalled") }}
+              </button>
+            </template>
+            <template v-else>
+              <button
+                :disabled="installingId === skill.id"
+                class="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-2.5 text-xs font-black uppercase tracking-widest text-black transition-all hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
+                @click="installSkill(skill, 'personal')"
+              >
+                <template v-if="installingId === skill.id">
+                  <div
+                    class="h-3 w-3 animate-spin rounded-full border-2 border-black/20 border-t-black"
+                  ></div>
+                  {{ $t("skillMarket.installing") }}
+                </template>
+                <template v-else>
+                  <Download class="h-3.5 w-3.5" />
+                  {{ $t("skillMarket.installPersonal") }}
+                </template>
+              </button>
+              <button
+                v-if="isAdmin && skill.scope.includes('system')"
+                :disabled="installingId === skill.id"
+                class="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700 py-2.5 text-xs font-black uppercase tracking-widest text-zinc-400 transition-all hover:border-zinc-500 hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
+                @click="installSkill(skill, 'system')"
+              >
                 <Download class="h-3.5 w-3.5" />
-                {{ $t("skillMarket.installPersonal") }}
-              </template>
-            </button>
-            <button
-              v-if="isAdmin && skill.scope.includes('system')"
-              :disabled="installingId === skill.id"
-              class="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700 py-2.5 text-xs font-black uppercase tracking-widest text-zinc-400 transition-all hover:border-zinc-500 hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
-              @click="installSkill(skill, 'system')"
-            >
-              <Download class="h-3.5 w-3.5" />
-              {{ $t("skillMarket.installSystem") }}
-            </button>
+                {{ $t("skillMarket.installSystem") }}
+              </button>
+            </template>
           </div>
         </div>
       </div>
@@ -168,10 +184,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
-import { Zap, Search, Box, User, Download, ShieldAlert } from "lucide-vue-next";
+import { Zap, Search, Box, User, Download, ShieldAlert, Check } from "lucide-vue-next";
 import { useAuthStore } from "@/stores/auth";
 import { marketApi } from "@/api/plugins";
-import type { MarketSkillOut } from "@/api/plugins";
+import type { MarketSkillOut, InstalledPluginOut } from "@/api/plugins";
 import InstallFromUrlModal from "@/components/InstallFromUrlModal.vue";
 import { useToast } from "@/composables/useToast";
 
@@ -187,6 +203,20 @@ const searchQuery = ref("");
 const installingId = ref<string | null>(null);
 const activeCategory = ref("__all__");
 const showInstallModal = ref(false);
+const installedUrls = ref(new Set<string>());
+
+async function loadInstalled() {
+  try {
+    const { data } = await marketApi.listInstalled();
+    const urls = new Set<string>();
+    for (const p of [...data.system, ...data.personal] as InstalledPluginOut[]) {
+      if (p.install_url) urls.add(p.install_url);
+    }
+    installedUrls.value = urls;
+  } catch {
+    // Non-fatal: badges simply don't appear
+  }
+}
 
 const categories = computed(() => {
   const typeSet = new Set<string>();
@@ -235,6 +265,7 @@ async function installSkill(skill: MarketSkillOut, scope: "personal" | "system")
       scope,
     });
     toastSuccess(t("skillMarket.installSuccess", { name: skill.name }));
+    await loadInstalled();
   } catch (err: unknown) {
     const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data
       ?.detail;
@@ -249,5 +280,7 @@ function onInstalled(_pluginId: string) {
   loadSkills()
 }
 
-onMounted(loadSkills);
+onMounted(() => {
+  void Promise.all([loadSkills(), loadInstalled()]);
+});
 </script>
