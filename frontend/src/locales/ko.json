@@ -194,6 +194,8 @@
     "uninstallConfirm": "이 플러그인을 제거하시겠습니까?",
     "uninstallError": "제거에 실패했습니다",
     "noDescription": "설명 없음",
+    "install": "설치",
+    "installFromUrl": "URL에서 설치",
     "browseMarket": "마켓 보기",
     "reload": "플러그인 새로고침",
     "reload_error": "플러그인 새로고침에 실패했습니다. 백엔드 로그를 확인하세요.",
@@ -435,7 +437,9 @@
     "installSystem": "설치 (시스템 전체)",
     "fetchError": "레지스트리에서 스킬을 가져오지 못했습니다.",
     "installSuccess": "\"{name}\" 설치 완료.",
-    "installError": "설치 실패."
+    "installError": "설치 실패.",
+    "installed": "설치됨",
+    "alreadyInstalled": "설치됨 ✓"
   },
   "memory": {
     "title": "AI 기억",

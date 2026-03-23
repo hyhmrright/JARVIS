@@ -200,7 +200,9 @@
     "personalInstalledSection": "My Installed Plugins",
     "uninstallConfirm": "Are you sure you want to uninstall this plugin?",
     "uninstallError": "Uninstall failed",
-    "noDescription": "No description"
+    "noDescription": "No description",
+    "install": "Install",
+    "installFromUrl": "Install from URL"
   },
   "validation": {
     "emailRequired": "Please enter your email address",
@@ -435,7 +437,9 @@
     "installSystem": "Install (System-wide)",
     "fetchError": "Failed to fetch skills from registry.",
     "installSuccess": "\"{name}\" installed successfully.",
-    "installError": "Installation failed."
+    "installError": "Installation failed.",
+    "installed": "Installed",
+    "alreadyInstalled": "Installed ✓"
   },
   "memory": {
     "title": "AI Memory",

@@ -194,6 +194,8 @@
     "uninstallConfirm": "このプラグインをアンインストールしますか？",
     "uninstallError": "アンインストールに失敗しました",
     "noDescription": "説明なし",
+    "install": "インストール",
+    "installFromUrl": "URLからインストール",
     "browseMarket": "マーケットを見る",
     "reload": "プラグインを再読み込み",
     "reload_error": "プラグインの再読み込みに失敗しました。バックエンドのログを確認してください。",
@@ -435,7 +437,9 @@
     "installSystem": "インストール（システム全体）",
     "fetchError": "レジストリからスキルの取得に失敗しました。",
     "installSuccess": "「{name}」のインストールに成功しました。",
-    "installError": "インストールに失敗しました。"
+    "installError": "インストールに失敗しました。",
+    "installed": "インストール済み",
+    "alreadyInstalled": "インストール済み ✓"
   },
   "memory": {
     "title": "AI メモリ",

@@ -194,6 +194,8 @@
     "uninstallConfirm": "Dieses Plugin deinstallieren?",
     "uninstallError": "Deinstallation fehlgeschlagen",
     "noDescription": "Keine Beschreibung",
+    "install": "Installieren",
+    "installFromUrl": "Von URL installieren",
     "browseMarket": "Marktplatz durchsuchen",
     "reload": "Plugins neu laden",
     "reload_error": "Fehler beim Neuladen der Plugins, Backend-Logs prüfen.",
@@ -435,7 +437,9 @@
     "installSystem": "Installieren (Systemweit)",
     "fetchError": "Skills konnten nicht aus der Registry abgerufen werden.",
     "installSuccess": "\"{name}\" erfolgreich installiert.",
-    "installError": "Installation fehlgeschlagen."
+    "installError": "Installation fehlgeschlagen.",
+    "installed": "Installiert",
+    "alreadyInstalled": "Installiert ✓"
   },
   "memory": {
     "title": "KI-Erinnerungen",

@@ -194,6 +194,8 @@
     "uninstallConfirm": "Désinstaller ce plugin ?",
     "uninstallError": "Échec de la désinstallation",
     "noDescription": "Pas de description",
+    "install": "Installer",
+    "installFromUrl": "Installer depuis une URL",
     "browseMarket": "Explorer le marché",
     "reload": "Recharger les plugins",
     "reload_error": "Échec du rechargement des plugins, vérifiez les logs backend.",
@@ -435,7 +437,9 @@
     "installSystem": "Installer (Système)",
     "fetchError": "Échec de la récupération des compétences depuis le registre.",
     "installSuccess": "« {name} » installé avec succès.",
-    "installError": "Échec de l'installation."
+    "installError": "Échec de l'installation.",
+    "installed": "Installé",
+    "alreadyInstalled": "Installé ✓"
   },
   "memory": {
     "title": "Mémoire IA",
