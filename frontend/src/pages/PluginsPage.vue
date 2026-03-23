@@ -3,6 +3,9 @@
     <div class="page-header">
       <h1>{{ t("plugins.title") }}</h1>
       <div class="header-actions">
+        <button class="install-btn" @click="showInstallModal = true">
+          {{ t("plugins.installFromUrl") }}
+        </button>
         <router-link to="/market" class="market-btn">
           {{ t("plugins.browseMarket") }}
         </router-link>
@@ -178,6 +181,12 @@
         </div>
       </div>
     </Teleport>
+
+    <InstallFromUrlModal
+      v-if="showInstallModal"
+      @close="showInstallModal = false"
+      @installed="loadInstalled"
+    />
   </div>
 </template>
 
@@ -187,6 +196,7 @@ import { useI18n } from "vue-i18n";
 import { pluginsApi, marketApi, type PluginInfo, type ConfigItem, type InstalledPluginOut } from "@/api/plugins";
 import { useAuthStore } from "@/stores/auth";
 import { useToast } from "@/composables/useToast";
+import InstallFromUrlModal from "@/components/InstallFromUrlModal.vue";
 
 const { t } = useI18n();
 const { error: toastError } = useToast();
@@ -228,6 +238,7 @@ const newKey = ref("");
 const newValue = ref("");
 const newIsSecret = ref(false);
 const errorMsg = ref("");
+const showInstallModal = ref(false);
 
 async function loadPlugins() {
   loading.value = true;
@@ -317,6 +328,18 @@ async function removeConfig(key: string) {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
+}
+.install-btn {
+  padding: 0.5rem 1rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+.install-btn:hover {
+  background: #2563eb;
 }
 .reload-btn {
   padding: 0.5rem 1rem;
