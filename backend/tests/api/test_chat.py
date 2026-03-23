@@ -18,7 +18,7 @@ from app.api.chat import (
     chat_stream,
 )
 from app.api.deps import ResolvedLLMConfig
-from app.db.models import Conversation, Message
+from app.db.models import AgentSession, Conversation, Message
 
 _RAW_CHAT_STREAM = getattr(chat_stream, "__wrapped__", chat_stream)
 _RAW_CHAT_REGENERATE = getattr(chat_regenerate, "__wrapped__", chat_regenerate)
@@ -125,6 +125,9 @@ class _PatchedChatSession:
 
     async def execute(self, *args, **kwargs):
         return await self._session.execute(*args, **kwargs)
+
+    async def scalars(self, *args, **kwargs):
+        return await self._session.scalars(*args, **kwargs)
 
     async def get(self, *args, **kwargs):
         return await self._session.get(*args, **kwargs)
@@ -408,31 +411,7 @@ async def test_chat_regenerate_updates_agent_session_status(auth_client, db_sess
     mock_graph = MagicMock()
     mock_graph.astream = mock_astream
 
-    execute_calls: list = []
-    added_objects: list = []
-    tracking_session = MagicMock()
-    tracking_session.__aenter__ = AsyncMock(return_value=tracking_session)
-    tracking_session.__aexit__ = AsyncMock(return_value=None)
-    tracking_session.begin = MagicMock(return_value=tracking_session)
-    tracking_session.scalar = AsyncMock(return_value=None)
-
-    def _track_add(obj: object) -> None:
-        added_objects.append(obj)
-
-    tracking_session.add = MagicMock(side_effect=_track_add)
-
-    async def _mock_flush() -> None:
-        # Simulate SQLAlchemy applying column defaults on flush
-        for obj in added_objects:
-            if hasattr(obj, "id") and obj.id is None:
-                obj.id = uuid.uuid4()
-
-    tracking_session.flush = AsyncMock(side_effect=_mock_flush)
-
-    async def _track_execute(stmt, *args, **kwargs):
-        execute_calls.append(stmt)
-
-    tracking_session.execute = AsyncMock(side_effect=_track_execute)
+    tracking_session = _PatchedChatSession(db_session)
 
     with (
         patch("app.api.chat.get_llm_config", new_callable=AsyncMock) as mock_get_llm,
@@ -456,10 +435,15 @@ async def test_chat_regenerate_updates_agent_session_status(auth_client, db_sess
         )
         await _drain_streaming_response(response)
 
-    # execute() must have been called with an UPDATE targeting AgentSession
-    from sqlalchemy.sql.dml import Update
-
-    assert any(isinstance(s, Update) for s in execute_calls)
+    agent_sessions = (
+        await db_session.scalars(
+            select(AgentSession)
+            .where(AgentSession.conversation_id == conv.id)
+            .order_by(AgentSession.created_at)
+        )
+    ).all()
+    assert agent_sessions
+    assert agent_sessions[-1].status == "completed"
 
 
 @pytest.mark.asyncio

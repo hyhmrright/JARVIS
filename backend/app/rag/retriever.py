@@ -220,7 +220,8 @@ def format_rag_context(chunks: list[RetrievedChunk]) -> str:
         f'[{i}] "{c.document_name}"' for i, c in enumerate(chunks, 1)
     )
     lines.append(
-        "When using information from the context above, cite it inline using the "
-        f"reference numbers (e.g. [1], [2]). Available sources: {source_list}."
+        "When using information from the context above, Cite document names "
+        "inline using the reference numbers (e.g. [1], [2]). "
+        f"Available sources: {source_list}."
     )
     return "\n".join(lines)

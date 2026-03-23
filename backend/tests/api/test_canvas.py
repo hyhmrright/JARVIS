@@ -8,7 +8,7 @@ from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.canvas import canvas_stream
-from app.db.models import Conversation
+from app.db.models import Conversation, User
 
 
 class _PatchedCanvasSession:
@@ -34,6 +34,14 @@ class _UserStub:
 
 async def _create_conversation(db_session, user_id: uuid.UUID) -> uuid.UUID:
     """Insert a minimal Conversation row for the given user."""
+    db_session.add(
+        User(
+            id=user_id,
+            email=f"canvas_{user_id.hex}@example.com",
+            password_hash="not-used-in-tests",
+        )
+    )
+    await db_session.flush()
     conv = Conversation(user_id=user_id, title="Canvas Test")
     db_session.add(conv)
     await db_session.commit()

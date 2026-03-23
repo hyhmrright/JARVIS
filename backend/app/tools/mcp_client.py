@@ -35,22 +35,33 @@ class _MCPConnectionPool:
         self._exit_stacks: dict[str, contextlib.AsyncExitStack] = {}
         self._init_locks: dict[str, asyncio.Lock] = {}
 
+    def _config_key(self, config: MCPServerConfig) -> str:
+        env_items = tuple(sorted((config.env or {}).items()))
+        return json.dumps(
+            {
+                "name": config.name,
+                "command": config.command,
+                "args": config.args,
+                "env": env_items,
+            },
+        )
+
     def _init_lock(self, key: str) -> asyncio.Lock:
         return self._init_locks.setdefault(key, asyncio.Lock())
 
     async def get_session(self, config: MCPServerConfig) -> Any:
         """Return an open ClientSession, creating one if needed."""
-        key = config.name
+        key = self._config_key(config)
         if key in self._sessions:
             return self._sessions[key]
         async with self._init_lock(key):
             if key in self._sessions:
                 return self._sessions[key]
-            session = await self._open(config)
+            session = await self._open(config, key)
             self._sessions[key] = session
             return session
 
-    async def _open(self, config: MCPServerConfig) -> Any:
+    async def _open(self, config: MCPServerConfig, key: str) -> Any:
         from mcp import ClientSession, StdioServerParameters
         from mcp.client.stdio import stdio_client
 
@@ -63,12 +74,13 @@ class _MCPConnectionPool:
         read, write = await stack.enter_async_context(stdio_client(server_params))
         session = await stack.enter_async_context(ClientSession(read, write))
         await session.initialize()
-        self._exit_stacks[config.name] = stack
+        self._exit_stacks[key] = stack
         logger.info("mcp_session_opened", server=config.name)
         return session
 
-    async def invalidate(self, key: str) -> None:
+    async def invalidate(self, config: MCPServerConfig) -> None:
         """Remove a stale session; next call will reconnect."""
+        key = self._config_key(config)
         async with self._init_lock(key):
             self._sessions.pop(key, None)
             stack = self._exit_stacks.pop(key, None)
@@ -89,6 +101,7 @@ class _MCPConnectionPool:
                 except Exception:
                     pass
         self._sessions.clear()
+        self._init_locks.clear()
         logger.info("mcp_pool_closed", server_count=len(keys))
 
 
@@ -180,7 +193,7 @@ def _make_langchain_tool(
             return "\n".join(parts) or "(no output)"
         except Exception as exc:
             # Invalidate so the next call reopens a fresh connection.
-            await mcp_connection_pool.invalidate(config.name)
+            await mcp_connection_pool.invalidate(config)
             return f"MCP tool error ({tool_name}): {exc}"
 
     return StructuredTool.from_function(

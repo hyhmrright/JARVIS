@@ -624,6 +624,8 @@ class AddTagRequest(BaseModel):
     @field_validator("tag")
     @classmethod
     def normalize(cls, v: str) -> str:
+        if v != v.strip():
+            raise ValueError("tag must not have leading or trailing whitespace")
         v = _normalize_tag(v)
         if not v or "," in v or any(c.isspace() for c in v):
             raise ValueError("tag must be non-empty and contain no spaces or commas")

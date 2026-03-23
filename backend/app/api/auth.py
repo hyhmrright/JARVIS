@@ -85,6 +85,13 @@ class ProfileOut(BaseModel):
     display_name: str | None = None
 
 
+class CurrentUserOut(ProfileOut):
+    id: str
+    email: str
+    role: str
+    is_active: bool
+
+
 @router.post("/register", response_model=TokenResponse, status_code=201)
 @limiter.limit("3/minute")
 async def register(
@@ -141,6 +148,18 @@ async def login(
     return TokenResponse(
         access_token=create_access_token(str(user.id)),
         role=user.role,
+        display_name=user.display_name,
+    )
+
+
+@router.get("/me", response_model=CurrentUserOut)
+async def get_me(user: User = Depends(get_current_user)) -> CurrentUserOut:
+    """Return the authenticated user's basic profile."""
+    return CurrentUserOut(
+        id=str(user.id),
+        email=user.email,
+        role=user.role,
+        is_active=user.is_active,
         display_name=user.display_name,
     )
 
