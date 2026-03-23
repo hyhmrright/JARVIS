@@ -277,7 +277,8 @@ async function installSkill(skill: MarketSkillOut, scope: "personal" | "system")
 }
 
 function onInstalled(_pluginId: string) {
-  loadSkills()
+  void loadSkills()
+  void loadInstalled()
 }
 
 onMounted(() => {

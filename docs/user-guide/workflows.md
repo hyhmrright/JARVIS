@@ -23,12 +23,12 @@ Click **Workflows** in the left sidebar. The canvas loads with an empty graph.
 
 ## Add Nodes
 
-1. Click **+ Add Node** (or right-click the canvas).
+1. Click **+ Add Node** in the toolbar.
 2. Choose a node type:
    - **LLM** — call the configured language model
    - **Tool** — invoke an installed plugin tool
-   - **HTTP** — make an outbound HTTP request
-   - **Transform** — apply a JavaScript expression to the data
+   - **Condition** — branch execution based on a value
+   - **Output** — format and return the result
 3. Configure the node's parameters in the right panel.
 
 ---
@@ -50,8 +50,5 @@ Drag from an output port to an input port to create an edge. Data flows along ed
 
 ## Save and Trigger from Chat
 
-1. Click **Save**.
-2. In a chat conversation, type `/run <workflow-name>` to trigger the workflow inline.
-3. The workflow result is streamed back as a chat message.
-
-Workflows can also be triggered on a schedule via the **Proactive Monitoring** page (cron syntax).
+1. Click **Save** to persist the workflow.
+2. Workflows can be triggered on a schedule via the **Proactive Monitoring** page (cron syntax).

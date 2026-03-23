@@ -4,7 +4,7 @@
       <h1>{{ t("plugins.title") }}</h1>
       <div class="header-actions">
         <button class="install-btn" @click="showInstallModal = true">
-          {{ t("plugins.installFromUrl") }}
+          {{ $t("plugins.installFromUrl") }}
         </button>
         <router-link to="/market" class="market-btn">
           {{ t("plugins.browseMarket") }}
