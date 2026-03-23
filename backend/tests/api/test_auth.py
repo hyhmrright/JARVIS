@@ -123,3 +123,19 @@ async def test_update_profile_requires_auth(client):
         json={"display_name": "hacker"},
     )
     assert resp.status_code == 401
+
+
+async def test_get_me_returns_user_profile(client, auth_client):
+    resp = await auth_client.get("/api/auth/me")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "id" in data
+    assert "@" in data["email"]
+    assert "role" in data
+    assert data["is_active"] is True
+    assert data["display_name"] is None
+
+
+async def test_get_me_requires_auth(client):
+    resp = await client.get("/api/auth/me")
+    assert resp.status_code == 401
