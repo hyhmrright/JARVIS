@@ -60,6 +60,16 @@
 - **Sandboxed Tool Execution** — Browser and shell tools run in ephemeral Docker containers, fully isolated from the host filesystem and network
 - **Production-grade Observability** — Traefik edge router, Prometheus + Grafana + Loki + Promtail stack, cAdvisor container metrics, 4-layer network isolation
 
+## Documentation
+
+| Guide | Description |
+|-------|-------------|
+| [Getting Started](docs/user-guide/getting-started.md) | Deploy, first login, first conversation |
+| [Plugins & Skills](docs/user-guide/plugins-and-skills.md) | Browse, install, configure, and uninstall plugins |
+| [RAG Knowledge Base](docs/user-guide/rag-knowledge-base.md) | Upload documents, workspace collections, RAG queries |
+| [Workflow Studio](docs/user-guide/workflows.md) | Visual workflow editor, run from chat |
+| [Plugin SDK](docs/developer-guide/plugin-sdk.md) | Write and publish Python plugins |
+
 ## System Limitations (Sandbox)
 
 JARVIS runs entirely inside Docker containers to ensure host safety.
