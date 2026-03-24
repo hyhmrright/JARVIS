@@ -85,3 +85,10 @@ TAVILY_API_KEY=
 EOF
 
 echo "✅  $ENV_FILE created. Open it and fill in at least one LLM API key."
+
+# Install git hooks (commit + push stages)
+if command -v pre-commit &> /dev/null; then
+  pre-commit install
+  pre-commit install --hook-type pre-push
+  echo "✅  pre-commit hooks installed (commit + push stages)."
+fi

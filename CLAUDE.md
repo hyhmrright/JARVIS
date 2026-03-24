@@ -213,7 +213,8 @@ JARVIS/
 bash scripts/init-env.sh             # First run: generates .env with random passwords/keys
 uv sync                              # Install Python dependencies
 cd frontend && bun install            # Install frontend dependencies
-pre-commit install                    # Install git hooks
+pre-commit install                           # Install commit-stage hooks
+pre-commit install --hook-type pre-push      # Install push-stage hooks (pytest full suite)
 ```
 
 ### Running the Application / 运行应用
@@ -377,6 +378,12 @@ Write code / Modify files
   cd backend && uv run ruff check --fix && uv run ruff format
   cd backend && uv run mypy app
       ↓
+[REQUIRED] Run backend tests (catches runtime failures CI would catch):
+【必须】运行后端测试（捕获 CI 会发现的运行时失败）：
+  cd backend && uv run pytest tests/ -x -q --tb=short
+  If DB unavailable: uv run pytest --collect-only -q (minimum)
+  Any failure → fix immediately before Quality Loop
+      ↓
 ╔══════════════════ Quality Loop (repeat until no issues) ═════════════════╗
 ║ 质量循环（重复直到无问题）                                                ║
 ║                                                                          ║
@@ -443,6 +450,8 @@ The following reasons **must not** be used to skip the workflow:
 | "The user only said commit, not push" / "用户只说了 commit，没说要 push" | Push must follow commit immediately / commit 后必须立即 push，无需额外指令 |
 | "I'll push later" / "等会儿再 push" | Push is a required follow-up step, must not be delayed / push 是必要后续步骤，不得延迟 |
 | "code-simplifier said it looks fine" / "code-simplifier 说没问题了" | Agents do semantic review, not ruff/mypy execution; local tool checks are mandatory / agent 做语义审查不执行工具，本地 ruff/mypy 不可省略 |
+| "Tests pass on CI, no need to run locally" / "CI 会跑测试，本地不用跑" | Must run pytest before every push / 每次 push 前必须运行 pytest |
+| "DB is not running, can't run tests" / "数据库没开，无法跑测试" | `docker compose up -d postgres redis` then run pytest / 先启动再跑 |
 
 ---
 

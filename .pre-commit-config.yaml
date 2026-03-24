@@ -56,6 +56,22 @@ repos:
         files: ^backend/.*\.py$
         pass_filenames: false
 
+      - id: pytest-collect
+        name: pytest import check (no DB required)
+        language: system
+        entry: bash scripts/run-tests.sh collect
+        stages: [pre-commit]
+        pass_filenames: false
+        files: ^backend/.*\.py$
+
+      - id: pytest-full
+        name: pytest full suite (requires postgres + redis)
+        language: system
+        entry: bash scripts/run-tests.sh full
+        stages: [pre-push]
+        pass_filenames: false
+        files: ^backend/.*\.py$
+
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.0
     hooks:
