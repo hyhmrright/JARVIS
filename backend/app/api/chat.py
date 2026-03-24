@@ -1081,20 +1081,6 @@ async def chat_regenerate(  # noqa: C901
                                 saved_conv.active_leaf_id = regen_ai_msg_id
                 except Exception:
                     logger.warning("regenerate_save_message_failed", exc_info=True)
-            if regen_ai_msg_id and not stream_error:
-                yield _format_sse(
-                    {
-                        "type": "done",
-                        "ai_msg_id": str(regen_ai_msg_id),
-                        "human_msg_id": str(target_msg.parent_id)
-                        if target_msg.parent_id
-                        else None,
-                        "model": llm.model_name,
-                        "provider": llm.provider,
-                        "input_tokens": tokens_in or 0,
-                        "output_tokens": tokens_out or 0,
-                    }
-                )
             if agent_session_id:
                 try:
                     async with AsyncSessionLocal() as status_sess:
@@ -1117,6 +1103,20 @@ async def chat_regenerate(  # noqa: C901
                             )
                 except Exception:
                     logger.warning("agent_session_update_failed", exc_info=True)
+            if regen_ai_msg_id and not stream_error:
+                yield _format_sse(
+                    {
+                        "type": "done",
+                        "ai_msg_id": str(regen_ai_msg_id),
+                        "human_msg_id": str(target_msg.parent_id)
+                        if target_msg.parent_id
+                        else None,
+                        "model": llm.model_name,
+                        "provider": llm.provider,
+                        "input_tokens": tokens_in or 0,
+                        "output_tokens": tokens_out or 0,
+                    }
+                )
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 
