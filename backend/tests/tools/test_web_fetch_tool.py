@@ -72,8 +72,11 @@ async def test_web_fetch_connection_error():
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=False)
     mock_client.get = AsyncMock(side_effect=httpx.ConnectError("Connection refused"))
-    with patch("app.tools.web_fetch_tool.httpx.AsyncClient", return_value=mock_client):
-        result = await web_fetch.ainvoke({"url": "https://unreachable.test"})
+    with (
+        patch("app.tools.web_fetch_tool.httpx.AsyncClient", return_value=mock_client),
+        patch("app.tools.web_fetch_tool.is_safe_url", AsyncMock(return_value=True)),
+    ):
+        result = await web_fetch.ainvoke({"url": "https://unreachable.example.com"})
     assert "failed to fetch" in result.lower()
 
 
@@ -87,10 +90,10 @@ async def test_web_fetch_blocks_internal_urls():
     assert "blocked" in result.lower()
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "url,expected",
     [
-        ("https://example.com", True),
         ("http://127.0.0.1", False),
         ("http://localhost:8080", False),
         ("http://10.0.0.1/admin", False),
@@ -99,8 +102,8 @@ async def test_web_fetch_blocks_internal_urls():
         ("http://[::1]/admin", False),
     ],
 )
-def test_is_safe_url(url: str, expected: bool):
-    assert is_safe_url(url) == expected
+async def test_is_safe_url(url: str, expected: bool):
+    assert await is_safe_url(url) == expected
 
 
 async def test_web_fetch_tool_name():

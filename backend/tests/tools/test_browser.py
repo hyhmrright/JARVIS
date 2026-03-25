@@ -40,7 +40,7 @@ async def test_browser_navigate_sandbox_flow():
 @pytest.mark.asyncio
 async def test_browser_blocked_host():
     result = await browser_navigate.ainvoke("http://localhost:8000")
-    assert "Blocked" in result
+    assert "not allowed" in result
 
 
 @pytest.mark.asyncio
