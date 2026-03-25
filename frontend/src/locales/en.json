@@ -429,6 +429,8 @@
     "nodeConditionDesc": "Route based on logic",
     "nodeOutput": "Output",
     "nodeOutputDesc": "Return result to user",
+    "nodeImage_gen": "Image Gen",
+    "nodeImage_genDesc": "Generate images using DALL-E 3",
     "nodeStart": "Start",
     "workflowStart": "Workflow Start",
     "saved": "Workflow saved.",

@@ -205,9 +205,10 @@ import { useRoute, useRouter } from 'vue-router';
 import { VueFlow, useVueFlow, type Elements, type Connection, type Edge, type Node } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
 import { Controls } from '@vue-flow/controls';
-import { Save, Box, Target, GitFork, X, MessageSquare, Play, History, CheckCircle2, AlertCircle } from 'lucide-vue-next';
+import { Save, Box, Target, GitFork, X, MessageSquare, Play, History, CheckCircle2, AlertCircle, Image as ImageIcon } from 'lucide-vue-next';
 import LLMNode from '@/components/workflow/LLMNode.vue';
 import ToolNode from '@/components/workflow/ToolNode.vue';
+import ImageGenNode from '@/components/workflow/ImageGenNode.vue';
 import '@vue-flow/core/dist/style.css';
 import '@vue-flow/core/dist/theme-default.css';
 import { useToast } from '@/composables/useToast';
@@ -244,6 +245,7 @@ const nodeTypeMeta = [
   { type: 'tool', icon: markRaw(Box) },
   { type: 'condition', icon: markRaw(GitFork) },
   { type: 'output', icon: markRaw(Target) },
+  { type: 'image_gen', icon: markRaw(ImageIcon) },
 ] as const;
 
 const nodeTypes = computed(() => nodeTypeMeta.map(({ type, icon }) => ({
@@ -256,6 +258,7 @@ const nodeTypes = computed(() => nodeTypeMeta.map(({ type, icon }) => ({
 const nodeTypeComponents = {
   llm: markRaw(LLMNode),
   tool: markRaw(ToolNode),
+  image_gen: markRaw(ImageGenNode),
 } as any;
 
 onNodeClick(({ node }) => {

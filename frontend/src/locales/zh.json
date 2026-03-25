@@ -429,6 +429,8 @@
     "nodeConditionDesc": "基于逻辑路由",
     "nodeOutput": "输出",
     "nodeOutputDesc": "向用户返回结果",
+    "nodeImage_gen": "图像生成",
+    "nodeImage_genDesc": "使用 DALL-E 3 生成图片",
     "nodeStart": "开始",
     "workflowStart": "工作流开始",
     "saved": "工作流已保存。",

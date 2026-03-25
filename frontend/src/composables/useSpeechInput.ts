@@ -5,7 +5,6 @@
 import { ref } from "vue";
 
 // Web Speech API types are not in all TS lib.dom.d.ts versions; use any for compatibility
-/* eslint-disable @typescript-eslint/no-explicit-any */
 type SpeechRecognitionCtor = new () => any;
 
 declare global {
@@ -21,7 +20,7 @@ export function useSpeechInput(onResult: (text: string) => void) {
     typeof window !== "undefined" &&
     ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
 
-   
+
   let recognition: any = null;
 
   const start = () => {

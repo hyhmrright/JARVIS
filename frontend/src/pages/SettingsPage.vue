@@ -94,12 +94,11 @@
                 <span class="text-xs font-mono text-zinc-500">{{ temperature.toFixed(1) }}</span>
               </div>
               <input
-                type="range" min="0" max="2" step="0.1"
                 v-model.number="temperature"
+                type="range" min="0" max="2" step="0.1"
                 class="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 @change="saveTemperature"
-              />
-              <p class="text-[10px] text-zinc-500 italic">{{ $t('settings.temperatureHint') }}</p>
+              />              <p class="text-[10px] text-zinc-500 italic">{{ $t('settings.temperatureHint') }}</p>
             </div>
 
             <!-- Max Tokens -->

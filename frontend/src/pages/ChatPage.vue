@@ -151,10 +151,16 @@
           <!-- Folders -->
           <div v-for="f in conversationsByFolder.folders" :key="f.id" class="space-y-0.5">
             <div
-              class="group flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-zinc-200"
+              class="group flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors"
+              :class="[
+                dragHoverFolder === f.id ? 'bg-indigo-900/40 border border-indigo-500/50 text-zinc-100' : 'hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200'
+              ]"
               @click="toggleFolder(f.id)"
-            >
-              <ChevronRight class="w-3.5 h-3.5 transition-transform" :class="expandedFolders.has(f.id) ? 'rotate-90' : ''" />
+              @dragover.prevent
+              @dragenter.prevent="dragHoverFolder = f.id"
+              @dragleave.prevent="dragHoverFolder = null"
+              @drop="handleFolderDrop($event, f.id)"
+            >              <ChevronRight class="w-3.5 h-3.5 transition-transform" :class="expandedFolders.has(f.id) ? 'rotate-90' : ''" />
               <Folder class="w-3.5 h-3.5 text-indigo-400" />
               <span class="text-xs font-medium flex-1 truncate">{{ f.name }}</span>
               <div class="flex items-center gap-1.5">
@@ -169,15 +175,17 @@
             </div>
 
             <div v-if="expandedFolders.has(f.id)" class="pl-4 space-y-0.5 border-l border-zinc-800/50 ml-4.5 mb-2">
-              <div
-                v-for="c in conversationsByFolder.byFolder[f.id]"
-                :key="c.id"
-                :class="[
-                  'group flex flex-col rounded-md cursor-pointer transition-colors relative',
-                  chat.currentConvId === c.id ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
-                ]"
-                @click="selectConversation(c.id)"
-              >
+            <div
+              v-for="c in conversationsByFolder.byFolder[f.id]"
+              :key="c.id"
+              draggable="true"
+              :class="[
+                'group flex flex-col rounded-md cursor-pointer transition-colors relative',
+                chat.currentConvId === c.id ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
+              ]"
+              @dragstart="handleDragStart($event, c.id)"
+              @click="selectConversation(c.id)"
+            >
                 <!-- Conversation row content -->
                 <div class="flex items-center gap-3 px-3 py-2">
                   <MessageSquare class="w-3.5 h-3.5 flex-shrink-0" />
@@ -277,14 +285,25 @@
           </div>
 
           <!-- Unassigned -->
-          <div class="px-3 pt-4 pb-1 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Recent</div>
+          <div
+            class="px-3 pt-4 pb-1 text-[10px] font-bold text-zinc-600 uppercase tracking-widest transition-colors"
+            :class="{ 'bg-zinc-800/50 rounded-md': dragHoverFolder === 'root' }"
+            @dragover.prevent
+            @dragenter.prevent="dragHoverFolder = 'root'"
+            @dragleave.prevent="dragHoverFolder = null"
+            @drop="handleRootDrop($event)"
+          >
+            Recent
+          </div>
           <div
             v-for="c in conversationsByFolder.unassigned"
             :key="c.id"
+            draggable="true"
             :class="[
               'group flex flex-col rounded-md cursor-pointer transition-colors relative',
               chat.currentConvId === c.id ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
             ]"
+            @dragstart="handleDragStart($event, c.id)"
             @click="selectConversation(c.id)"
           >
             <!-- Main row -->
@@ -600,6 +619,7 @@
                   <button class="px-3 py-1.5 text-[11px] font-bold bg-white text-black rounded hover:bg-zinc-200 transition-all" @click="handleEditSubmit(msg)">SUBMIT</button>
                 </div>
               </div>
+              <!-- eslint-disable-next-line vue/no-v-html -->
               <div v-else class="markdown-body text-zinc-200 leading-[1.7] text-[14px]" v-html="renderMarkdown(msg.content)"></div>
 
               <!-- RAG Sources -->
@@ -1067,6 +1087,29 @@ const searchInputEl = ref<HTMLInputElement>();
 const expandedFolders = ref<Set<string>>(new Set());
 const showCreateFolderModal = ref(false);
 const newFolderName = ref("");
+
+const dragHoverFolder = ref<string | null>(null);
+
+const handleDragStart = (e: DragEvent, convId: string) => {
+  if (e.dataTransfer) {
+    e.dataTransfer.setData('text/plain', convId);
+    e.dataTransfer.effectAllowed = 'move';
+  }
+};
+
+const handleFolderDrop = async (e: DragEvent, folderId: string) => {
+  dragHoverFolder.value = null;
+  const convId = e.dataTransfer?.getData('text/plain');
+  if (!convId) return;
+  await handleMoveToFolder(convId, folderId);
+};
+
+const handleRootDrop = async (e: DragEvent) => {
+  dragHoverFolder.value = null;
+  const convId = e.dataTransfer?.getData('text/plain');
+  if (!convId) return;
+  await handleMoveToFolder(convId, null);
+};
 
 const toggleFolder = (folderId: string) => {
   if (expandedFolders.value.has(folderId)) {

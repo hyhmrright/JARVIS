@@ -66,6 +66,13 @@ def _resolve_tools(  # noqa: C901
     ):
         tools.append(create_rag_search_tool(user_id, openai_api_key))
 
+    if openai_api_key and (enabled_tools is None or "image_gen" in enabled_tools):
+        from app.tools.image_gen_tool import create_image_gen_tool
+
+        img_tool = create_image_gen_tool(openai_api_key)
+        if img_tool:
+            tools.append(img_tool)
+
     if user_id and (enabled_tools is None or "file" in enabled_tools):
         tools.extend(create_file_tools(user_id))
 

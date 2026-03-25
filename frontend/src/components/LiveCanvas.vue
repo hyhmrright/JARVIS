@@ -1,5 +1,5 @@
 <template>
-  <aside 
+  <aside
     v-if="isVisible"
     :class="[
       'fixed right-0 top-0 h-screen bg-zinc-900 border-l border-zinc-800 transition-all duration-300 ease-in-out z-50 flex flex-col shadow-2xl',
@@ -13,14 +13,14 @@
         <span class="text-xs font-bold uppercase tracking-widest text-zinc-300">Live Canvas</span>
       </div>
       <div class="flex items-center gap-1">
-        <button 
+        <button
           class="p-1.5 hover:bg-zinc-800 rounded text-zinc-500 hover:text-zinc-200 transition-colors"
           title="Pop out"
           @click="popOut"
         >
           <ExternalLink class="w-4 h-4" />
         </button>
-        <button 
+        <button
           class="p-1.5 hover:bg-zinc-800 rounded text-zinc-500 hover:text-zinc-200 transition-colors"
           @click="emit('close')"
         >
@@ -42,12 +42,13 @@
 
       <!-- Code Viewer -->
       <div v-else-if="type === 'code'" class="w-full h-full relative group bg-[#0d1117]">
-        <button 
-          class="absolute top-4 right-4 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold rounded-md opacity-0 group-hover:opacity-100 transition-opacity z-10" 
+        <button
+          class="absolute top-4 right-4 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold rounded-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
           @click="copyCode"
         >
           Copy Code
         </button>
+        <!-- eslint-disable-next-line vue/no-v-html -->
         <div class="h-full w-full" v-html="codeHtml"></div>
       </div>
 
@@ -60,8 +61,8 @@
         <form class="space-y-6" @submit.prevent="submitForm">
           <div v-for="field in formData.fields" :key="field.name" class="space-y-2">
             <label class="block text-sm font-semibold text-zinc-700">{{ field.label }}</label>
-            
-            <input 
+
+            <input
               v-if="field.type === 'text' || field.type === 'number'"
               v-model="formValues[field.name]"
               :type="field.type"
@@ -69,7 +70,7 @@
               :placeholder="field.placeholder"
               :required="field.required"
             />
-            
+
             <select
               v-else-if="field.type === 'select'"
               v-model="formValues[field.name]"
@@ -85,9 +86,9 @@
               :placeholder="field.placeholder"
             ></textarea>
           </div>
-          
-          <button 
-            type="submit" 
+
+          <button
+            type="submit"
             class="w-full py-3 bg-zinc-900 text-white font-bold rounded-lg hover:bg-zinc-800 transition-colors"
           >
             Submit to JARVIS
@@ -130,7 +131,7 @@ const type = computed(() => {
   if (props.content.includes('<html')) return 'html';
   if (props.content.startsWith('```') || props.content.includes('def ') || props.content.includes('function ') || props.content.includes('const ') || props.content.includes('import ')) {
     // If it looks like code and isn't JSON
-    try { JSON.parse(props.content); } 
+    try { JSON.parse(props.content); }
     catch { return 'code'; }
   }
   try {
@@ -142,7 +143,7 @@ const type = computed(() => {
   }
   // Fallback check for ECharts JSON inside markdown
   if (props.content.includes('"type": "chart"') || props.content.includes('"xAxis"')) return 'chart';
-  
+
   // If nothing matches, but it has some code-like structure
   return 'code';
 });
@@ -176,7 +177,7 @@ const copyCode = () => {
   if (raw.startsWith('```')) {
     const lines = raw.split('\n');
     if (lines.length > 1) {
-      lines.shift(); 
+      lines.shift();
       if (lines[lines.length - 1].startsWith('```')) lines.pop();
       raw = lines.join('\n');
     }
@@ -244,7 +245,7 @@ const submitForm = () => {
 const initChart = () => {
   if (!chartRef.value) return;
   if (chartInstance) chartInstance.dispose();
-  
+
   chartInstance = echarts.init(chartRef.value);
   try {
     const option = JSON.parse(props.content);

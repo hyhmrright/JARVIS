@@ -40,7 +40,7 @@
               <!-- Sender Label -->
               <div class="flex items-center gap-3 select-none">
                 <div
-                  :class="['w-5 h-5 rounded-sm flex items-center justify-center text-[9px] font-bold tracking-tighter', 
+                  :class="['w-5 h-5 rounded-sm flex items-center justify-center text-[9px] font-bold tracking-tighter',
                   msg.role === 'ai' ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-400']">
                   {{ msg.role === 'ai' ? 'J' : 'U' }}
                 </div>
@@ -52,6 +52,7 @@
                 <div v-if="msg.image_urls && msg.image_urls.length > 0" class="flex flex-wrap gap-2 mb-2">
                   <img v-for="(img, imgIdx) in msg.image_urls" :key="imgIdx" :src="img" class="max-w-[300px] max-h-[300px] object-contain rounded-md border border-zinc-700/50" />
                 </div>
+                <!-- eslint-disable-next-line vue/no-v-html -->
                 <div class="markdown-body text-zinc-200 leading-[1.7] text-[14px]" v-html="renderMarkdown(msg.content)"></div>
               </div>
             </div>
