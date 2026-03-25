@@ -80,11 +80,15 @@ async def test_trigger_webhook_valid_secret(auth_client):
 
     # Trigger without authentication token (secret IS the auth)
     auth_client.headers.pop("Authorization", None)
-    resp = await auth_client.post(
-        f"/api/webhooks/{webhook_id}/trigger",
-        json={"event": "push", "ref": "refs/heads/main"},
-        headers={"X-Webhook-Secret": secret},
-    )
+    mock_pool = AsyncMock()
+    mock_pool.enqueue_job = AsyncMock()
+    mock_pool.aclose = AsyncMock()
+    with patch("app.api.webhooks.create_pool", return_value=mock_pool):
+        resp = await auth_client.post(
+            f"/api/webhooks/{webhook_id}/trigger",
+            json={"event": "push", "ref": "refs/heads/main"},
+            headers={"X-Webhook-Secret": secret},
+        )
     assert resp.status_code == 202
     result = resp.json()
     assert result["status"] == "accepted"
@@ -133,11 +137,15 @@ async def test_trigger_increments_count(auth_client):
     auth_header = auth_client.headers.get("Authorization")
 
     auth_client.headers.pop("Authorization", None)
-    resp = await auth_client.post(
-        f"/api/webhooks/{webhook_id}/trigger",
-        json={},
-        headers={"X-Webhook-Secret": secret},
-    )
+    mock_pool = AsyncMock()
+    mock_pool.enqueue_job = AsyncMock()
+    mock_pool.aclose = AsyncMock()
+    with patch("app.api.webhooks.create_pool", return_value=mock_pool):
+        resp = await auth_client.post(
+            f"/api/webhooks/{webhook_id}/trigger",
+            json={},
+            headers={"X-Webhook-Secret": secret},
+        )
     assert resp.status_code == 202
 
     # Restore auth to check listing
