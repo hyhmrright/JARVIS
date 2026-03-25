@@ -224,7 +224,8 @@
       "installDesc": "输入插件 Python 文件的原始 URL（如来自 GitHub）",
       "toggleError": "切换插件状态失败",
       "installError": "安装插件失败",
-      "toolCount": "{count} 个工具"
+      "toolCount": "{count} 个工具",
+      "active": "已启用"
     },
     "stats": {
       "users": "总用户数",

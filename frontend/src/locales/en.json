@@ -316,7 +316,8 @@
       "installDesc": "Enter the raw URL of the plugin Python file (e.g. from GitHub)",
       "toggleError": "Failed to toggle plugin",
       "installError": "Failed to install plugin",
-      "toolCount": "{count} tools"
+      "toolCount": "{count} tools",
+      "active": "Active"
     },
     "stats": {
       "users": "Total Users",

@@ -84,10 +84,7 @@
               </div>
             </div>
             <div class="plugin-ctrl">
-              <label class="switch">
-                <input type="checkbox" checked @change="togglePlugin(plugin.id, ($event.target as HTMLInputElement).checked)" />
-                <span class="slider round"></span>
-              </label>
+              <span class="stat-pill">{{ $t('admin.plugins.active') }}</span>
             </div>
           </div>
         </div>
@@ -190,10 +187,6 @@ const toggleUserStatus = async (user: AdminUser) => {
     await adminApi.updateUser(user.id, { is_active: !user.is_active });
     await fetchUsers();
   } catch { toastError(t('admin.users.statusUpdateError')); }
-};
-
-const togglePlugin = async (pluginId: string, enable: boolean) => {
-  try { await adminApi.enablePlugin(pluginId, enable); } catch { toastError(t('admin.plugins.toggleError')); }
 };
 
 const handleInstall = async () => {

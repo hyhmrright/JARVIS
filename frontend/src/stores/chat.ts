@@ -241,6 +241,7 @@ export const useChatStore = defineStore("chat", {
         }
       } catch (err) {
         console.error("[chat] deleteConversation failed", err);
+        throw err;
       }
     },
     async removeMessage(msgId: string): Promise<void> {
