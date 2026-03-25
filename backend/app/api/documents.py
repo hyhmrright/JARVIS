@@ -140,6 +140,26 @@ async def rename_document(
         raise HTTPException(status_code=404, detail="Document not found")
     doc.filename = body.filename
     await db.commit()
+
+    # Sync new filename to Qdrant vector payload so search results stay fresh.
+    collection = doc.qdrant_collection or user_collection_name(str(user.id))
+    try:
+        q_client = await get_qdrant_client()
+        await q_client.set_payload(
+            collection_name=collection,
+            payload={"filename": body.filename},
+            points=Filter(
+                must=[
+                    FieldCondition(
+                        key="doc_id",
+                        match=MatchValue(value=str(doc.id)),
+                    )
+                ]
+            ),
+        )
+    except Exception as exc:
+        logger.warning("qdrant_rename_sync_failed", doc_id=str(doc.id), error=str(exc))
+
     return DocumentOut.model_validate(doc)
 
 
