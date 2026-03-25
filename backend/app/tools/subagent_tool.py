@@ -8,8 +8,12 @@ answer as a string.
 A ``MAX_DEPTH`` guard prevents unbounded recursion.
 """
 
+import asyncio
+
 import structlog
 from langchain_core.tools import BaseTool, tool
+
+from app.core.config import settings
 
 logger = structlog.get_logger(__name__)
 
@@ -75,20 +79,24 @@ def create_subagent_tool(
         )
 
         try:
-            result = await graph.ainvoke(
-                AgentState(
-                    messages=[
-                        SystemMessage(
-                            content="You are a focused sub-agent. Complete "
-                            "the assigned task concisely and return the "
-                            "result."
-                        ),
-                        HumanMessage(content=task),
-                    ],
-                    depth=current_depth + 1,
+            async with asyncio.timeout(settings.graph_timeout_seconds):
+                result = await graph.ainvoke(
+                    AgentState(
+                        messages=[
+                            SystemMessage(
+                                content="You are a focused sub-agent. Complete "
+                                "the assigned task concisely and return the "
+                                "result."
+                            ),
+                            HumanMessage(content=task),
+                        ],
+                        depth=current_depth + 1,
+                    ),
+                    config={"recursion_limit": 30},
                 )
-            )
             answer = str(result["messages"][-1].content)
+        except TimeoutError:
+            return "Error: Sub-agent timed out"
         except Exception:
             logger.exception(
                 "subagent_invocation_failed",

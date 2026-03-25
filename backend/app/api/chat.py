@@ -714,62 +714,76 @@ async def chat_stream(  # noqa: C901
                     max_tokens=llm.max_tokens,
                 )
                 state = AgentState(messages=lc_messages, approved=approved)
-                async for chunk in graph.astream(state):
-                    if "llm" in chunk:
-                        last_ai_msg = chunk["llm"]["messages"][-1]
-                        tool_calls = getattr(last_ai_msg, "tool_calls", None) or []
-                        signature = _tool_call_signature(tool_calls)
-                        if tool_calls and signature not in persisted_tool_batches:
-                            async with AsyncSessionLocal() as persist_sess:
-                                async with persist_sess.begin():
-                                    persisted_ai = Message(
-                                        conversation_id=conv_id,
-                                        role="ai",
-                                        content=str(
-                                            getattr(last_ai_msg, "content", "")
-                                        ),
-                                        tool_calls=tool_calls,
-                                        parent_id=persisted_parent_id,
-                                    )
-                                    persist_sess.add(persisted_ai)
-                                    await persist_sess.flush()
-                                    persisted_parent_id = persisted_ai.id
-                            persisted_tool_batches.add(signature)
-                    if "tools" in chunk:
-                        for tm in chunk["tools"]["messages"]:
-                            if (
-                                isinstance(tm, ToolMessage)
-                                and tm.name
-                                and (tm.name not in tools_used)
-                            ):
-                                tools_used.append(tm.name)
-                            if isinstance(tm, ToolMessage):
-                                tool_call_id = str(
-                                    getattr(tm, "tool_call_id", None)
-                                    or f"tool_{len(persisted_tool_results)}"
+                try:
+                    async with asyncio.timeout(settings.graph_timeout_seconds):
+                        async for chunk in graph.astream(state):
+                            if "llm" in chunk:
+                                last_ai_msg = chunk["llm"]["messages"][-1]
+                                tool_calls = (
+                                    getattr(last_ai_msg, "tool_calls", None) or []
                                 )
-                                if tool_call_id in persisted_tool_results:
-                                    continue
-                                async with AsyncSessionLocal() as persist_sess:
-                                    async with persist_sess.begin():
-                                        persisted_tool = Message(
-                                            conversation_id=conv_id,
-                                            role="tool",
-                                            content=_serialize_tool_message(tm),
-                                            parent_id=persisted_parent_id,
+                                signature = _tool_call_signature(tool_calls)
+                                if (
+                                    tool_calls
+                                    and signature not in persisted_tool_batches
+                                ):
+                                    async with AsyncSessionLocal() as persist_sess:
+                                        async with persist_sess.begin():
+                                            persisted_ai = Message(
+                                                conversation_id=conv_id,
+                                                role="ai",
+                                                content=str(
+                                                    getattr(last_ai_msg, "content", "")
+                                                ),
+                                                tool_calls=tool_calls,
+                                                parent_id=persisted_parent_id,
+                                            )
+                                            persist_sess.add(persisted_ai)
+                                            await persist_sess.flush()
+                                            persisted_parent_id = persisted_ai.id
+                                    persisted_tool_batches.add(signature)
+                            if "tools" in chunk:
+                                for tm in chunk["tools"]["messages"]:
+                                    if (
+                                        isinstance(tm, ToolMessage)
+                                        and tm.name
+                                        and (tm.name not in tools_used)
+                                    ):
+                                        tools_used.append(tm.name)
+                                    if isinstance(tm, ToolMessage):
+                                        tool_call_id = str(
+                                            getattr(tm, "tool_call_id", None)
+                                            or f"tool_{len(persisted_tool_results)}"
                                         )
-                                        persist_sess.add(persisted_tool)
-                                        await persist_sess.flush()
-                                        persisted_parent_id = persisted_tool.id
-                                persisted_tool_results.add(tool_call_id)
-                    events, full_content = _sse_events_from_chunk(
-                        chunk, full_content, human_msg_id
+                                        if tool_call_id in persisted_tool_results:
+                                            continue
+                                        async with AsyncSessionLocal() as persist_sess:
+                                            async with persist_sess.begin():
+                                                persisted_tool = Message(
+                                                    conversation_id=conv_id,
+                                                    role="tool",
+                                                    content=_serialize_tool_message(tm),
+                                                    parent_id=persisted_parent_id,
+                                                )
+                                                persist_sess.add(persisted_tool)
+                                                await persist_sess.flush()
+                                                persisted_parent_id = persisted_tool.id
+                                        persisted_tool_results.add(tool_call_id)
+                            events, full_content = _sse_events_from_chunk(
+                                chunk, full_content, human_msg_id
+                            )
+                            for event in events:
+                                yield event
+                            if await request.is_disconnected():
+                                is_disconnected = True
+                                break
+                except TimeoutError:
+                    yield (
+                        "data: "
+                        + json.dumps({"type": "error", "content": "Request timed out"})
+                        + "\n\n"
                     )
-                    for event in events:
-                        yield event
-                    if await request.is_disconnected():
-                        is_disconnected = True
-                        break
+                    return
             stream_completed = not is_disconnected
         except Exception:
             stream_error = True
@@ -980,8 +994,8 @@ async def chat_regenerate(  # noqa: C901
                 api_key=llm.api_key,
                 base_url=llm.base_url,
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("compact_messages_failed", error=str(exc))
 
         agent_session_id: uuid.UUID | None = None
         try:
@@ -1042,55 +1056,68 @@ async def chat_regenerate(  # noqa: C901
                 max_tokens=llm.max_tokens,
             )
             state = AgentState(messages=lc_messages, approved=None)
-            async for chunk in graph.astream(state):
-                if "llm" in chunk:
-                    last_ai_msg = chunk["llm"]["messages"][-1]
-                    tool_calls = getattr(last_ai_msg, "tool_calls", None) or []
-                    signature = _tool_call_signature(tool_calls)
-                    if tool_calls and signature not in persisted_tool_batches:
-                        async with AsyncSessionLocal() as persist_sess:
-                            async with persist_sess.begin():
-                                persisted_ai = Message(
-                                    conversation_id=conv_id,
-                                    role="ai",
-                                    content=str(getattr(last_ai_msg, "content", "")),
-                                    tool_calls=tool_calls,
-                                    parent_id=persisted_parent_id,
-                                )
-                                persist_sess.add(persisted_ai)
-                                await persist_sess.flush()
-                                persisted_parent_id = persisted_ai.id
-                        persisted_tool_batches.add(signature)
-                if "tools" in chunk:
-                    for tm in chunk["tools"]["messages"]:
-                        if (
-                            isinstance(tm, ToolMessage)
-                            and tm.name
-                            and tm.name not in tools_used
-                        ):
-                            tools_used.append(tm.name)
-                        if isinstance(tm, ToolMessage):
-                            tool_call_id = str(
-                                getattr(tm, "tool_call_id", None)
-                                or f"tool_{len(persisted_tool_results)}"
-                            )
-                            if tool_call_id in persisted_tool_results:
-                                continue
-                            async with AsyncSessionLocal() as persist_sess:
-                                async with persist_sess.begin():
-                                    persisted_tool = Message(
-                                        conversation_id=conv_id,
-                                        role="tool",
-                                        content=_serialize_tool_message(tm),
-                                        parent_id=persisted_parent_id,
+            try:
+                async with asyncio.timeout(settings.graph_timeout_seconds):
+                    async for chunk in graph.astream(state):
+                        if "llm" in chunk:
+                            last_ai_msg = chunk["llm"]["messages"][-1]
+                            tool_calls = getattr(last_ai_msg, "tool_calls", None) or []
+                            signature = _tool_call_signature(tool_calls)
+                            if tool_calls and signature not in persisted_tool_batches:
+                                async with AsyncSessionLocal() as persist_sess:
+                                    async with persist_sess.begin():
+                                        persisted_ai = Message(
+                                            conversation_id=conv_id,
+                                            role="ai",
+                                            content=str(
+                                                getattr(last_ai_msg, "content", "")
+                                            ),
+                                            tool_calls=tool_calls,
+                                            parent_id=persisted_parent_id,
+                                        )
+                                        persist_sess.add(persisted_ai)
+                                        await persist_sess.flush()
+                                        persisted_parent_id = persisted_ai.id
+                                persisted_tool_batches.add(signature)
+                        if "tools" in chunk:
+                            for tm in chunk["tools"]["messages"]:
+                                if (
+                                    isinstance(tm, ToolMessage)
+                                    and tm.name
+                                    and tm.name not in tools_used
+                                ):
+                                    tools_used.append(tm.name)
+                                if isinstance(tm, ToolMessage):
+                                    tool_call_id = str(
+                                        getattr(tm, "tool_call_id", None)
+                                        or f"tool_{len(persisted_tool_results)}"
                                     )
-                                    persist_sess.add(persisted_tool)
-                                    await persist_sess.flush()
-                                    persisted_parent_id = persisted_tool.id
-                            persisted_tool_results.add(tool_call_id)
-                events, full_content = _sse_events_from_chunk(chunk, full_content)
-                for event in events:
-                    yield event
+                                    if tool_call_id in persisted_tool_results:
+                                        continue
+                                    async with AsyncSessionLocal() as persist_sess:
+                                        async with persist_sess.begin():
+                                            persisted_tool = Message(
+                                                conversation_id=conv_id,
+                                                role="tool",
+                                                content=_serialize_tool_message(tm),
+                                                parent_id=persisted_parent_id,
+                                            )
+                                            persist_sess.add(persisted_tool)
+                                            await persist_sess.flush()
+                                            persisted_parent_id = persisted_tool.id
+                                    persisted_tool_results.add(tool_call_id)
+                        events, full_content = _sse_events_from_chunk(
+                            chunk, full_content
+                        )
+                        for event in events:
+                            yield event
+            except TimeoutError:
+                yield (
+                    "data: "
+                    + json.dumps({"type": "error", "content": "Request timed out"})
+                    + "\n\n"
+                )
+                return
         except Exception:
             stream_error = True
             raise
