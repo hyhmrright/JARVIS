@@ -142,7 +142,7 @@ export const useChatStore = defineStore("chat", {
     },
     async loadFolders() {
       try {
-        const { data } = await client.get<Folder[]>("/api/folders");
+        const { data } = await client.get<Folder[]>("/folders");
         this.folders = data;
       } catch (err) {
         console.error("[chat] loadFolders failed", err);
@@ -150,7 +150,7 @@ export const useChatStore = defineStore("chat", {
     },
     async createFolder(name: string, color?: string) {
       try {
-        const { data } = await client.post<Folder>("/api/folders", { name, color });
+        const { data } = await client.post<Folder>("/folders", { name, color });
         this.folders.push(data);
         return data;
       } catch (err) {
@@ -160,7 +160,7 @@ export const useChatStore = defineStore("chat", {
     },
     async updateFolder(folderId: string, updates: Partial<Folder>) {
       try {
-        const { data } = await client.patch<Folder>(`/api/folders/${folderId}`, updates);
+        const { data } = await client.patch<Folder>(`/folders/${folderId}`, updates);
         const idx = this.folders.findIndex(f => f.id === folderId);
         if (idx >= 0) this.folders[idx] = data;
       } catch (err) {
@@ -170,7 +170,7 @@ export const useChatStore = defineStore("chat", {
     },
     async deleteFolder(folderId: string) {
       try {
-        await client.delete(`/api/folders/${folderId}`);
+        await client.delete(`/folders/${folderId}`);
         this.folders = this.folders.filter(f => f.id !== folderId);
         // 清除受影响会话的 folder_id 引用（乐观更新）
         this.conversations.forEach(c => {
