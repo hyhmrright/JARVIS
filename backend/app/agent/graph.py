@@ -222,5 +222,6 @@ def create_graph(  # noqa: C901
     )
     graph.add_edge("tools", "llm")
     graph.add_edge("review", END)
+    graph.add_edge("approval", END)
 
     return graph.compile()
