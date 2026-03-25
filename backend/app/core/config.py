@@ -83,5 +83,11 @@ class Settings(BaseSettings):
     sandbox_memory_limit: str = "512m"
     sandbox_timeout: int = 300
 
+    # Agent / tool timeouts
+    graph_timeout_seconds: int = 120
+    tool_search_timeout: int = 15
+    tool_image_timeout: int = 60
+    tool_shell_max_timeout: int = 120
+
 
 settings = Settings()
