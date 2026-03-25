@@ -263,18 +263,21 @@ async def run_workflow(  # noqa: C901
                 run_obj.run_log = run_log
                 run_obj.completed_at = datetime.now(UTC)
 
-    # 发送应用内通知
     from app.core.notifications import create_notification
 
+    body_text = (
+        error_message[:100]
+        if error_message
+        else "Workflow execution finished successfully."
+    )
     await create_notification(
         user_id=workflow.user_id,
         type=f"workflow_{final_status}",
         title=f"Workflow {final_status.capitalize()}: {workflow.name}",
-        body=error_message[:100]
-        if error_message
-        else "Workflow execution finished successfully.",
+        body=body_text,
         action_url="/workflows",
         metadata={"workflow_id": str(workflow.id), "run_id": str(run_id)},
+        db=db,
     )
 
     yield {"type": "run_done", "run_id": str(run_id), "status": final_status}

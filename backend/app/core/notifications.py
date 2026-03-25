@@ -4,6 +4,7 @@ import uuid
 from typing import Any
 
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Notification
 from app.db.session import AsyncSessionLocal
@@ -19,23 +20,41 @@ async def create_notification(
     *,
     action_url: str | None = None,
     metadata: dict[str, Any] | None = None,
+    db: AsyncSession | None = None,
 ) -> uuid.UUID:
-    """Create a persistent in-app notification for a user."""
+    """Create a persistent in-app notification for a user.
+
+    If an existing session 'db' is provided, it will be used.
+    Otherwise, a new short-lived session is created.
+    """
     u_id = uuid.UUID(str(user_id)) if isinstance(user_id, str) else user_id
 
-    async with AsyncSessionLocal() as db:
-        async with db.begin():
-            notification = Notification(
-                user_id=u_id,
-                type=type,
-                title=title,
-                body=body,
-                action_url=action_url,
-                metadata_json=metadata or {},
-            )
-            db.add(notification)
-            await db.flush()
-            notification_id = notification.id
+    if db:
+        notification = Notification(
+            user_id=u_id,
+            type=type,
+            title=title,
+            body=body,
+            action_url=action_url,
+            metadata_json=metadata or {},
+        )
+        db.add(notification)
+        await db.flush()
+        notification_id = notification.id
+    else:
+        async with AsyncSessionLocal() as session:
+            async with session.begin():
+                notification = Notification(
+                    user_id=u_id,
+                    type=type,
+                    title=title,
+                    body=body,
+                    action_url=action_url,
+                    metadata_json=metadata or {},
+                )
+                session.add(notification)
+                await session.flush()
+                notification_id = notification.id
 
     logger.info(
         "notification_created",

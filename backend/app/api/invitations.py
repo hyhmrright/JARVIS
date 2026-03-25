@@ -120,6 +120,7 @@ async def invite_member(
             body=f"{user.display_name or user.email} invited you to join '{ws.name}'.",
             action_url="/settings",
             metadata={"workspace_id": str(ws_id), "token": str(inv.token)},
+            db=db,
         )
 
     logger.info(

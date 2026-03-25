@@ -72,6 +72,7 @@ async def execute_cron_job(ctx: dict, *, job_id: str, run_group_id: str) -> None
                     title=f"Automation Fired: {job.task[:30]}...",
                     body="Trigger matched and agent task executed successfully.",
                     action_url="/proactive",
+                    db=db,
                 )
 
             else:
@@ -121,7 +122,9 @@ async def execute_cron_job(ctx: dict, *, job_id: str, run_group_id: str) -> None
                         title=f"Automation Failed: {job_obj.task[:30]}...",
                         body=f"Error: {error_msg[:100]}",
                         action_url="/proactive",
+                        db=db,
                     )
+                    await db.commit()
         except Exception:
             pass
 
@@ -224,6 +227,7 @@ async def deliver_webhook(ctx: dict, *, webhook_id: str, payload: dict) -> None:
             title="Webhook Delivery Failed",
             body=f"Failed to process incoming webhook after {attempt} attempts.",
             action_url="/proactive",
+            db=db,
         )
 
     logger.info(
