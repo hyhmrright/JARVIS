@@ -1,8 +1,12 @@
 """Web search tool using Tavily Search API."""
 
+import asyncio
+
 import structlog
 from langchain_core.tools import BaseTool, tool
 from tavily import AsyncTavilyClient
+
+from app.core.config import settings
 
 logger = structlog.get_logger(__name__)
 
@@ -17,7 +21,13 @@ async def _web_search_impl(
     Separated from the tool wrapper for testability.
     """
     client = AsyncTavilyClient(api_key=api_key)
-    response = await client.search(query=query, max_results=max_results)
+    try:
+        response = await asyncio.wait_for(
+            client.search(query=query, max_results=max_results),
+            timeout=settings.tool_search_timeout,
+        )
+    except TimeoutError:
+        return "Search timed out. Please try again."
 
     results = response.get("results", [])
     if not results:

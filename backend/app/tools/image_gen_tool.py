@@ -5,6 +5,8 @@ from typing import Literal
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 
+from app.core.config import settings
+
 
 class ImageGenInput(BaseModel):
     prompt: str = Field(description="A detailed description of the image to generate.")
@@ -38,6 +40,7 @@ class ImageGenTool(BaseTool):
                 prompt=prompt,
                 size=size,
                 n=1,
+                timeout=settings.tool_image_timeout,
             )
             if not response.data or not response.data[0].url:
                 return "Error: Failed to generate image, no URL returned."

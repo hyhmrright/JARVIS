@@ -4,6 +4,8 @@ import textwrap
 
 from langchain_core.tools import tool
 
+from app.core.config import settings
+
 _SANDBOX_PRELUDE = textwrap.dedent("""\
     import builtins as _b
 
@@ -71,15 +73,17 @@ async def execute_code(code: str) -> str:
     """
     sandboxed_code = _SANDBOX_PRELUDE + code
     try:
+        # Cap subprocess timeout at the configured maximum
+        effective_timeout = min(15, settings.tool_shell_max_timeout)
         proc = await asyncio.to_thread(
             subprocess.run,
             ["python3", "-I", "-c", sandboxed_code],
             capture_output=True,
-            timeout=15,
+            timeout=effective_timeout,
             preexec_fn=_set_resource_limits,
         )
     except subprocess.TimeoutExpired:
-        return "Timeout: code execution exceeded 15 seconds"
+        return f"Timeout: code execution exceeded {effective_timeout} seconds"
     except OSError as e:
         return f"Error: failed to start interpreter: {e}"
     if proc.returncode != 0:
