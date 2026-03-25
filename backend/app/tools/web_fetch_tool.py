@@ -8,34 +8,27 @@ import httpx
 import trafilatura
 from langchain_core.tools import tool
 
+from app.core.network import _is_private_ip, resolve_and_check_ip
+
 _MAX_CONTENT_LENGTH = 8000  # chars, ~2000 tokens
-_BLOCKED_HOSTS = {
-    "localhost",
-    "127.0.0.1",
-    "0.0.0.0",
-    "[::1]",
-    "::1",
-    "metadata.google.internal",
-    "169.254.169.254",  # AWS/GCP/Azure IMDS
-    "100.100.100.200",  # Alibaba Cloud metadata
-}
 
 
-def is_safe_url(url: str) -> bool:
+async def is_safe_url(url: str) -> bool:
     """Reject URLs targeting internal/private networks (SSRF protection)."""
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
         return False
     hostname = parsed.hostname or ""
-    if hostname.lower() in _BLOCKED_HOSTS:
+    if not hostname:
         return False
+    # Fast path: IP literal
     try:
-        addr = ipaddress.ip_address(hostname)
-        if addr.is_private or addr.is_loopback or addr.is_link_local:
-            return False
+        ipaddress.ip_address(hostname)
+        return not _is_private_ip(hostname)
     except ValueError:
-        pass  # Not an IP literal — hostname will be resolved by httpx
-    return True
+        pass
+    # Hostname: resolve and check
+    return await resolve_and_check_ip(hostname)
 
 
 @tool
@@ -44,7 +37,7 @@ async def web_fetch(url: str) -> str:
 
     Use this to read articles, documentation, or any web page.
     """
-    if not is_safe_url(url):
+    if not await is_safe_url(url):
         return "Blocked: cannot fetch internal or private network URLs."
 
     try:

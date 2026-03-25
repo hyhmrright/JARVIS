@@ -297,7 +297,7 @@ async def ingest_url(
     db: AsyncSession = Depends(get_db),
 ) -> DocumentOut:
     """Fetch a web page and add it to the knowledge base."""
-    if not is_safe_url(body.url):
+    if not await is_safe_url(body.url):
         raise HTTPException(
             status_code=400,
             detail=f"URL not allowed (internal or non-http): {body.url!r}",

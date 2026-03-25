@@ -5,30 +5,29 @@ import structlog
 from langchain_core.tools import tool
 
 from app.core.config import settings
+from app.core.network import _is_private_ip, resolve_and_check_ip
 from app.sandbox.manager import SandboxError, SandboxManager
 
 logger = structlog.get_logger(__name__)
 
 _MAX_TEXT = 10000
-_BLOCKED_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
-_BLOCKED_NETWORKS = [
-    ipaddress.ip_network("169.254.0.0/16"),  # link-local / AWS metadata
-    ipaddress.ip_network("10.0.0.0/8"),
-    ipaddress.ip_network("172.16.0.0/12"),
-    ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("fc00::/7"),
-]
 
 
-def _is_blocked(url: str) -> bool:
-    """Return True if the URL targets a private/internal host (SSRF protection)."""
+async def _is_safe_url(url: str) -> bool:
+    """Return False if URL resolves to a private/internal IP (SSRF guard)."""
     try:
-        host = urllib.parse.urlparse(url).hostname or ""
-        if host in _BLOCKED_HOSTS:
-            return True
-        addr = ipaddress.ip_address(host)
-        return any(addr in net for net in _BLOCKED_NETWORKS)
-    except ValueError:
+        hostname = urllib.parse.urlparse(url).hostname
+        if not hostname:
+            return False
+        # Fast path: IP literal
+        try:
+            ipaddress.ip_address(hostname)
+            return not _is_private_ip(hostname)
+        except ValueError:
+            pass
+        # Hostname: resolve and check
+        return await resolve_and_check_ip(hostname)
+    except Exception:
         return False
 
 
@@ -72,8 +71,8 @@ async def browser_navigate(url: str) -> str:
 
     Use this to read the content of a website.
     """
-    if _is_blocked(url):
-        return f"Blocked: URL '{url}' targets a private/internal host."
+    if not await _is_safe_url(url):
+        return "Error: URL is not allowed (private/internal address)"
 
     script = f"""
 import asyncio
@@ -103,8 +102,8 @@ async def browser_screenshot(url: str) -> str:
 
     Use this when you need to see the visual layout of a page.
     """
-    if _is_blocked(url):
-        return f"Blocked: URL '{url}' targets a private/internal host."
+    if not await _is_safe_url(url):
+        return "Error: URL is not allowed (private/internal address)"
 
     script = f"""
 import asyncio
@@ -137,8 +136,8 @@ async def browser_click(url: str, selector: str) -> str:
 
     Use this to interact with buttons, menus, or forms.
     """
-    if _is_blocked(url):
-        return f"Blocked: URL '{url}' targets a private/internal host."
+    if not await _is_safe_url(url):
+        return "Error: URL is not allowed (private/internal address)"
 
     script = f"""
 import asyncio
