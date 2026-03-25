@@ -155,7 +155,19 @@ Remove redundant single-column indexes on `audit_logs.user_id` and `audit_logs.a
 
 **Files**: `backend/app/api/documents.py`
 
-### 17.9 SSE Heartbeat + Error Events
+### 17.9 File Upload MIME Validation + Orphan Cleanup
+
+**Problem**: `documents.py` upload relies entirely on client-supplied file extension (`rsplit(".", 1)[-1]`). No magic-byte validation — a polyglot file (e.g., executable disguised as `.pdf`) passes the check. Additionally, if `index_document` or `db.commit()` fails after MinIO `put_object` succeeds, the MinIO object is orphaned with no cleanup.
+
+**Fix**:
+- Add `python-magic` dependency; after extension check, validate first 2048 bytes against expected MIME types (`application/pdf`, `application/vnd.openxmlformats-officedocument.*`, `text/plain`, `text/csv`, `text/markdown`)
+- Wrap the upload+index+commit sequence in try/finally: on failure, call `minio_client.remove_object()` to clean up the orphaned object
+
+**Note**: `python-magic` requires system `libmagic`. Add `apt-get install -y libmagic1` to `backend/Dockerfile`.
+
+**Files**: `backend/app/api/documents.py`, `backend/pyproject.toml`, `backend/Dockerfile`
+
+### 17.10 SSE Heartbeat + Error Events
 
 **Problem**: No keepalive comments in SSE streams (proxies cut idle connections). Agent exceptions cause abrupt stream close with no error event to the client.
 
@@ -186,7 +198,7 @@ Current state: Only `llm` nodes are functional; `condition`/`tool`/`output`/`ima
 
 **Fix**:
 - **`tool` node**: Compile to invoke the specified agent tool by `tool_name` from the registered tools registry
-- **`condition` node**: Compile to `add_conditional_edges` based on `condition_expression` (Jinja2 template or simple Python expression) evaluated against previous node output, routing to `true_handle` or `false_handle` edges
+- **`condition` node**: Compile to `add_conditional_edges` based on `condition_expression` evaluated against previous node output, routing to `true_handle` or `false_handle` edges. **Safety constraint**: Expressions must use Jinja2 templates only (e.g., `{{ nodes.node_1.output | length > 0 }}`), evaluated via `jinja2.sandbox.SandboxedEnvironment`. No arbitrary code evaluation — this is a hard security requirement
 - **`output` node**: Compile as terminal node that formats final output and writes to `WorkflowRun.result`
 - **`image_gen` node**: Compile to invoke `image_gen_tool`
 
@@ -248,6 +260,10 @@ Extend `PersonaCreate` schema and `Persona` model:
 
 **Files**: `backend/app/api/conversations.py`, `backend/app/db/models.py`, `backend/app/api/chat.py`, new migration
 
+### Implementation Order Note
+
+Within Phase 18, implement 18.4 (DSL Schema Validation) before 18.2 (Graph Compiler Enhancement) — the compiler consumes the Pydantic node types defined by the schema.
+
 ### Design Constraints
 
 - No loop/cycle workflows (DAG only)
@@ -292,6 +308,7 @@ Currently only auth/chat/documents/plugins/tts/cron have `@limiter.limit`. Add:
 - `POST /api/auth/login`: Return `access_token` (30-min) + `refresh_token` (7-day)
 - `POST /api/auth/refresh`: Accept refresh_token, return new access_token
 - `POST /api/auth/logout`: Revoke refresh_token
+- **Token format**: Refresh token is an opaque random string (`secrets.token_urlsafe(64)`), stored as SHA-256 hash in DB. Stored in `localStorage` on the client (consistent with existing access token approach).
 - Frontend Axios interceptor: On 401, attempt refresh then retry; if refresh fails, redirect to login
 - `auth.ts` `logout()`: Call `notificationStore.stopPolling()`
 
@@ -322,7 +339,9 @@ Unified pattern: `limit`/`offset` query params + response `{ items: [], total: i
 - `GET /webhooks/{id}/deliveries` — Remove 20 hard cap, add pagination
 - `GET /workspaces/{ws_id}/members` — Add pagination
 
-**Files**: All listed API files
+**Frontend note**: `chat.ts` must be updated to implement incremental "load more" for message history (replacing the current single-fetch pattern), since existing code assumes all messages arrive in one call.
+
+**Files**: All listed API files, `frontend/src/stores/chat.ts`
 
 ### 19.6 Worker Robustness
 
@@ -365,10 +384,12 @@ Unified pattern: `limit`/`offset` query params + response `{ items: [], total: i
 
 ### 20.1 Test Coverage (7 Untested Modules)
 
+**Note on test ownership**: Each phase writes tests for its own new code (e.g., Phase 18 writes tests for new workflow execute/runs endpoints). Phase 20.1 covers only **pre-existing untested modules** — testing code that existed before Phase 16 but had no tests. For modules modified by earlier phases, tests here cover the original functionality, not the new additions.
+
 Priority order:
 1. `test_documents.py` — Upload MIME validation, size limits, workspace permissions, soft delete + Qdrant cleanup, ingest-url SSRF
 2. `test_settings.py` — API key Fernet round-trip, enabled_tools filtering, temperature range, model_name validation
-3. `test_workflows.py` — CRUD + DSL schema validation + execute endpoint + runs history
+3. `test_workflows.py` — CRUD operations only (execute/runs tests written in Phase 18)
 4. `test_folders.py` — CRUD, display_order, color validation, cascade SET NULL
 5. `test_chat_files.py` — MIME rejection, 10MB limit, PDF/DOCX parse failure, content truncation
 6. `test_notifications.py` — List/mark-read/mark-all-read/delete, composite index performance
@@ -421,7 +442,7 @@ Prometheus config:
 - New `NotFoundPage.vue`: Wildcard route shows 404 page instead of silent redirect to `/`
 - Auth guard: Store `to.fullPath` in query param; redirect back after login
 - Logged-in users visiting `/login`: Redirect to `/`
-- `auth.ts` `logout()`: Call `notificationStore.stopPolling()`
+- `auth.ts` `logout()`: Call `notificationStore.stopPolling()` (same change as 19.3; implement in 19.3, verify here)
 
 **Files**: `frontend/src/pages/NotFoundPage.vue`, `frontend/src/router/index.ts`, `frontend/src/stores/auth.ts`
 
@@ -430,7 +451,6 @@ Prometheus config:
 - `chat.py:983-984`: `except Exception: pass` -> `logger.warning`
 - `documents.py`: Qdrant delete failure returns `207 Multi-Status` instead of silent 204
 - `voice.py`: WebSocket auth timeout catches only `asyncio.TimeoutError`; explicit `await websocket.close()` after outer exception
-- `documents.py`: `upload_document` try/finally to delete orphaned MinIO object on failure
 
 **Files**: `backend/app/api/chat.py`, `backend/app/api/documents.py`, `backend/app/api/voice.py`
 
