@@ -14,7 +14,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
-from app.agent.llm import get_llm
+from app.agent.llm import get_llm_with_fallback
 from app.tools.subagent_tool import create_subagent_tool
 
 logger = structlog.get_logger(__name__)
@@ -55,7 +55,7 @@ def create_supervisor_graph(
     base_url: str | None = None,
 ) -> CompiledStateGraph:
     """Build a supervisor LangGraph that plans, executes, and aggregates."""
-    llm = get_llm(provider, model, api_key, base_url=base_url)
+    llm = get_llm_with_fallback(provider, model, api_key, base_url=base_url)
 
     subagent = create_subagent_tool(
         provider=provider,

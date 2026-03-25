@@ -34,7 +34,7 @@ def mock_subagent():
 @pytest.mark.asyncio
 async def test_supervisor_plan_execute_aggregate(mock_llm, mock_subagent):
     with (
-        patch("app.agent.supervisor.get_llm", return_value=mock_llm),
+        patch("app.agent.supervisor.get_llm_with_fallback", return_value=mock_llm),
         patch(
             "app.agent.supervisor.create_subagent_tool",
             return_value=mock_subagent,
@@ -70,7 +70,7 @@ async def test_supervisor_empty_plan():
     mock_sub = AsyncMock()
 
     with (
-        patch("app.agent.supervisor.get_llm", return_value=mock_llm),
+        patch("app.agent.supervisor.get_llm_with_fallback", return_value=mock_llm),
         patch(
             "app.agent.supervisor.create_subagent_tool",
             return_value=mock_sub,

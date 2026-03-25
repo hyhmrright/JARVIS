@@ -26,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.compressor import compact_messages
 from app.agent.graph import create_graph
-from app.agent.persona import build_system_prompt, format_memories_for_prompt
+from app.agent.persona import build_system_prompt
 from app.agent.router import classify_task
 from app.agent.state import AgentState
 from app.agent.supervisor import SupervisorState, create_supervisor_graph
@@ -63,6 +63,7 @@ _ROLE_TO_MESSAGE = {
 
 
 _MEMORY_PROMPT_LIMIT = 100
+_MEMORY_CHAR_LIMIT = 8000
 
 
 async def _build_memory_message(
@@ -75,8 +76,23 @@ async def _build_memory_message(
         .order_by(UserMemory.category, UserMemory.key)
         .limit(_MEMORY_PROMPT_LIMIT)
     )
-    block = format_memories_for_prompt(list(rows.all()))
-    return SystemMessage(content=block) if block else None
+    memories = list(rows.all())
+
+    # Build memory lines with char-cap
+    lines: list[str] = []
+    total_chars = 0
+    for m in reversed(memories):
+        line = f"- [{m.category}] {m.key}: {m.value}"
+        if total_chars + len(line) > _MEMORY_CHAR_LIMIT:
+            break
+        lines.append(line)
+        total_chars += len(line)
+
+    if not lines:
+        return None
+
+    block = "## 用户个人记忆（跨对话持久化）\n" + "\n".join(lines)
+    return SystemMessage(content=block)
 
 
 def _format_sse(payload: dict) -> str:
