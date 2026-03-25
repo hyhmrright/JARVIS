@@ -6,6 +6,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
+import magic
 import structlog
 from bs4 import BeautifulSoup
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
@@ -31,6 +32,20 @@ router = APIRouter(prefix="/api/documents", tags=["documents"])
 
 ALLOWED_TYPES = {"pdf", "txt", "md", "docx"}
 MAX_SIZE = 50 * 1024 * 1024
+
+# MIME type prefixes that are permitted for upload.
+# python-magic inspects the actual file bytes, so extension spoofing is caught.
+ALLOWED_MIME_PREFIXES = (
+    "text/",
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats",
+    "application/vnd.ms-",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+)
 
 
 async def _resolve_workspace_collection(
@@ -218,6 +233,14 @@ async def upload_document(
     if len(content) > MAX_SIZE:
         raise HTTPException(status_code=400, detail="File exceeds 50MB limit")
 
+    # MIME magic-byte validation — catches files with spoofed extensions.
+    detected_mime = magic.from_buffer(content[:2048], mime=True)
+    if not detected_mime.startswith(ALLOWED_MIME_PREFIXES):
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type not allowed: {detected_mime}",
+        )
+
     # Validate workspace membership before touching MinIO to avoid orphaned objects.
     qdrant_collection = user_collection_name(str(user.id))
     if workspace_id is not None:
@@ -226,47 +249,65 @@ async def upload_document(
     safe_name = Path(file.filename or "upload").name
     object_key = f"{user.id}/{uuid.uuid4()}_{safe_name}"
 
-    minio_client = get_minio_client()
-    await asyncio.to_thread(
-        minio_client.put_object,
-        settings.minio_bucket,
-        object_key,
-        io.BytesIO(content),
-        len(content),
-    )
-
-    text = await asyncio.to_thread(extract_text, content, ext)
-    doc = Document(
-        user_id=user.id,
-        filename=safe_name,
-        file_type=ext,
-        file_size_bytes=len(content),
-        qdrant_collection=qdrant_collection,
-        minio_object_key=object_key,
-    )
-    if workspace_id is not None:
-        doc.workspace_id = workspace_id
-    db.add(doc)
-    await db.flush()
-    # Embeddings always use OpenAI (text-embedding-3-small), resolve the
-    # OpenAI key regardless of which LLM provider the user has selected.
-    openai_key = resolve_api_key("openai", llm.raw_keys)
-    if not openai_key:
-        raise HTTPException(
-            status_code=400,
-            detail="OpenAI API key is required for document embedding. "
-            "Configure it in Settings or ask the admin.",
+    try:
+        minio_client = get_minio_client()
+        await asyncio.to_thread(
+            minio_client.put_object,
+            settings.minio_bucket,
+            object_key,
+            io.BytesIO(content),
+            len(content),
         )
-    chunk_count = await index_document(
-        str(user.id),
-        str(doc.id),
-        text,
-        openai_key,
-        doc_name=safe_name,
-        collection_name=qdrant_collection,
-    )
-    doc.chunk_count = chunk_count
-    await db.commit()
+
+        text = await asyncio.to_thread(extract_text, content, ext)
+        doc = Document(
+            user_id=user.id,
+            filename=safe_name,
+            file_type=ext,
+            file_size_bytes=len(content),
+            qdrant_collection=qdrant_collection,
+            minio_object_key=object_key,
+        )
+        if workspace_id is not None:
+            doc.workspace_id = workspace_id
+        db.add(doc)
+        await db.flush()
+        # Embeddings always use OpenAI (text-embedding-3-small), resolve the
+        # OpenAI key regardless of which LLM provider the user has selected.
+        openai_key = resolve_api_key("openai", llm.raw_keys)
+        if not openai_key:
+            raise HTTPException(
+                status_code=400,
+                detail="OpenAI API key is required for document embedding. "
+                "Configure it in Settings or ask the admin.",
+            )
+        chunk_count = await index_document(
+            str(user.id),
+            str(doc.id),
+            text,
+            openai_key,
+            doc_name=safe_name,
+            collection_name=qdrant_collection,
+        )
+        doc.chunk_count = chunk_count
+        await db.commit()
+    except Exception:
+        # Best-effort orphan cleanup: remove the MinIO object if anything
+        # downstream (DB flush, indexing, etc.) fails after the upload.
+        try:
+            await asyncio.to_thread(
+                get_minio_client().remove_object,
+                settings.minio_bucket,
+                object_key,
+            )
+        except Exception:
+            logger.warning(
+                "minio_orphan_cleanup_failed",
+                object_key=object_key,
+                user_id=str(user.id),
+            )
+        raise
+
     logger.info(
         "document_uploaded",
         user_id=str(user.id),

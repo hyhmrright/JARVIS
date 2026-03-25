@@ -185,6 +185,30 @@ async def test_ingest_url_rejects_empty_page(auth_client):
     assert "No readable content" in resp.json()["detail"]
 
 
+@pytest.mark.anyio
+async def test_upload_rejects_disguised_executable(auth_client):
+    """File with .txt extension but ELF magic bytes must be rejected."""
+    # Minimal 64-bit LE ELF header — libmagic detects this as
+    # application/octet-stream (or ELF), which is not in ALLOWED_MIME_PREFIXES.
+    elf_magic = (
+        b"\x7fELF"  # magic
+        b"\x02"  # EI_CLASS: 64-bit
+        b"\x01"  # EI_DATA: little-endian
+        b"\x01"  # EI_VERSION
+        b"\x00"  # EI_OSABI
+        + b"\x00" * 8  # EI_ABIVERSION + padding
+        + b"\x02\x00"  # e_type: ET_EXEC
+        + b"\x3e\x00"  # e_machine: x86-64
+        + b"\x01\x00\x00\x00"  # e_version
+        + b"\x00" * 200  # rest of header
+    )
+    resp = await auth_client.post(
+        "/api/documents",
+        files={"file": ("evil.txt", elf_magic, "text/plain")},
+    )
+    assert resp.status_code == 400
+
+
 async def _create_test_document(db_session, user_id: uuid.UUID) -> uuid.UUID:
     """Insert a minimal Document row directly into the test DB."""
     doc = Document(

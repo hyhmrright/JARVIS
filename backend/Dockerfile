@@ -32,6 +32,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
+    libmagic1 \
  && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user before any COPY so --chown avoids a separate chown layer
