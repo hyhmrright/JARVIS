@@ -8,6 +8,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     SmallInteger,
@@ -118,6 +119,11 @@ class UserSettings(Base):
         default=lambda: [],
     )
     persona_override: Mapped[str | None] = mapped_column(Text)
+    temperature: Mapped[float] = mapped_column(
+        Float, nullable=False, server_default="0.7"
+    )
+    max_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    system_prompt: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -169,8 +175,17 @@ class Conversation(Base):
         nullable=True,
         index=True,
     )
+    folder_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("conversation_folders.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     user: Mapped["User"] = relationship(back_populates="conversations")
+    folder: Mapped["ConversationFolder | None"] = relationship(
+        "ConversationFolder", back_populates="conversations"
+    )
     messages: Mapped[list["Message"]] = relationship(
         back_populates="conversation",
         cascade="all, delete-orphan",
@@ -205,6 +220,38 @@ class ConversationTag(Base):
     )
 
     conversation: Mapped["Conversation"] = relationship(back_populates="tags")
+
+
+class ConversationFolder(Base):
+    """会话文件夹模型，用于组织用户的会话。"""
+
+    __tablename__ = "conversation_folders"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
+    color: Mapped[str | None] = mapped_column(String(7))
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    conversations: Mapped[list["Conversation"]] = relationship(
+        back_populates="folder", passive_deletes=True
+    )
 
 
 class AgentSession(Base):
@@ -575,6 +622,42 @@ class AuditLog(Base):
     )
 
 
+class Notification(Base):
+    """应用内通知模型。"""
+
+    __tablename__ = "notifications"
+    __table_args__ = (
+        CheckConstraint(
+            "type IN ('cron_completed','cron_failed','webhook_failed',"
+            "'invitation_received','workflow_completed','workflow_failed')",
+            name="ck_notifications_type",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    type: Mapped[str] = mapped_column(String(50), nullable=False)
+    title: Mapped[str] = mapped_column(String(100), nullable=False)
+    body: Mapped[str] = mapped_column(String(500), nullable=False)
+    is_read: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    action_url: Mapped[str | None] = mapped_column(String(200))
+    metadata_json: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, server_default="{}"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+
+
 class ApiKey(Base):
     """Personal Access Token record. The raw token is never stored — only its
     sha256 hex digest. The first 8 chars of the raw token are stored as
@@ -828,6 +911,49 @@ class Workflow(Base):
     )
 
     user: Mapped["User"] = relationship()
+
+
+class WorkflowRun(Base):
+    """工作流运行记录模型。"""
+
+    __tablename__ = "workflow_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending','running','completed','failed')",
+            name="ck_workflow_runs_status",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    workflow_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("workflows.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    input_data: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
+    output_data: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, server_default="{}"
+    )
+    error_message: Mapped[str | None] = mapped_column(Text)
+    run_log: Mapped[list] = mapped_column(JSONB, nullable=False, server_default="[]")
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    workflow: Mapped["Workflow"] = relationship("Workflow")
 
 
 class InstalledPlugin(Base):

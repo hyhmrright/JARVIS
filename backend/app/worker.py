@@ -12,6 +12,7 @@ from sqlalchemy.engine import CursorResult
 
 from app.core.config import settings
 from app.core.metrics import cron_executions_total
+from app.core.notifications import create_notification
 from app.db.models import CronJob, JobExecution, Webhook, WebhookDelivery
 from app.db.session import AsyncSessionLocal
 from app.gateway.agent_runner import run_agent_for_user
@@ -64,6 +65,15 @@ async def execute_cron_job(ctx: dict, *, job_id: str, run_group_id: str) -> None
                 )
                 agent_result = (agent_result or "")[:2000]
                 cron_executions_total.labels(status="fired").inc()
+
+                await create_notification(
+                    user_id=job.user_id,
+                    type="cron_completed",
+                    title=f"Automation Fired: {job.task[:30]}...",
+                    body="Trigger matched and agent task executed successfully.",
+                    action_url="/proactive",
+                )
+
             else:
                 status = "skipped"
                 cron_executions_total.labels(status="skipped").inc()
@@ -99,6 +109,21 @@ async def execute_cron_job(ctx: dict, *, job_id: str, run_group_id: str) -> None
         error_msg = str(exc)
         logger.exception("cron_job_execution_failed", job_id=job_id, error=error_msg)
         cron_executions_total.labels(status="error").inc()
+
+        # 发送失败通知
+        try:
+            async with AsyncSessionLocal() as db:
+                job_obj = await db.get(CronJob, uuid.UUID(job_id))
+                if job_obj:
+                    await create_notification(
+                        user_id=job_obj.user_id,
+                        type="cron_failed",
+                        title=f"Automation Failed: {job_obj.task[:30]}...",
+                        body=f"Error: {error_msg[:100]}",
+                        action_url="/proactive",
+                    )
+        except Exception:
+            pass
 
         # Write error record
         try:
@@ -191,6 +216,15 @@ async def deliver_webhook(ctx: dict, *, webhook_id: str, payload: dict) -> None:
             delay_s=delay_s,
         )
         raise RuntimeError(f"Webhook delivery failed (attempt {attempt}), will retry")
+
+    if final_status == "failed":
+        await create_notification(
+            user_id=user_id,
+            type="webhook_failed",
+            title="Webhook Delivery Failed",
+            body=f"Failed to process incoming webhook after {attempt} attempts.",
+            action_url="/proactive",
+        )
 
     logger.info(
         "deliver_webhook_done",

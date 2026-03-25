@@ -41,7 +41,7 @@
           <div class="spinner"></div>
           <p>{{ $t("usage.loading") }}</p>
         </div>
-        
+
         <div v-else-if="dailyData.length === 0" class="state-placeholder">
           <p>{{ $t("usage.noData") }}</p>
         </div>
@@ -62,26 +62,28 @@
         </div>
 
         <!-- Cost Breakdown -->
-        <div v-if="costByProvider.length > 0" class="glass-card chart-section cost-breakdown-card">
-          <h2 class="chart-header">{{ $t("usage.costBreakdown") }}</h2>
+        <div v-if="dailyData.length > 0" class="glass-card chart-section cost-breakdown-card">
+          <h2 class="chart-header">{{ $t("usage.usageDetails") }}</h2>
           <table class="cost-table">
             <thead>
               <tr>
+                <th>{{ $t("usage.date") }}</th>
                 <th>{{ $t("usage.provider") }}</th>
-                <th class="cost-num">{{ $t("usage.inputPrice") }}</th>
-                <th class="cost-num">{{ $t("usage.outputPrice") }}</th>
+                <th>{{ $t("usage.model") }}</th>
+                <th class="cost-num">{{ $t("usage.tokens") }}</th>
                 <th class="cost-num">{{ $t("usage.estimatedCost") }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in costByProvider" :key="row.provider">
+              <tr v-for="(row, idx) in dailyData" :key="idx">
+                <td class="text-zinc-500 font-mono text-[10px]">{{ row.day }}</td>
                 <td>
-                  <span class="provider-dot" :style="{ background: row.pricing.color }"></span>
+                  <span class="provider-dot" :style="{ background: (PROVIDERS[row.provider] || PROVIDERS.unknown).color }"></span>
                   {{ row.provider }}
                 </td>
-                <td class="cost-num cost-dim">${{ row.pricing.in.toFixed(2) }}/1M</td>
-                <td class="cost-num cost-dim">${{ row.pricing.out.toFixed(2) }}/1M</td>
-                <td class="cost-num">${{ row.cost.toFixed(4) }}</td>
+                <td class="text-zinc-400">{{ row.model }}</td>
+                <td class="cost-num cost-dim">{{ (row.tokens_in + row.tokens_out).toLocaleString() }}</td>
+                <td class="cost-num">${{ row.estimated_cost_usd < 0.0001 ? '< 0.0001' : row.estimated_cost_usd.toFixed(4) }}</td>
               </tr>
             </tbody>
           </table>
@@ -121,12 +123,12 @@ use([
 interface DayData {
   day: string;
   provider: string;
+  model: string;
   tokens_in: number;
   tokens_out: number;
   messages: number;
+  estimated_cost_usd: number;
 }
-
-interface ProviderMeta { color: string; in: number; out: number }
 
 const { t } = useI18n();
 
@@ -135,6 +137,7 @@ const isLoading = ref(false);
 const dailyData = ref<DayData[]>([]);
 const totalTokensIn = ref(0);
 const totalTokensOut = ref(0);
+const totalEstimatedCost = ref(0);
 
 const totalMessages = computed(() => dailyData.value.reduce((s, d) => s + d.messages, 0));
 
@@ -144,36 +147,17 @@ const TOOLTIP_STYLE = {
   textStyle: { color: "#d4d4d8" },
 } as const;
 
-// Single source of truth for provider metadata (color + pricing in USD per 1M tokens)
-// Prices last verified 2026-03. Check provider dashboards before updating.
-const PROVIDERS: Record<string, ProviderMeta> & { unknown: ProviderMeta } = {
-  deepseek:  { color: "#6366f1", in: 0.14, out: 0.28  },
-  openai:    { color: "#10b981", in: 2.50, out: 10.00 },
-  anthropic: { color: "#f59e0b", in: 3.00, out: 15.00 },
-  zhipuai:   { color: "#3b82f6", in: 0.14, out: 0.14  },
-  ollama:    { color: "#ec4899", in: 0,    out: 0      },
-  unknown:   { color: "#6b7280", in: 0,    out: 0      },
+// Single source of truth for provider metadata (color only now, pricing from backend)
+const PROVIDERS: Record<string, { color: string }> & { unknown: { color: string } } = {
+  deepseek:  { color: "#6366f1" },
+  openai:    { color: "#10b981" },
+  anthropic: { color: "#f59e0b" },
+  zhipuai:   { color: "#3b82f6" },
+  ollama:    { color: "#ec4899" },
+  unknown:   { color: "#6b7280" },
 };
 
-const costByProvider = computed(() => {
-  const result: Record<string, number> = {};
-  for (const d of dailyData.value) {
-    const meta = PROVIDERS[d.provider];
-    if (!meta) {
-      if (import.meta.env.DEV) console.warn(`[UsagePage] Unknown provider: "${d.provider}" — excluded from cost estimate`);
-      continue;
-    }
-    result[d.provider] = (result[d.provider] ?? 0) + (d.tokens_in * meta.in + d.tokens_out * meta.out) / 1_000_000;
-  }
-  return Object.entries(result)
-    .sort((a, b) => b[1] - a[1])
-    // PROVIDERS[provider] is guaranteed to exist: the for-loop above skips unknown providers
-    .map(([provider, cost]) => ({ provider, cost, pricing: PROVIDERS[provider] as ProviderMeta }));
-});
-
-const estimatedCost = computed(() =>
-  costByProvider.value.reduce((sum, row) => sum + row.cost, 0),
-);
+const estimatedCost = computed(() => totalEstimatedCost.value);
 
 const chartOptions = computed(() => {
   const dates = [...new Set(dailyData.value.map(d => d.day))].sort();
@@ -268,11 +252,13 @@ const fetchUsage = async () => {
   dailyData.value = [];
   totalTokensIn.value = 0;
   totalTokensOut.value = 0;
+  totalEstimatedCost.value = 0;
   try {
     const resp = await client.get(`/usage/summary?days=${days.value}`);
     dailyData.value = resp.data.daily;
     totalTokensIn.value = resp.data.total_tokens_in;
     totalTokensOut.value = resp.data.total_tokens_out;
+    totalEstimatedCost.value = resp.data.total_estimated_cost_usd;
   } catch (e) {
     console.error(e);
   } finally {

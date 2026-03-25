@@ -82,7 +82,9 @@
     "deleteMessageConfirm": "确定要永久删除此消息吗？",
     "deleteMessageError": "删除消息失败",
     "copyError": "复制失败",
-    "automations": "自动化"
+    "automations": "自动化",
+    "extracting": "提取中...",
+    "fileExtractionFailed": "文件提取失败，请重试"
   },
   "usage": {
     "title": "用量统计",
@@ -99,7 +101,11 @@
     "provider": "供应商",
     "inputPrice": "输入单价",
     "outputPrice": "输出单价",
-    "pricingNote": "基于公开参考价格估算，实际费用以供应商账单为准。"
+    "pricingNote": "基于公开参考价格估算，实际费用以供应商账单为准。",
+    "usageDetails": "使用明细",
+    "date": "日期",
+    "model": "模型",
+    "tokens": "Tokens"
   },
   "documents": {
     "title": "知识库",
@@ -143,6 +149,13 @@
     "personaPlaceholder": "例如：叫我老板、用更轻松的语气...",
     "saving": "保存中...",
     "saveError": "保存失败，请稍后再试",
+    "modelParams": "模型参数",
+    "temperature": "采样温度 (Temperature)",
+    "temperatureHint": "较低的值（如 0.2）使输出更确定；较高的值（如 0.8）使输出更具创造性。",
+    "maxTokens": "单次最大 Token (Max Tokens)",
+    "maxTokensPlaceholder": "模型默认",
+    "systemPrompt": "全局系统提示词 (System Prompt)",
+    "systemPromptPlaceholder": "在这里输入自定义系统提示词，它将优先于「自定义指令」生效...",
     "customModel": "自定义...",
     "customModelPlaceholder": "输入模型名称，例如 glm-4.7-FlashX",
     "toolPermissions": "工具权限",
@@ -420,7 +433,15 @@
     "workflowStart": "工作流开始",
     "saved": "工作流已保存。",
     "saveError": "保存工作流失败。",
-    "loadError": "加载工作流失败。"
+    "loadError": "加载工作流失败。",
+    "executionInputs": "执行输入",
+    "run": "运行",
+    "running": "执行中...",
+    "history": "历史",
+    "logs": "日志",
+    "executeWorkflow": "执行工作流",
+    "noLogs": "暂无日志。开始执行以查看进度。",
+    "runningNode": "正在执行节点..."
   },
   "skillMarket": {
     "ecosystem": "JARVIS 生态",

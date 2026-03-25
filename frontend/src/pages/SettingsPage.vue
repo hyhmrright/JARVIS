@@ -4,12 +4,12 @@
 
     <div class="flex-1 overflow-y-auto custom-scrollbar p-8">
       <form class="max-w-4xl mx-auto space-y-8 pb-20" @submit.prevent="save">
-        
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
           <!-- AI Model Config -->
           <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm">
             <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-6">{{ $t('settings.aiModelSection') }}</h3>
-            
+
             <div class="space-y-4">
               <div class="flex flex-col gap-2">
                 <label class="text-xs font-semibold text-zinc-400">{{ $t("settings.provider") }}</label>
@@ -52,7 +52,7 @@
           <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm">
             <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-2">{{ $t('settings.apiKeysSection') }}</h3>
             <p class="text-xs text-zinc-500 mb-6">{{ $t('settings.apiKeysDescription', { provider: provider.toUpperCase() }) }}</p>
-            
+
             <div class="space-y-3">
               <div v-for="(_, index) in apiKeys" :key="index" class="flex gap-2">
                 <input
@@ -70,11 +70,11 @@
                   ×
                 </button>
               </div>
-              
+
               <button type="button" class="w-full py-2.5 border border-dashed border-zinc-700 text-zinc-500 text-xs font-medium rounded-lg hover:border-zinc-500 hover:text-zinc-300 transition-colors" @click="apiKeys.push('')">
                 + {{ $t("settings.addAnotherKey") }}
               </button>
-              
+
               <div v-if="existingKeyCount > 0" class="text-[11px] text-emerald-400 mt-2 font-medium">
                 {{ $t("settings.existingKeys", { count: existingKeyCount }) }}
               </div>
@@ -82,22 +82,68 @@
           </section>
         </div>
 
+        <!-- Model Parameters -->
+        <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm">
+          <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-6">{{ $t('settings.modelParams') }}</h3>
+
+          <div class="space-y-6">
+            <!-- Temperature -->
+            <div class="flex flex-col gap-3">
+              <div class="flex justify-between items-center">
+                <label class="text-xs font-semibold text-zinc-400">{{ $t('settings.temperature') }}</label>
+                <span class="text-xs font-mono text-zinc-500">{{ temperature.toFixed(1) }}</span>
+              </div>
+              <input
+                type="range" min="0" max="2" step="0.1"
+                v-model.number="temperature"
+                class="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                @change="saveTemperature"
+              />
+              <p class="text-[10px] text-zinc-500 italic">{{ $t('settings.temperatureHint') }}</p>
+            </div>
+
+            <!-- Max Tokens -->
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-semibold text-zinc-400">{{ $t('settings.maxTokens') }}</label>
+              <input
+                type="number" min="256" max="128000" step="256"
+                :value="maxTokens ?? ''"
+                class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors"
+                :placeholder="$t('settings.maxTokensPlaceholder')"
+                @change="e => { maxTokens = (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : null; saveMaxTokens() }"
+              />
+            </div>
+
+            <!-- System Prompt -->
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-semibold text-zinc-400">{{ $t('settings.systemPrompt') }}</label>
+              <textarea
+                v-model="systemPrompt"
+                rows="4"
+                class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-sm outline-none focus:border-zinc-600 transition-colors resize-none"
+                :placeholder="$t('settings.systemPromptPlaceholder')"
+                @blur="saveSystemPrompt"
+              ></textarea>
+            </div>
+          </div>
+        </section>
+
         <!-- Global Preferences -->
         <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm">
           <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-6">{{ $t('settings.globalPreferences') }}</h3>
-          
+
           <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div class="flex flex-col gap-2">
               <label class="text-xs font-semibold text-zinc-400">{{ $t('settings.language') }}</label>
-              <select 
-                v-model="locale" 
+              <select
+                v-model="locale"
                 class="bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-zinc-600 transition-colors"
                 @change="onLocaleChange"
               >
                 <option v-for="code in SUPPORTED_LOCALES" :key="code" :value="code">{{ code }}</option>
               </select>
             </div>
-            
+
             <div class="flex flex-col gap-2">
               <label class="text-xs font-semibold text-zinc-400">{{ $t("settings.personaOverride") }}</label>
               <textarea
@@ -115,15 +161,15 @@
             <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-2">{{ $t("settings.toolPermissions") }}</h3>
             <p class="text-xs text-zinc-500">{{ $t("settings.toolPermissionsDescription") }}</p>
           </div>
-          
+
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
             <label
               v-for="tool in toolRegistry"
               :key="tool.name"
               :class="[
                 'flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all select-none',
-                enabledTools.includes(tool.name) 
-                  ? 'bg-zinc-800 border-zinc-700 text-white' 
+                enabledTools.includes(tool.name)
+                  ? 'bg-zinc-800 border-zinc-700 text-white'
                   : 'bg-zinc-950/50 border-zinc-800/50 text-zinc-500 hover:border-zinc-700/50 hover:bg-zinc-900'
               ]"
             >
@@ -488,6 +534,9 @@ const keyCounts = ref<Record<string, number>>({});
 const personaOverride = ref("");
 const enabledTools = ref<string[]>([]);
 const toolRegistry = ref<ToolRegistry[]>([]);
+const temperature = ref(0.7);
+const maxTokens = ref<number | null>(null);
+const systemPrompt = ref("");
 const saved = ref(false);
 const saving = ref(false);
 const saveError = ref(false);
@@ -567,6 +616,40 @@ function onProviderChange() {
   modelSelect.value = DEFAULT_MODEL[provider.value] ?? providerModels.value[provider.value]?.[0] ?? "";
   customModelName.value = "";
   apiKeys.value = [""];
+}
+
+async function saveTemperature() {
+  try {
+    await client.put("/settings", { temperature: temperature.value });
+    saved.value = true;
+    setTimeout(() => (saved.value = false), 2000);
+  } catch {
+    saveError.value = true;
+    setTimeout(() => (saveError.value = false), 3000);
+  }
+}
+
+async function saveMaxTokens() {
+  try {
+    await client.put("/settings", { max_tokens: maxTokens.value });
+    saved.value = true;
+    setTimeout(() => (saved.value = false), 2000);
+  } catch {
+    saveError.value = true;
+    setTimeout(() => (saveError.value = false), 3000);
+  }
+}
+
+async function saveSystemPrompt() {
+  try {
+    const val = systemPrompt.value.trim() || null;
+    await client.put("/settings", { system_prompt: val });
+    saved.value = true;
+    setTimeout(() => (saved.value = false), 2000);
+  } catch {
+    saveError.value = true;
+    setTimeout(() => (saveError.value = false), 3000);
+  }
 }
 
 function toggleTool(name: string) {
@@ -708,6 +791,9 @@ onMounted(async () => {
     toolRegistry.value = data.tool_registry ?? [];
     enabledTools.value = data.enabled_tools ?? [];
     ollamaBaseUrl.value = data.ollama_base_url ?? "";
+    temperature.value = data.temperature ?? 0.7;
+    maxTokens.value = data.max_tokens ?? null;
+    systemPrompt.value = data.system_prompt ?? "";
     const savedModel = data.model_name ?? "";
     if (providerModels.value[provider.value]?.includes(savedModel)) modelSelect.value = savedModel;
     else { modelSelect.value = "__custom__"; customModelName.value = savedModel; }
@@ -739,20 +825,20 @@ async function save() {
   saving.value = true;
   try {
     const payload: any = { model_provider: provider.value, model_name: effectiveModelName.value, persona_override: personaOverride.value || null, enabled_tools: enabledTools.value };
-    
+
     const apiKeysPayload: Record<string, any> = {};
     const nonEmptyKeys = apiKeys.value.filter(k => k.trim());
     if (nonEmptyKeys.length > 0) apiKeysPayload[provider.value] = nonEmptyKeys;
-    
+
     // Add Ollama Base URL to the keys payload so it gets encrypted/stored
     if (ollamaBaseUrl.value.trim()) {
       apiKeysPayload['ollama_base_url'] = ollamaBaseUrl.value.trim();
     }
-    
+
     if (Object.keys(apiKeysPayload).length > 0) {
       payload.api_keys = apiKeysPayload;
     }
-    
+
     await client.put("/settings", payload);
     const { data: refreshed } = await client.get("/settings");
     keyCounts.value = refreshed.key_counts ?? {};

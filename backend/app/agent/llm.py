@@ -30,8 +30,8 @@ def get_llm(
     provider: str, model: str, api_key: str, base_url: str | None = None, **kwargs: Any
 ) -> BaseChatModel:
     """Factory function to return a LangChain ChatModel instance."""
-    if "temperature" not in kwargs:
-        kwargs["temperature"] = 0
+    # 设置默认温度为 0.7
+    kwargs.setdefault("temperature", 0.7)
     if "max_retries" not in kwargs:
         kwargs["max_retries"] = 2
 

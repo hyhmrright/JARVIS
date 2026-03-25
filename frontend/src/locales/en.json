@@ -82,7 +82,9 @@
     "deleteMessageConfirm": "Delete this message permanently?",
     "deleteMessageError": "Failed to delete message",
     "copyError": "Failed to copy",
-    "automations": "Automations"
+    "automations": "Automations",
+    "extracting": "Extracting...",
+    "fileExtractionFailed": "File extraction failed, please try again"
   },
   "usage": {
     "title": "Usage Statistics",
@@ -99,7 +101,11 @@
     "provider": "Provider",
     "inputPrice": "Input Price",
     "outputPrice": "Output Price",
-    "pricingNote": "Estimates based on approximate public pricing. Actual costs may vary."
+    "pricingNote": "Estimates based on approximate public pricing. Actual costs may vary.",
+    "usageDetails": "Usage Details",
+    "date": "Date",
+    "model": "Model",
+    "tokens": "Tokens"
   },
   "documents": {
     "title": "Knowledge Base",
@@ -143,6 +149,13 @@
     "personaPlaceholder": "e.g., Call me Boss, use a more casual tone...",
     "saving": "Saving...",
     "saveError": "Save failed, please try again later",
+    "modelParams": "Model Parameters",
+    "temperature": "Sampling Temperature",
+    "temperatureHint": "Lower values (e.g., 0.2) make output more deterministic; higher values (e.g., 0.8) make it more creative.",
+    "maxTokens": "Max Tokens",
+    "maxTokensPlaceholder": "Model default",
+    "systemPrompt": "Global System Prompt",
+    "systemPromptPlaceholder": "Enter a custom system prompt; this will take precedence over Persona Override...",
     "customModel": "Custom...",
     "customModelPlaceholder": "Enter model name, e.g. glm-4.7-FlashX",
     "toolPermissions": "Tool Permissions",
@@ -420,7 +433,15 @@
     "workflowStart": "Workflow Start",
     "saved": "Workflow saved.",
     "saveError": "Failed to save workflow.",
-    "loadError": "Failed to load workflow."
+    "loadError": "Failed to load workflow.",
+    "executionInputs": "Execution Inputs",
+    "run": "Run",
+    "running": "Running...",
+    "history": "History",
+    "logs": "Logs",
+    "executeWorkflow": "Execute Workflow",
+    "noLogs": "No logs yet. Start an execution to see progress.",
+    "runningNode": "Running node..."
   },
   "skillMarket": {
     "ecosystem": "JARVIS ecosystem",

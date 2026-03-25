@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.notifications import create_notification
 from app.db.models import Invitation, User, Workspace, WorkspaceMember
 from app.db.session import get_db
 
@@ -106,6 +107,21 @@ async def invite_member(
     db.add(inv)
     await db.commit()
     await db.refresh(inv)
+
+    # 如果受邀用户已存在，发送应用内通知
+    target_user = await db.scalar(
+        select(User).where(func.lower(User.email) == email_lower)
+    )
+    if target_user:
+        await create_notification(
+            user_id=target_user.id,
+            type="invitation_received",
+            title="New Workspace Invitation",
+            body=f"{user.display_name or user.email} invited you to join '{ws.name}'.",
+            action_url="/settings",
+            metadata={"workspace_id": str(ws_id), "token": str(inv.token)},
+        )
+
     logger.info(
         "invitation_created",
         inv_id=str(inv.id),

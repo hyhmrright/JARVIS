@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db, require_workspace_member
+from app.core.pricing import estimate_cost
 from app.db.models import Conversation, Message, User
 
 logger = structlog.get_logger(__name__)
@@ -33,6 +34,7 @@ async def get_usage_summary(
     stmt = select(
         func.date(Message.created_at).label("day"),
         Message.model_provider,
+        Message.model_name,
         func.coalesce(func.sum(Message.tokens_input), 0).label("tokens_in"),
         func.coalesce(func.sum(Message.tokens_output), 0).label("tokens_out"),
         func.count().label("message_count"),
@@ -47,7 +49,9 @@ async def get_usage_summary(
     stmt = stmt.where(
         Message.role == "ai",
         Message.created_at >= since,
-    ).group_by(func.date(Message.created_at), Message.model_provider)
+    ).group_by(
+        func.date(Message.created_at), Message.model_provider, Message.model_name
+    )
     stmt = stmt.order_by(func.date(Message.created_at))
 
     rows = await db.execute(stmt)
@@ -55,9 +59,16 @@ async def get_usage_summary(
         {
             "day": str(r.day),
             "provider": r.model_provider or "unknown",
+            "model": r.model_name or "unknown",
             "tokens_in": int(r.tokens_in),
             "tokens_out": int(r.tokens_out),
             "messages": int(r.message_count),
+            "estimated_cost_usd": estimate_cost(
+                r.model_provider or "",
+                r.model_name or "",
+                int(r.tokens_in),
+                int(r.tokens_out),
+            ),
         }
         for r in rows.all()
     ]
@@ -66,5 +77,6 @@ async def get_usage_summary(
         "total_tokens_in": sum(d["tokens_in"] for d in daily),
         "total_tokens_out": sum(d["tokens_out"] for d in daily),
         "total_messages": sum(d["messages"] for d in daily),
+        "total_estimated_cost_usd": sum(d["estimated_cost_usd"] for d in daily),
         "days": days,
     }

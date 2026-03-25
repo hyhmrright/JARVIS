@@ -11,7 +11,7 @@ def test_get_llm_deepseek_dispatches_correctly() -> None:
         mock.assert_called_once_with(
             model="deepseek-chat",
             api_key="key",
-            temperature=0,
+            temperature=0.7,
             max_retries=2,
         )
 
@@ -22,7 +22,7 @@ def test_get_llm_openai_dispatches_correctly() -> None:
         mock.assert_called_once_with(
             model="gpt-4o-mini",
             api_key="key",
-            temperature=0,
+            temperature=0.7,
             max_retries=2,
         )
 
@@ -33,7 +33,7 @@ def test_get_llm_anthropic_dispatches_correctly() -> None:
         mock.assert_called_once_with(
             model="claude-3-5-haiku-20241022",
             api_key="key",
-            temperature=0,
+            temperature=0.7,
             max_retries=2,
         )
 
@@ -44,7 +44,7 @@ def test_get_llm_zhipuai_dispatches_correctly() -> None:
         mock.assert_called_once_with(
             model="glm-4-flash",
             api_key="test-key",
-            temperature=0,
+            temperature=0.7,
             max_retries=2,
         )
 
@@ -57,7 +57,7 @@ def test_get_llm_zhipuai_model_variants() -> None:
             mock.assert_called_once_with(
                 model=model,
                 api_key="key",
-                temperature=0,
+                temperature=0.7,
                 max_retries=2,
             )
 

@@ -37,6 +37,9 @@ class ResolvedLLMConfig:
     persona_override: str | None
     raw_keys: dict[str, Any]
     base_url: str | None = None
+    temperature: float = 0.7
+    max_tokens: int | None = None
+    system_prompt: str | None = None
 
 
 async def _resolve_user(
@@ -276,4 +279,7 @@ async def get_llm_config(
         base_url=raw_keys.get(f"{provider}_base_url")
         if isinstance(raw_keys.get(f"{provider}_base_url"), str)
         else None,
+        temperature=user_settings.temperature if user_settings else 0.7,
+        max_tokens=user_settings.max_tokens if user_settings else None,
+        system_prompt=user_settings.system_prompt if user_settings else None,
     )

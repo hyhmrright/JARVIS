@@ -37,6 +37,7 @@ class ConversationOut(BaseModel):
     title: str
     active_leaf_id: uuid.UUID | None = None
     is_pinned: bool = False
+    folder_id: uuid.UUID | None = None
     updated_at: datetime | None = None
     tags: list[str] = []
     model_config = {"from_attributes": True}
@@ -49,6 +50,7 @@ class ActiveLeafUpdate(BaseModel):
 class ConversationUpdate(BaseModel):
     title: str | None = Field(None, min_length=1, max_length=255)
     persona_override: str | None = None
+    folder_id: uuid.UUID | None = None
 
     @field_validator("title")
     @classmethod
@@ -538,6 +540,8 @@ async def update_conversation(
         conv.title = body.title.strip()
     if "persona_override" in body.model_fields_set:
         conv.persona_override = body.persona_override
+    if "folder_id" in body.model_fields_set:
+        conv.folder_id = body.folder_id
     await db.commit()
 
 

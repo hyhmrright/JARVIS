@@ -44,6 +44,47 @@
             <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors" title="Search" @click="searchMode = true">
               <Search class="w-4 h-4 text-zinc-400" />
             </button>
+
+            <!-- Notifications -->
+            <div class="relative">
+              <button
+                class="p-1.5 hover:bg-zinc-800 rounded transition-colors relative"
+                title="Notifications"
+                @click="showNotifications = !showNotifications; if(showNotifications) notifications.fetchNotifications()"
+              >
+                <Bell class="w-4 h-4 text-zinc-400" />
+                <span v-if="notifications.unreadCount > 0" class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-zinc-950"></span>
+              </button>
+
+              <div v-if="showNotifications" class="absolute top-10 right-0 w-80 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl z-[70] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                <div class="px-4 py-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/50">
+                  <h3 class="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Notifications</h3>
+                  <button v-if="notifications.unreadCount > 0" class="text-[9px] font-bold text-indigo-400 hover:text-indigo-300" @click="notifications.markAllRead">Mark all read</button>
+                </div>
+                <div class="max-h-[400px] overflow-y-auto custom-scrollbar">
+                  <div v-if="notifications.notifications.length === 0" class="px-4 py-8 text-center text-xs text-zinc-600">No new notifications</div>
+                  <div
+                    v-for="n in notifications.notifications" :key="n.id"
+                    class="px-4 py-3 border-b border-zinc-800/50 hover:bg-zinc-800/50 cursor-pointer transition-colors"
+                    :class="!n.is_read ? 'bg-indigo-500/5' : 'opacity-60'"
+                    @click="handleNotificationClick(n)"
+                  >
+                    <div class="flex items-start gap-3">
+                      <div class="w-2 h-2 mt-1.5 rounded-full flex-shrink-0" :class="!n.is_read ? 'bg-indigo-500' : 'bg-transparent'"></div>
+                      <div class="flex-1 min-w-0">
+                        <div class="text-[11px] font-bold text-zinc-200">{{ n.title }}</div>
+                        <div class="text-[10px] text-zinc-500 mt-0.5 line-clamp-2">{{ n.body }}</div>
+                        <div class="text-[9px] text-zinc-600 mt-1.5 font-mono uppercase">{{ formatMsgTime(n.created_at) }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors" title="New Folder" @click="showCreateFolderModal = true">
+              <FolderPlus class="w-4 h-4 text-zinc-400" />
+            </button>
             <button
               class="p-1.5 hover:bg-zinc-800 rounded transition-colors"
               :class="bookmarkMode ? 'text-amber-400' : ''"
@@ -106,8 +147,139 @@
               {{ activeTagFilter }} ×
             </button>
           </div>
+
+          <!-- Folders -->
+          <div v-for="f in conversationsByFolder.folders" :key="f.id" class="space-y-0.5">
+            <div
+              class="group flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-zinc-200"
+              @click="toggleFolder(f.id)"
+            >
+              <ChevronRight class="w-3.5 h-3.5 transition-transform" :class="expandedFolders.has(f.id) ? 'rotate-90' : ''" />
+              <Folder class="w-3.5 h-3.5 text-indigo-400" />
+              <span class="text-xs font-medium flex-1 truncate">{{ f.name }}</span>
+              <div class="flex items-center gap-1.5">
+                <span class="text-[10px] text-zinc-600 group-hover:text-zinc-500">{{ conversationsByFolder.byFolder[f.id]?.length || 0 }}</span>
+                <button
+                  class="opacity-0 group-hover:opacity-100 p-0.5 hover:text-red-400 transition-opacity"
+                  @click.stop="chat.deleteFolder(f.id)"
+                >
+                  <Trash2 class="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+
+            <div v-if="expandedFolders.has(f.id)" class="pl-4 space-y-0.5 border-l border-zinc-800/50 ml-4.5 mb-2">
+              <div
+                v-for="c in conversationsByFolder.byFolder[f.id]"
+                :key="c.id"
+                :class="[
+                  'group flex flex-col rounded-md cursor-pointer transition-colors relative',
+                  chat.currentConvId === c.id ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
+                ]"
+                @click="selectConversation(c.id)"
+              >
+                <!-- Conversation row content -->
+                <div class="flex items-center gap-3 px-3 py-2">
+                  <MessageSquare class="w-3.5 h-3.5 flex-shrink-0" />
+                  <input
+                    v-if="renamingConvId === c.id"
+                    :ref="setRenameInput"
+                    v-model="renameValue"
+                    class="text-[11px] flex-1 bg-zinc-700 text-zinc-100 rounded px-1 outline-none min-w-0"
+                    maxlength="255"
+                    @keydown.enter.stop="commitRename(c.id)"
+                    @keydown.escape.stop.prevent="renamingConvId = null"
+                    @blur="commitRename(c.id)"
+                    @click.stop
+                  />
+                  <span
+                    v-else
+                    class="text-xs truncate flex-1"
+                    @dblclick.stop="startRename(c)"
+                  >{{ c.title }}</span>
+
+                  <button
+                    class="opacity-0 group-hover:opacity-100 p-1 hover:text-zinc-300"
+                    title="Move out of folder"
+                    @click.stop="handleMoveToFolder(c.id, null)"
+                  >
+                    <LogOut class="w-3 h-3 rotate-90" />
+                  </button>
+
+                  <button
+                    class="p-0.5 rounded transition-opacity"
+                    :class="c.is_pinned ? 'text-yellow-400 opacity-100' : 'text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100'"
+                    :title="c.is_pinned ? 'Unpin' : 'Pin'"
+                    @click.stop="togglePin(c.id)"
+                  >
+                    <Pin class="w-3 h-3" :class="c.is_pinned ? 'fill-current' : ''" />
+                  </button>
+
+                  <div class="relative opacity-0 group-hover:opacity-100">
+                    <button
+                      class="p-1 hover:text-zinc-200"
+                      title="Export"
+                      @click.stop="exportMenuConvId = exportMenuConvId === c.id ? null : c.id"
+                    >
+                      <Download class="w-3 h-3" />
+                    </button>
+                    <div
+                      v-if="exportMenuConvId === c.id"
+                      class="absolute right-0 top-6 z-50 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl py-1 w-36"
+                    >
+                      <button class="w-full text-left px-3 py-1.5 text-[11px] text-zinc-300 hover:bg-zinc-800 hover:text-white" @click.stop="downloadExport(c.id, c.title, 'md')">Markdown (.md)</button>
+                      <button class="w-full text-left px-3 py-1.5 text-[11px] text-zinc-300 hover:bg-zinc-800 hover:text-white" @click.stop="downloadExport(c.id, c.title, 'json')">JSON</button>
+                    </div>
+                  </div>
+
+                  <button
+                    class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400"
+                    @click.stop="chat.deleteConversation(c.id)"
+                  >
+                    <Trash2 class="w-3 h-3" />
+                  </button>
+                </div>
+                <!-- Tags row -->
+                <div v-if="c.tags.length > 0 || tagInputConvId === c.id" class="flex flex-wrap items-center gap-1 px-8 pb-1.5" @click.stop>
+                  <div
+                    v-for="tag in c.tags"
+                    :key="tag"
+                    class="inline-flex items-center rounded bg-zinc-700 hover:bg-zinc-600 transition-colors overflow-hidden"
+                  >
+                    <button
+                      class="px-1.5 py-0.5 text-[9px]"
+                      :class="activeTagFilter === tag ? 'text-indigo-400' : 'text-zinc-400'"
+                      @click.stop="setTagFilter(tag)"
+                    >{{ tag }}</button>
+                    <button
+                      :aria-label="`Remove tag ${tag}`"
+                      class="px-1 py-0.5 text-[9px] text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                      @click.stop="handleRemoveTag(c.id, tag)"
+                    >×</button>
+                  </div>
+                  <div v-if="tagInputConvId === c.id" class="flex items-center gap-1">
+                    <input
+                      v-model="tagInputValue"
+                      class="text-[9px] px-1 py-0.5 bg-zinc-700 text-zinc-200 rounded outline-none w-16 focus:ring-1 focus:ring-indigo-500"
+                      maxlength="100"
+                      autofocus
+                      @keydown.enter.stop="handleAddTag(c.id)"
+                      @keydown.escape.stop="tagInputConvId = null; tagInputValue = ''"
+                      @click.stop
+                    />
+                  </div>
+                </div>
+              </div>
+              <div v-if="!conversationsByFolder.byFolder[f.id]?.length" class="px-3 py-2 text-[10px] text-zinc-600 italic">
+                Empty folder
+              </div>
+            </div>
+          </div>
+
+          <!-- Unassigned -->
+          <div class="px-3 pt-4 pb-1 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Recent</div>
           <div
-            v-for="c in filteredConversations"
+            v-for="c in conversationsByFolder.unassigned"
             :key="c.id"
             :class="[
               'group flex flex-col rounded-md cursor-pointer transition-colors relative',
@@ -122,7 +294,7 @@
                 v-if="renamingConvId === c.id"
                 :ref="setRenameInput"
                 v-model="renameValue"
-                class="text-xs flex-1 bg-zinc-700 text-zinc-100 rounded px-1 outline-none min-w-0"
+                class="text-[11px] flex-1 bg-zinc-700 text-zinc-100 rounded px-1 outline-none min-w-0"
                 maxlength="255"
                 @keydown.enter.stop="commitRename(c.id)"
                 @keydown.escape.stop.prevent="renamingConvId = null"
@@ -134,6 +306,7 @@
                 class="text-xs truncate flex-1"
                 @dblclick.stop="startRename(c)"
               >{{ c.title }}</span>
+
               <button
                 class="p-0.5 rounded transition-opacity"
                 :class="c.is_pinned ? 'text-yellow-400 opacity-100' : 'text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100'"
@@ -142,6 +315,7 @@
               >
                 <Pin class="w-3 h-3" :class="c.is_pinned ? 'fill-current' : ''" />
               </button>
+
               <button
                 class="opacity-0 group-hover:opacity-100 p-1 hover:text-indigo-400 text-zinc-500"
                 title="Add tag"
@@ -149,6 +323,28 @@
               >
                 <Tag class="w-3 h-3" />
               </button>
+
+              <!-- Move to folder dropdown -->
+              <div class="relative opacity-0 group-hover:opacity-100">
+                <button
+                  class="p-1 hover:text-indigo-400"
+                  title="Move to folder"
+                  @click.stop="moveMenuConvId = moveMenuConvId === c.id ? null : c.id"
+                >
+                  <FolderTree class="w-3 h-3" />
+                </button>
+                <div v-if="moveMenuConvId === c.id" class="absolute right-0 top-6 z-50 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl py-1 w-40">
+                  <div class="px-2 py-1 text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Move to...</div>
+                  <button
+                    v-for="f in chat.folders" :key="f.id"
+                    class="w-full text-left px-3 py-1.5 text-[11px] text-zinc-300 hover:bg-zinc-800"
+                    @click.stop="handleMoveToFolder(c.id, f.id); moveMenuConvId = null"
+                  >
+                    {{ f.name }}
+                  </button>
+                </div>
+              </div>
+
               <div class="relative opacity-0 group-hover:opacity-100">
                 <button
                   class="p-1 hover:text-zinc-200"
@@ -163,9 +359,9 @@
                 >
                   <button class="w-full text-left px-3 py-1.5 text-[11px] text-zinc-300 hover:bg-zinc-800 hover:text-white" @click.stop="downloadExport(c.id, c.title, 'md')">Markdown (.md)</button>
                   <button class="w-full text-left px-3 py-1.5 text-[11px] text-zinc-300 hover:bg-zinc-800 hover:text-white" @click.stop="downloadExport(c.id, c.title, 'json')">JSON</button>
-                  <button class="w-full text-left px-3 py-1.5 text-[11px] text-zinc-300 hover:bg-zinc-800 hover:text-white" @click.stop="downloadExport(c.id, c.title, 'txt')">Plain text (.txt)</button>
                 </div>
               </div>
+
               <button
                 class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400"
                 @click.stop="chat.deleteConversation(c.id)"
@@ -191,21 +387,16 @@
                   @click.stop="handleRemoveTag(c.id, tag)"
                 >×</button>
               </div>
-              <!-- Inline tag input -->
               <div v-if="tagInputConvId === c.id" class="flex items-center gap-1">
                 <input
                   v-model="tagInputValue"
                   class="text-[9px] px-1 py-0.5 bg-zinc-700 text-zinc-200 rounded outline-none w-16 focus:ring-1 focus:ring-indigo-500"
-                  :placeholder="$t('chat.newTagPlaceholder')"
                   maxlength="100"
                   autofocus
                   @keydown.enter.stop="handleAddTag(c.id)"
                   @keydown.escape.stop="tagInputConvId = null; tagInputValue = ''"
                   @click.stop
                 />
-                <button class="text-indigo-400 hover:text-indigo-300" @click.stop="handleAddTag(c.id)">
-                  <Plus class="w-3 h-3" />
-                </button>
               </div>
             </div>
           </div>
@@ -237,7 +428,7 @@
             <span>{{ $t('chat.settings') }}</span>
           </router-link>
         </div>
-        
+
         <div class="pt-2 border-t border-zinc-800">
           <div class="group flex items-center justify-between w-full px-2 py-2 bg-transparent hover:bg-zinc-900 rounded-lg transition-colors cursor-default">
             <div class="flex items-center gap-3 overflow-hidden">
@@ -249,7 +440,7 @@
                 <span class="text-[10px] text-zinc-500 truncate">Free Plan</span>
               </div>
             </div>
-            
+
             <button class="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 px-2 py-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 rounded transition-all text-[10px] font-bold uppercase tracking-wider" title="Sign out" @click="handleLogout">
               <LogOut class="w-3 h-3" />
             </button>
@@ -262,7 +453,7 @@
     <main class="flex-1 flex flex-col min-w-0 bg-zinc-900 relative">
       <header class="h-14 flex items-center px-6 justify-between border-b border-zinc-800/50 bg-zinc-900/80 backdrop-blur-sm z-40">
         <div class="flex items-center gap-4">
-          <button 
+          <button
             v-if="sidebarCollapsed"
             class="p-1.5 hover:bg-zinc-800 rounded transition-colors"
             @click="sidebarCollapsed = false"
@@ -293,7 +484,7 @@
             @click="handleShare"
           >
             <Share2 class="w-4 h-4" :class="{'animate-pulse': sharing}" />
-            
+
             <!-- Share Link Popover -->
             <div v-if="shareUrl" class="absolute top-10 right-0 w-64 bg-zinc-950 border border-zinc-800 p-3 rounded-lg shadow-2xl z-50 animate-in fade-in zoom-in duration-200">
               <p class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Share Conversation</p>
@@ -320,13 +511,13 @@
       </button>
       <div ref="messagesEl" class="h-full overflow-y-auto custom-scrollbar" @scroll="onMessagesScroll">
         <div class="max-w-3xl mx-auto px-6 py-12 space-y-16">
-          
+
           <!-- New Session Welcome -->
           <div v-if="chat.messages.length === 0" class="pt-20 animate-in fade-in slide-in-from-bottom-4 duration-1000">
             <div class="max-w-2xl mx-auto">
               <div class="w-10 h-10 bg-white text-black rounded-lg flex items-center justify-center font-bold mx-auto mb-6">J</div>
               <h1 class="text-center text-2xl font-bold text-zinc-50 mb-12 tracking-tight">Intelligence at your service.</h1>
-              
+
               <!-- Persona Selector -->
               <div v-if="personas.length > 0" class="mb-12">
                 <div class="flex items-center justify-between mb-4">
@@ -334,15 +525,15 @@
                   <router-link to="/personas" class="text-[10px] font-bold text-zinc-500 hover:text-white transition-colors">MANAGE</router-link>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button 
+                  <button
                     :class="['p-4 rounded-xl border text-left transition-all group', !selectedPersonaId ? 'bg-white border-white text-black shadow-xl shadow-white/5' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700']"
                     @click="selectedPersonaId = null"
                   >
                     <div class="text-[13px] font-bold uppercase tracking-tight">Default Agent</div>
                     <div :class="['text-[11px] mt-1', !selectedPersonaId ? 'text-black/60' : 'text-zinc-500 group-hover:text-zinc-400']">Standard autonomous assistant</div>
                   </button>
-                  <button 
-                    v-for="p in personas" 
+                  <button
+                    v-for="p in personas"
                     :key="p.id"
                     :class="['p-4 rounded-xl border text-left transition-all group', selectedPersonaId === p.id ? 'bg-white border-white text-black shadow-xl shadow-white/5' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700']"
                     @click="selectedPersonaId = p.id"
@@ -386,7 +577,7 @@
             <!-- Sender Label -->
             <div class="flex items-center gap-3 select-none">
               <div
-                :class="['w-5 h-5 rounded-sm flex items-center justify-center text-[9px] font-bold tracking-tighter', 
+                :class="['w-5 h-5 rounded-sm flex items-center justify-center text-[9px] font-bold tracking-tighter',
                 msg.role === 'ai' ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-400']">
                 {{ msg.role === 'ai' ? 'JARVIS' : (auth.displayName?.[0] || 'U') }}
               </div>
@@ -398,7 +589,7 @@
               <div v-if="msg.image_urls && msg.image_urls.length > 0" class="flex flex-wrap gap-2 mb-2">
                 <img v-for="(img, imgIdx) in msg.image_urls" :key="imgIdx" :src="img" class="max-w-[300px] max-h-[300px] object-contain rounded-md border border-zinc-700/50" />
               </div>
-              
+
               <div v-if="editingMessageId === msg.id" class="space-y-2">
                 <textarea
                   v-model="editInput"
@@ -476,16 +667,16 @@
               <div v-if="msg.id" class="mt-3 flex items-center gap-4 text-zinc-500">
                 <!-- Branch Switcher -->
                 <div v-if="chat.getSiblings(msg).length > 1" class="flex items-center gap-1.5 bg-zinc-900/50 rounded-full px-2 py-0.5 border border-zinc-800/50">
-                  <button 
-                    class="hover:text-zinc-200 disabled:opacity-30 disabled:hover:text-zinc-500 transition-colors" 
+                  <button
+                    class="hover:text-zinc-200 disabled:opacity-30 disabled:hover:text-zinc-500 transition-colors"
                     :disabled="getBranchIndex(msg) === 0"
                     @click="navigateBranch(msg, -1)"
                   >
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                   </button>
                   <span class="text-[9px] font-medium tabular-nums text-zinc-400">{{ getBranchIndex(msg) + 1 }} / {{ chat.getSiblings(msg).length }}</span>
-                  <button 
-                    class="hover:text-zinc-200 disabled:opacity-30 disabled:hover:text-zinc-500 transition-colors" 
+                  <button
+                    class="hover:text-zinc-200 disabled:opacity-30 disabled:hover:text-zinc-500 transition-colors"
                     :disabled="getBranchIndex(msg) === chat.getSiblings(msg).length - 1"
                     @click="navigateBranch(msg, 1)"
                   >
@@ -494,16 +685,16 @@
                 </div>
 
                 <!-- AI Specific: Regenerate -->
-                <button 
-                  v-if="msg.role === 'ai' && !chat.streaming" 
-                  class="text-[10px] font-medium hover:text-zinc-300 flex items-center gap-1.5 transition-colors" 
+                <button
+                  v-if="msg.role === 'ai' && !chat.streaming"
+                  class="text-[10px] font-medium hover:text-zinc-300 flex items-center gap-1.5 transition-colors"
                   @click="chat.regenerate(msg.id, activeModel ?? undefined)"
                 >
                   <RotateCcw class="w-3 h-3" />
                   Regenerate
                 </button>
               </div>
-              
+
               <!-- Tool Execution Logs -->
               <div v-if="msg.toolCalls?.length" class="mt-6 flex flex-col gap-2 pt-4 border-t border-zinc-800/50">
                 <details v-for="(tc, i) in msg.toolCalls" :key="i" class="group bg-zinc-950/80 border border-zinc-800/80 rounded-xl overflow-hidden text-xs transition-all">
@@ -511,19 +702,19 @@
                     <div :class="['w-1.5 h-1.5 rounded-full flex-shrink-0 shadow-[0_0_8px_rgba(255,255,255,0.5)]', tc.status === 'running' ? 'bg-amber-400 animate-pulse shadow-amber-400/50' : 'bg-emerald-500 shadow-emerald-500/50']"></div>
                     <span class="font-mono text-zinc-300 font-semibold tracking-tight">{{ tc.name }}</span>
                     <span class="text-zinc-600 truncate flex-1 font-mono text-[10px]">{{ tc.args ? JSON.stringify(tc.args).substring(0, 50) + (JSON.stringify(tc.args).length > 50 ? '...' : '') : '' }}</span>
-                    
+
                     <div class="flex items-center gap-2">
                       <span class="text-zinc-500 text-[9px] uppercase tracking-widest font-bold">{{ tc.status === 'running' ? 'Executing' : 'Completed' }}</span>
                       <svg class="w-3.5 h-3.5 text-zinc-500 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
                   </summary>
-                  
+
                   <div class="px-4 py-4 bg-[#0a0a0a] border-t border-zinc-800/80">
                     <div class="mb-2 flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
                       <Zap class="w-3 h-3" /> Payload
                     </div>
                     <pre class="text-zinc-300 font-mono text-[11px] bg-zinc-900/40 p-3 rounded-lg border border-zinc-800/50 overflow-x-auto whitespace-pre-wrap leading-relaxed">{{ tc.args ? JSON.stringify(tc.args, null, 2) : '{}' }}</pre>
-                    
+
                     <div v-if="tc.result" class="mt-5">
                       <div class="mb-2 flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
                         <PanelLeft class="w-3 h-3" /> Output / Response
@@ -617,26 +808,44 @@
         <div class="max-w-3xl mx-auto px-6 pb-10">
           <div class="relative bg-zinc-950 border border-zinc-800 rounded-xl transition-all focus-within:border-zinc-700">
             <!-- Image Previews -->
-            <div v-if="selectedImages.length > 0" class="flex flex-wrap gap-2 px-4 pt-3 pb-1">
+            <div v-if="selectedImages.length > 0 || attachedFile || fileUploading" class="flex flex-wrap gap-2 px-4 pt-3 pb-1">
               <div v-for="(img, idx) in selectedImages" :key="idx" class="relative group">
                 <img :src="img" class="w-14 h-14 object-cover rounded-md border border-zinc-800" />
-                <button 
+                <button
                   class="absolute -top-1.5 -right-1.5 bg-zinc-900 text-zinc-400 rounded-full p-0.5 border border-zinc-800 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all"
                   @click="removeImage(idx)"
                 >
                   <X class="w-3 h-3" />
                 </button>
               </div>
+
+              <!-- Document chip -->
+              <div v-if="fileUploading" class="h-14 flex items-center gap-2 px-3 bg-zinc-900 border border-zinc-800 rounded-md animate-pulse">
+                <div class="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                <span class="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Extracting...</span>
+              </div>
+              <div v-else-if="attachedFile" class="h-14 flex items-center gap-3 px-3 bg-zinc-900 border border-zinc-800 rounded-md group">
+                <div class="w-8 h-8 flex items-center justify-center bg-indigo-500/10 text-indigo-400 rounded">
+                  <Download class="w-4 h-4" />
+                </div>
+                <div class="flex flex-col min-w-0">
+                  <span class="text-[11px] font-bold text-zinc-200 truncate max-w-[120px]">{{ attachedFile.filename }}</span>
+                  <span class="text-[9px] text-zinc-500 uppercase tracking-tighter">{{ attachedFile.char_count }} chars</span>
+                </div>
+                <button class="text-zinc-500 hover:text-red-400 transition-colors" @click="attachedFile = null">
+                  <X class="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
             <div class="flex items-end p-2 gap-1">
-              <input 
-                ref="fileInput" 
-                type="file" 
-                class="hidden" 
-                multiple 
-                accept="image/*" 
-                @change="handleImageSelect" 
+              <input
+                ref="fileInput"
+                type="file"
+                class="hidden"
+                multiple
+                accept="image/*,.pdf,.docx,.txt,.csv,.md"
+                @change="handleFileSelect"
               />
               <button class="p-2.5 text-zinc-500 hover:text-white transition-colors" title="Attach Image" @click="fileInput?.click()">
                 <Image class="w-4 h-4" />
@@ -651,7 +860,7 @@
               >
                 <Sparkles class="w-4 h-4" />
               </button>
-              
+
               <textarea
                 v-model="input"
                 class="flex-1 bg-transparent border-none focus:ring-0 px-2 py-3 text-[14px] text-zinc-100 resize-none max-h-[300px] min-h-[44px] custom-scrollbar placeholder:text-zinc-600"
@@ -660,7 +869,7 @@
                 @keydown.enter="handleEnter"
                 @paste="handlePaste"
               ></textarea>
-              
+
               <!-- Stop button during streaming -->
               <button
                 v-if="chat.streaming"
@@ -726,10 +935,10 @@
     </main>
 
     <!-- Right Sidebar for Live Canvas -->
-    <LiveCanvas 
-      :content="activeCanvasContent" 
-      :is-visible="canvasVisible" 
-      :collapsed="canvasCollapsed" 
+    <LiveCanvas
+      :content="activeCanvasContent"
+      :is-visible="canvasVisible"
+      :collapsed="canvasCollapsed"
       @close="canvasVisible = false"
       @submit="handleCanvasSubmit"
     />
@@ -746,6 +955,24 @@
     <div v-if="exportMenuConvId" class="fixed inset-0 z-40" @click="exportMenuConvId = null" />
     <!-- Model picker close backdrop -->
     <div v-if="showModelPicker" class="fixed inset-0 z-40" @click="showModelPicker = false" />
+
+    <!-- Create Folder Modal -->
+    <div v-if="showCreateFolderModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div class="bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl p-6 w-full max-w-sm animate-in zoom-in-95 duration-200">
+        <h3 class="text-sm font-bold text-zinc-100 mb-4">New Folder</h3>
+        <input
+          v-model="newFolderName"
+          type="text"
+          placeholder="Folder name..."
+          class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500 mb-6"
+          @keydown.enter="handleCreateFolder"
+        />
+        <div class="flex justify-end gap-3">
+          <button class="px-4 py-2 text-xs font-bold text-zinc-500 hover:text-zinc-300 transition-colors" @click="showCreateFolderModal = false">CANCEL</button>
+          <button class="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-500 transition-all" @click="handleCreateFolder">CREATE</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -755,6 +982,7 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useChatStore } from "@/stores/chat";
 import { useAuthStore } from "@/stores/auth";
+import { useNotificationStore } from "@/stores/notification";
 import { marked } from "marked";
 import hljs from "highlight.js";
 import "highlight.js/styles/github-dark.css";
@@ -766,7 +994,7 @@ import {
   Mic, ArrowUp, Square, ShieldAlert, Share2, MessageSquare,
   Volume2, Layout, Image, X, ChevronDown, Cpu,
   Search, Download, Sparkles, Pin, Bookmark, BookmarkCheck, ThumbsUp, ThumbsDown,
-  Tag, Plus, GitFork
+  Tag, GitFork, FolderPlus, Folder, ChevronRight, FolderTree, Bell
 } from "lucide-vue-next";
 
 import LiveCanvas from "@/components/LiveCanvas.vue";
@@ -780,6 +1008,7 @@ import { useToast } from "@/composables/useToast";
 const { t, te } = useI18n();
 const chat = useChatStore();
 const auth = useAuthStore();
+const notifications = useNotificationStore();
 const router = useRouter();
 const toast = useToast();
 const visibleMessages = computed(() =>
@@ -791,6 +1020,8 @@ const editingMessageId = ref<string | null>(null);
 const editInput = ref("");
 const fileInput = ref<HTMLInputElement>();
 const selectedImages = ref<string[]>([]);
+const attachedFile = ref<{ filename: string; char_count: number; extracted_text: string } | null>(null);
+const fileUploading = ref(false);
 const isMobile = ref(typeof window !== "undefined" ? window.innerWidth < 768 : false);
 const sidebarCollapsed = ref(isMobile.value);
 
@@ -817,6 +1048,7 @@ const selectSearchResult = (convId: string) => {
   if (isMobile.value) sidebarCollapsed.value = true;
 };
 const exportMenuConvId = ref<string | null>(null);
+const moveMenuConvId = ref<string | null>(null);
 const pendingSystemPrompt = ref<string | null>(null);
 
 // Model picker
@@ -830,6 +1062,51 @@ const searchMode = ref(false);
 const searchQuery = ref("");
 const searchResults = ref<Array<{ conv_id: string; title: string; snippet: string; updated_at: string }>>([]);
 const searchInputEl = ref<HTMLInputElement>();
+
+// Folders
+const expandedFolders = ref<Set<string>>(new Set());
+const showCreateFolderModal = ref(false);
+const newFolderName = ref("");
+
+const toggleFolder = (folderId: string) => {
+  if (expandedFolders.value.has(folderId)) {
+    expandedFolders.value.delete(folderId);
+  } else {
+    expandedFolders.value.add(folderId);
+  }
+};
+
+const handleCreateFolder = async () => {
+  if (!newFolderName.value.trim()) return;
+  try {
+    await chat.createFolder(newFolderName.value.trim());
+    newFolderName.value = "";
+    showCreateFolderModal.value = false;
+  } catch {
+    toast.error("Failed to create folder");
+  }
+};
+
+const handleMoveToFolder = async (convId: string, folderId: string | null) => {
+  try {
+    await chat.moveConversationToFolder(convId, folderId);
+    toast.success("Moved conversation");
+  } catch {
+    toast.error("Failed to move conversation");
+  }
+};
+
+const conversationsByFolder = computed(() => {
+  const folders = chat.folders;
+  const unassigned = filteredConversations.value.filter(c => !c.folder_id);
+  const byFolder: Record<string, any[]> = {};
+
+  folders.forEach(f => {
+    byFolder[f.id] = filteredConversations.value.filter(c => c.folder_id === f.id);
+  });
+
+  return { folders, unassigned, byFolder };
+});
 
 const clearSearch = () => {
   searchMode.value = false;
@@ -999,6 +1276,7 @@ onUnmounted(() => {
   clearTimeout(_scrollGuardTimer);
   cancelAnimationFrame(_scrollRafId);
   if (approvalTickInterval) clearInterval(approvalTickInterval);
+  notifications.stopPolling();
   window.removeEventListener("resize", handleResize);
   window.removeEventListener("keydown", handleGlobalKeydown);
   messagesEl.value?.removeEventListener("click", handleCodeCopy);
@@ -1054,7 +1332,7 @@ const togglePin = async (convId: string) => {
 const renamingConvId = ref<string | null>(null);
 const renameValue = ref("");
 // Plain mutable variable — Vue's :ref function ref sets this each render
- 
+
 let renameInputEl: HTMLInputElement | null = null;
 const setRenameInput = (el: unknown) => { renameInputEl = el as HTMLInputElement | null; };
 
@@ -1085,6 +1363,15 @@ const commitRename = async (convId: string) => {
 
 // Prompt template state
 const showTemplates = ref(false);
+const showNotifications = ref(false);
+
+const handleNotificationClick = async (n: any) => {
+  await notifications.markAsRead(n.id);
+  if (n.action_url) {
+    showNotifications.value = false;
+    router.push(n.action_url);
+  }
+};
 
 const applyTemplate = async (template: PromptTemplate) => {
   showTemplates.value = false;
@@ -1156,12 +1443,32 @@ const addImages = (files: File[]) => {
   }
 };
 
-const handleImageSelect = (e: Event) => {
-  const files = (e.target as HTMLInputElement).files;
-  if (!files) return;
-  addImages(Array.from(files));
-  if (fileInput.value) fileInput.value.value = '';
-};
+async function handleFileSelect(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+
+  if (file.type.startsWith("image/")) {
+    addImages([file]);
+    if (fileInput.value) fileInput.value.value = "";
+    return;
+  }
+
+  // Document extraction
+  fileUploading.value = true;
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    const { data } = await client.post("/chat/extract-file", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    attachedFile.value = data;
+  } catch {
+    toast.error("File extraction failed");
+  } finally {
+    fileUploading.value = false;
+    if (fileInput.value) fileInput.value.value = "";
+  }
+}
 
 const handlePaste = (e: ClipboardEvent) => {
   const items = e.clipboardData?.items;
@@ -1384,10 +1691,10 @@ marked.use({
 
 const renderMarkdown = (text: string) => {
   if (!text) return '<span class="cursor-block"></span>';
-  
+
   let processed = text;
   const blocks: string[] = [];
-  
+
   // Extract closed <think> blocks
   processed = processed.replace(/<think>([\s\S]*?)<\/think>/g, (_, p1) => {
     const placeholder = `__THINK_BLOCK_${blocks.length}__`;
@@ -1411,7 +1718,7 @@ const renderMarkdown = (text: string) => {
     html = html.replace(`<p>__THINK_BLOCK_${i}__</p>`, blockHtml);
     html = html.replace(`__THINK_BLOCK_${i}__`, blockHtml);
   });
-  
+
   return sanitizeHtml(html);
 };
 const hasHtml = (text: string) => /<html>[\s\S]*?<\/html>/.test(text);
@@ -1422,12 +1729,14 @@ const hasCanvasData = (text: string) => {
 const currentConvTitle = computed(() => chat.conversations.find((conv) => conv.id === chat.currentConvId)?.title || "Intelligence Terminal");
 
 const handleSend = async function(): Promise<void> {
-  if ((!input.value.trim() && selectedImages.value.length === 0) || chat.streaming) return;
+  if ((!input.value.trim() && selectedImages.value.length === 0 && !attachedFile.value) || chat.streaming) return;
   const msg = input.value;
   const images = [...selectedImages.value];
+  const fileCtx = attachedFile.value ? { filename: attachedFile.value.filename, extracted_text: attachedFile.value.extracted_text } : undefined;
   const personaId = selectedPersonaId.value;
   input.value = "";
   selectedImages.value = [];
+  attachedFile.value = null;
 
   // Apply pending template system prompt when starting a new conversation
   if (pendingSystemPrompt.value && !chat.currentConvId) {
@@ -1446,7 +1755,7 @@ const handleSend = async function(): Promise<void> {
     }
   }
 
-  await chat.sendMessage(msg, images.length > 0 ? images : undefined, undefined, personaId || undefined, activeModel.value || undefined);
+  await chat.sendMessage(msg, images.length > 0 ? images : undefined, undefined, personaId || undefined, activeModel.value || undefined, fileCtx);
 };
 
 const handleEnter = function(e: KeyboardEvent): void {
@@ -1546,6 +1855,7 @@ onMounted(async () => {
   messagesEl.value?.addEventListener("click", handleCodeCopy);
   await chat.loadConversations();
   await Promise.all([fetchPersonas(), loadModelOptions()]);
+  notifications.startPolling();
 });
 </script>
 

@@ -14,14 +14,17 @@ from app.api.admin import router as admin_router
 from app.api.auth import router as auth_router
 from app.api.canvas import router as canvas_router
 from app.api.chat import router as chat_router
+from app.api.chat_files import router as chat_files_router
 from app.api.conversations import router as conversations_router
 from app.api.cron import router as cron_router
 from app.api.documents import router as documents_router
+from app.api.folders import router as folders_router
 from app.api.gateway import router as gateway_router
 from app.api.invitations import router as invitations_router
 from app.api.keys import router as keys_router
 from app.api.logs import router as logs_router
 from app.api.memory import router as memory_router
+from app.api.notifications import router as notifications_router
 from app.api.organizations import router as organizations_router
 from app.api.personas import router as personas_router
 from app.api.plugins import router as plugins_router
@@ -211,7 +214,10 @@ app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(canvas_router)
 app.include_router(chat_router)
+app.include_router(chat_files_router)
 app.include_router(conversations_router)
+app.include_router(folders_router)
+app.include_router(notifications_router)
 app.include_router(cron_router)
 app.include_router(documents_router)
 app.include_router(settings_router)

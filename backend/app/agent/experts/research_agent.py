@@ -24,6 +24,8 @@ def create_research_agent_graph(
     conversation_id: str | None = None,
     fallback_providers: list[dict] | None = None,
     base_url: str | None = None,
+    temperature: float = 0.7,
+    max_tokens: int | None = None,
 ) -> CompiledStateGraph:
     """Return a compiled LangGraph optimised for research tasks.
 
@@ -46,4 +48,6 @@ def create_research_agent_graph(
         conversation_id=conversation_id,
         fallback_providers=fallback_providers,
         base_url=base_url,
+        temperature=temperature,
+        max_tokens=max_tokens,
     )

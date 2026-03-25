@@ -261,6 +261,8 @@ def _build_expert_graph(
     conversation_id: str,
     base_url: str | None = None,
     workflow_dsl: dict | None = None,
+    temperature: float = 0.7,
+    max_tokens: int | None = None,
 ) -> CompiledStateGraph:
     """Return the appropriate compiled LangGraph for the given routing label.
 
@@ -277,6 +279,8 @@ def _build_expert_graph(
                 "provider": provider,
                 "api_key": api_key,
                 "base_url": base_url,
+                "temperature": temperature,
+                **({"max_tokens": max_tokens} if max_tokens else {}),
             },
         )
         return compiler.compile()
@@ -299,6 +303,8 @@ def _build_expert_graph(
             plugin_tools=plugin_tools,
             conversation_id=conversation_id,
             base_url=base_url,
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
     if route == "research":
         return create_research_agent_graph(
@@ -313,6 +319,8 @@ def _build_expert_graph(
             plugin_tools=plugin_tools,
             conversation_id=conversation_id,
             base_url=base_url,
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
     if route == "writing":
         return create_writing_agent_graph(
@@ -326,6 +334,8 @@ def _build_expert_graph(
             plugin_tools=plugin_tools,
             conversation_id=conversation_id,
             base_url=base_url,
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
     return create_graph(
         provider=provider,
@@ -340,6 +350,8 @@ def _build_expert_graph(
         plugin_tools=plugin_tools,
         conversation_id=conversation_id,
         base_url=base_url,
+        temperature=temperature,
+        max_tokens=max_tokens,
     )
 
 
@@ -389,6 +401,13 @@ async def _load_tools(enabled_tools: list[str] | None) -> tuple[list, list | Non
     return mcp_tools, plugin_tools
 
 
+class FileContext(BaseModel):
+    """会话中携带的文件上下文（文本已提取）。"""
+
+    filename: str = Field(max_length=255)
+    extracted_text: str = Field(max_length=30_000)
+
+
 class ChatRequest(BaseModel):
     conversation_id: uuid.UUID
     content: str = Field(max_length=50000)
@@ -398,6 +417,7 @@ class ChatRequest(BaseModel):
     persona_id: uuid.UUID | None = None
     workflow_dsl: dict | None = None
     model_override: str | None = Field(None, max_length=100)
+    file_context: FileContext | None = None
 
     @field_validator("image_urls")
     @classmethod
@@ -474,10 +494,16 @@ async def chat_stream(  # noqa: C901
 
     human_msg_id = None
     if not is_consent:
+        final_content = user_content
+        if body.file_context:
+            final_content = (
+                f"[Attached file: {body.file_context.filename}]\n"
+                f"{body.file_context.extracted_text}\n\n----- \n{user_content}"
+            )
         human_msg = Message(
             conversation_id=conv.id,
             role="human",
-            content=user_content,
+            content=final_content,
             image_urls=body.image_urls,
             parent_id=parent_message_id,
         )
@@ -504,7 +530,11 @@ async def chat_stream(  # noqa: C901
     all_history = _walk_message_chain(msg_dict, start_id)
     lc_messages = _build_langchain_messages(all_history)
 
-    system_msg = SystemMessage(content=build_system_prompt(llm.persona_override))
+    # 优先使用用户自定义的 system_prompt，否则使用 persona_override 构造
+    if llm.system_prompt:
+        system_msg = SystemMessage(content=llm.system_prompt)
+    else:
+        system_msg = SystemMessage(content=build_system_prompt(llm.persona_override))
     lc_messages = [system_msg, *lc_messages]
 
     # Inject persistent user memories after the main system prompt
@@ -680,6 +710,8 @@ async def chat_stream(  # noqa: C901
                     conversation_id=str(conv.id),
                     base_url=llm.base_url,
                     workflow_dsl=conv.workflow_dsl,
+                    temperature=llm.temperature,
+                    max_tokens=llm.max_tokens,
                 )
                 state = AgentState(messages=lc_messages, approved=approved)
                 async for chunk in graph.astream(state):
@@ -899,7 +931,11 @@ async def chat_regenerate(  # noqa: C901
 
     lc_messages = _build_langchain_messages(all_history)
 
-    system_msg = SystemMessage(content=build_system_prompt(llm.persona_override))
+    # 优先使用用户自定义的 system_prompt，否则使用 persona_override 构造
+    if llm.system_prompt:
+        system_msg = SystemMessage(content=llm.system_prompt)
+    else:
+        system_msg = SystemMessage(content=build_system_prompt(llm.persona_override))
     lc_messages = [system_msg, *lc_messages]
 
     # Inject persistent user memories after the main system prompt
@@ -1002,6 +1038,8 @@ async def chat_regenerate(  # noqa: C901
                 conversation_id=str(conv.id),
                 base_url=llm.base_url,
                 workflow_dsl=conv.workflow_dsl,
+                temperature=llm.temperature,
+                max_tokens=llm.max_tokens,
             )
             state = AgentState(messages=lc_messages, approved=None)
             async for chunk in graph.astream(state):

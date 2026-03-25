@@ -28,7 +28,22 @@ interface Message {
   user_rating?: 1 | -1 | null;
 }
 
-interface Conversation { id: string; title: string; active_leaf_id?: string | null; is_pinned: boolean; updated_at?: string; tags: string[] }
+interface Conversation {
+  id: string;
+  title: string;
+  active_leaf_id?: string | null;
+  is_pinned: boolean;
+  updated_at?: string;
+  tags: string[];
+  folder_id?: string | null;
+}
+
+interface Folder {
+  id: string;
+  name: string;
+  color?: string | null;
+  display_order: number;
+}
 
 function applyModelMeta(msg: Message, data: Record<string, unknown>) {
   if (msg.role !== "ai") return;
@@ -43,6 +58,7 @@ const PAGE_SIZE = 50;
 export const useChatStore = defineStore("chat", {
   state: () => ({
     conversations: [] as Conversation[],
+    folders: [] as Folder[],
     conversationsTotal: 0,
     loadingMoreConversations: false,
     currentConvId: null as string | null,
@@ -58,16 +74,16 @@ export const useChatStore = defineStore("chat", {
       if (!state.messages.length) return [];
       const msgDict = new Map<string, Message>();
       const latestMsg = state.messages[state.messages.length - 1];
-      
+
       for (const msg of state.messages) {
         if (msg.id) msgDict.set(msg.id, msg);
       }
-      
+
       let currentId = state.activeLeafId || latestMsg.id;
       if (!currentId || !msgDict.has(currentId)) {
         return state.messages; // fallback for unpersisted messages
       }
-      
+
       const thread = [];
       let depth = 0;
       while (currentId && msgDict.has(currentId) && depth < 500) {
@@ -122,6 +138,58 @@ export const useChatStore = defineStore("chat", {
       const { data } = await client.get<{ items: Conversation[]; total: number }>(`/conversations?limit=${PAGE_SIZE}&offset=0`);
       this.conversations = data.items;
       this.conversationsTotal = data.total;
+      await this.loadFolders();
+    },
+    async loadFolders() {
+      try {
+        const { data } = await client.get<Folder[]>("/api/folders");
+        this.folders = data;
+      } catch (err) {
+        console.error("[chat] loadFolders failed", err);
+      }
+    },
+    async createFolder(name: string, color?: string) {
+      try {
+        const { data } = await client.post<Folder>("/api/folders", { name, color });
+        this.folders.push(data);
+        return data;
+      } catch (err) {
+        console.error("[chat] createFolder failed", err);
+        throw err;
+      }
+    },
+    async updateFolder(folderId: string, updates: Partial<Folder>) {
+      try {
+        const { data } = await client.patch<Folder>(`/api/folders/${folderId}`, updates);
+        const idx = this.folders.findIndex(f => f.id === folderId);
+        if (idx >= 0) this.folders[idx] = data;
+      } catch (err) {
+        console.error("[chat] updateFolder failed", err);
+        throw err;
+      }
+    },
+    async deleteFolder(folderId: string) {
+      try {
+        await client.delete(`/api/folders/${folderId}`);
+        this.folders = this.folders.filter(f => f.id !== folderId);
+        // 清除受影响会话的 folder_id 引用（乐观更新）
+        this.conversations.forEach(c => {
+          if (c.folder_id === folderId) c.folder_id = null;
+        });
+      } catch (err) {
+        console.error("[chat] deleteFolder failed", err);
+        throw err;
+      }
+    },
+    async moveConversationToFolder(convId: string, folderId: string | null) {
+      try {
+        await client.patch(`/conversations/${convId}`, { folder_id: folderId });
+        const conv = this.conversations.find(c => c.id === convId);
+        if (conv) conv.folder_id = folderId;
+      } catch (err) {
+        console.error("[chat] moveConversationToFolder failed", err);
+        throw err;
+      }
     },
     async loadMoreConversations() {
       if (this.loadingMoreConversations || this.conversations.length >= this.conversationsTotal) return;
@@ -285,7 +353,7 @@ export const useChatStore = defineStore("chat", {
           body: JSON.stringify({ conversation_id: this.currentConvId, message_id: messageId, model_override: modelOverride ?? undefined })
         });
         if (!response.ok) throw new Error("Regenerate failed");
-        
+
         // We push a temporary empty AI message that will be populated by the stream
         const activeThread = this.activeMessages;
         const msg = activeThread.find(m => m.id === messageId);
@@ -293,7 +361,7 @@ export const useChatStore = defineStore("chat", {
             this.messages.push({ role: "ai", content: "", parent_id: msg.parent_id });
             this.activeLeafId = null; // Will attach to latest in UI
         }
-        
+
         const reader = response.body!.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
@@ -347,7 +415,7 @@ export const useChatStore = defineStore("chat", {
       await this.sendMessage(`[CONSENT:${approved ? 'ALLOW' : 'DENY'}] ${callInfo.name}`);
     },
 
-    async sendMessage(content: string, imageUrls?: string[], parentId?: string, personaId?: string, modelOverride?: string) {
+    async sendMessage(content: string, imageUrls?: string[], parentId?: string, personaId?: string, modelOverride?: string, fileContext?: { filename: string; extracted_text: string }) {
       if (!this.currentConvId) {
         const title = content.slice(0, 30) + (content.length > 30 ? "..." : "");
         const { data } = await client.post("/conversations", { title });
@@ -387,6 +455,7 @@ export const useChatStore = defineStore("chat", {
             parent_message_id: actualParentId,
             persona_id: personaId,
             model_override: modelOverride ?? undefined,
+            file_context: fileContext,
           }),
           signal: controller.signal,
         });

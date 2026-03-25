@@ -131,6 +131,8 @@ def create_graph(  # noqa: C901
     conversation_id: str | None = None,
     fallback_providers: list[dict] | None = None,
     base_url: str | None = None,
+    temperature: float = 0.7,
+    max_tokens: int | None = None,
 ) -> CompiledStateGraph:
     all_keys = api_keys if api_keys else [api_key]
     tools = _resolve_tools(
@@ -149,7 +151,14 @@ def create_graph(  # noqa: C901
         base_url=base_url,
     )
 
-    llm = get_llm_with_fallback(provider, model, all_keys[0], base_url=base_url)
+    llm = get_llm_with_fallback(
+        provider,
+        model,
+        all_keys[0],
+        base_url=base_url,
+        temperature=temperature,
+        **({"max_tokens": max_tokens} if max_tokens is not None else {}),
+    )
     llm_with_tools = llm.bind_tools(tools)
     tool_node = ToolNode(tools)
 
