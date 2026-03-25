@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 import structlog
 from arq import create_pool
 from arq.connections import RedisSettings
+from cryptography.fernet import InvalidToken
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -19,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, get_db
 from app.core.config import settings
 from app.core.limiter import limiter
+from app.core.security import fernet_decrypt, fernet_encrypt
 from app.db.models import User, Webhook, WebhookDelivery
 
 logger = structlog.get_logger(__name__)
@@ -38,7 +40,7 @@ class WebhookOut(BaseModel):
     id: uuid.UUID
     name: str
     task_template: str
-    secret_token: str
+    secret_token: str = "••••••••"  # masked in list responses
     trigger_count: int
     is_active: bool
     last_triggered_at: datetime | None
@@ -47,24 +49,34 @@ class WebhookOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-@router.post("", status_code=201, response_model=WebhookOut)
+class WebhookCreateOut(WebhookOut):
+    """Returned only on creation — includes the plaintext secret."""
+
+    secret_token: str  # plaintext, shown only once
+
+
+@router.post("", status_code=201, response_model=WebhookCreateOut)
 async def create_webhook(
     body: WebhookCreate,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> WebhookOut:
+) -> WebhookCreateOut:
     """Create a new webhook that external services can call to trigger JARVIS."""
+    raw_secret = secrets.token_urlsafe(32)
     webhook = Webhook(
         user_id=user.id,
         name=body.name,
         task_template=body.task_template,
-        secret_token=secrets.token_urlsafe(32),
+        secret_token=fernet_encrypt(raw_secret),
     )
     db.add(webhook)
     await db.commit()
     await db.refresh(webhook)
     logger.info("webhook_created", user_id=str(user.id), webhook_id=str(webhook.id))
-    return WebhookOut.model_validate(webhook)
+    # Return with plaintext secret (shown only once)
+    out = WebhookCreateOut.model_validate(webhook)
+    out.secret_token = raw_secret
+    return out
 
 
 @router.get("", response_model=list[WebhookOut])
@@ -78,7 +90,12 @@ async def list_webhooks(
         .where(Webhook.user_id == user.id, Webhook.is_active.is_(True))
         .order_by(Webhook.created_at)
     )
-    return [WebhookOut.model_validate(w) for w in rows.all()]
+    result = []
+    for w in rows.all():
+        out = WebhookOut.model_validate(w)
+        out.secret_token = "••••••••"
+        result.append(out)
+    return result
 
 
 @router.delete("/{webhook_id}", status_code=204)
@@ -122,7 +139,18 @@ async def trigger_webhook(
 
     # Constant-time comparison to prevent timing attacks
     provided = request.headers.get("X-Webhook-Secret", "")
-    if not hmac.compare_digest(provided, webhook.secret_token):
+    try:
+        decrypted = fernet_decrypt(webhook.secret_token)
+    except InvalidToken as exc:
+        logger.error(
+            "webhook_decrypt_failed",
+            webhook_id=str(webhook_id),
+            error=str(exc),
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to decrypt webhook secret"
+        ) from exc
+    if not hmac.compare_digest(provided, decrypted):
         raise HTTPException(status_code=401, detail="Invalid webhook secret")
 
     try:

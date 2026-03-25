@@ -19,6 +19,8 @@ async def test_create_webhook(auth_client):
     assert data["task_template"] == "Process GitHub event: {payload}"
     assert "secret_token" in data
     assert len(data["secret_token"]) > 0
+    # Verify returned secret is NOT Fernet-formatted (should be plaintext)
+    assert not data["secret_token"].startswith("gAAAAA")
     assert data["trigger_count"] == 0
     assert data["is_active"] is True
     assert data["last_triggered_at"] is None
@@ -36,9 +38,12 @@ async def test_list_webhooks(auth_client):
     )
     resp = await auth_client.get("/api/webhooks")
     assert resp.status_code == 200
-    names = [w["name"] for w in resp.json()]
+    webhooks = resp.json()
+    names = [w["name"] for w in webhooks]
     assert "Hook 1" in names
     assert "Hook 2" in names
+    # Verify all secrets are masked in list responses
+    assert all(w["secret_token"] == "••••••••" for w in webhooks)
 
 
 async def test_delete_webhook(auth_client):
