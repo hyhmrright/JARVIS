@@ -634,7 +634,8 @@ class Notification(Base):
     __table_args__ = (
         CheckConstraint(
             "type IN ('cron_completed','cron_failed','webhook_failed',"
-            "'invitation_received','workflow_completed','workflow_failed')",
+            "'invitation_received','workflow_completed','workflow_failed',"
+            "'account_export_ready','account_export_failed')",
             name="ck_notifications_type",
         ),
     )
