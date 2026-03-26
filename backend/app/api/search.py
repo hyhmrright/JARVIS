@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import uuid
 from datetime import date
 from typing import Any, Literal
@@ -92,20 +91,17 @@ async def search(
     )
 
     args = (db, uid, pattern, q)
-    tasks = []
+    all_results: list[SearchResultItem] = []
     if "messages" in requested:
-        tasks.append(_search_messages(*args, workspace_subq, date_from, date_to, limit))
+        all_results.extend(
+            await _search_messages(*args, workspace_subq, date_from, date_to, limit)
+        )
     if "documents" in requested:
-        tasks.append(
-            _search_documents(*args, workspace_subq, date_from, date_to, limit)
+        all_results.extend(
+            await _search_documents(*args, workspace_subq, date_from, date_to, limit)
         )
     if "memories" in requested:
-        tasks.append(_search_memories(*args, date_from, date_to, limit))
-
-    gathered = await asyncio.gather(*tasks)
-    all_results: list[SearchResultItem] = []
-    for batch in gathered:
-        all_results.extend(batch)
+        all_results.extend(await _search_memories(*args, date_from, date_to, limit))
     all_results.sort(key=lambda r: r.created_at, reverse=True)
 
     return SearchResponse(results=all_results, total=len(all_results))
