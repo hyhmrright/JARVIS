@@ -40,7 +40,7 @@ def _validate_password_bytes(v: str) -> str:
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
-    display_name: str | None = None
+    display_name: str | None = Field(default=None, max_length=100)
 
     _check_bytes = field_validator("password")(_validate_password_bytes)
 

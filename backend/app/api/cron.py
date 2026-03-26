@@ -6,7 +6,7 @@ from typing import Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func as sql_func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,6 +29,17 @@ router = APIRouter(prefix="/api/cron", tags=["cron"])
 _VALID_TRIGGER_TYPES = {"cron", "web_watcher", "semantic_watcher", "email"}
 
 
+def _validate_cron_schedule(v: str) -> str:
+    try:
+        from croniter import croniter  # type: ignore[import-untyped]
+
+        if not croniter.is_valid(v):
+            raise ValueError(f"Invalid cron expression: {v}")
+    except ImportError:
+        pass  # croniter not installed, skip validation
+    return v
+
+
 class CronJobCreate(BaseModel):
     schedule: str = Field(min_length=1, max_length=100)
     task: str = Field(min_length=1, max_length=4000)
@@ -36,11 +47,23 @@ class CronJobCreate(BaseModel):
     trigger_metadata: dict[str, Any] | None = None
     workspace_id: uuid.UUID | None = None
 
+    @field_validator("schedule")
+    @classmethod
+    def validate_cron_schedule(cls, v: str) -> str:
+        return _validate_cron_schedule(v)
+
 
 class CronJobUpdate(BaseModel):
     schedule: str | None = Field(default=None, min_length=1, max_length=100)
     task: str | None = Field(default=None, min_length=1, max_length=4000)
     trigger_metadata: dict[str, Any] | None = None
+
+    @field_validator("schedule")
+    @classmethod
+    def validate_cron_schedule(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        return _validate_cron_schedule(v)
 
 
 class JobExecutionSchema(BaseModel):

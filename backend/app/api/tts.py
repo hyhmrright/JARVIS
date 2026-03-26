@@ -8,7 +8,7 @@ import edge_tts
 import structlog
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.api.deps import get_current_user
 from app.db.models import User
@@ -17,12 +17,27 @@ logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/tts", tags=["tts"])
 
 _DEFAULT_VOICE = "zh-CN-XiaoxiaoNeural"
+_VALID_VOICES = {
+    "zh-CN-XiaoxiaoNeural",
+    "zh-CN-YunxiNeural",
+    "en-US-JennyNeural",
+    "ja-JP-NanamiNeural",
+}
 
 
 class TTSRequest(BaseModel):
     text: str = Field(min_length=1, max_length=5000)
     voice: str = _DEFAULT_VOICE
     rate: str = "+0%"
+
+    @field_validator("voice")
+    @classmethod
+    def validate_voice(cls, v: str) -> str:
+        if v not in _VALID_VOICES:
+            raise ValueError(
+                f"voice must be one of: {', '.join(sorted(_VALID_VOICES))}"
+            )
+        return v
 
 
 @router.post("/synthesize")

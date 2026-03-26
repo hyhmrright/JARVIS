@@ -2,7 +2,7 @@ from typing import Literal
 
 import structlog
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -76,6 +76,19 @@ class SettingsUpdate(BaseModel):
     temperature: float | None = Field(default=None, ge=0.0, le=2.0)
     max_tokens: int | None = Field(default=None, gt=0)
     system_prompt: str | None = Field(default=None, max_length=4000)
+
+    @model_validator(mode="after")
+    def validate_model_name_for_provider(self) -> "SettingsUpdate":
+        if self.model_name is None:
+            return self
+        provider = self.model_provider
+        if provider and provider in PROVIDER_MODELS:
+            allowed = PROVIDER_MODELS[provider]
+            if self.model_name not in allowed:
+                raise ValueError(
+                    f"model '{self.model_name}' is not valid for provider '{provider}'"
+                )
+        return self
 
 
 @router.get("/models")

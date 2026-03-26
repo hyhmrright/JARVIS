@@ -1,14 +1,16 @@
 """Conversation folder CRUD."""
 
+import re
 import uuid
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.limiter import limiter
 from app.db.models import ConversationFolder, User
 from app.db.session import get_db
 
@@ -20,11 +22,25 @@ class FolderCreate(BaseModel):
     name: str = Field(min_length=1, max_length=50)
     color: str | None = Field(default=None, max_length=7)
 
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v: str | None) -> str | None:
+        if v is not None and not re.match(r"^#[0-9a-fA-F]{6}$", v):
+            raise ValueError("color must be a 6-digit hex code like #aabbcc")
+        return v
+
 
 class FolderUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=50)
     color: str | None = None
     display_order: int | None = None
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v: str | None) -> str | None:
+        if v is not None and not re.match(r"^#[0-9a-fA-F]{6}$", v):
+            raise ValueError("color must be a 6-digit hex code like #aabbcc")
+        return v
 
 
 class FolderOut(BaseModel):
@@ -36,7 +52,9 @@ class FolderOut(BaseModel):
 
 
 @router.get("", response_model=list[FolderOut])
+@limiter.limit("30/minute")
 async def list_folders(
+    request: Request,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[ConversationFolder]:
@@ -49,7 +67,9 @@ async def list_folders(
 
 
 @router.post("", response_model=FolderOut, status_code=201)
+@limiter.limit("30/minute")
 async def create_folder(
+    request: Request,
     body: FolderCreate,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -67,7 +87,9 @@ async def create_folder(
 
 
 @router.patch("/{folder_id}", response_model=FolderOut)
+@limiter.limit("30/minute")
 async def update_folder(
+    request: Request,
     folder_id: uuid.UUID,
     body: FolderUpdate,
     user: User = Depends(get_current_user),
@@ -93,7 +115,9 @@ async def update_folder(
 
 
 @router.delete("/{folder_id}", status_code=204)
+@limiter.limit("30/minute")
 async def delete_folder(
+    request: Request,
     folder_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

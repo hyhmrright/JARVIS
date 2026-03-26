@@ -426,7 +426,7 @@ class FileContext(BaseModel):
 
 class ChatRequest(BaseModel):
     conversation_id: uuid.UUID
-    content: str = Field(max_length=50000)
+    content: str = Field(min_length=1, max_length=50000)
     image_urls: list[str] | None = None
     workspace_id: uuid.UUID | None = None
     parent_message_id: uuid.UUID | None = None
