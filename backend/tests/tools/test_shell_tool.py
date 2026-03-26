@@ -85,6 +85,7 @@ async def test_shell_exec_routes_through_sandbox() -> None:
         patch("app.tools.shell_tool.SandboxManager", return_value=mock_manager),
     ):
         mock_settings.sandbox_enabled = True
+        mock_settings.tool_shell_max_timeout = 120
         result = await shell_exec.ainvoke({"command": "echo hi"})
 
     assert result == "sandbox output"
@@ -109,6 +110,7 @@ async def test_shell_exec_sandbox_error_returns_message() -> None:
         patch("app.tools.shell_tool.SandboxManager", return_value=mock_manager),
     ):
         mock_settings.sandbox_enabled = True
+        mock_settings.tool_shell_max_timeout = 120
         result = await shell_exec.ainvoke({"command": "echo hi"})
 
     assert "sandbox error" in result.lower()
@@ -130,6 +132,7 @@ async def test_shell_exec_sandbox_cleanup_on_exec_failure() -> None:
         patch("app.tools.shell_tool.SandboxManager", return_value=mock_manager),
     ):
         mock_settings.sandbox_enabled = True
+        mock_settings.tool_shell_max_timeout = 120
         result = await shell_exec.ainvoke({"command": "sleep 999"})
 
     assert "sandbox error" in result.lower()
@@ -149,6 +152,7 @@ async def test_shell_exec_sandbox_output_truncation() -> None:
         patch("app.tools.shell_tool.SandboxManager", return_value=mock_manager),
     ):
         mock_settings.sandbox_enabled = True
+        mock_settings.tool_shell_max_timeout = 120
         result = await shell_exec.ainvoke({"command": "echo large"})
 
     assert len(result) <= 10100
