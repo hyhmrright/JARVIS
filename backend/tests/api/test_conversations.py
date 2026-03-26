@@ -968,3 +968,60 @@ async def test_patch_conversation_persona_id(auth_client):
     )
     assert patch_resp.status_code == 200
     assert patch_resp.json()["persona_id"] == persona_id
+
+
+@pytest.mark.anyio
+async def test_export_conversation_markdown_with_header(auth_client, db_session):
+    """Export conversation as Markdown includes Exported/Messages header lines."""
+    uid = _user_id(auth_client)
+    conv = Conversation(user_id=uid, title="Export Test Conv")
+    db_session.add(conv)
+    await db_session.flush()
+    db_session.add(
+        Message(conversation_id=conv.id, role="human", content="Hello world")
+    )
+    db_session.add(Message(conversation_id=conv.id, role="ai", content="Hi there!"))
+    await db_session.commit()
+
+    resp = await auth_client.get(f"/api/conversations/{conv.id}/export?format=md")
+    assert resp.status_code == 200
+    assert "attachment" in resp.headers.get("content-disposition", "")
+    body = resp.text
+    assert "Export Test Conv" in body
+    assert "Hello world" in body
+    assert "Hi there!" in body
+    assert "Exported:" in body
+    assert "Messages:" in body
+
+
+@pytest.mark.anyio
+async def test_export_conversation_json_truncated_field(auth_client, db_session):
+    """JSON export includes truncated field (False when under 1000 messages)."""
+    uid = _user_id(auth_client)
+    conv = Conversation(user_id=uid, title="JSON Export Truncated")
+    db_session.add(conv)
+    await db_session.flush()
+    db_session.add(Message(conversation_id=conv.id, role="human", content="hi"))
+    await db_session.commit()
+
+    resp = await auth_client.get(f"/api/conversations/{conv.id}/export?format=json")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "truncated" in data
+    assert data["truncated"] is False  # only 1 message, not truncated
+    assert "exported_at" in data
+    assert "id" in data["messages"][0]
+
+
+@pytest.mark.anyio
+async def test_export_other_user_conversation_returns_404_cap(
+    auth_client, second_user_auth_headers, db_session
+):
+    """Cannot export another user's conversation (1000-cap version)."""
+    user2_id = _uid_from_headers(second_user_auth_headers)
+    conv2 = Conversation(user_id=user2_id, title="User2 Private Cap")
+    db_session.add(conv2)
+    await db_session.commit()
+
+    resp = await auth_client.get(f"/api/conversations/{conv2.id}/export?format=md")
+    assert resp.status_code == 404

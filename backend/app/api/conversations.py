@@ -1,7 +1,7 @@
 import json as _json
 import secrets
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 import structlog
@@ -347,13 +347,27 @@ async def export_conversation(
             Message.conversation_id == conv_id,
             Message.role.in_(["human", "ai"]),
         )
-        .order_by(Message.created_at)
+        .order_by(Message.created_at.desc())
+        .limit(1001)
     )
-    messages = list(rows.all())
+    messages_desc = list(rows.all())
+    truncated = len(messages_desc) > 1000
+    messages = list(reversed(messages_desc[:1000]))
     safe_title = conv.title.replace("/", "_").replace("\\", "_")
 
     if format == "md":
-        lines = [f"# {conv.title}", ""]
+        truncation_note = (
+            " (showing most recent 1000 of 1000+ messages)" if truncated else ""
+        )
+        lines = [
+            f"# {conv.title}",
+            "",
+            f"> Exported: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
+            f"> Messages: {len(messages)}{truncation_note}",
+            "",
+            "---",
+            "",
+        ]
         for msg in messages:
             prefix = "**Human:**" if msg.role == "human" else "**Assistant:**"
             lines.append(f"{prefix}\n{msg.content}")
@@ -368,8 +382,11 @@ async def export_conversation(
             "id": str(conv.id),
             "title": conv.title,
             "created_at": conv.created_at.isoformat(),
+            "exported_at": datetime.now(UTC).isoformat(),
+            "truncated": truncated,
             "messages": [
                 {
+                    "id": str(msg.id),
                     "role": msg.role,
                     "content": msg.content,
                     "created_at": msg.created_at.isoformat(),
