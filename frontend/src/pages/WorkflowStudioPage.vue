@@ -191,6 +191,30 @@
                 <textarea v-model="selectedNode.data.prompt" rows="6" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white font-mono"></textarea>
               </div>
             </div>
+
+            <div v-else-if="selectedNode.type === 'condition'" class="space-y-4">
+              <div class="space-y-1.5">
+                <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">条件表达式 (Jinja2)</label>
+                <textarea
+                  v-model="selectedNode.data.condition_expression"
+                  rows="3"
+                  class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white font-mono"
+                  placeholder="{{ nodes.node_id.output | length > 0 }}"
+                ></textarea>
+                <p class="text-[9px] text-zinc-600 leading-relaxed">使用 Jinja2 模板，通过 nodes.&lt;id&gt;.output 访问节点输出</p>
+              </div>
+            </div>
+
+            <div v-else-if="selectedNode.type === 'output'" class="space-y-4">
+              <div class="space-y-1.5">
+                <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">输出格式</label>
+                <select v-model="selectedNode.data.format" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white">
+                  <option value="text">文本</option>
+                  <option value="markdown">Markdown</option>
+                  <option value="json">JSON</option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
       </aside>
@@ -230,6 +254,14 @@ const runInputs = ref<Record<string, string>>({});
 const runLogs = ref<Array<{ node_id: string; output: string; duration_ms: number; status: string }>>([]);
 const runHistory = ref<any[]>([]);
 const currentRunId = ref<string | null>(null);
+let runTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+function resetRunTimeout() {
+  if (runTimeoutId) clearTimeout(runTimeoutId);
+  runTimeoutId = setTimeout(() => {
+    runLogs.value.push({ node_id: 'system', output: '30秒无响应，工作流可能已超时', duration_ms: 0, status: 'warning' });
+  }, 30000);
+}
 
 const elements = ref<Elements>([
   { id: '1', type: 'input', label: t('workflowStudio.nodeStart'), position: { x: 250, y: 100 }, data: { label: t('workflowStudio.workflowStart') } }
@@ -325,7 +357,7 @@ const onRun = async () => {
     const response = await fetch(`/api/workflows/${workflowId.value}/execute`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ input: runInputs.value })
+      body: JSON.stringify({ inputs: runInputs.value })
     });
 
     if (!response.ok) throw new Error('Execution failed');
@@ -333,6 +365,7 @@ const onRun = async () => {
     const reader = response.body?.getReader();
     if (!reader) return;
 
+    resetRunTimeout();
     const decoder = new TextDecoder();
     while (true) {
       const { done, value } = await reader.read();
@@ -342,12 +375,14 @@ const onRun = async () => {
       const lines = chunk.split('\n');
       for (const line of lines) {
         if (line.trim().startsWith('data: ')) {
+          resetRunTimeout();
           try {
             const event = JSON.parse(line.substring(6));
             if (event.type === 'node_done') {
               runLogs.value.push(event);
               updateNodeData(event.node_id, { status: 'completed', output: event.output });
             } else if (event.type === 'run_done') {
+              if (runTimeoutId) { clearTimeout(runTimeoutId); runTimeoutId = null; }
               currentRunId.value = event.run_id;
               running.value = false;
               toastSuccess(`Workflow ${event.status}`);
