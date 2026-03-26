@@ -17,7 +17,7 @@ async def _user_id(auth_client):
 async def test_list_memories_empty(auth_client):
     resp = await auth_client.get("/api/memories")
     assert resp.status_code == 200
-    assert resp.json() == []
+    assert resp.json()["items"] == []
 
 
 @pytest.mark.anyio
@@ -31,7 +31,7 @@ async def test_list_memories_returns_user_memories(auth_client, db_session):
 
     resp = await auth_client.get("/api/memories")
     assert resp.status_code == 200
-    data = resp.json()
+    data = resp.json()["items"]
     assert len(data) == 2
     keys = {m["key"] for m in data}
     assert keys == {"name", "lang"}
@@ -48,7 +48,7 @@ async def test_delete_memory(auth_client, db_session):
     assert resp.status_code == 204
 
     remaining = await auth_client.get("/api/memories")
-    assert all(m["key"] != "to_delete" for m in remaining.json())
+    assert all(m["key"] != "to_delete" for m in remaining.json()["items"])
 
 
 @pytest.mark.anyio
@@ -68,7 +68,7 @@ async def test_clear_all_memories(auth_client, db_session):
     assert resp.status_code == 204
 
     remaining = await auth_client.get("/api/memories")
-    assert remaining.json() == []
+    assert remaining.json()["items"] == []
 
 
 @pytest.mark.anyio
@@ -84,4 +84,4 @@ async def test_memories_isolated_between_users(
 
     # First user should not see second user's memories
     resp = await auth_client.get("/api/memories")
-    assert all(m["key"] != "secret" for m in resp.json())
+    assert all(m["key"] != "secret" for m in resp.json()["items"])

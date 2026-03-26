@@ -108,11 +108,11 @@ bun run dev --port 3100
 
 JARVIS is an AI assistant platform with RAG knowledge base, multi-LLM support, and streaming conversations, using a monorepo structure.
 
-**Completed features (Phase 1-12+)**: RAG knowledge base, LangGraph ReAct agent tools (search/code_exec/datetime/file/shell/browser/rag), Gateway (Traefik), Cron jobs + trigger system (web/semantic/email watchers), Webhooks, Canvas rendering, Voice (TTS/STT), monitoring stack (Grafana/Loki/Prometheus), Plugin SDK, multi-agent supervisor, per-user rate limiting + input sanitization, audit log system, multi-tenant (Organizations / Workspaces / Invitations), Personal Access Tokens, Personas, Shared Conversations (public share links), Workflow Studio, Skill Market.
+**Completed features (Phase 1-15)**: RAG knowledge base, LangGraph ReAct agent tools (search/code_exec/datetime/file/shell/browser/rag), Gateway (Traefik), Cron jobs + trigger system (web/semantic/email watchers), Webhooks, Canvas rendering, Voice (TTS/STT), monitoring stack (Grafana/Loki/Prometheus), Plugin SDK, multi-agent supervisor, per-user rate limiting + input sanitization, audit log system, multi-tenant (Organizations / Workspaces / Invitations), Personal Access Tokens, Personas, Shared Conversations (public share links), Workflow Studio, Skill Market, conversation folders (drag-and-drop), image generation node, notifications, user memories.
 
 JARVIS 是具备 RAG 知识库、多 LLM 支持、流式对话的 AI 助手平台，采用 monorepo 结构。
 
-**已完成功能（Phase 1-12+）**：RAG 知识库、LangGraph ReAct agent 工具集（search/code_exec/datetime/file/shell/browser/rag）、Gateway（Traefik）、Cron 定时任务 + 触发器体系（web/semantic/email watcher）、Webhooks、Canvas 渲染、Voice（TTS/STT）、监控栈（Grafana/Loki/Prometheus）、Plugin SDK、多 agent supervisor、per-user 限速 + 输入过滤、审计日志、多租户（Organizations / Workspaces / Invitations）、Personal Access Tokens、Personas、Shared Conversations（公开分享链接）、Workflow Studio、Skill Market。
+**已完成功能（Phase 1-15）**：RAG 知识库、LangGraph ReAct agent 工具集（search/code_exec/datetime/file/shell/browser/rag）、Gateway（Traefik）、Cron 定时任务 + 触发器体系（web/semantic/email watcher）、Webhooks、Canvas 渲染、Voice（TTS/STT）、监控栈（Grafana/Loki/Prometheus）、Plugin SDK、多 agent supervisor、per-user 限速 + 输入过滤、审计日志、多租户（Organizations / Workspaces / Invitations）、Personal Access Tokens、Personas、Shared Conversations（公开分享链接）、Workflow Studio、Skill Market、会话文件夹（拖拽整理）、图片生成节点、通知系统、用户记忆。
 
 ## Core Architecture / 核心架构
 
@@ -122,13 +122,14 @@ JARVIS/
 │   ├── app/
 │   │   ├── main.py    # FastAPI entry point, lifespan manages infra connections
 │   │   ├── agent/     # LangGraph ReAct agent (graph/llm/state/persona)
-│   │   ├── api/       # HTTP routes (auth/chat/conversations/documents/settings/
-│   │   │              #   cron/webhooks/voice/tts/canvas/organizations/workspaces/
-│   │   │              #   invitations/plugins/keys/admin/logs/usage/gateway/
-│   │   │              #   personas/public/workflows)
+│   │   ├── api/       # HTTP routes (auth/chat/chat_files/conversations/folders/
+│   │   │              #   documents/settings/cron/webhooks/voice/tts/canvas/
+│   │   │              #   organizations/workspaces/invitations/plugins/keys/admin/
+│   │   │              #   logs/memory/notifications/usage/gateway/personas/public/
+│   │   │              #   workflows)
 │   │   ├── channels/  # Multi-channel adapters (Slack/Discord/Telegram/Feishu/WhatsApp/webhook)
 │   │   ├── core/      # Config, security (JWT/bcrypt/Fernet), rate limiting, audit log, metrics
-│   │   ├── db/        # SQLAlchemy async models (18 tables) and sessions
+│   │   ├── db/        # SQLAlchemy async models (27 tables) and sessions
 │   │   ├── gateway/   # Agent runner, session manager, channel router, security
 │   │   ├── infra/     # Infrastructure client singletons (Qdrant/MinIO/Redis)
 │   │   ├── plugins/   # Plugin SDK loader
@@ -138,7 +139,7 @@ JARVIS/
 │   │   ├── services/  # Shared services (memory_sync)
 │   │   ├── tools/     # LangGraph tools (search/code_exec/datetime/file/shell/browser/rag)
 │   │   └── worker.py  # ARQ worker (cron execution, webhook delivery, cleanup)
-│   ├── alembic/       # Database migrations (027 versions)
+│   ├── alembic/       # Database migrations (040 versions)
 │   └── tests/         # pytest test suite
 ├── frontend/          # Vue 3 + TypeScript + Vite + Pinia
 │   └── src/
@@ -146,9 +147,9 @@ JARVIS/
 │       ├── stores/    # Pinia stores (auth / chat / workspace)
 │       ├── pages/     # Chat, Documents, Settings, Proactive, Plugins, Admin,
 │       │              #   Usage, WorkspaceMembers, InviteAccept, Login, Register,
-│       │              #   Personas, SharedChat, SkillMarket, WorkflowStudio
+│       │              #   Personas, SharedChat, SkillMarket, Workflows, WorkflowStudio
 │       ├── locales/   # i18n (zh/en/ja/ko/fr/de)
-│       └── router/    # Vue Router + auth guard (11 routes)
+│       └── router/    # Vue Router + auth guard (17 routes)
 ├── database/          # Docker init scripts (postgres/redis/qdrant)
 ├── monitoring/        # Observability stack (Grafana/Loki/Prometheus configs)
 ├── docker-compose.yml # Full-stack orchestration
@@ -169,9 +170,9 @@ JARVIS/
 
 **RAG 管线**：上传文档 → `extract_text()` → `chunk_text()`（滑窗分词，500词/50词重叠）→ `OpenAIEmbeddings`（text-embedding-3-small，1536维）→ Qdrant upsert。每用户一个 collection（`user_{id}`），每 workspace 一个（`workspace_{id}`）。RAG 以 agent 工具形式暴露（`tools/rag_tool.py`），同时 `rag/context.py` 支持跨 collection 检索。
 
-**Database Models**: 21 model classes — `users`, `user_settings` (Fernet-encrypted API keys), `conversations`, `agent_sessions`, `messages` (immutable), `documents` (soft delete), `cron_jobs`, `job_executions`, `webhooks`, `webhook_deliveries`, `plugin_configs`, `audit_logs`, `api_keys`, `organizations`, `workspaces`, `workspace_members`, `workspace_settings`, `invitations`, `shared_conversations`, `personas`, `workflows`. All use UUID primary keys.
+**Database Models**: 27 model classes — `users`, `user_settings` (Fernet-encrypted API keys), `conversations`, `conversation_tags`, `conversation_folders`, `agent_sessions`, `messages` (immutable), `documents` (soft delete), `cron_jobs`, `job_executions`, `webhooks`, `webhook_deliveries`, `plugin_configs`, `user_memories`, `audit_logs`, `notifications`, `api_keys`, `organizations`, `workspaces`, `workspace_members`, `workspace_settings`, `invitations`, `shared_conversations`, `personas`, `workflows`, `workflow_runs`, `installed_plugins`. All use UUID primary keys.
 
-**数据库模型**：21 个模型类 — `users`、`user_settings`（Fernet 加密 API keys）、`conversations`、`agent_sessions`、`messages`（不可变）、`documents`（软删除）、`cron_jobs`、`job_executions`、`webhooks`、`webhook_deliveries`、`plugin_configs`、`audit_logs`、`api_keys`、`organizations`、`workspaces`、`workspace_members`、`workspace_settings`、`invitations`、`shared_conversations`、`personas`、`workflows`。全部使用 UUID 主键。
+**数据库模型**：27 个模型类 — `users`、`user_settings`（Fernet 加密 API keys）、`conversations`、`conversation_tags`、`conversation_folders`、`agent_sessions`、`messages`（不可变）、`documents`（软删除）、`cron_jobs`、`job_executions`、`webhooks`、`webhook_deliveries`、`plugin_configs`、`user_memories`、`audit_logs`、`notifications`、`api_keys`、`organizations`、`workspaces`、`workspace_members`、`workspace_settings`、`invitations`、`shared_conversations`、`personas`、`workflows`、`workflow_runs`、`installed_plugins`。全部使用 UUID 主键。
 
 **Infrastructure Singletons**: Qdrant uses lazy async init with `asyncio.Lock` (client + collection creation each have their own lock); MinIO uses `@lru_cache` + `asyncio.to_thread()` (sync SDK); PostgreSQL uses module-level engine + sessionmaker.
 
@@ -187,9 +188,9 @@ JARVIS/
 
 **状态管理**：三个 Pinia store — `auth.ts`（JWT token 持久化到 localStorage）、`chat.ts`（会话列表 + SSE 流式消息）、`workspace.ts`（组织/工作区上下文）。SSE 使用原生 `fetch` + `ReadableStream` 而非 Axios（Axios 不支持流式响应体）。
 
-**Routing**: 15 routes, all page components are lazy-loaded. `beforeEach` guard checks `auth.isLoggedIn`; admin routes also check `requiresAdmin`.
+**Routing**: 17 routes (including wildcard), all page components are lazy-loaded. `beforeEach` guard checks `auth.isLoggedIn`; admin routes also check `requiresAdmin`.
 
-**路由**：15 条路由，页面组件全部 lazy-loaded。`beforeEach` 守卫检查 `auth.isLoggedIn`；admin 路由还检查 `requiresAdmin`。
+**路由**：17 条路由（含 wildcard），页面组件全部 lazy-loaded。`beforeEach` 守卫检查 `auth.isLoggedIn`；admin 路由还检查 `requiresAdmin`。
 
 **API Client**: Axios instance with `baseURL: "/api"`, request interceptor reads token from localStorage, response interceptor handles 401 → auto logout. Dev server proxies `/api` → `http://localhost:8000` (Docker: `http://backend:8000`).
 

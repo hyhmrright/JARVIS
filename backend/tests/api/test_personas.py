@@ -7,7 +7,7 @@ import pytest
 async def test_list_personas_empty(auth_client):
     resp = await auth_client.get("/api/personas")
     assert resp.status_code == 200
-    assert resp.json() == []
+    assert resp.json()["items"] == []
 
 
 @pytest.mark.anyio
@@ -64,7 +64,7 @@ async def test_delete_persona(auth_client):
     assert del_resp.status_code == 200
 
     list_resp = await auth_client.get("/api/personas")
-    ids = [p["id"] for p in list_resp.json()]
+    ids = [p["id"] for p in list_resp.json()["items"]]
     assert persona_id not in ids
 
 

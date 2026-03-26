@@ -13,8 +13,6 @@ from fastapi import (
     Depends,
     HTTPException,
     Request,
-    WebSocket,
-    WebSocketDisconnect,
 )
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -1223,24 +1221,3 @@ async def chat_regenerate(  # noqa: C901
                 )
 
     return StreamingResponse(generate(), media_type="text/event-stream")
-
-
-@router.websocket("/ws")
-async def chat_websocket(
-    websocket: WebSocket,
-    token: str | None = None,
-) -> None:
-    await websocket.accept()
-    if not token:
-        await websocket.close(code=1008)
-        return
-
-    try:
-        while True:
-            data = await websocket.receive_json()
-            if data.get("type") == "chat":
-                await websocket.send_json({"type": "token", "value": token})
-            elif data.get("type") == "cancel":
-                pass
-    except WebSocketDisconnect:
-        pass

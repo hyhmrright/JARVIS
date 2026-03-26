@@ -63,6 +63,8 @@ export const useChatStore = defineStore("chat", {
     loadingMoreConversations: false,
     currentConvId: null as string | null,
     messages: [] as Message[],
+    messagesTotal: 0,
+    messagesOffset: 0,
     streaming: false,
     routingAgent: null as string | null,
     abortController: null as AbortController | null,
@@ -106,7 +108,8 @@ export const useChatStore = defineStore("chat", {
     getSiblings: (state) => (msg: Message) => {
       if (!msg.id) return [];
       return state.messages.filter(m => m.parent_id === msg.parent_id);
-    }
+    },
+    hasMoreMessages: (state) => state.messages.length < state.messagesTotal,
   },
   actions: {
     switchBranch(messageId: string) {
@@ -205,12 +208,27 @@ export const useChatStore = defineStore("chat", {
       }
     },
     async _reloadMessages(convId: string): Promise<void> {
-      const { data } = await client.get<Message[]>(`/conversations/${convId}/messages`);
-      this.messages = data;
+      const { data } = await client.get<{ items: Message[]; total: number }>(
+        `/conversations/${convId}/messages?limit=100&offset=0`
+      );
+      this.messages = data.items;
+      this.messagesTotal = data.total;
+      this.messagesOffset = data.items.length;
+    },
+    async loadMoreMessages(): Promise<void> {
+      if (!this.currentConvId || !this.hasMoreMessages) return;
+      const { data } = await client.get<{ items: Message[]; total: number }>(
+        `/conversations/${this.currentConvId}/messages?limit=100&offset=${this.messagesOffset}`
+      );
+      this.messages = [...data.items, ...this.messages];
+      this.messagesTotal = data.total;
+      this.messagesOffset += data.items.length;
     },
     async selectConversation(convId: string) {
       this.currentConvId = convId;
       this.messages = [];
+      this.messagesTotal = 0;
+      this.messagesOffset = 0;
       this.routingAgent = null;
       // Restore the persisted active branch if available
       const conv = this.conversations.find((c) => c.id === convId);

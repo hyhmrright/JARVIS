@@ -94,6 +94,27 @@ async def get_my_organization(
     return _org_to_dict(org)
 
 
+@router.delete("/{org_id}", status_code=204)
+@limiter.limit("20/minute")
+async def delete_organization(
+    request: Request,
+    org_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Delete an organization. Only the owner may do this."""
+    org = await db.get(Organization, org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    if org.owner_id != user.id:
+        raise HTTPException(
+            status_code=403, detail="Only the owner can delete the organization"
+        )
+    await db.delete(org)
+    await db.commit()
+    logger.info("organization_deleted", org_id=str(org_id), owner_id=str(user.id))
+
+
 @router.put("/{org_id}")
 @limiter.limit("60/minute")
 async def update_organization(

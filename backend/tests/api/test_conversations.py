@@ -313,7 +313,7 @@ async def test_messages_include_tool_calls_field(auth_client, db_session):
     await db_session.commit()
     resp = await auth_client.get(f"/api/conversations/{conv.id}/messages")
     assert resp.status_code == 200
-    msgs = resp.json()
+    msgs = resp.json()["items"]
     ai = next(m for m in msgs if m["role"] == "ai")
     assert "tool_calls" in ai
     assert ai["tool_calls"][0]["name"] == "rag_search"

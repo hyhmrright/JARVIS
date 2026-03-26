@@ -9,7 +9,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -168,15 +168,33 @@ class WorkflowOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-@router.get("", response_model=list[WorkflowOut])
+class WorkflowPage(BaseModel):
+    items: list[WorkflowOut]
+    total: int
+
+
+@router.get("", response_model=WorkflowPage)
 async def list_workflows(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> Any:
+) -> WorkflowPage:
+    total = (
+        await db.scalar(
+            select(func.count(Workflow.id)).where(Workflow.user_id == user.id)
+        )
+    ) or 0
     rows = await db.scalars(
-        select(Workflow).where(Workflow.user_id == user.id).order_by(Workflow.name)
+        select(Workflow)
+        .where(Workflow.user_id == user.id)
+        .order_by(Workflow.name)
+        .limit(limit)
+        .offset(offset)
     )
-    return rows.all()
+    return WorkflowPage(
+        items=[WorkflowOut.model_validate(w) for w in rows.all()], total=total
+    )
 
 
 @router.get("/{workflow_id}", response_model=WorkflowOut)

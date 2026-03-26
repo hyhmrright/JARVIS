@@ -2,6 +2,7 @@
 
 import asyncio
 import io
+import uuid
 from dataclasses import dataclass
 from typing import Any
 
@@ -20,8 +21,8 @@ from app.api.deps import resolve_user_token
 from app.core.config import settings
 from app.core.permissions import DEFAULT_ENABLED_TOOLS
 from app.core.security import resolve_api_key, resolve_api_keys
-from app.db.models import UserSettings
-from app.db.session import get_db
+from app.db.models import Conversation, Message, UserSettings
+from app.db.session import AsyncSessionLocal, get_db
 from app.rag.context import build_rag_context
 
 logger = structlog.get_logger(__name__)
@@ -119,8 +120,11 @@ async def _handle_turn(
     websocket: WebSocket,
     cfg: _VoiceSessionConfig,
     audio_bytes: bytes,
-) -> None:
-    """Handle a single voice turn: STT → LLM → TTS."""
+) -> tuple[str, str] | None:
+    """Handle a single voice turn: STT → LLM → TTS.
+
+    Returns ``(user_text, full_reply)`` on success, or ``None`` on early exit.
+    """
     if not cfg.openai_key:
         await websocket.send_json(
             {
@@ -128,7 +132,7 @@ async def _handle_turn(
                 "message": "OpenAI API key required for speech recognition.",
             }
         )
-        return
+        return None
     try:
         user_text = await transcribe_audio(audio_bytes, cfg.openai_key)
     except Exception as exc:
@@ -136,7 +140,7 @@ async def _handle_turn(
         await websocket.send_json(
             {"type": "error", "message": "Speech recognition failed."}
         )
-        return
+        return None
 
     await websocket.send_json({"type": "transcription", "text": user_text})
 
@@ -146,7 +150,7 @@ async def _handle_turn(
         await websocket.send_json(
             {"type": "error", "message": "No LLM API key configured."}
         )
-        return
+        return None
 
     full_reply = await _stream_llm_reply(websocket, cfg, user_text, rag_context)
 
@@ -157,18 +161,20 @@ async def _handle_turn(
                 await websocket.send_bytes(tts_chunk["data"])
 
     await websocket.send_json({"type": "done"})
+    return user_text, full_reply
 
 
 @router.websocket("/stream")
 async def voice_stream(
     websocket: WebSocket,
     locale: str = Query(default="zh"),
+    conversation_id: uuid.UUID | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> None:
     """WebSocket for real-time voice interaction.
 
     Protocol:
-    - Client connects with ?locale=<zh|en|ja|...>
+    - Client connects with ?locale=<zh|en|ja|...>&conversation_id=<uuid> (optional)
     - Client sends JSON auth frame: {"type":"auth","token":"<jwt-or-pat>"}
     - Client sends binary audio chunks (WebM)
     - Server sends JSON: {"type": "transcription", "text": "..."}
@@ -216,7 +222,12 @@ async def voice_stream(
     try:
         while True:
             audio_bytes = await websocket.receive_bytes()
-            await _handle_turn(websocket, cfg, audio_bytes)
+            result = await _handle_turn(websocket, cfg, audio_bytes)
+            if result is not None and conversation_id is not None:
+                user_text, full_reply = result
+                await _persist_voice_turn(
+                    conversation_id, user.id, user_text, full_reply
+                )
     except WebSocketDisconnect:
         logger.info("voice_websocket_disconnected", user_id=str(user.id))
     except Exception:
@@ -227,3 +238,47 @@ async def voice_stream(
             )
         except Exception:
             pass
+
+
+async def _persist_voice_turn(
+    conversation_id: uuid.UUID,
+    user_id: uuid.UUID,
+    user_text: str,
+    full_reply: str,
+) -> None:
+    """Persist a voice turn as two Message rows.
+
+    Silently skips if the conversation does not belong to the user.
+    """
+    try:
+        async with AsyncSessionLocal() as save_db:
+            conv = await save_db.scalar(
+                select(Conversation).where(
+                    Conversation.id == conversation_id,
+                    Conversation.user_id == user_id,
+                )
+            )
+            if conv is None:
+                return
+            save_db.add(
+                Message(
+                    conversation_id=conversation_id,
+                    role="human",
+                    content=user_text,
+                )
+            )
+            ai_msg = Message(
+                conversation_id=conversation_id,
+                role="ai",
+                content=full_reply,
+            )
+            save_db.add(ai_msg)
+            await save_db.flush()
+            conv.active_leaf_id = ai_msg.id
+            await save_db.commit()
+    except Exception:
+        logger.warning(
+            "voice_persist_failed",
+            conversation_id=str(conversation_id),
+            exc_info=True,
+        )

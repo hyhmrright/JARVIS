@@ -7,7 +7,7 @@ import pytest
 async def test_list_workflows_empty(auth_client):
     resp = await auth_client.get("/api/workflows")
     assert resp.status_code == 200
-    assert resp.json() == []
+    assert resp.json()["items"] == []
 
 
 @pytest.mark.anyio
@@ -78,7 +78,7 @@ async def test_delete_workflow(auth_client):
     assert del_resp.status_code == 200
 
     list_resp = await auth_client.get("/api/workflows")
-    ids = [w["id"] for w in list_resp.json()]
+    ids = [w["id"] for w in list_resp.json()["items"]]
     assert workflow_id not in ids
 
 
@@ -219,7 +219,7 @@ async def test_list_workflows(auth_client):
     """GET /workflows returns user's workflows."""
     resp = await auth_client.get("/api/workflows")
     assert resp.status_code == 200
-    assert isinstance(resp.json(), list)
+    assert isinstance(resp.json()["items"], list)
 
 
 @pytest.mark.anyio
@@ -265,7 +265,7 @@ async def test_list_workflow_runs(auth_client):
 
     resp = await auth_client.get(f"/api/workflows/{wf_id}/runs")
     assert resp.status_code == 200
-    assert isinstance(resp.json(), list)
+    assert isinstance(resp.json(), list)  # workflow runs not paginated
 
 
 @pytest.mark.anyio

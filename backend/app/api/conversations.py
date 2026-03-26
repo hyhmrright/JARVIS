@@ -285,6 +285,34 @@ async def list_user_tags(
     return list(rows.scalars().all())
 
 
+@router.get("/{conv_id}", response_model=ConversationOut)
+@limiter.limit("60/minute")
+async def get_conversation(
+    request: Request,
+    conv_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ConversationOut:
+    """Return a single conversation by ID."""
+    conv = await db.scalar(
+        select(Conversation)
+        .where(Conversation.id == conv_id, Conversation.user_id == user.id)
+        .options(selectinload(Conversation.tags))
+    )
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return ConversationOut(
+        id=conv.id,
+        title=conv.title,
+        active_leaf_id=conv.active_leaf_id,
+        is_pinned=conv.is_pinned,
+        folder_id=conv.folder_id,
+        persona_id=conv.persona_id,
+        updated_at=conv.updated_at,
+        tags=[t.tag for t in conv.tags],
+    )
+
+
 @router.get("/{conv_id}/export")
 @limiter.limit("60/minute")
 async def export_conversation(
@@ -368,14 +396,21 @@ async def export_conversation(
         )
 
 
-@router.get("/{conv_id}/messages", response_model=list[MessageOut])
+class MessagePage(BaseModel):
+    items: list[MessageOut]
+    total: int
+
+
+@router.get("/{conv_id}/messages", response_model=MessagePage)
 @limiter.limit("60/minute")
 async def list_messages(
     request: Request,
     conv_id: uuid.UUID,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> list[MessageOut]:
+) -> MessagePage:
     conv = await db.scalar(
         select(Conversation).where(
             Conversation.id == conv_id, Conversation.user_id == user.id
@@ -383,13 +418,19 @@ async def list_messages(
     )
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    total = (
+        await db.scalar(
+            select(func.count(Message.id)).where(Message.conversation_id == conv_id)
+        )
+    ) or 0
     rows = await db.scalars(
         select(Message)
         .where(Message.conversation_id == conv_id)
         .order_by(Message.created_at)
-        .limit(500)
+        .limit(limit)
+        .offset(offset)
     )
-    return rows.all()
+    return MessagePage(items=list(rows.all()), total=total)
 
 
 @router.patch("/{conv_id}/messages/{msg_id}/bookmark", response_model=MessageOut)
@@ -667,6 +708,30 @@ async def share_conversation(
             ) from None
         return {"token": existing.share_token}
     return {"token": new_share.share_token}
+
+
+@router.delete("/{conv_id}/share", status_code=204)
+@limiter.limit("60/minute")
+async def unshare_conversation(
+    request: Request,
+    conv_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Revoke the public share link for a conversation."""
+    shared = await db.scalar(
+        select(SharedConversation)
+        .join(Conversation, Conversation.id == SharedConversation.conversation_id)
+        .where(
+            SharedConversation.conversation_id == conv_id,
+            Conversation.user_id == user.id,
+        )
+    )
+    if not shared:
+        raise HTTPException(status_code=404, detail="Share link not found")
+    await db.delete(shared)
+    await db.commit()
+    logger.info("conversation_unshared", user_id=str(user.id), conv_id=str(conv_id))
 
 
 # ── Tag endpoints ─────────────────────────────────────────────────────────────

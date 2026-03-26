@@ -1,9 +1,9 @@
 import uuid
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -21,6 +21,8 @@ from app.db.session import get_db
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/workspaces", tags=["workspaces"])
+
+_PRIVILEGED_ROLES = frozenset({"owner", "admin"})
 
 
 class WorkspaceCreate(BaseModel):
@@ -100,12 +102,23 @@ async def update_workspace(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Update workspace name. User must belong to the same org."""
+    """Update workspace name. User must be an owner or admin of the workspace."""
     ws = await db.get(Workspace, ws_id)
     if not ws or ws.is_deleted:
         raise HTTPException(status_code=404, detail="Workspace not found")
     if ws.organization_id != user.organization_id:
         raise HTTPException(status_code=403, detail="Access denied")
+    membership = await db.scalar(
+        select(WorkspaceMember).where(
+            WorkspaceMember.workspace_id == ws_id,
+            WorkspaceMember.user_id == user.id,
+        )
+    )
+    if not membership or membership.role not in _PRIVILEGED_ROLES:
+        raise HTTPException(
+            status_code=403,
+            detail="Only workspace owners and admins can update workspaces",
+        )
     ws.name = body.name
     await db.commit()
     return _ws_to_dict(ws)
@@ -139,19 +152,30 @@ async def delete_workspace(
 async def list_members(
     request: Request,
     ws_id: uuid.UUID,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> list[dict]:
-    """List all members of a workspace."""
+) -> dict:
+    """List members of a workspace with pagination."""
     ws = await db.get(Workspace, ws_id)
     if not ws or ws.is_deleted or ws.organization_id != user.organization_id:
         raise HTTPException(status_code=404, detail="Workspace not found")
+    total = (
+        await db.scalar(
+            select(func.count(WorkspaceMember.user_id)).where(
+                WorkspaceMember.workspace_id == ws_id
+            )
+        )
+    ) or 0
     rows = await db.scalars(
         select(WorkspaceMember)
         .where(WorkspaceMember.workspace_id == ws_id)
         .options(selectinload(WorkspaceMember.user))
+        .limit(limit)
+        .offset(offset)
     )
-    return [
+    items = [
         {
             "user_id": str(m.user_id),
             "email": m.user.email if m.user else None,
@@ -161,6 +185,7 @@ async def list_members(
         }
         for m in rows.all()
     ]
+    return {"items": items, "total": total}
 
 
 class WorkspaceSettingsUpdate(BaseModel):

@@ -11,6 +11,9 @@ HTTP 状态码说明（前端依赖这些状态码显示对应的中文提示）
 """
 
 import asyncio
+import hashlib
+import secrets
+from datetime import UTC, datetime, timedelta
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -22,7 +25,7 @@ from app.api.deps import get_current_user
 from app.core.audit import log_action
 from app.core.limiter import limiter
 from app.core.security import create_access_token, hash_password, verify_password
-from app.db.models import User, UserSettings
+from app.db.models import RefreshToken, User, UserSettings
 from app.db.session import get_db
 
 logger = structlog.get_logger(__name__)
@@ -59,6 +62,7 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     role: str
     display_name: str | None = None
+    refresh_token: str | None = None
 
 
 class ChangePasswordRequest(BaseModel):
@@ -109,6 +113,14 @@ async def register(
     db.add(user)
     await db.flush()  # flush 以获取 user.id，用于创建关联的 UserSettings
     db.add(UserSettings(user_id=user.id))
+    plain_token = secrets.token_urlsafe(32)
+    db.add(
+        RefreshToken(
+            user_id=user.id,
+            token_hash=hashlib.sha256(plain_token.encode()).hexdigest(),
+            expires_at=datetime.now(UTC) + timedelta(days=30),
+        )
+    )
     await db.commit()
     logger.info("user_registered", user_id=str(user.id), email=body.email)
     await log_action("user.register", user_id=user.id, request=request)
@@ -116,6 +128,7 @@ async def register(
         access_token=create_access_token(str(user.id)),
         role=user.role,
         display_name=user.display_name,
+        refresh_token=plain_token,
     )
 
 
@@ -145,10 +158,21 @@ async def login(
     assert user is not None  # narrowing: password_ok=True implies user was found
     logger.info("login_success", user_id=str(user.id), email=user.email)
     await log_action("user.login", user_id=user.id, request=request)
+    plain_token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(plain_token.encode()).hexdigest()
+    db.add(
+        RefreshToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=datetime.now(UTC) + timedelta(days=30),
+        )
+    )
+    await db.commit()
     return TokenResponse(
         access_token=create_access_token(str(user.id)),
         role=user.role,
         display_name=user.display_name,
+        refresh_token=plain_token,
     )
 
 
@@ -201,3 +225,63 @@ async def update_profile(
     logger.info("profile_updated", user_id=str(user.id))
     await log_action("user.update_profile", user_id=user.id, request=request)
     return ProfileOut(display_name=user.display_name)
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+@router.post("/refresh", response_model=TokenResponse)
+@limiter.limit("10/minute")
+async def refresh_token(
+    request: Request,
+    body: RefreshRequest,
+    db: AsyncSession = Depends(get_db),
+) -> TokenResponse:
+    """Exchange a refresh token for a new access token."""
+    token_hash = hashlib.sha256(body.refresh_token.encode()).hexdigest()
+    record = await db.scalar(
+        select(RefreshToken).where(
+            RefreshToken.token_hash == token_hash,
+            RefreshToken.revoked.is_(False),
+        )
+    )
+    if not record or record.expires_at < datetime.now(UTC):
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+    user = await db.get(User, record.user_id)
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+    # Rotate: revoke consumed token and issue a fresh one
+    record.revoked = True
+    new_plain = secrets.token_urlsafe(32)
+    db.add(
+        RefreshToken(
+            user_id=user.id,
+            token_hash=hashlib.sha256(new_plain.encode()).hexdigest(),
+            expires_at=datetime.now(UTC) + timedelta(days=30),
+        )
+    )
+    await db.commit()
+    return TokenResponse(
+        access_token=create_access_token(str(user.id)),
+        role=user.role,
+        display_name=user.display_name,
+        refresh_token=new_plain,
+    )
+
+
+@router.post("/logout", status_code=204)
+@limiter.limit("10/minute")
+async def logout(
+    request: Request,
+    body: RefreshRequest,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Revoke a refresh token."""
+    token_hash = hashlib.sha256(body.refresh_token.encode()).hexdigest()
+    record = await db.scalar(
+        select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+    )
+    if record:
+        record.revoked = True
+        await db.commit()

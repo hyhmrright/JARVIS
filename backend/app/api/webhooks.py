@@ -12,7 +12,7 @@ import structlog
 from arq import create_pool
 from arq.connections import RedisSettings
 from cryptography.fernet import InvalidToken
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,6 +34,12 @@ class WebhookCreate(BaseModel):
         max_length=2000,
         description="Task description with optional {payload} placeholder",
     )
+
+
+class WebhookUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    task_template: str | None = Field(default=None, min_length=1, max_length=2000)
+    is_active: bool | None = None
 
 
 class WebhookOut(BaseModel):
@@ -96,6 +102,38 @@ async def list_webhooks(
         out.secret_token = "••••••••"
         result.append(out)
     return result
+
+
+@router.patch("/{webhook_id}", response_model=WebhookOut)
+@limiter.limit("30/minute")
+async def update_webhook(
+    request: Request,
+    webhook_id: uuid.UUID,
+    body: WebhookUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> WebhookOut:
+    """Update mutable webhook fields (name, task_template, is_active)."""
+    webhook = await db.scalar(
+        select(Webhook).where(
+            Webhook.id == webhook_id,
+            Webhook.user_id == user.id,
+        )
+    )
+    if webhook is None:
+        raise HTTPException(status_code=404)
+    if body.name is not None:
+        webhook.name = body.name
+    if body.task_template is not None:
+        webhook.task_template = body.task_template
+    if body.is_active is not None:
+        webhook.is_active = body.is_active
+    await db.commit()
+    await db.refresh(webhook)
+    logger.info("webhook_updated", user_id=str(user.id), webhook_id=str(webhook_id))
+    out = WebhookOut.model_validate(webhook)
+    out.secret_token = "••••••••"
+    return out
 
 
 @router.delete("/{webhook_id}", status_code=204)
@@ -203,10 +241,12 @@ class WebhookDeliveryOut(BaseModel):
 @router.get("/{webhook_id}/deliveries", response_model=list[WebhookDeliveryOut])
 async def list_webhook_deliveries(
     webhook_id: uuid.UUID,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[WebhookDeliveryOut]:
-    """Return the last 20 delivery records for a webhook owned by the current user."""
+    """Return delivery records for a webhook owned by the current user."""
     webhook = await db.scalar(
         select(Webhook).where(
             Webhook.id == webhook_id,
@@ -220,6 +260,7 @@ async def list_webhook_deliveries(
         select(WebhookDelivery)
         .where(WebhookDelivery.webhook_id == webhook_id)
         .order_by(WebhookDelivery.triggered_at.desc())
-        .limit(20)
+        .limit(limit)
+        .offset(offset)
     )
     return [WebhookDeliveryOut.model_validate(r) for r in rows.all()]

@@ -1,11 +1,11 @@
-"""User memory management API — list and delete persistent memories."""
+"""User memory management API — list, update, and delete persistent memories."""
 
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
-from sqlalchemy import delete, select
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -26,20 +26,60 @@ class MemoryOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-@router.get("", response_model=list[MemoryOut])
+class MemoryUpdate(BaseModel):
+    value: str = Field(min_length=1, max_length=4000)
+
+
+class MemoryPage(BaseModel):
+    items: list[MemoryOut]
+    total: int
+
+
+@router.get("", response_model=MemoryPage)
 @limiter.limit("60/minute")
 async def list_memories(
     request: Request,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> list[UserMemory]:
-    """List all persistent memories for the current user."""
+) -> MemoryPage:
+    """List persistent memories for the current user."""
+    total = (
+        await db.scalar(
+            select(func.count(UserMemory.id)).where(UserMemory.user_id == user.id)
+        )
+    ) or 0
     rows = await db.scalars(
         select(UserMemory)
         .where(UserMemory.user_id == user.id)
         .order_by(UserMemory.category, UserMemory.key)
+        .limit(limit)
+        .offset(offset)
     )
-    return list(rows.all())
+    return MemoryPage(items=list(rows.all()), total=total)
+
+
+@router.put("/{memory_id}", response_model=MemoryOut)
+@limiter.limit("30/minute")
+async def update_memory(
+    request: Request,
+    memory_id: uuid.UUID,
+    body: MemoryUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> UserMemory:
+    """Update the value of an existing memory."""
+    memory = await db.scalar(
+        select(UserMemory).where(
+            UserMemory.id == memory_id, UserMemory.user_id == user.id
+        )
+    )
+    if not memory:
+        raise HTTPException(status_code=404, detail="Memory not found")
+    memory.value = body.value
+    await db.commit()
+    return memory
 
 
 @router.delete("/{memory_id}", status_code=204)

@@ -2,9 +2,9 @@ import uuid
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -50,15 +50,33 @@ class PersonaOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-@router.get("", response_model=list[PersonaOut])
+class PersonaPage(BaseModel):
+    items: list[PersonaOut]
+    total: int
+
+
+@router.get("", response_model=PersonaPage)
 async def list_personas(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> Any:
+) -> PersonaPage:
+    total = (
+        await db.scalar(
+            select(func.count(Persona.id)).where(Persona.user_id == user.id)
+        )
+    ) or 0
     rows = await db.scalars(
-        select(Persona).where(Persona.user_id == user.id).order_by(Persona.name)
+        select(Persona)
+        .where(Persona.user_id == user.id)
+        .order_by(Persona.name)
+        .limit(limit)
+        .offset(offset)
     )
-    return rows.all()
+    return PersonaPage(
+        items=[PersonaOut.model_validate(p) for p in rows.all()], total=total
+    )
 
 
 @router.post("", response_model=PersonaOut, status_code=201)

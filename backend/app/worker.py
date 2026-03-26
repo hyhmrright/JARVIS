@@ -13,7 +13,13 @@ from sqlalchemy.engine import CursorResult
 from app.core.config import settings
 from app.core.metrics import cron_executions_total
 from app.core.notifications import create_notification
-from app.db.models import CronJob, JobExecution, Webhook, WebhookDelivery
+from app.db.models import (
+    CronJob,
+    JobExecution,
+    Webhook,
+    WebhookDeadLetter,
+    WebhookDelivery,
+)
 from app.db.session import AsyncSessionLocal
 from app.gateway.agent_runner import run_agent_for_user
 from app.scheduler.triggers import evaluate_trigger
@@ -150,13 +156,10 @@ async def execute_cron_job(ctx: dict, *, job_id: str, run_group_id: str) -> None
         await redis.delete(lock_key)
 
 
-# Delays (seconds) before each retry: attempt 1→2 waits 1s, attempt 2→3 waits 10s
-_WEBHOOK_RETRY_DELAYS = [1, 10]
-
-
 async def deliver_webhook(ctx: dict, *, webhook_id: str, payload: dict) -> None:
     """ARQ task: deliver webhook payload to the JARVIS agent and record delivery."""
     attempt: int = ctx.get("job_try", 1)
+    retry_delays = settings.webhook_retry_delays
 
     async with AsyncSessionLocal() as db:
         webhook: Webhook | None = await db.get(Webhook, uuid.UUID(webhook_id))
@@ -199,8 +202,8 @@ async def deliver_webhook(ctx: dict, *, webhook_id: str, payload: dict) -> None:
                 "status": final_status,
                 "response_body": response_body,
             }
-            if final_status == "failed" and attempt < len(_WEBHOOK_RETRY_DELAYS):
-                delay_s = _WEBHOOK_RETRY_DELAYS[attempt - 1]
+            if final_status == "failed" and attempt < len(retry_delays):
+                delay_s = retry_delays[attempt - 1]
                 update_vals["next_retry_at"] = datetime.now(tz=UTC) + timedelta(
                     seconds=delay_s
                 )
@@ -210,8 +213,8 @@ async def deliver_webhook(ctx: dict, *, webhook_id: str, payload: dict) -> None:
                 .values(**update_vals)
             )
 
-    if final_status == "failed" and attempt < len(_WEBHOOK_RETRY_DELAYS):
-        delay_s = _WEBHOOK_RETRY_DELAYS[attempt - 1]
+    if final_status == "failed" and attempt < len(retry_delays):
+        delay_s = retry_delays[attempt - 1]
         logger.warning(
             "deliver_webhook_will_retry",
             webhook_id=webhook_id,
@@ -221,14 +224,30 @@ async def deliver_webhook(ctx: dict, *, webhook_id: str, payload: dict) -> None:
         raise RuntimeError(f"Webhook delivery failed (attempt {attempt}), will retry")
 
     if final_status == "failed":
-        await create_notification(
-            user_id=user_id,
-            type="webhook_failed",
-            title="Webhook Delivery Failed",
-            body=f"Failed to process incoming webhook after {attempt} attempts.",
-            action_url="/proactive",
-            db=db,
-        )
+        try:
+            async with AsyncSessionLocal() as dl_db:
+                dead_letter = WebhookDeadLetter(
+                    webhook_id=uuid.UUID(webhook_id),
+                    user_id=uuid.UUID(user_id),
+                    payload=payload,
+                    last_error=str(response_body or ""),
+                    attempts=attempt,
+                )
+                dl_db.add(dead_letter)
+                await dl_db.commit()
+            await create_notification(
+                user_id=user_id,
+                type="webhook_failed",
+                title="Webhook Delivery Failed",
+                body=f"Failed to process incoming webhook after {attempt} attempts.",
+                action_url="/proactive",
+            )
+        except Exception:
+            logger.warning(
+                "deliver_webhook_dead_letter_failed",
+                webhook_id=webhook_id,
+                exc_info=True,
+            )
 
     logger.info(
         "deliver_webhook_done",
@@ -255,10 +274,27 @@ async def cleanup_old_executions(ctx: dict) -> None:
     )
 
 
+async def cleanup_old_deliveries(ctx: dict) -> None:
+    """ARQ periodic task: delete webhook_deliveries older than retention window."""
+    retention = settings.webhook_delivery_retention_days
+    cutoff = datetime.now(tz=UTC) - timedelta(days=retention)
+    async with AsyncSessionLocal() as db:
+        result: CursorResult = await db.execute(  # type: ignore[assignment]
+            delete(WebhookDelivery).where(WebhookDelivery.triggered_at < cutoff)
+        )
+        await db.commit()
+    logger.info(
+        "webhook_deliveries_cleanup",
+        deleted=result.rowcount,
+        retention_days=retention,
+    )
+
+
 class WorkerSettings:
     functions = [execute_cron_job, deliver_webhook]
     cron_jobs = [
-        cron(cleanup_old_executions, hour=3, minute=0)  # Daily 03:00 UTC
+        cron(cleanup_old_executions, hour=3, minute=0),  # Daily 03:00 UTC
+        cron(cleanup_old_deliveries, hour=3, minute=15),  # Daily 03:15 UTC
     ]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     max_jobs = 10

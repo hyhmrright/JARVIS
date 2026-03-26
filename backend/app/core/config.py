@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -82,6 +83,11 @@ class Settings(BaseSettings):
     sandbox_cpu_limit: float = 1.0
     sandbox_memory_limit: str = "512m"
     sandbox_timeout: int = 300
+
+    # Webhook retry delays (seconds between each retry attempt)
+    webhook_retry_delays: list[int] = Field(default=[1, 10])
+    # Webhook delivery history retention (days)
+    webhook_delivery_retention_days: int = 30
 
     # Agent / tool timeouts
     graph_timeout_seconds: int = 120

@@ -34,6 +34,9 @@ export const useAuthStore = defineStore("auth", {
       if (data.display_name) {
         localStorage.setItem("displayName", data.display_name);
       }
+      if (data.refresh_token) {
+        localStorage.setItem("refresh_token", data.refresh_token);
+      }
     },
     /** 注册并自动登录，成功后保存 token；失败时抛出 AxiosError */
     async register(email: string, password: string, display_name?: string) {
@@ -57,14 +60,23 @@ export const useAuthStore = defineStore("auth", {
         localStorage.removeItem("displayName");
       }
     },
-    /** 登出，清除 token */
-    logout() {
+    /** 登出，撤销 refresh token 并清除本地状态 */
+    async logout() {
+      const refreshToken = localStorage.getItem("refresh_token");
+      if (refreshToken) {
+        try {
+          await client.post("/auth/logout", { refresh_token: refreshToken });
+        } catch {
+          // Ignore errors — local cleanup happens regardless
+        }
+      }
       this.token = null;
       this.role = null;
       this.displayName = null;
       localStorage.removeItem("token");
       localStorage.removeItem("role");
       localStorage.removeItem("displayName");
+      localStorage.removeItem("refresh_token");
     },
   },
 });

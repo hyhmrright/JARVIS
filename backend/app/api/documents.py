@@ -30,6 +30,8 @@ logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
+_PRIVILEGED_ROLES = frozenset({"owner", "admin"})
+
 ALLOWED_TYPES = {"pdf", "txt", "md", "docx"}
 MAX_SIZE = 50 * 1024 * 1024
 
@@ -46,6 +48,29 @@ ALLOWED_MIME_PREFIXES = (
     "image/gif",
     "image/webp",
 )
+
+
+async def _assert_doc_write_access(
+    doc: "Document",
+    user: User,
+    db: AsyncSession,
+) -> None:
+    """Raise HTTPException if user lacks write permission on this document.
+
+    Workspace documents: allow owner/admin members.
+    Personal documents: allow only the original uploader.
+    """
+    if doc.workspace_id is not None:
+        membership = await db.scalar(
+            select(WorkspaceMember).where(
+                WorkspaceMember.workspace_id == doc.workspace_id,
+                WorkspaceMember.user_id == user.id,
+            )
+        )
+        if not membership or membership.role not in _PRIVILEGED_ROLES:
+            raise HTTPException(status_code=403, detail="Not authorized")
+    elif doc.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Document not found")
 
 
 async def _resolve_workspace_collection(
@@ -151,8 +176,9 @@ async def rename_document(
     db: AsyncSession = Depends(get_db),
 ) -> DocumentOut:
     doc = await db.get(Document, doc_id)
-    if not doc or doc.is_deleted or doc.user_id != user.id:
+    if not doc or doc.is_deleted:
         raise HTTPException(status_code=404, detail="Document not found")
+    await _assert_doc_write_access(doc, user, db)
     doc.filename = body.filename
     await db.commit()
 
@@ -187,8 +213,9 @@ async def delete_document(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     doc = await db.get(Document, doc_id)
-    if not doc or doc.user_id != user.id or doc.is_deleted:
+    if not doc or doc.is_deleted:
         raise HTTPException(status_code=404, detail="Document not found")
+    await _assert_doc_write_access(doc, user, db)
 
     doc.is_deleted = True
     doc.chunk_count = 0

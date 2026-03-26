@@ -194,14 +194,39 @@ async def create_cron_job(  # noqa: C901
     return {"status": "ok", "id": str(job.id)}
 
 
-@router.delete("/{job_id}")
+@router.get("/{job_id}")
+@limiter.limit("60/minute")
+async def get_cron_job(
+    request: Request,
+    job_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Fetch a single cron job by ID."""
+    job = await db.get(CronJob, job_id)
+    if not job or job.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {
+        "id": str(job.id),
+        "schedule": job.schedule,
+        "task": job.task,
+        "trigger_type": job.trigger_type,
+        "trigger_metadata": job.trigger_metadata,
+        "is_active": job.is_active,
+        "last_run_at": job.last_run_at.isoformat() if job.last_run_at else None,
+        "next_run_at": job.next_run_at.isoformat() if job.next_run_at else None,
+        "workspace_id": str(job.workspace_id) if job.workspace_id else None,
+    }
+
+
+@router.delete("/{job_id}", status_code=204)
 @limiter.limit("30/minute")
 async def delete_cron_job(
     request: Request,
     job_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, str]:
+) -> None:
     """Delete a monitoring job."""
     job = await db.get(CronJob, job_id)
     if not job or job.user_id != user.id:
@@ -210,7 +235,6 @@ async def delete_cron_job(
     unregister_cron_job(str(job.id))
     await db.delete(job)
     await db.commit()
-    return {"status": "ok"}
 
 
 @router.patch("/{job_id}/toggle")

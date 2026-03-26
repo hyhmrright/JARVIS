@@ -5,7 +5,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -96,4 +96,32 @@ async def mark_all_read(
         .where(Notification.user_id == user.id, Notification.is_read.is_(False))
         .values(is_read=True)
     )
+    await db.commit()
+
+
+@router.delete("/{notification_id}", status_code=204)
+@limiter.limit("30/minute")
+async def delete_notification(
+    request: Request,
+    notification_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Delete a single notification."""
+    notification = await db.get(Notification, notification_id)
+    if not notification or notification.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    await db.delete(notification)
+    await db.commit()
+
+
+@router.delete("", status_code=204)
+@limiter.limit("30/minute")
+async def delete_all_notifications(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Delete all notifications for the current user."""
+    await db.execute(delete(Notification).where(Notification.user_id == user.id))
     await db.commit()
