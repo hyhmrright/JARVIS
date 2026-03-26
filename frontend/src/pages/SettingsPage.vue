@@ -898,9 +898,8 @@ async function startAccountExport() {
     await client.post('/export/account');
     exportMessage.value = t('export.submitted');
   } catch (err: any) {
-    if (err.response?.status === 429) {
-      const retryAfter = err.response.data?.detail?.retry_after ?? 86400;
-      startCooldownTimer(retryAfter);
+    if (err.response?.status === 429 && err.response.data?.detail?.retry_after) {
+      startCooldownTimer(err.response.data.detail.retry_after);
     } else {
       exportMessage.value = t('export.failed');
     }
