@@ -29,6 +29,7 @@ from app.api.organizations import router as organizations_router
 from app.api.personas import router as personas_router
 from app.api.plugins import router as plugins_router
 from app.api.public import router as public_router
+from app.api.search import router as search_router
 from app.api.settings import router as settings_router
 from app.api.tts import router as tts_router
 from app.api.usage import router as usage_router
@@ -223,6 +224,7 @@ app.include_router(documents_router)
 app.include_router(settings_router)
 app.include_router(logs_router)
 app.include_router(memory_router)
+app.include_router(search_router)
 app.include_router(plugins_router)
 app.include_router(personas_router)
 app.include_router(public_router)
