@@ -519,5 +519,18 @@
       "document": "文档：{filename}",
       "memory": "记忆"
     }
+  },
+  "export": {
+    "title": "数据导出",
+    "singleConversation": "导出对话",
+    "formatMarkdown": "Markdown 格式",
+    "formatJson": "JSON 格式",
+    "truncationNote": "（仅显示最近1000条消息）",
+    "accountExport": "导出全部数据",
+    "accountExportHint": "打包您的所有对话、文档元数据和记忆。API 密钥不会包含在导出中。",
+    "submitted": "导出任务已提交，完成后将通知您",
+    "cooldown": "距下次可导出还有 {time}",
+    "downloadReady": "您的数据导出已就绪，请在25小时内下载",
+    "failed": "导出失败，请稍后重试"
   }
 }

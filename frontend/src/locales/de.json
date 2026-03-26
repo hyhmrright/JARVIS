@@ -507,5 +507,18 @@
       "document": "Dokument: {filename}",
       "memory": "Erinnerung"
     }
+  },
+  "export": {
+    "title": "Datenexport",
+    "singleConversation": "Gespräch exportieren",
+    "formatMarkdown": "Markdown-Format",
+    "formatJson": "JSON-Format",
+    "truncationNote": "(nur die letzten 1000 Nachrichten werden angezeigt)",
+    "accountExport": "Alle Daten exportieren",
+    "accountExportHint": "Verpackt alle Ihre Gespräche, Dokumentmetadaten und Erinnerungen. API-Schlüssel sind nicht enthalten.",
+    "submitted": "Export gestartet. Sie werden benachrichtigt, wenn er abgeschlossen ist.",
+    "cooldown": "Nächster Export verfügbar in {time}",
+    "downloadReady": "Ihr Datenexport ist bereit. Laden Sie ihn innerhalb von 25 Stunden herunter.",
+    "failed": "Export fehlgeschlagen. Bitte versuchen Sie es später erneut."
   }
 }

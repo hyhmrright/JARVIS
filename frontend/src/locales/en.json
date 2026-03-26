@@ -519,5 +519,18 @@
       "document": "Document: {filename}",
       "memory": "Memory"
     }
+  },
+  "export": {
+    "title": "Data Export",
+    "singleConversation": "Export Conversation",
+    "formatMarkdown": "Markdown",
+    "formatJson": "JSON",
+    "truncationNote": "(showing most recent 1000 messages only)",
+    "accountExport": "Export All Data",
+    "accountExportHint": "Packages all your conversations, document metadata, and memories. API keys are not included.",
+    "submitted": "Export started. You will be notified when ready.",
+    "cooldown": "Next export available in {time}",
+    "downloadReady": "Your data export is ready. Download within 25 hours.",
+    "failed": "Export failed. Please try again later."
   }
 }

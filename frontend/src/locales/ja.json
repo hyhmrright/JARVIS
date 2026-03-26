@@ -507,5 +507,18 @@
       "document": "ドキュメント：{filename}",
       "memory": "記憶"
     }
+  },
+  "export": {
+    "title": "データエクスポート",
+    "singleConversation": "会話をエクスポート",
+    "formatMarkdown": "Markdown形式",
+    "formatJson": "JSON形式",
+    "truncationNote": "（最新1000件のみ表示）",
+    "accountExport": "全データをエクスポート",
+    "accountExportHint": "すべての会話・ドキュメントメタデータ・記憶をパッケージ化します。APIキーは含まれません。",
+    "submitted": "エクスポートを開始しました。完了時に通知します。",
+    "cooldown": "次のエクスポートまで {time}",
+    "downloadReady": "データエクスポートの準備ができました。25時間以内にダウンロードしてください。",
+    "failed": "エクスポートに失敗しました。後でもう一度お試しください。"
   }
 }

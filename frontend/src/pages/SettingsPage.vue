@@ -456,6 +456,24 @@
           </button>
         </div>
       </section>
+
+      <!-- Account Export Section -->
+      <section class="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 shadow-sm mt-8">
+        <h3 class="text-[11px] font-bold tracking-widest text-zinc-500 uppercase mb-4">{{ $t("export.title") }}</h3>
+        <p class="text-xs text-zinc-400 mb-4">{{ $t("export.accountExportHint") }}</p>
+        <button
+          type="button"
+          :disabled="exportLoading || exportCooldownSeconds > 0"
+          class="px-4 py-2 bg-zinc-700 text-white text-sm font-semibold rounded-lg hover:bg-zinc-600 transition-colors disabled:opacity-50"
+          @click="startAccountExport"
+        >
+          {{ $t("export.accountExport") }}
+        </button>
+        <p v-if="exportCooldownSeconds > 0" class="mt-2 text-xs text-zinc-400">
+          {{ $t("export.cooldown", { time: formatSeconds(exportCooldownSeconds) }) }}
+        </p>
+        <p v-if="exportMessage" class="mt-2 text-xs text-zinc-400">{{ exportMessage }}</p>
+      </section>
     </div>
 
     <!-- Toasts -->
@@ -488,7 +506,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { useI18n } from "vue-i18n";
 import client from "@/api/client";
 import PageHeader from "@/components/PageHeader.vue";
@@ -848,5 +866,53 @@ async function save() {
     saveError.value = true;
     setTimeout(() => saveError.value = false, 3000);
   } finally { saving.value = false; }
+}
+
+const exportLoading = ref(false);
+const exportMessage = ref('');
+const exportCooldownSeconds = ref(0);
+let exportCooldownTimer: ReturnType<typeof setInterval> | null = null;
+
+function startCooldownTimer(seconds: number) {
+  if (exportCooldownTimer) clearInterval(exportCooldownTimer);
+  exportCooldownSeconds.value = seconds;
+  exportCooldownTimer = setInterval(() => {
+    exportCooldownSeconds.value--;
+    if (exportCooldownSeconds.value <= 0) {
+      clearInterval(exportCooldownTimer!);
+      exportCooldownTimer = null;
+      exportCooldownSeconds.value = 0;
+      exportMessage.value = '';
+    }
+  }, 1000);
+}
+
+onBeforeUnmount(() => {
+  if (exportCooldownTimer) clearInterval(exportCooldownTimer);
+});
+
+async function startAccountExport() {
+  exportLoading.value = true;
+  exportMessage.value = '';
+  try {
+    await client.post('/export/account');
+    exportMessage.value = t('export.submitted');
+  } catch (err: any) {
+    if (err.response?.status === 429) {
+      const retryAfter = err.response.data?.detail?.retry_after ?? 86400;
+      startCooldownTimer(retryAfter);
+    } else {
+      exportMessage.value = t('export.failed');
+    }
+  } finally {
+    exportLoading.value = false;
+  }
+}
+
+function formatSeconds(s: number): string {
+  if (s < 60) return `${s}s`;
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 </script>

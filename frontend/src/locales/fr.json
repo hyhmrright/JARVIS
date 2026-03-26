@@ -507,5 +507,18 @@
       "document": "Document : {filename}",
       "memory": "Mémoire"
     }
+  },
+  "export": {
+    "title": "Exportation de données",
+    "singleConversation": "Exporter la conversation",
+    "formatMarkdown": "Format Markdown",
+    "formatJson": "Format JSON",
+    "truncationNote": "(affichage des 1000 derniers messages uniquement)",
+    "accountExport": "Exporter toutes les données",
+    "accountExportHint": "Regroupe toutes vos conversations, métadonnées de documents et souvenirs. Les clés API ne sont pas incluses.",
+    "submitted": "Exportation lancée. Vous serez notifié à la fin.",
+    "cooldown": "Prochaine exportation dans {time}",
+    "downloadReady": "Votre exportation est prête. Téléchargez-la dans les 25 heures.",
+    "failed": "L'exportation a échoué. Veuillez réessayer plus tard."
   }
 }
