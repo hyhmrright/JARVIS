@@ -41,7 +41,7 @@ class WorkflowEdgeDSL(BaseModel):
 
 class WorkflowDSL(BaseModel):
     nodes: list[WorkflowNodeDSL]
-    edges: list[WorkflowEdgeDSL]
+    edges: list[WorkflowEdgeDSL] = []
 
 
 class GraphCompiler:

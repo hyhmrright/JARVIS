@@ -545,6 +545,16 @@ async def update_conversation(
     if "folder_id" in body.model_fields_set:
         conv.folder_id = body.folder_id
     if "persona_id" in body.model_fields_set:
+        if body.persona_id is not None:
+            from app.db.models import Persona
+
+            owned = await db.scalar(
+                select(Persona).where(
+                    Persona.id == body.persona_id, Persona.user_id == user.id
+                )
+            )
+            if not owned:
+                raise HTTPException(status_code=404, detail="Persona not found")
         conv.persona_id = body.persona_id
     await db.commit()
     await db.refresh(conv)

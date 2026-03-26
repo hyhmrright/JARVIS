@@ -484,14 +484,23 @@ async def chat_stream(  # noqa: C901
     if not is_consent:
         from app.db.models import Persona
 
-        if conv.persona_id and not conv.persona_override:
-            # Sync persona_override from FK once per conversation
+        if conv.persona_id:
+            # Load persona to apply fields to inference config
             _persona = await db.scalar(
                 select(Persona).where(Persona.id == conv.persona_id)
             )
             if _persona:
-                conv.persona_override = _persona.system_prompt
-                await db.commit()
+                if not conv.persona_override:
+                    # Sync persona_override from FK once per conversation
+                    conv.persona_override = _persona.system_prompt
+                    await db.commit()
+                # Apply persona fields to LLM config for this request
+                if _persona.model_name:
+                    llm = dc_replace(llm, model_name=_persona.model_name)
+                if _persona.temperature is not None:
+                    llm = dc_replace(llm, temperature=_persona.temperature)
+                if _persona.enabled_tools is not None:
+                    llm = dc_replace(llm, enabled_tools=_persona.enabled_tools)
         elif body.persona_id or body.workflow_dsl:
             # Lazy-check: only query message count when needed
             _msg_count = await db.scalar(

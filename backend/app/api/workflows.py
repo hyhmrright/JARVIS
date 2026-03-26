@@ -357,7 +357,9 @@ async def _update_run_status(
 
 
 @router.post("/{workflow_id}/execute")
+@limiter.limit("10/minute")
 async def execute_workflow(
+    request: Request,
     workflow_id: uuid.UUID,
     body: WorkflowExecuteRequest,
     db: AsyncSession = Depends(get_db),

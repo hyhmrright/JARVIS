@@ -387,6 +387,11 @@ const onRun = async () => {
               running.value = false;
               toastSuccess(`Workflow ${event.status}`);
               fetchHistory();
+            } else if (event.type === 'run_error') {
+              if (runTimeoutId) { clearTimeout(runTimeoutId); runTimeoutId = null; }
+              running.value = false;
+              toastError(`Workflow failed: ${event.error}`);
+              runLogs.value.push({ node_id: 'error', output: event.error, duration_ms: 0, status: 'failed' });
             }
           } catch (e) {
             console.warn("SSE parse error", e);
