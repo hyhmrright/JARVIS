@@ -27,7 +27,7 @@ async def download_python_plugin(url: str, dest_dir: Path) -> tuple[Path, str | 
     Raises ValueError for unsafe/non-http URLs or oversized responses.
     Raises httpx.HTTPStatusError on non-2xx responses.
     """
-    if not is_safe_url(url):
+    if not await is_safe_url(url):
         raise ValueError(f"URL is not allowed (internal or non-http): {url!r}")
     async with httpx.AsyncClient(
         follow_redirects=True, timeout=_FETCH_TIMEOUT
