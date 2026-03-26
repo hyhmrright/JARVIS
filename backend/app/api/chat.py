@@ -480,22 +480,32 @@ async def chat_stream(  # noqa: C901
     if not conv:
         raise HTTPException(status_code=404)
 
-    # Apply persona if provided and conversation is new (no messages yet)
-    if body.persona_id and not is_consent:
-        message_count = await db.scalar(
-            select(func.count(Message.id)).where(Message.conversation_id == conv.id)
-        )
-        if message_count == 0:
-            from app.db.models import Persona
+    # Apply persona: conv.persona_id takes priority; body.persona_id only for new convs
+    if not is_consent:
+        from app.db.models import Persona
 
-            persona = await db.scalar(
-                select(Persona).where(
-                    Persona.id == body.persona_id, Persona.user_id == user.id
-                )
+        if conv.persona_id:
+            # Mid-conversation persona switching: apply persona from conversation FK
+            _persona = await db.scalar(
+                select(Persona).where(Persona.id == conv.persona_id)
             )
-            if persona:
-                conv.persona_override = persona.system_prompt
+            if _persona:
+                conv.persona_override = _persona.system_prompt
                 await db.commit()
+        elif body.persona_id:
+            # Legacy: apply persona on new conversation only
+            message_count = await db.scalar(
+                select(func.count(Message.id)).where(Message.conversation_id == conv.id)
+            )
+            if message_count == 0:
+                _persona = await db.scalar(
+                    select(Persona).where(
+                        Persona.id == body.persona_id, Persona.user_id == user.id
+                    )
+                )
+                if _persona:
+                    conv.persona_override = _persona.system_prompt
+                    await db.commit()
 
     # Store workflow DSL if provided for a new conversation
     if body.workflow_dsl and not is_consent:

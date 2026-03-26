@@ -38,6 +38,7 @@ class ConversationOut(BaseModel):
     active_leaf_id: uuid.UUID | None = None
     is_pinned: bool = False
     folder_id: uuid.UUID | None = None
+    persona_id: uuid.UUID | None = None
     updated_at: datetime | None = None
     tags: list[str] = []
     model_config = {"from_attributes": True}
@@ -51,6 +52,7 @@ class ConversationUpdate(BaseModel):
     title: str | None = Field(None, min_length=1, max_length=255)
     persona_override: str | None = None
     folder_id: uuid.UUID | None = None
+    persona_id: uuid.UUID | None = None
 
     @field_validator("title")
     @classmethod
@@ -521,14 +523,14 @@ async def set_active_leaf(
     await db.commit()
 
 
-@router.patch("/{conv_id}", status_code=204)
+@router.patch("/{conv_id}", response_model=ConversationOut)
 async def update_conversation(
     conv_id: uuid.UUID,
     body: ConversationUpdate,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> None:
-    """Update mutable conversation fields (title, persona_override)."""
+) -> ConversationOut:
+    """Update mutable conversation fields (title, persona_override, persona_id)."""
     conv = await db.scalar(
         select(Conversation).where(
             Conversation.id == conv_id, Conversation.user_id == user.id
@@ -542,7 +544,20 @@ async def update_conversation(
         conv.persona_override = body.persona_override
     if "folder_id" in body.model_fields_set:
         conv.folder_id = body.folder_id
+    if "persona_id" in body.model_fields_set:
+        conv.persona_id = body.persona_id
     await db.commit()
+    await db.refresh(conv)
+    return ConversationOut(
+        id=conv.id,
+        title=conv.title,
+        active_leaf_id=conv.active_leaf_id,
+        is_pinned=conv.is_pinned,
+        folder_id=conv.folder_id,
+        persona_id=conv.persona_id,
+        updated_at=conv.updated_at,
+        tags=[],
+    )
 
 
 @router.patch("/{conv_id}/pin", status_code=204)

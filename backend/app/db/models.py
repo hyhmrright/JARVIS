@@ -181,6 +181,11 @@ class Conversation(Base):
         nullable=True,
         index=True,
     )
+    persona_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("personas.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     user: Mapped["User"] = relationship(back_populates="conversations")
     folder: Mapped["ConversationFolder | None"] = relationship(

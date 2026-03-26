@@ -109,7 +109,6 @@ async def test_search_returns_empty_list_for_no_match(auth_client):
 
 @pytest.mark.anyio
 async def test_search_finds_conversation_by_title(auth_client, db_session):
-
     user_id = _user_id(auth_client)
     conv = Conversation(user_id=user_id, title="Python tutorials for beginners")
     db_session.add(conv)
@@ -126,7 +125,6 @@ async def test_search_finds_conversation_by_title(auth_client, db_session):
 
 @pytest.mark.anyio
 async def test_search_finds_by_message_content(auth_client, db_session):
-
     user_id = _user_id(auth_client)
     conv = Conversation(user_id=user_id, title="Generic conversation")
     db_session.add(conv)
@@ -145,7 +143,6 @@ async def test_search_finds_by_message_content(auth_client, db_session):
 
 @pytest.mark.anyio
 async def test_export_markdown_format(auth_client, db_session):
-
     user_id = _user_id(auth_client)
     conv = Conversation(user_id=user_id, title="My Export Test")
     db_session.add(conv)
@@ -182,7 +179,6 @@ async def test_export_json_format(auth_client, db_session):
 
 @pytest.mark.anyio
 async def test_export_txt_format(auth_client, db_session):
-
     user_id = _user_id(auth_client)
     conv = Conversation(user_id=user_id, title="TXT Export")
     db_session.add(conv)
@@ -198,7 +194,6 @@ async def test_export_txt_format(auth_client, db_session):
 async def test_export_returns_404_for_wrong_user(
     auth_client, second_user_auth_headers, db_session
 ):
-
     # Create a conversation owned by second user
     user2_id = _uid_from_headers(second_user_auth_headers)
     conv = Conversation(user_id=user2_id, title="Private")
@@ -211,7 +206,6 @@ async def test_export_returns_404_for_wrong_user(
 
 @pytest.mark.anyio
 async def test_patch_conversation_sets_persona(auth_client, db_session):
-
     user_id = _user_id(auth_client)
     conv = Conversation(user_id=user_id, title="Patch test")
     db_session.add(conv)
@@ -220,14 +214,13 @@ async def test_patch_conversation_sets_persona(auth_client, db_session):
         f"/api/conversations/{conv.id}",
         json={"persona_override": "You are a Socratic tutor."},
     )
-    assert resp.status_code == 204
+    assert resp.status_code == 200
     await db_session.refresh(conv)
     assert conv.persona_override == "You are a Socratic tutor."
 
 
 @pytest.mark.anyio
 async def test_patch_conversation_clears_persona(auth_client, db_session):
-
     user_id = _user_id(auth_client)
     conv = Conversation(
         user_id=user_id, title="Clear test", persona_override="Old value"
@@ -238,14 +231,13 @@ async def test_patch_conversation_clears_persona(auth_client, db_session):
         f"/api/conversations/{conv.id}",
         json={"persona_override": None},
     )
-    assert resp.status_code == 204
+    assert resp.status_code == 200
     await db_session.refresh(conv)
     assert conv.persona_override is None
 
 
 @pytest.mark.anyio
 async def test_patch_conversation_renames_title(auth_client, db_session):
-
     user_id = _user_id(auth_client)
     conv = Conversation(user_id=user_id, title="Old Title")
     db_session.add(conv)
@@ -254,14 +246,13 @@ async def test_patch_conversation_renames_title(auth_client, db_session):
         f"/api/conversations/{conv.id}",
         json={"title": "New Title"},
     )
-    assert resp.status_code == 204
+    assert resp.status_code == 200
     await db_session.refresh(conv)
     assert conv.title == "New Title"
 
 
 @pytest.mark.anyio
 async def test_patch_conversation_empty_title_returns_422(auth_client, db_session):
-
     user_id = _user_id(auth_client)
     conv = Conversation(user_id=user_id, title="Keep This")
     db_session.add(conv)
@@ -275,7 +266,6 @@ async def test_patch_conversation_empty_title_returns_422(auth_client, db_sessio
 
 @pytest.mark.anyio
 async def test_patch_conversation_whitespace_title_returns_422(auth_client, db_session):
-
     user_id = _user_id(auth_client)
     conv = Conversation(user_id=user_id, title="Keep This")
     db_session.add(conv)
@@ -289,7 +279,6 @@ async def test_patch_conversation_whitespace_title_returns_422(auth_client, db_s
 
 @pytest.mark.anyio
 async def test_patch_conversation_omitting_title_preserves_it(auth_client, db_session):
-
     user_id = _user_id(auth_client)
     conv = Conversation(user_id=user_id, title="Unchanged")
     db_session.add(conv)
@@ -298,7 +287,7 @@ async def test_patch_conversation_omitting_title_preserves_it(auth_client, db_se
         f"/api/conversations/{conv.id}",
         json={"persona_override": "tutor"},
     )
-    assert resp.status_code == 204
+    assert resp.status_code == 200
     await db_session.refresh(conv)
     assert conv.title == "Unchanged"
 
@@ -953,3 +942,29 @@ async def test_add_invalid_tag_returns_422(auth_client, db_session, bad_tag):
         f"/api/conversations/{conv.id}/tags", json={"tag": bad_tag}
     )
     assert resp.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_patch_conversation_persona_id(auth_client):
+    """PATCH /conversations/{id} can update persona_id."""
+    # Create a persona
+    persona_resp = await auth_client.post(
+        "/api/personas",
+        json={"name": "Test Persona", "system_prompt": "Be brief."},
+    )
+    assert persona_resp.status_code == 201
+    persona_id = persona_resp.json()["id"]
+
+    # Create a conversation
+    conv_resp = await auth_client.post(
+        "/api/conversations", json={"title": "Test Conv"}
+    )
+    assert conv_resp.status_code == 201
+    conv_id = conv_resp.json()["id"]
+
+    # Attach persona
+    patch_resp = await auth_client.patch(
+        f"/api/conversations/{conv_id}", json={"persona_id": persona_id}
+    )
+    assert patch_resp.status_code == 200
+    assert patch_resp.json()["persona_id"] == persona_id
