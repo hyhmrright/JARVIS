@@ -1,7 +1,7 @@
 # Phase 21: Search & Export Design Spec
 
 > Generated: 2026-03-26
-> Status: Draft (v2 — post spec-review fixes)
+> Status: Draft (v3 — post second spec-review fixes)
 > Scope: Full-text search across conversations/documents/memories + single-conversation and full-account data export
 
 ---
@@ -19,7 +19,9 @@ JARVIS has completed Phases 1-20, delivering a full-featured AI assistant platfo
 
 ### Goal
 
-A unified search endpoint that queries `messages.content`, `documents.filename`, and `user_memories.content` using PostgreSQL ILIKE with `pg_trgm` GIN index acceleration. Results are returned in a single ranked list with contextual snippets.
+A unified search endpoint that queries `messages.content`, `documents.filename`, and `user_memories.value` using PostgreSQL ILIKE with `pg_trgm` GIN index acceleration. Results are returned in a single ranked list with contextual snippets.
+
+> **Model note**: `UserMemory` stores text in the `value` column (not `content`). All references to memory search use `user_memories.value`.
 
 ### Architecture
 
@@ -84,6 +86,8 @@ A unified search endpoint that queries `messages.content`, `documents.filename`,
 - Snippet extraction: locate first case-insensitive match position `pos`; slice `content[max(0, pos-80) : pos+80+len(q)]`. Handles boundary conditions: when `pos < 80` the prefix is simply truncated to start-of-string; when match is near end, suffix is truncated to end-of-string.
 - Results merged and sorted by `created_at DESC`
 - Soft-deleted documents (`documents.is_deleted = true`) are **excluded** from results
+- Memory queries use `user_memories.value` (not `content` — the actual column name in the `UserMemory` model)
+- `total` = `len(results)` — the count of items actually returned across all queried types (≤ `limit × number_of_types`). Does **not** represent the unfettered match count. This is explicitly documented in the API; a pagination-aware count is out of scope for Phase 21.
 
 **Workspace scope for messages**: Include messages from conversations where:
 - `conversation.user_id = :uid` (personal), **OR**
@@ -97,31 +101,42 @@ A unified search endpoint that queries `messages.content`, `documents.filename`,
 
 New Alembic migration (`041_add_search_gin_indexes.py`).
 
-`CREATE INDEX CONCURRENTLY` **cannot run inside a transaction**. Alembic wraps migrations in transactions by default. This migration must be executed with `AUTOCOMMIT` isolation:
+`CREATE INDEX CONCURRENTLY` **cannot run inside a transaction**. Alembic wraps migrations in transactions by default; mutating the Alembic-managed connection's isolation level corrupts migration state tracking. The safe pattern is to **open a fresh engine** with `AUTOCOMMIT` isolation, leaving the Alembic connection untouched:
 
 ```python
 # In the migration file
 from alembic import op
+import sqlalchemy as sa
 
 def upgrade() -> None:
-    # pg_trgm and CONCURRENTLY require running outside a transaction block
-    connection = op.get_bind()
-    connection.execute(sa.text("COMMIT"))  # end Alembic's implicit transaction
-    connection.execution_options(isolation_level="AUTOCOMMIT")
+    # CREATE INDEX CONCURRENTLY must run outside a transaction.
+    # Use a fresh AUTOCOMMIT engine so Alembic's own transaction is unaffected.
+    url = op.get_context().config.get_main_option("sqlalchemy.url")
+    engine = sa.create_engine(url, isolation_level="AUTOCOMMIT")
+    with engine.connect() as conn:
+        conn.execute(sa.text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+        conn.execute(sa.text(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_messages_content_trgm "
+            "ON messages USING gin (content gin_trgm_ops)"
+        ))
+        conn.execute(sa.text(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_memories_value_trgm "
+            "ON user_memories USING gin (value gin_trgm_ops)"  # column is 'value', not 'content'
+        ))
+        conn.execute(sa.text(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_documents_filename_trgm "
+            "ON documents USING gin (filename gin_trgm_ops)"
+        ))
+    engine.dispose()
 
-    connection.execute(sa.text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
-    connection.execute(sa.text(
-        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_messages_content_trgm "
-        "ON messages USING gin (content gin_trgm_ops)"
-    ))
-    connection.execute(sa.text(
-        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_memories_content_trgm "
-        "ON user_memories USING gin (content gin_trgm_ops)"
-    ))
-    connection.execute(sa.text(
-        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_documents_filename_trgm "
-        "ON documents USING gin (filename gin_trgm_ops)"
-    ))
+def downgrade() -> None:
+    url = op.get_context().config.get_main_option("sqlalchemy.url")
+    engine = sa.create_engine(url, isolation_level="AUTOCOMMIT")
+    with engine.connect() as conn:
+        conn.execute(sa.text("DROP INDEX CONCURRENTLY IF EXISTS ix_messages_content_trgm"))
+        conn.execute(sa.text("DROP INDEX CONCURRENTLY IF EXISTS ix_memories_value_trgm"))
+        conn.execute(sa.text("DROP INDEX CONCURRENTLY IF EXISTS ix_documents_filename_trgm"))
+    engine.dispose()
 ```
 
 ### Frontend
@@ -184,7 +199,9 @@ Two export modes:
 
 ### Architecture
 
-**New file**: `backend/app/api/export.py` — contains **all** export endpoints, including the per-conversation export (`GET /api/export/conversations/{id}`) and the account export endpoints. The per-conversation export lives in `export.py`, **not** in `conversations.py`, to keep the dedicated export module self-contained.
+**New file**: `backend/app/api/export.py` — contains the **account export endpoints only** (`POST /api/export/account`, `GET /api/export/account/status`).
+
+**Modified file**: `backend/app/api/conversations.py` — the existing `GET /api/conversations/{conv_id}/export` endpoint is **extended** (not replaced) to add the 1000-message cap and `truncated` field. A new route in `export.py` is **not** added for per-conversation export to avoid creating a duplicate endpoint with an overlapping URL pattern.
 
 **New ARQ task**: `export_account` in `backend/app/worker.py`
 
@@ -194,23 +211,24 @@ Two export modes:
 
 ### Backend API
 
-#### Single Conversation Export
+#### Single Conversation Export (extend existing endpoint)
 
-**`GET /api/export/conversations/{id}`**
+**`GET /api/conversations/{conv_id}/export`** — **existing endpoint in `conversations.py`**, extended with:
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `format` | `markdown` \| `json` | `markdown` | Export format |
+| Change | Detail |
+|--------|--------|
+| Add `format=markdown` alias | Currently accepts `md|json|txt`; add `markdown` as alias for `md` for clarity (backwards-compatible) |
+| Add 1000-message cap | Query `ORDER BY created_at DESC LIMIT 1000` then reverse; set `truncated=True` when total > 1000 |
+| Add `truncated` to JSON output | New field in the JSON response body |
+| Add truncation note to Markdown | Append `(showing most recent 1000 of {total} messages)` to the metadata header when truncated |
 
-**Authorization**: User must own the conversation, or be a member of the conversation's workspace.
+**Authorization**: Existing logic unchanged — user must own conversation, or valid share token.
 
-**Message cap**: Exports are limited to the **most recent 1000 messages**. If the conversation has more than 1000 messages, a header comment is added indicating truncation. For full export, use the account export.
+**Message cap**: Exports are limited to the **most recent 1000 messages**. For full history, use the account export.
 
-**Response**: `StreamingResponse` with appropriate `Content-Disposition: attachment` header:
-- Markdown: `Content-Type: text/markdown; charset=utf-8`, filename `{sanitized-title}.md`
-- JSON: `Content-Type: application/json`, filename `{sanitized-title}.json`
+**Response**: `StreamingResponse` with `Content-Disposition: attachment` header — existing behavior unchanged.
 
-**Rate limit**: 20 exports/minute per user (user-ID keyed).
+**Rate limit**: Existing 60/minute kept (no change needed; export size is now capped).
 
 **Markdown format** (concrete template):
 
@@ -373,7 +391,7 @@ New "数据与隐私" section:
 | File | Purpose |
 |------|---------|
 | `backend/app/api/search.py` | Search endpoint |
-| `backend/app/api/export.py` | All export endpoints (per-conversation + account) |
+| `backend/app/api/export.py` | Account export endpoints only (POST /api/export/account + GET /api/export/account/status) |
 | `backend/alembic/versions/041_add_search_gin_indexes.py` | pg_trgm extension + GIN indexes (AUTOCOMMIT mode) |
 | `frontend/src/pages/SearchPage.vue` | Search UI page |
 | `backend/tests/api/test_search.py` | Search endpoint tests |
@@ -385,6 +403,7 @@ New "数据与隐私" section:
 |------|--------|
 | `backend/app/main.py` | Register `search_router` and `export_router` |
 | `backend/app/worker.py` | Add `export_account` ARQ task + `cleanup_expired_exports` hourly cron |
+| `backend/app/api/conversations.py` | Extend existing `GET /{conv_id}/export` with 1000-message cap + `truncated` field |
 | `frontend/src/router/index.ts` | Add `/search` route |
 | `frontend/src/pages/ChatPage.vue` | Search shortcut (`Cmd+K`) + conversation export button |
 | `frontend/src/pages/SettingsPage.vue` | "数据与隐私" section with account export |
@@ -412,12 +431,14 @@ New "数据与隐私" section:
 - Rate limit enforced (mock limiter, verify user-ID key not IP)
 - Workspace member can find messages from workspace conversations
 
-### Export Tests (`test_export.py`)
+### Conversation Export Tests (`test_conversations.py` — extend existing)
 
 - Single conversation Markdown export: correct format (title, metadata header, messages), correct `Content-Disposition: attachment`
 - Single conversation Markdown with > 1000 messages: returns most recent 1000, includes truncation note
 - Single conversation JSON export: valid JSON, `truncated` field present, all messages present (up to 1000)
 - Export of another user's conversation returns 404
+
+### Account Export Tests (`test_export.py`)
 - Account export `POST` returns 200 and enqueues ARQ task
 - Account export atomic cooldown: concurrent requests cannot both succeed (mock Redis SET NX)
 - Second account export request within 24h returns 429 with `retry_after`
