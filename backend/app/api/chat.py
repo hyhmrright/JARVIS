@@ -484,35 +484,39 @@ async def chat_stream(  # noqa: C901
     if not is_consent:
         from app.db.models import Persona
 
-        if conv.persona_id:
-            # Mid-conversation persona switching: apply persona from conversation FK
+        if conv.persona_id and not conv.persona_override:
+            # Sync persona_override from FK once per conversation
             _persona = await db.scalar(
                 select(Persona).where(Persona.id == conv.persona_id)
             )
             if _persona:
                 conv.persona_override = _persona.system_prompt
                 await db.commit()
-        elif body.persona_id:
-            # Legacy: apply persona on new conversation only
-            message_count = await db.scalar(
+        elif body.persona_id or body.workflow_dsl:
+            # Lazy-check: only query message count when needed
+            _msg_count = await db.scalar(
                 select(func.count(Message.id)).where(Message.conversation_id == conv.id)
             )
-            if message_count == 0:
-                _persona = await db.scalar(
-                    select(Persona).where(
-                        Persona.id == body.persona_id, Persona.user_id == user.id
+            if (_msg_count or 0) == 0:
+                if body.persona_id:
+                    _persona = await db.scalar(
+                        select(Persona).where(
+                            Persona.id == body.persona_id, Persona.user_id == user.id
+                        )
                     )
-                )
-                if _persona:
-                    conv.persona_override = _persona.system_prompt
+                    if _persona:
+                        conv.persona_override = _persona.system_prompt
+                        await db.commit()
+                if body.workflow_dsl:
+                    conv.workflow_dsl = body.workflow_dsl
                     await db.commit()
 
-    # Store workflow DSL if provided for a new conversation
-    if body.workflow_dsl and not is_consent:
-        message_count = await db.scalar(
+    # Store workflow DSL if provided for a new conversation (when no persona path taken)
+    elif body.workflow_dsl and not is_consent:
+        _msg_count = await db.scalar(
             select(func.count(Message.id)).where(Message.conversation_id == conv.id)
         )
-        if message_count == 0:
+        if (_msg_count or 0) == 0:
             conv.workflow_dsl = body.workflow_dsl
             await db.commit()
 

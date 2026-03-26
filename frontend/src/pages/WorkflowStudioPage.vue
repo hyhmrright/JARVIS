@@ -223,7 +223,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, markRaw, onMounted } from 'vue';
+import { ref, computed, markRaw, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { VueFlow, useVueFlow, type Elements, type Connection, type Edge, type Node } from '@vue-flow/core';
@@ -437,6 +437,13 @@ const onSave = async () => {
     saving.value = false;
   }
 };
+
+onBeforeUnmount(() => {
+  if (runTimeoutId) {
+    clearTimeout(runTimeoutId);
+    runTimeoutId = null;
+  }
+});
 
 onMounted(async () => {
   const id = route.query.id as string | undefined;

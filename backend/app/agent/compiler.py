@@ -84,11 +84,7 @@ class GraphCompiler:
             node_outputs = state.get("node_outputs") or {}
             messages: list[BaseMessage] = list(state["messages"])
             if prompt_template:
-                rendered = (
-                    self._render_template(prompt_template, node_outputs)
-                    if node_outputs
-                    else prompt_template
-                )
+                rendered = self._render_template(prompt_template, node_outputs)
                 messages = [SystemMessage(content=rendered), *messages]
 
             response = await llm.ainvoke(messages)
@@ -147,11 +143,7 @@ class GraphCompiler:
 
         async def handler(state: GraphState) -> dict[str, Any]:
             node_outputs = state.get("node_outputs") or {}
-            rendered = (
-                self._render_template(prompt_template, node_outputs)
-                if node_outputs
-                else prompt_template
-            )
+            rendered = self._render_template(prompt_template, node_outputs)
             from app.tools.image_gen_tool import create_image_gen_tool
 
             img_tool = create_image_gen_tool(api_key)
@@ -237,15 +229,11 @@ class GraphCompiler:
                 graph.add_conditional_edges(inc_edge.source, router, path_map)  # type: ignore[arg-type]
 
     def _add_regular_edges(self, graph: StateGraph, condition_ids: set[str]) -> None:
-        condition_node_ids = {n.id for n in self.dsl.nodes if n.type == "condition"}
         for edge in self.dsl.edges:
             if edge.source in condition_ids:
                 continue
             tgt = next((n for n in self.dsl.nodes if n.id == edge.target), None)
             if tgt and tgt.type == "condition":
-                continue
-            src = next((n for n in self.dsl.nodes if n.id == edge.source), None)
-            if src and src.id in condition_node_ids:
                 continue
             graph.add_edge(edge.source, edge.target)
 
