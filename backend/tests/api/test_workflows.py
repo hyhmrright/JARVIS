@@ -240,3 +240,36 @@ async def test_delete_workflow_dsl(auth_client):
 
     del_resp = await auth_client.delete(f"/api/workflows/{wf_id}")
     assert del_resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Workflow runs tests (Phase 18 Task 3)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_list_workflow_runs(auth_client):
+    """GET /runs returns list of run records."""
+    create_resp = await auth_client.post(
+        "/api/workflows",
+        json={
+            "name": "Runs Test",
+            "dsl": {
+                "nodes": [{"id": "input_1", "type": "input", "data": {}}],
+                "edges": [],
+            },
+        },
+    )
+    assert create_resp.status_code == 201
+    wf_id = create_resp.json()["id"]
+
+    resp = await auth_client.get(f"/api/workflows/{wf_id}/runs")
+    assert resp.status_code == 200
+    assert isinstance(resp.json(), list)
+
+
+@pytest.mark.anyio
+async def test_list_workflow_runs_not_found(auth_client):
+    """GET /runs for nonexistent workflow returns 404."""
+    resp = await auth_client.get(f"/api/workflows/{uuid.uuid4()}/runs")
+    assert resp.status_code == 404
