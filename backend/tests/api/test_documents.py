@@ -278,3 +278,33 @@ async def test_cannot_rename_other_users_document(auth_client, db_session, clien
         f"/api/documents/{doc_id}", json={"filename": "hacked.txt"}
     )
     assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_upload_rejects_invalid_mime(auth_client):
+    """Upload of a .exe file (application/octet-stream) must be rejected."""
+    resp = await auth_client.post(
+        "/api/documents",
+        files={
+            "file": ("malware.exe", b"MZ\x00\x00padding", "application/octet-stream")
+        },
+    )
+    assert resp.status_code == 400
+
+
+@pytest.mark.anyio
+async def test_ingest_url_blocks_internal_addresses(auth_client):
+    """Requests to RFC-1918 / loopback addresses must be blocked with 400."""
+    internal_urls = [
+        "http://10.0.0.1/secret",
+        "http://192.168.1.100/admin",
+        "http://127.0.0.1:8080/api",
+    ]
+    for url in internal_urls:
+        resp = await auth_client.post(
+            "/api/documents/ingest-url",
+            json={"url": url},
+        )
+        assert resp.status_code == 400, (
+            f"Expected 400 for {url}, got {resp.status_code}"
+        )

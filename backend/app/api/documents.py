@@ -10,16 +10,22 @@ import magic
 import structlog
 from bs4 import BeautifulSoup
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from qdrant_client.models import FieldCondition, Filter, MatchValue
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import ResolvedLLMConfig, get_current_user, get_llm_config
+from app.api.deps import (
+    ResolvedLLMConfig,
+    get_current_user,
+    get_llm_config,
+    require_workspace_member,
+)
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.security import resolve_api_key
-from app.db.models import Document, User, UserSettings, Workspace, WorkspaceMember
+from app.db.models import Document, User, UserSettings, WorkspaceMember
 from app.db.session import get_db
 from app.infra.minio import get_minio_client
 from app.infra.qdrant import get_qdrant_client, user_collection_name
@@ -73,27 +79,23 @@ async def _assert_doc_write_access(
         raise HTTPException(status_code=404, detail="Document not found")
 
 
-async def _resolve_workspace_collection(
-    workspace_id: uuid.UUID,
+async def _get_qdrant_collection(
+    workspace_id: uuid.UUID | None,
     user: User,
     db: AsyncSession,
 ) -> str:
-    """Validate workspace membership and return the Qdrant collection name.
+    """Get the Qdrant collection name for a user or workspace document.
 
-    Raises HTTPException 404 if the workspace is missing/deleted/outside the
-    user's org, and 403 if the user is not a member.
+    For workspace documents: validates membership via require_workspace_member
+    and returns the workspace collection name.
+    For personal documents: returns the user collection name.
+
+    Raises HTTPException 404 if workspace is missing/deleted/outside org,
+    or 403 if user is not a member.
     """
-    ws = await db.get(Workspace, workspace_id)
-    if not ws or ws.is_deleted or ws.organization_id != user.organization_id:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    membership = await db.scalar(
-        select(WorkspaceMember).where(
-            WorkspaceMember.workspace_id == workspace_id,
-            WorkspaceMember.user_id == user.id,
-        )
-    )
-    if not membership:
-        raise HTTPException(status_code=403, detail="Not a workspace member")
+    if workspace_id is None:
+        return user_collection_name(str(user.id))
+    await require_workspace_member(workspace_id, user, db)
     return f"workspace_{workspace_id}"
 
 
@@ -141,7 +143,7 @@ async def list_documents(
 ) -> dict[str, list[DocumentOut]]:
     if workspace_id is not None:
         # Workspace listing: show all docs in this workspace to members.
-        await _resolve_workspace_collection(workspace_id, user, db)
+        await require_workspace_member(workspace_id, user, db)
         query = (
             select(Document)
             .where(
@@ -238,6 +240,14 @@ async def delete_document(
         )
     except Exception:
         logger.exception("qdrant_delete_failed", doc_id=str(doc.id))
+        logger.info("document_deleted", user_id=str(user.id), doc_id=str(doc.id))
+        return JSONResponse(
+            status_code=207,
+            content={
+                "status": "partial",
+                "message": "Document deleted but vector cleanup failed",
+            },
+        )
 
     logger.info("document_deleted", user_id=str(user.id), doc_id=str(doc.id))
 
@@ -269,15 +279,13 @@ async def upload_document(
         )
 
     # Validate workspace membership before touching MinIO to avoid orphaned objects.
-    qdrant_collection = user_collection_name(str(user.id))
-    if workspace_id is not None:
-        qdrant_collection = await _resolve_workspace_collection(workspace_id, user, db)
+    qdrant_collection = await _get_qdrant_collection(workspace_id, user, db)
+    minio_client = get_minio_client()
 
     safe_name = Path(file.filename or "upload").name
     object_key = f"{user.id}/{uuid.uuid4()}_{safe_name}"
 
     try:
-        minio_client = get_minio_client()
         await asyncio.to_thread(
             minio_client.put_object,
             settings.minio_bucket,
@@ -323,7 +331,7 @@ async def upload_document(
         # downstream (DB flush, indexing, etc.) fails after the upload.
         try:
             await asyncio.to_thread(
-                get_minio_client().remove_object,
+                minio_client.remove_object,
                 settings.minio_bucket,
                 object_key,
             )
@@ -391,11 +399,8 @@ async def ingest_url(
             detail=f"URL not allowed (internal or non-http): {body.url!r}",
         )
 
-    qdrant_collection = user_collection_name(str(user.id))
     workspace_id = body.workspace_id
-
-    if workspace_id is not None:
-        qdrant_collection = await _resolve_workspace_collection(workspace_id, user, db)
+    qdrant_collection = await _get_qdrant_collection(workspace_id, user, db)
 
     # Resolve OpenAI key before fetching the URL (fail fast).
     user_settings = await db.scalar(

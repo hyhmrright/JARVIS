@@ -19,3 +19,13 @@ scrape_configs:
   - job_name: redis
     static_configs:
       - targets: ['redis_exporter:9121']
+
+  - job_name: 'qdrant'
+    static_configs:
+      - targets: ['qdrant:6333']
+    metrics_path: /metrics
+
+  - job_name: 'minio'
+    static_configs:
+      - targets: ['minio:9000']
+    metrics_path: /minio/v2/metrics/cluster

@@ -12,7 +12,8 @@
     "copy": "コピー",
     "copied": "コピー済み！",
     "saving": "保存中...",
-    "clone": "複製"
+    "clone": "複製",
+    "skipToMain": "メインコンテンツへスキップ"
   },
   "login": {
     "title": "JARVIS にログイン",
@@ -82,7 +83,10 @@
     "deleteMessageConfirm": "このメッセージを完全に削除しますか？",
     "deleteMessageError": "メッセージの削除に失敗しました",
     "copyError": "コピーに失敗しました",
-    "automations": "オートメーション"
+    "automations": "オートメーション",
+    "extracting": "ファイルの内容を抽出中...",
+    "fileExtractionFailed": "ファイルの内容抽出に失敗しました",
+    "voiceInput": "音声入力"
   },
   "usage": {
     "title": "利用統計",
@@ -417,10 +421,21 @@
     "nodeOutput": "出力",
     "nodeOutputDesc": "ユーザーに結果を返す",
     "nodeStart": "開始",
+    "nodeImage_gen": "画像生成",
+    "nodeImage_genDesc": "AIを使用して画像を生成",
     "workflowStart": "ワークフロー開始",
     "saved": "ワークフローが保存されました。",
     "saveError": "ワークフローの保存に失敗しました。",
-    "loadError": "ワークフローの読み込みに失敗しました。"
+    "loadError": "ワークフローの読み込みに失敗しました。",
+    "executionInputs": "実行入力",
+    "run": "実行",
+    "running": "実行中...",
+    "history": "履歴",
+    "logs": "ログ",
+    "executeWorkflow": "ワークフローを実行",
+    "noLogs": "ログはまだありません。実行を開始すると進捗が表示されます。",
+    "runningNode": "ノードを実行中...",
+    "runTimeout": "30秒間応答がありません。ワークフローがタイムアウトした可能性があります"
   },
   "skillMarket": {
     "ecosystem": "JARVIS エコシステム",
@@ -470,5 +485,9 @@
     "deleteConfirm": "ワークフロー「{name}」を削除しますか？",
     "deleteError": "ワークフローの削除に失敗しました。",
     "cloneError": "ワークフローの複製に失敗しました。"
+  },
+  "notFound": {
+    "message": "ページが見つかりません",
+    "backHome": "ホームに戻る"
   }
 }

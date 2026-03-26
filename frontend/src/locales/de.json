@@ -12,7 +12,8 @@
     "copy": "Kopieren",
     "copied": "Kopiert!",
     "saving": "Wird gespeichert...",
-    "clone": "Duplizieren"
+    "clone": "Duplizieren",
+    "skipToMain": "Zum Hauptinhalt springen"
   },
   "login": {
     "title": "Bei JARVIS anmelden",
@@ -82,7 +83,10 @@
     "deleteMessageConfirm": "Diese Nachricht dauerhaft löschen?",
     "deleteMessageError": "Nachricht konnte nicht gelöscht werden",
     "copyError": "Kopieren fehlgeschlagen",
-    "automations": "Automatisierungen"
+    "automations": "Automatisierungen",
+    "extracting": "Dateiinhalt wird extrahiert...",
+    "fileExtractionFailed": "Dateiextrahierung fehlgeschlagen",
+    "voiceInput": "Spracheingabe"
   },
   "usage": {
     "title": "Nutzungsstatistik",
@@ -417,10 +421,21 @@
     "nodeOutput": "Ausgabe",
     "nodeOutputDesc": "Ergebnis an den Benutzer zurückgeben",
     "nodeStart": "Start",
+    "nodeImage_gen": "Bildgenerierung",
+    "nodeImage_genDesc": "Bilder mit KI generieren",
     "workflowStart": "Workflow-Start",
     "saved": "Workflow gespeichert.",
     "saveError": "Workflow konnte nicht gespeichert werden.",
-    "loadError": "Workflow konnte nicht geladen werden."
+    "loadError": "Workflow konnte nicht geladen werden.",
+    "executionInputs": "Ausführungseingaben",
+    "run": "Ausführen",
+    "running": "Wird ausgeführt...",
+    "history": "Verlauf",
+    "logs": "Protokolle",
+    "executeWorkflow": "Workflow ausführen",
+    "noLogs": "Noch keine Protokolle. Starten Sie eine Ausführung, um den Fortschritt zu sehen.",
+    "runningNode": "Knoten wird ausgeführt...",
+    "runTimeout": "30 Sekunden keine Antwort, Workflow hat möglicherweise eine Zeitüberschreitung"
   },
   "skillMarket": {
     "ecosystem": "JARVIS-Ökosystem",
@@ -470,5 +485,9 @@
     "deleteConfirm": "Workflow \"{name}\" löschen?",
     "deleteError": "Workflow konnte nicht gelöscht werden.",
     "cloneError": "Workflow konnte nicht dupliziert werden."
+  },
+  "notFound": {
+    "message": "Seite nicht gefunden",
+    "backHome": "Zurück zur Startseite"
   }
 }

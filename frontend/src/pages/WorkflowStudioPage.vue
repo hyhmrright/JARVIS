@@ -22,7 +22,7 @@
           @click="onRun"
         >
           <Play class="w-3.5 h-3.5 fill-current" />
-          {{ running ? 'Running...' : 'Run' }}
+          {{ running ? $t('workflowStudio.running') : $t('workflowStudio.run') }}
         </button>
         <button
           class="px-4 py-1.5 bg-white text-black rounded-lg text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all flex items-center gap-2 disabled:opacity-50"
@@ -106,7 +106,7 @@
         <div class="flex-1 overflow-y-auto p-6 custom-scrollbar">
           <!-- Input Tab -->
           <div v-if="activeRunTab === 'input'" class="space-y-6">
-            <p class="text-[10px] text-zinc-500 leading-relaxed uppercase tracking-wider font-bold">Execution Inputs</p>
+            <p class="text-[10px] text-zinc-500 leading-relaxed uppercase tracking-wider font-bold">{{ $t('workflowStudio.executionInputs') }}</p>
             <div v-for="node in elements.filter(e => 'type' in e && e.type === 'input')" :key="node.id" class="space-y-2">
               <label class="text-[11px] font-medium text-zinc-400">{{ node.data?.label || node.id }}</label>
               <textarea
@@ -119,7 +119,7 @@
             <button
               class="w-full py-3 bg-white text-black text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-zinc-200 transition-all mt-4"
               @click="onRun"
-            >Execute Workflow</button>
+            >{{ $t('workflowStudio.executeWorkflow') }}</button>
           </div>
 
           <!-- Log Tab -->
@@ -128,7 +128,7 @@
               <div class="w-10 h-10 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Play class="w-4 h-4 text-zinc-700" />
               </div>
-              <p class="text-[11px] text-zinc-600">No logs yet. Start an execution.</p>
+              <p class="text-[11px] text-zinc-600">{{ $t('workflowStudio.noLogs') }}</p>
             </div>
             <div v-for="(log, idx) in runLogs" :key="idx" class="p-4 bg-zinc-900/50 border border-zinc-800 rounded-xl space-y-2">
               <div class="flex items-center justify-between">
@@ -139,7 +139,7 @@
             </div>
             <div v-if="running" class="flex items-center gap-3 p-4">
               <div class="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-              <span class="text-[10px] text-zinc-500 font-bold uppercase animate-pulse">Running node...</span>
+              <span class="text-[10px] text-zinc-500 font-bold uppercase animate-pulse">{{ $t('workflowStudio.runningNode') }}</span>
             </div>
           </div>
 
@@ -247,20 +247,26 @@ const workflowId = ref<string | null>(null);
 const saving = ref(false);
 const loadFailed = ref(false);
 const workflowName = ref('');
+const RUN_TIMEOUT_MS = 30000;
+
 const running = ref(false);
 const showRunDrawer = ref(false);
 const activeRunTab = ref<'input' | 'log' | 'history'>('input');
 const runInputs = ref<Record<string, string>>({});
 const runLogs = ref<Array<{ node_id: string; output: string; duration_ms: number; status: string }>>([]);
 const runHistory = ref<any[]>([]);
-const currentRunId = ref<string | null>(null);
 let runTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 function resetRunTimeout() {
   if (runTimeoutId) clearTimeout(runTimeoutId);
   runTimeoutId = setTimeout(() => {
-    runLogs.value.push({ node_id: 'system', output: '30秒无响应，工作流可能已超时', duration_ms: 0, status: 'warning' });
-  }, 30000);
+    runLogs.value.push({
+      node_id: 'system',
+      output: t('workflowStudio.runTimeout'),
+      duration_ms: 0,
+      status: 'warning'
+    });
+  }, RUN_TIMEOUT_MS);
 }
 
 const elements = ref<Elements>([
@@ -280,12 +286,19 @@ const nodeTypeMeta = [
   { type: 'image_gen', icon: markRaw(ImageIcon) },
 ] as const;
 
-const nodeTypes = computed(() => nodeTypeMeta.map(({ type, icon }) => ({
-  type,
-  icon,
-  label: t(`workflowStudio.node${type.charAt(0).toUpperCase() + type.slice(1)}`),
-  description: t(`workflowStudio.node${type.charAt(0).toUpperCase() + type.slice(1)}Desc`),
-})));
+function capitalizeNodeType(type: string): string {
+  return type.charAt(0).toUpperCase() + type.slice(1);
+}
+
+const nodeTypes = computed(() => nodeTypeMeta.map(({ type, icon }) => {
+  const capitalizedType = capitalizeNodeType(type);
+  return {
+    type,
+    icon,
+    label: t(`workflowStudio.node${capitalizedType}`),
+    description: t(`workflowStudio.node${capitalizedType}Desc`),
+  };
+}));
 
 const nodeTypeComponents = {
   llm: markRaw(LLMNode),
@@ -383,7 +396,6 @@ const onRun = async () => {
               updateNodeData(event.node_id, { status: 'completed', output: event.output });
             } else if (event.type === 'run_done') {
               if (runTimeoutId) { clearTimeout(runTimeoutId); runTimeoutId = null; }
-              currentRunId.value = event.run_id;
               running.value = false;
               toastSuccess(`Workflow ${event.status}`);
               fetchHistory();

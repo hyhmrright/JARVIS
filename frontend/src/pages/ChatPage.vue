@@ -529,7 +529,7 @@
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
       </button>
       <div ref="messagesEl" class="h-full overflow-y-auto custom-scrollbar" @scroll="onMessagesScroll">
-        <div class="max-w-3xl mx-auto px-6 py-12 space-y-16">
+        <div aria-live="polite" aria-label="Conversation messages" class="max-w-3xl mx-auto px-6 py-12 space-y-16">
 
           <!-- New Session Welcome -->
           <div v-if="chat.messages.length === 0" class="pt-20 animate-in fade-in slide-in-from-bottom-4 duration-1000">
@@ -870,7 +870,7 @@
               <button class="p-2.5 text-zinc-500 hover:text-white transition-colors" title="Attach Image" @click="fileInput?.click()">
                 <Image class="w-4 h-4" />
               </button>
-              <button class="p-2.5 text-zinc-500 hover:text-white transition-colors" @click="voiceOverlay?.start()">
+              <button class="p-2.5 text-zinc-500 hover:text-white transition-colors" :aria-label="$t('chat.voiceInput', 'Voice input')" title="Voice input" @click="voiceOverlay?.start()">
                 <Mic class="w-4 h-4" />
               </button>
               <button
@@ -895,6 +895,7 @@
                 v-if="chat.streaming"
                 class="p-2.5 bg-zinc-800 text-white rounded-lg transition-all active:scale-95 hover:bg-zinc-700"
                 :title="$t('chat.stopGenerating')"
+                :aria-label="$t('chat.stopGenerating')"
                 @click="chat.cancelStream()"
               >
                 <Square class="w-4 h-4" />
@@ -904,6 +905,7 @@
                 v-else
                 :disabled="!input.trim()"
                 class="p-2.5 bg-white text-black rounded-lg disabled:opacity-10 transition-all active:scale-95"
+                :aria-label="$t('chat.send', 'Send message')"
                 @click="handleSend"
               >
                 <ArrowUp class="w-4 h-4 stroke-[3px]" />

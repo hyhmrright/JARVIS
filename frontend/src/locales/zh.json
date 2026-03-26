@@ -12,7 +12,8 @@
     "copy": "复制",
     "copied": "已复制！",
     "saving": "保存中...",
-    "clone": "克隆"
+    "clone": "克隆",
+    "skipToMain": "跳转到主内容"
   },
   "login": {
     "title": "登录 JARVIS",
@@ -84,7 +85,8 @@
     "copyError": "复制失败",
     "automations": "自动化",
     "extracting": "提取中...",
-    "fileExtractionFailed": "文件提取失败，请重试"
+    "fileExtractionFailed": "文件提取失败，请重试",
+    "voiceInput": "语音输入"
   },
   "usage": {
     "title": "用量统计",
@@ -444,7 +446,8 @@
     "logs": "日志",
     "executeWorkflow": "执行工作流",
     "noLogs": "暂无日志。开始执行以查看进度。",
-    "runningNode": "正在执行节点..."
+    "runningNode": "正在执行节点...",
+    "runTimeout": "30秒无响应，工作流可能已超时"
   },
   "skillMarket": {
     "ecosystem": "JARVIS 生态",
@@ -494,5 +497,9 @@
     "deleteConfirm": "删除工作流「{name}」？",
     "deleteError": "删除工作流失败。",
     "cloneError": "克隆工作流失败。"
+  },
+  "notFound": {
+    "message": "页面未找到",
+    "backHome": "返回首页"
   }
 }

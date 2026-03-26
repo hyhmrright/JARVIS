@@ -1,10 +1,18 @@
 <template>
   <div class="min-h-screen w-full bg-zinc-950 text-zinc-50 antialiased selection:bg-zinc-50/10">
-    <router-view v-slot="{ Component }">
-      <transition name="fade" mode="out-in">
-        <component :is="Component" />
-      </transition>
-    </router-view>
+    <a
+      href="#main-content"
+      class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded"
+    >
+      {{ $t('common.skipToMain', 'Skip to main content') }}
+    </a>
+    <div id="main-content">
+      <router-view v-slot="{ Component }">
+        <transition name="fade" mode="out-in">
+          <component :is="Component" />
+        </transition>
+      </router-view>
+    </div>
     <ToastContainer />
   </div>
 </template>

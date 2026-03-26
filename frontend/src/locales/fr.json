@@ -12,7 +12,8 @@
     "copy": "Copier",
     "copied": "Copié !",
     "saving": "Enregistrement...",
-    "clone": "Dupliquer"
+    "clone": "Dupliquer",
+    "skipToMain": "Aller au contenu principal"
   },
   "login": {
     "title": "Connexion à JARVIS",
@@ -82,7 +83,10 @@
     "deleteMessageConfirm": "Supprimer définitivement ce message ?",
     "deleteMessageError": "Échec de la suppression du message",
     "copyError": "Échec de la copie",
-    "automations": "Automatisations"
+    "automations": "Automatisations",
+    "extracting": "Extraction du contenu du fichier...",
+    "fileExtractionFailed": "Échec de l'extraction du fichier",
+    "voiceInput": "Entrée vocale"
   },
   "usage": {
     "title": "Statistiques d'utilisation",
@@ -417,10 +421,21 @@
     "nodeOutput": "Sortie",
     "nodeOutputDesc": "Retourner le résultat à l'utilisateur",
     "nodeStart": "Début",
+    "nodeImage_gen": "Génération d'image",
+    "nodeImage_genDesc": "Générer des images avec l'IA",
     "workflowStart": "Début du workflow",
     "saved": "Workflow enregistré.",
     "saveError": "Échec de l'enregistrement du workflow.",
-    "loadError": "Échec du chargement du workflow."
+    "loadError": "Échec du chargement du workflow.",
+    "executionInputs": "Entrées d'exécution",
+    "run": "Exécuter",
+    "running": "En cours...",
+    "history": "Historique",
+    "logs": "Journaux",
+    "executeWorkflow": "Exécuter le workflow",
+    "noLogs": "Aucun journal pour l'instant. Démarrez une exécution pour voir la progression.",
+    "runningNode": "Nœud en cours d'exécution...",
+    "runTimeout": "Aucune réponse depuis 30 secondes, le flux de travail a peut-être expiré"
   },
   "skillMarket": {
     "ecosystem": "Écosystème JARVIS",
@@ -470,5 +485,9 @@
     "deleteConfirm": "Supprimer le workflow « {name} » ?",
     "deleteError": "Impossible de supprimer le workflow.",
     "cloneError": "Impossible de dupliquer le workflow."
+  },
+  "notFound": {
+    "message": "Page non trouvée",
+    "backHome": "Retour à l'accueil"
   }
 }

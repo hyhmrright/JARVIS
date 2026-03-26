@@ -20,17 +20,26 @@ const router = createRouter({
     { path: "/workspace/members", component: () => import("@/pages/WorkspaceMembersPage.vue"), meta: { requiresAuth: true } },
     { path: "/invite/:token", component: () => import("@/pages/InviteAcceptPage.vue") },
     { path: "/share/:token", component: () => import("@/pages/SharedChatPage.vue") },
-    { path: "/:pathMatch(.*)*", redirect: "/" },
+    { path: "/:pathMatch(.*)*", name: "NotFound", component: () => import("@/pages/NotFoundPage.vue") },
   ],
 });
 
 router.beforeEach((to) => {
   const auth = useAuthStore();
+
   if (to.meta.requiresAuth && !auth.isLoggedIn) {
-    return "/login";
+    return { path: "/login", query: { redirect: to.fullPath } };
   }
+
   if (to.meta.requiresAdmin && !auth.isAdmin) {
-    return "/";
+    return { path: "/" };
+  }
+
+  if (to.path === "/login" && auth.isLoggedIn) {
+    const redirect = to.query.redirect;
+    const decoded = typeof redirect === "string" ? decodeURIComponent(redirect) : "";
+    const redirectPath = decoded.startsWith("/") ? decoded : "/";
+    return { path: redirectPath };
   }
 });
 

@@ -12,7 +12,8 @@
     "copy": "Copy",
     "copied": "Copied!",
     "saving": "Saving...",
-    "clone": "Clone"
+    "clone": "Clone",
+    "skipToMain": "Skip to main content"
   },
   "login": {
     "title": "Login to JARVIS",
@@ -84,7 +85,8 @@
     "copyError": "Failed to copy",
     "automations": "Automations",
     "extracting": "Extracting...",
-    "fileExtractionFailed": "File extraction failed, please try again"
+    "fileExtractionFailed": "File extraction failed, please try again",
+    "voiceInput": "Voice input"
   },
   "usage": {
     "title": "Usage Statistics",
@@ -444,7 +446,8 @@
     "logs": "Logs",
     "executeWorkflow": "Execute Workflow",
     "noLogs": "No logs yet. Start an execution to see progress.",
-    "runningNode": "Running node..."
+    "runningNode": "Running node...",
+    "runTimeout": "No response for 30 seconds, workflow may have timed out"
   },
   "skillMarket": {
     "ecosystem": "JARVIS ecosystem",
@@ -494,5 +497,9 @@
     "deleteConfirm": "Delete workflow \"{name}\"?",
     "deleteError": "Failed to delete workflow.",
     "cloneError": "Failed to clone workflow."
+  },
+  "notFound": {
+    "message": "Page not found",
+    "backHome": "Back to Home"
   }
 }

@@ -186,8 +186,13 @@ async def voice_stream(
     await websocket.accept()
     try:
         auth_payload = await asyncio.wait_for(websocket.receive_json(), timeout=5)
-    except Exception:
+    except TimeoutError:
         await websocket.close(code=1008, reason="Authentication required")
+        return
+    except Exception:
+        await websocket.close(
+            code=1011, reason="Unexpected error during authentication"
+        )
         return
 
     if auth_payload.get("type") != "auth" or not auth_payload.get("token"):
@@ -204,17 +209,19 @@ async def voice_stream(
 
     us = await db.scalar(select(UserSettings).where(UserSettings.user_id == user.id))
     raw_keys = us.api_keys if us else {}
+    provider = us.model_provider if us else "deepseek"
+    enabled_tools = (
+        us.enabled_tools
+        if us and us.enabled_tools is not None
+        else DEFAULT_ENABLED_TOOLS
+    )
     cfg = _VoiceSessionConfig(
-        provider=us.model_provider if us else "deepseek",
+        provider=provider,
         model_name=us.model_name if us else "deepseek-chat",
-        api_keys=resolve_api_keys(us.model_provider if us else "deepseek", raw_keys),
+        api_keys=resolve_api_keys(provider, raw_keys),
         openai_key=resolve_api_key("openai", raw_keys),
         persona=us.persona_override if us else None,
-        enabled=(
-            us.enabled_tools
-            if us and us.enabled_tools is not None
-            else DEFAULT_ENABLED_TOOLS
-        ),
+        enabled=enabled_tools,
         tts_voice=_get_tts_voice(locale),
         user_id=str(user.id),
     )
