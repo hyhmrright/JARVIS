@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 
 import structlog
@@ -37,8 +38,13 @@ def _status_key(user_id: uuid.UUID) -> str:
     return f"export_status:{user_id}"
 
 
-async def _get_redis_client() -> Redis:
-    return Redis.from_url(get_redis_url(), decode_responses=True)
+async def _get_redis() -> AsyncIterator[Redis]:
+    """Yield a short-lived Redis connection; closed after each request."""
+    client = Redis.from_url(get_redis_url(), decode_responses=True)
+    try:
+        yield client
+    finally:
+        await client.aclose()
 
 
 async def _enqueue_export(user_id: str) -> None:
@@ -67,35 +73,32 @@ async def start_account_export(
     request: Request,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(_get_redis),
 ) -> ExportStartResponse:
     """Trigger a full account data export. Rate-limited to once per 24 hours."""
-    redis = await _get_redis_client()
-    try:
-        cooldown_key = _cooldown_key(user.id)
-        set_result = await redis.set(cooldown_key, "1", ex=_COOLDOWN_TTL, nx=True)
-        if not set_result:
-            ttl = await redis.ttl(cooldown_key)
-            raise HTTPException(
-                status_code=429,
-                detail={
-                    "message": "Export already requested.",
-                    "retry_after": max(ttl, 0),
-                },
-            )
-
-        status_data = {
-            "status": "pending",
-            "created_at": datetime.now(UTC).isoformat(),
-        }
-        await redis.set(_status_key(user.id), json.dumps(status_data), ex=_STATUS_TTL)
-        await _enqueue_export(str(user.id))
-
-        logger.info("account_export_started", user_id=str(user.id))
-        return ExportStartResponse(
-            message="Export started. You will be notified when ready."
+    cooldown_key = _cooldown_key(user.id)
+    set_result = await redis.set(cooldown_key, "1", ex=_COOLDOWN_TTL, nx=True)
+    if not set_result:
+        ttl = await redis.ttl(cooldown_key)
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "message": "Export already requested.",
+                "retry_after": max(ttl, 0),
+            },
         )
-    finally:
-        await redis.aclose()
+
+    status_data = {
+        "status": "pending",
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    await redis.set(_status_key(user.id), json.dumps(status_data), ex=_STATUS_TTL)
+    await _enqueue_export(str(user.id))
+
+    logger.info("account_export_started", user_id=str(user.id))
+    return ExportStartResponse(
+        message="Export started. You will be notified when ready."
+    )
 
 
 @router.get("/account/status", response_model=ExportStatusResponse)
@@ -103,19 +106,16 @@ async def start_account_export(
 async def get_account_export_status(
     request: Request,
     user: User = Depends(get_current_user),
+    redis: Redis = Depends(_get_redis),
 ) -> ExportStatusResponse:
     """Check the status of the most recent account export."""
-    redis = await _get_redis_client()
-    try:
-        raw = await redis.get(_status_key(user.id))
-        if not raw:
-            return ExportStatusResponse(status="none")
-        data = json.loads(raw)
-        return ExportStatusResponse(
-            status=data.get("status", "unknown"),
-            created_at=data.get("created_at"),
-            download_url=data.get("download_url"),
-            expires_at=data.get("expires_at"),
-        )
-    finally:
-        await redis.aclose()
+    raw = await redis.get(_status_key(user.id))
+    if not raw:
+        return ExportStatusResponse(status="none")
+    data = json.loads(raw)
+    return ExportStatusResponse(
+        status=data.get("status", "unknown"),
+        created_at=data.get("created_at"),
+        download_url=data.get("download_url"),
+        expires_at=data.get("expires_at"),
+    )
