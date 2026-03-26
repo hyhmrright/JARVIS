@@ -3,7 +3,7 @@ from typing import Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,6 +32,10 @@ class PersonaCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     description: str | None = Field(default=None, max_length=500)
     system_prompt: str = Field(min_length=1, max_length=8000)
+    temperature: float | None = Field(default=None, ge=0.0, le=2.0)
+    model_name: str | None = Field(default=None, max_length=100)
+    enabled_tools: list[str] | None = None
+    replace_system_prompt: bool = False
 
 
 class PersonaOut(BaseModel):
@@ -39,7 +43,11 @@ class PersonaOut(BaseModel):
     name: str
     description: str | None = None
     system_prompt: str
-    model_config = {"from_attributes": True}
+    temperature: float | None = None
+    model_name: str | None = None
+    enabled_tools: list[str] | None = None
+    replace_system_prompt: bool = False
+    model_config = ConfigDict(from_attributes=True)
 
 
 @router.get("", response_model=list[PersonaOut])
@@ -66,6 +74,10 @@ async def create_persona(
         name=body.name,
         description=body.description,
         system_prompt=body.system_prompt,
+        temperature=body.temperature,
+        model_name=body.model_name,
+        enabled_tools=body.enabled_tools,
+        replace_system_prompt=body.replace_system_prompt,
     )
     db.add(new_persona)
     await db.commit()
@@ -86,6 +98,10 @@ async def update_persona(
     persona.name = body.name
     persona.description = body.description
     persona.system_prompt = body.system_prompt
+    persona.temperature = body.temperature
+    persona.model_name = body.model_name
+    persona.enabled_tools = body.enabled_tools
+    persona.replace_system_prompt = body.replace_system_prompt
     await db.commit()
     await db.refresh(persona)
     return persona
@@ -106,6 +122,10 @@ async def clone_persona(
         name=f"{base_name} (copy)",
         description=persona.description,
         system_prompt=persona.system_prompt,
+        temperature=persona.temperature,
+        model_name=persona.model_name,
+        enabled_tools=persona.enabled_tools,
+        replace_system_prompt=persona.replace_system_prompt,
     )
     db.add(clone)
     await db.commit()

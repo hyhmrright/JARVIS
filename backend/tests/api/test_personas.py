@@ -131,3 +131,40 @@ async def test_clone_persona_ownership(auth_client, client):
 async def test_clone_persona_not_found(auth_client):
     resp = await auth_client.post(f"/api/personas/{uuid.uuid4()}/clone")
     assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_create_persona_with_extended_fields(auth_client):
+    """Persona creation accepts new fields: temperature, model_name, enabled_tools, replace_system_prompt."""  # noqa: E501
+    resp = await auth_client.post(
+        "/api/personas",
+        json={
+            "name": "Extended Persona",
+            "system_prompt": "You are a helpful assistant.",
+            "temperature": 0.7,
+            "model_name": "deepseek-chat",
+            "enabled_tools": ["web_search", "code_exec"],
+            "replace_system_prompt": True,
+        },
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["temperature"] == 0.7
+    assert data["model_name"] == "deepseek-chat"
+    assert data["enabled_tools"] == ["web_search", "code_exec"]
+    assert data["replace_system_prompt"] is True
+
+
+@pytest.mark.anyio
+async def test_persona_defaults_for_new_fields(auth_client):
+    """Creating persona without new fields gives sane defaults."""
+    resp = await auth_client.post(
+        "/api/personas",
+        json={"name": "Simple Persona", "system_prompt": "Be helpful."},
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["temperature"] is None
+    assert data["model_name"] is None
+    assert data["enabled_tools"] is None
+    assert data["replace_system_prompt"] is False
