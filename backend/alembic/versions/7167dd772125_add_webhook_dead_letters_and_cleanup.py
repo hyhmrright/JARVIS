@@ -1,6 +1,6 @@
 """add_webhook_dead_letters_and_cleanup
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: 7167dd772125
 Revises: 73bcfb00a52e
 Create Date: 2026-03-26 10:20:00.000000
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "a1b2c3d4e5f6"
+revision: str = "7167dd772125"
 down_revision: str | None = "73bcfb00a52e"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
