@@ -56,7 +56,7 @@ async def test_update_workflow(auth_client):
         json={
             "name": "New",
             "description": "Updated desc",
-            "dsl": {"nodes": [{"id": "1"}]},
+            "dsl": {"nodes": [{"id": "n1", "type": "llm", "data": {}}]},
         },
     )
     assert update_resp.status_code == 200
@@ -89,7 +89,7 @@ async def test_clone_workflow(auth_client):
         json={
             "name": "Original Flow",
             "description": "Desc",
-            "dsl": {"nodes": [{"id": "n1", "data": {"nested": [1, 2]}}]},
+            "dsl": {"nodes": [{"id": "n1", "type": "llm", "data": {"nested": [1, 2]}}]},
         },
     )
     assert create_resp.status_code == 201
@@ -141,3 +141,102 @@ async def test_clone_workflow_ownership(auth_client, client):
 async def test_clone_workflow_not_found(auth_client):
     resp = await auth_client.post(f"/api/workflows/{uuid.uuid4()}/clone")
     assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# DSL validation tests (Phase 18 Task 1)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_create_workflow_with_invalid_dsl_rejected(auth_client):
+    """DSL with unknown node type must be rejected with 422."""
+    resp = await auth_client.post(
+        "/api/workflows",
+        json={
+            "name": "Invalid DSL",
+            "dsl": {
+                "nodes": [{"id": "n1", "type": "unknown_type", "data": {}}],
+                "edges": [],
+            },
+        },
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_create_workflow_with_cycle_rejected(auth_client):
+    """DSL with cycle must be rejected with 422."""
+    resp = await auth_client.post(
+        "/api/workflows",
+        json={
+            "name": "Cyclic DSL",
+            "dsl": {
+                "nodes": [
+                    {"id": "n1", "type": "llm", "data": {"prompt": "a"}},
+                    {"id": "n2", "type": "llm", "data": {"prompt": "b"}},
+                ],
+                "edges": [
+                    {"id": "e1", "source": "n1", "target": "n2"},
+                    {"id": "e2", "source": "n2", "target": "n1"},
+                ],
+            },
+        },
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_create_workflow_with_valid_dsl(auth_client):
+    """Valid DSL with recognized node types passes validation."""
+    resp = await auth_client.post(
+        "/api/workflows",
+        json={
+            "name": "Valid Workflow",
+            "dsl": {
+                "nodes": [
+                    {"id": "input_1", "type": "input", "data": {}},
+                    {
+                        "id": "llm_1",
+                        "type": "llm",
+                        "data": {"prompt": "Hello", "model": "deepseek-chat"},
+                    },
+                    {"id": "output_1", "type": "output", "data": {"format": "text"}},
+                ],
+                "edges": [
+                    {"id": "e1", "source": "input_1", "target": "llm_1"},
+                    {"id": "e2", "source": "llm_1", "target": "output_1"},
+                ],
+            },
+        },
+    )
+    assert resp.status_code == 201
+    assert resp.json()["name"] == "Valid Workflow"
+
+
+@pytest.mark.anyio
+async def test_list_workflows(auth_client):
+    """GET /workflows returns user's workflows."""
+    resp = await auth_client.get("/api/workflows")
+    assert resp.status_code == 200
+    assert isinstance(resp.json(), list)
+
+
+@pytest.mark.anyio
+async def test_delete_workflow_dsl(auth_client):
+    """DELETE /workflows/{id} removes the workflow."""
+    create_resp = await auth_client.post(
+        "/api/workflows",
+        json={
+            "name": "To Delete",
+            "dsl": {
+                "nodes": [{"id": "n1", "type": "input", "data": {}}],
+                "edges": [],
+            },
+        },
+    )
+    assert create_resp.status_code == 201
+    wf_id = create_resp.json()["id"]
+
+    del_resp = await auth_client.delete(f"/api/workflows/{wf_id}")
+    assert del_resp.status_code == 200
