@@ -1,7 +1,7 @@
 # Phase 21: Search & Export Design Spec
 
 > Generated: 2026-03-26
-> Status: Draft
+> Status: Draft (v2 — post spec-review fixes)
 > Scope: Full-text search across conversations/documents/memories + single-conversation and full-account data export
 
 ---
@@ -36,13 +36,15 @@ A unified search endpoint that queries `messages.content`, `documents.filename`,
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `q` | string (1–200 chars) | required | Search keyword |
-| `types` | comma-separated: `messages,documents,memories` | all | Scope of search |
-| `date_from` | ISO 8601 date | none | Filter results after this date |
-| `date_to` | ISO 8601 date | none | Filter results before this date |
+| `q` | string (**3**–200 chars) | required | Search keyword. Minimum 3 chars required for `pg_trgm` index to be used; shorter patterns fall back to sequential scan. |
+| `types` | comma-separated enum: `messages`, `documents`, `memories` | all three | Scope of search. Invalid values → 422. |
+| `date_from` | ISO 8601 date | none | Filter results created on or after this date |
+| `date_to` | ISO 8601 date | none | Filter results created on or before this date |
 | `limit` | int (1–50) | 20 | Max results per type |
 
 **Authentication**: Required (JWT / PAT). Users only see their own data.
+
+**Rate limit**: 30 requests/minute per user. Key function: **user ID extracted from JWT/PAT** (not IP address), so PAT users are correctly throttled by identity.
 
 **Response schema** (`SearchResponse`):
 
@@ -78,38 +80,56 @@ A unified search endpoint that queries `messages.content`, `documents.filename`,
 
 **Implementation**:
 - Three `SELECT ... WHERE column ILIKE :pattern LIMIT :limit` queries run concurrently via `asyncio.gather`
-- Pattern: `%{q}%` (parameterized to prevent SQL injection)
-- Snippet extraction: locate first match position, slice `[max(0, pos-80):pos+80+len(q)]`
+- Pattern: `%{q}%` (parameterized, prevents SQL injection)
+- Snippet extraction: locate first case-insensitive match position `pos`; slice `content[max(0, pos-80) : pos+80+len(q)]`. Handles boundary conditions: when `pos < 80` the prefix is simply truncated to start-of-string; when match is near end, suffix is truncated to end-of-string.
 - Results merged and sorted by `created_at DESC`
-- Rate limited: 30 requests/minute per user
+- Soft-deleted documents (`documents.is_deleted = true`) are **excluded** from results
 
-**Workspace scope**: Messages from workspace conversations that the user is a member of are included. Documents from accessible workspaces are included.
+**Workspace scope for messages**: Include messages from conversations where:
+- `conversation.user_id = :uid` (personal), **OR**
+- `conversation.workspace_id IN (SELECT workspace_id FROM workspace_members WHERE user_id = :uid)` (workspace member)
+
+**Workspace scope for documents**: Include documents where:
+- `document.user_id = :uid AND document.workspace_id IS NULL` (personal), **OR**
+- `document.workspace_id IN (SELECT workspace_id FROM workspace_members WHERE user_id = :uid)`
 
 #### Database Migration
 
-New Alembic migration (`041_add_search_gin_indexes.py`):
+New Alembic migration (`041_add_search_gin_indexes.py`).
 
-```sql
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
+`CREATE INDEX CONCURRENTLY` **cannot run inside a transaction**. Alembic wraps migrations in transactions by default. This migration must be executed with `AUTOCOMMIT` isolation:
 
-CREATE INDEX CONCURRENTLY ix_messages_content_trgm
-    ON messages USING gin (content gin_trgm_ops);
+```python
+# In the migration file
+from alembic import op
 
-CREATE INDEX CONCURRENTLY ix_memories_content_trgm
-    ON user_memories USING gin (content gin_trgm_ops);
+def upgrade() -> None:
+    # pg_trgm and CONCURRENTLY require running outside a transaction block
+    connection = op.get_bind()
+    connection.execute(sa.text("COMMIT"))  # end Alembic's implicit transaction
+    connection.execution_options(isolation_level="AUTOCOMMIT")
 
-CREATE INDEX CONCURRENTLY ix_documents_filename_trgm
-    ON documents USING gin (filename gin_trgm_ops);
+    connection.execute(sa.text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+    connection.execute(sa.text(
+        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_messages_content_trgm "
+        "ON messages USING gin (content gin_trgm_ops)"
+    ))
+    connection.execute(sa.text(
+        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_memories_content_trgm "
+        "ON user_memories USING gin (content gin_trgm_ops)"
+    ))
+    connection.execute(sa.text(
+        "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_documents_filename_trgm "
+        "ON documents USING gin (filename gin_trgm_ops)"
+    ))
 ```
-
-`CREATE INDEX CONCURRENTLY` avoids table lock. Alembic migration wraps each in a separate transaction (required for CONCURRENTLY).
 
 ### Frontend
 
 #### New Route and Page
 
 - Route: `/search` added to `frontend/src/router/index.ts` (requires auth)
-- Page: `SearchPage.vue` — search input, type filter chips, date range pickers, result list grouped by type
+- Page: `SearchPage.vue` — search input, type filter chips (messages / documents / memories), date range pickers, result list grouped by type
 - Results show snippet with keyword highlighted (`<mark>` tag)
 - Clicking a `message` result navigates to `/` and selects the corresponding conversation
 - Clicking a `document` result navigates to `/documents`
@@ -128,7 +148,7 @@ All 6 locale files (`zh.json`, `en.json`, `ja.json`, `ko.json`, `fr.json`, `de.j
 ```json
 "search": {
   "title": "搜索",
-  "placeholder": "搜索对话、文档和记忆...",
+  "placeholder": "搜索对话、文档和记忆（至少3个字符）",
   "types": {
     "messages": "对话消息",
     "documents": "文档",
@@ -136,6 +156,7 @@ All 6 locale files (`zh.json`, `en.json`, `ja.json`, `ko.json`, `fr.json`, `de.j
   },
   "noResults": "未找到相关内容",
   "resultCount": "共 {count} 条结果",
+  "minLength": "请至少输入3个字符",
   "snippet": {
     "conversation": "来自对话：{title}",
     "document": "文档：{filename}",
@@ -146,7 +167,8 @@ All 6 locale files (`zh.json`, `en.json`, `ja.json`, `ko.json`, `fr.json`, `de.j
 
 ### Error Handling
 
-- `q` empty or > 200 chars → 422 with validation message
+- `q` shorter than 3 chars or longer than 200 chars → 422 with validation message
+- `types` contains an invalid value → 422
 - Database unavailable → 503
 - No results → 200 with empty `results` array (not 404)
 
@@ -157,46 +179,58 @@ All 6 locale files (`zh.json`, `en.json`, `ja.json`, `ko.json`, `fr.json`, `de.j
 ### Goal
 
 Two export modes:
-1. **Single conversation export**: Synchronous download of one conversation as Markdown or JSON
-2. **Full account export**: Asynchronous background job that packages all user data into a ZIP, stores it in MinIO, and notifies the user with a time-limited download link
+1. **Single conversation export**: Synchronous download of one conversation as Markdown or JSON (capped at 1000 messages)
+2. **Full account export**: Asynchronous background job that packages all user data into a ZIP stored in MinIO, with a time-limited download link delivered via the notification system
 
 ### Architecture
 
-**New file**: `backend/app/api/export.py`
+**New file**: `backend/app/api/export.py` — contains **all** export endpoints, including the per-conversation export (`GET /api/export/conversations/{id}`) and the account export endpoints. The per-conversation export lives in `export.py`, **not** in `conversations.py`, to keep the dedicated export module self-contained.
+
 **New ARQ task**: `export_account` in `backend/app/worker.py`
+
 **Frontend changes**: `ChatPage.vue` (per-conversation export button), `SettingsPage.vue` (account export section)
+
+**MinIO bucket policy**: The existing MinIO bucket is **private** (no public access). All access goes through either the backend API (streaming) or MinIO presigned URLs. This is an existing constraint; no change required.
 
 ### Backend API
 
 #### Single Conversation Export
 
-**`GET /api/conversations/{id}/export`**
+**`GET /api/export/conversations/{id}`**
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `format` | `markdown` \| `json` | `markdown` | Export format |
 
-**Authorization**: User must own the conversation (or be a workspace member if workspace conversation).
+**Authorization**: User must own the conversation, or be a member of the conversation's workspace.
 
-**Response**: `StreamingResponse` with appropriate `Content-Disposition` header:
-- Markdown: `Content-Type: text/markdown`, filename `{conversation-title}.md`
-- JSON: `Content-Type: application/json`, filename `{conversation-title}.json`
+**Message cap**: Exports are limited to the **most recent 1000 messages**. If the conversation has more than 1000 messages, a header comment is added indicating truncation. For full export, use the account export.
 
-**Markdown format**:
+**Response**: `StreamingResponse` with appropriate `Content-Disposition: attachment` header:
+- Markdown: `Content-Type: text/markdown; charset=utf-8`, filename `{sanitized-title}.md`
+- JSON: `Content-Type: application/json`, filename `{sanitized-title}.json`
+
+**Rate limit**: 20 exports/minute per user (user-ID keyed).
+
+**Markdown format** (concrete template):
 
 ```markdown
 # {conversation title}
 
-> Exported: {ISO date} · Model: {model_name} · Messages: {count}
+> Exported: {YYYY-MM-DD HH:MM UTC}
+> Model: {model_name}
+> Messages: {count}{truncation_note}
 
 ---
 
-**User** · {timestamp}
+**用户** · {YYYY-MM-DD HH:MM}
 {message content}
 
-**Assistant** · {timestamp}
+**助手** · {YYYY-MM-DD HH:MM}
 {message content}
 ```
+
+Where `{truncation_note}` is either empty or ` (showing most recent 1000 of {total} messages)`.
 
 **JSON format**:
 
@@ -207,6 +241,7 @@ Two export modes:
   "model_name": "string",
   "created_at": "ISO 8601",
   "exported_at": "ISO 8601",
+  "truncated": false,
   "messages": [
     {
       "id": "uuid",
@@ -218,19 +253,29 @@ Two export modes:
 }
 ```
 
-**Rate limit**: 20 exports/minute per user.
-
 #### Full Account Export
 
 **`POST /api/export/account`**
 
-Enqueues an ARQ background job. Returns immediately:
+Enqueues an ARQ background job. The `user_id` used for the job is extracted **server-side from the authenticated JWT/PAT** at enqueue time — it is never taken from the request body. This prevents tampering even if the ARQ Redis queue were accessible.
+
+Returns immediately:
 
 ```json
-{ "task_id": "uuid", "message": "Export started. You will be notified when ready." }
+{ "message": "Export started. You will be notified when ready." }
 ```
 
-**Rate limit**: 1 request per 24 hours per user (enforced via Redis key `export_cooldown:{user_id}` with 86400s TTL).
+Note: No `task_id` is returned. Status is keyed by `user_id` since only one export per user can be in flight (enforced by the 24h cooldown). Returning a `task_id` would be misleading since the status endpoint does not accept one.
+
+**Rate limit**: 1 request per 24 hours per user. Enforced via Redis key `export_cooldown:{user_id}` (TTL 86400s) using an atomic `SET NX` check. The cooldown check and enqueue happen atomically to prevent TOCTOU race conditions.
+
+If within cooldown: returns 429 with:
+```json
+{
+  "detail": "Export already requested. Try again in {seconds} seconds.",
+  "retry_after": 12345
+}
+```
 
 **`GET /api/export/account/status`**
 
@@ -243,42 +288,55 @@ Enqueues an ARQ background job. Returns immediately:
 }
 ```
 
-Status is stored in Redis key `export_status:{user_id}` (TTL 25 hours).
+Status stored in Redis key `export_status:{user_id}` (TTL **25 hours**).
+
+**Known behavior**: If the Redis key expires (after 25 hours) before the user checks status, the status is lost. The presigned URL in the notification (sent when export completes) remains valid for **25 hours** from completion. Once both the Redis key and notification link expire, there is no recovery path — the user must re-trigger the export. This is **explicitly acceptable** behavior for Phase 21; a DB-backed status table is out of scope.
+
+**Presigned URL TTL**: **25 hours** (matching the Redis status TTL and the cleanup window), avoiding the scenario where status says "done" but the URL has already expired.
 
 #### ARQ Worker Task: `export_account`
 
-Steps executed in the background:
+The worker receives `{"user_id": "uuid"}` from the ARQ queue (server-side injected at enqueue).
 
-1. **Conversations + messages**: Query all user's conversations with messages ordered by `created_at`; serialize to individual Markdown files under `conversations/`
-2. **Documents metadata**: Query `documents` table (non-deleted); serialize to `documents.json` (no raw file content — files may be large; metadata only)
-3. **Memories**: Query `user_memories`; serialize to `memories.json`
-4. **Settings**: Query `user_settings`; serialize to `settings.json` with sensitive fields redacted (`api_keys` → `"[REDACTED]"`, `persona_override` retained)
-5. **Package**: Build ZIP in memory (`zipfile.ZipFile` with `io.BytesIO`)
-6. **Upload**: `asyncio.to_thread(minio_client.put_object, ...)` to MinIO, object key `exports/{user_id}/{task_id}.zip`
-7. **Presign**: Generate 24-hour presigned download URL
-8. **Notify**: Insert `Notification` row (type `account_export_ready`, body contains download URL)
-9. **Update Redis**: Set `export_status:{user_id}` to `done` with URL and expiry
+Steps:
 
-**Error handling**: On any step failure, set Redis status to `failed`, insert `Notification` of type `account_export_failed`, log exception.
+1. **Conversations + messages**: Query all user's conversations (including workspace conversations where user is a member); for each, serialize up to 10,000 messages to a Markdown file under `conversations/` in the ZIP. Conversations are named `{YYYY-MM-DD}_{sanitized-title}.md`.
+2. **Documents metadata**: Query non-deleted `documents` rows; serialize to `documents.json` (no raw file content).
+3. **Memories**: Query `user_memories`; serialize to `memories.json`.
+4. **Settings**: Query `user_settings`; serialize to `settings.json`. `api_keys` field replaced with `"[REDACTED]"`. All other user-controlled settings retained.
+5. **Build ZIP**: Use `tempfile.NamedTemporaryFile` (not `io.BytesIO`) to avoid memory pressure on large accounts. Stream `zipfile.ZipFile` writes to the temp file.
+6. **Upload to MinIO**: `asyncio.to_thread(minio_client.put_object, ...)`, object key `exports/{user_id}/{task_id}.zip`. Use MinIO's streaming upload with the temp file handle.
+7. **Presign**: Generate a **25-hour** presigned download URL.
+8. **Notify**: Insert `Notification` row (type `account_export_ready`, body includes the download URL and expiry time).
+9. **Update Redis**: Set `export_status:{user_id}` = `{status: "done", download_url: ..., expires_at: ..., created_at: ...}` with TTL 25 hours.
+10. **Cleanup temp file**: Delete the temp file.
 
-**Cleanup**: After 25 hours, a new cron job `cleanup_expired_exports` deletes the MinIO object and clears the Redis key.
+**Error handling**: On any step failure, set Redis `export_status:{user_id}` = `{status: "failed"}`, insert `Notification` (type `account_export_failed`), log exception with `logger.exception`.
+
+#### Cleanup Cron: `cleanup_expired_exports`
+
+**Schedule**: Runs hourly (`0 * * * *`), registered in ARQ's `cron_jobs` list in `worker.py`.
+
+**Discovery mechanism**: The cron task queries a Redis Set `export_pending_cleanup` — when a new export is enqueued, its MinIO object key is added to this set with a score of `enqueue_timestamp + 25*3600` (using a Redis Sorted Set for TTL-based ordering). The cron task:
+1. `ZRANGEBYSCORE export_pending_cleanup 0 {now}` — retrieve all keys whose cleanup time has passed
+2. For each key: delete the MinIO object (`minio_client.remove_object`)
+3. `ZREM export_pending_cleanup {key}` — remove from the set
+
+This avoids enumerating MinIO objects and handles partial failures gracefully (the key remains in the set and is retried next hour if MinIO delete fails).
 
 ### Frontend
 
 #### Per-Conversation Export
 
-`ChatPage.vue` conversation header (three-dot menu):
-- New menu item: "导出对话"
-- Sub-menu or modal: choose Markdown or JSON
-- Triggers `window.open(url)` or fetch + `URL.createObjectURL` for download
+`ChatPage.vue` three-dot conversation header menu: new "导出对话" item. Sub-choice: Markdown or JSON. On selection, triggers a `fetch` to `GET /api/export/conversations/{id}?format=markdown|json` and uses `URL.createObjectURL` for client-side download (no page navigation).
 
 #### Account Export (`SettingsPage.vue`)
 
-New section "数据与隐私":
-- "导出全部数据" button
-- On click: POST `/api/export/account` → show toast "导出任务已提交，完成后将通知您"
-- If 24h cooldown active: show remaining time "距下次可导出还有 Xh Xm"
-- Notification center already shows the completion notification with download link
+New "数据与隐私" section:
+- "导出全部数据" button with description: "打包您的所有对话、文档元数据和记忆（不含 API 密钥）"
+- On click → `POST /api/export/account` → toast "导出任务已提交，完成后将通知您"
+- If 429 (cooldown active): show "距下次可导出还有 {time}" (parse `retry_after` from response)
+- Completion: Notification in notification center with download link, shows expiry time
 
 #### i18n Keys
 
@@ -288,11 +346,12 @@ New section "数据与隐私":
   "singleConversation": "导出对话",
   "formatMarkdown": "Markdown 格式",
   "formatJson": "JSON 格式",
+  "truncated": "（已截断，仅显示最近 1000 条消息）",
   "accountExport": "导出全部数据",
   "accountExportHint": "将打包您的所有对话、文档元数据和记忆，API 密钥不会包含在导出中",
   "submitted": "导出任务已提交，完成后将通知您",
   "cooldown": "距下次可导出还有 {time}",
-  "downloadReady": "您的数据导出已就绪，请在 24 小时内下载",
+  "downloadReady": "您的数据导出已就绪，请在25小时内下载",
   "failed": "导出失败，请稍后重试"
 }
 ```
@@ -300,9 +359,10 @@ New section "数据与隐私":
 ### Security Constraints
 
 - API keys, password hashes, and Fernet-encrypted values are **never** exported
-- MinIO presigned URLs use 24-hour expiry; the underlying object is deleted after 25 hours
-- Export task verifies `user_id` matches the authenticated user before packaging
-- Single conversation export validates conversation ownership before streaming
+- MinIO bucket is **private**; only presigned URLs grant temporary access
+- Presigned URLs expire in **25 hours** and the underlying object is deleted after 25 hours
+- `user_id` for the export task is extracted server-side from the authenticated session at enqueue time, never from client input
+- Atomic Redis `SET NX` prevents TOCTOU race condition on the 24h cooldown check
 
 ---
 
@@ -313,8 +373,8 @@ New section "数据与隐私":
 | File | Purpose |
 |------|---------|
 | `backend/app/api/search.py` | Search endpoint |
-| `backend/app/api/export.py` | Export endpoints (single conversation + account) |
-| `backend/alembic/versions/041_add_search_gin_indexes.py` | pg_trgm extension + GIN indexes |
+| `backend/app/api/export.py` | All export endpoints (per-conversation + account) |
+| `backend/alembic/versions/041_add_search_gin_indexes.py` | pg_trgm extension + GIN indexes (AUTOCOMMIT mode) |
 | `frontend/src/pages/SearchPage.vue` | Search UI page |
 | `backend/tests/api/test_search.py` | Search endpoint tests |
 | `backend/tests/api/test_export.py` | Export endpoint tests |
@@ -324,12 +384,12 @@ New section "数据与隐私":
 | File | Change |
 |------|--------|
 | `backend/app/main.py` | Register `search_router` and `export_router` |
-| `backend/app/worker.py` | Add `export_account` ARQ task + `cleanup_expired_exports` cron |
-| `backend/app/api/conversations.py` | Add `GET /{id}/export` endpoint |
+| `backend/app/worker.py` | Add `export_account` ARQ task + `cleanup_expired_exports` hourly cron |
 | `frontend/src/router/index.ts` | Add `/search` route |
-| `frontend/src/pages/ChatPage.vue` | Add search shortcut + conversation export button |
-| `frontend/src/pages/SettingsPage.vue` | Add account export section |
+| `frontend/src/pages/ChatPage.vue` | Search shortcut (`Cmd+K`) + conversation export button |
+| `frontend/src/pages/SettingsPage.vue` | "数据与隐私" section with account export |
 | `frontend/src/locales/*.json` (×6) | Add `search.*` and `export.*` i18n keys |
+| `frontend/src/App.vue` | Register global `Cmd+K` / `Ctrl+K` keyboard shortcut |
 
 ---
 
@@ -339,25 +399,35 @@ New section "数据与隐私":
 
 - Search with no results returns 200 + empty list
 - Keyword matches in messages are returned with correct snippet
-- Keyword matches in documents (by filename) are returned
+- Keyword at start of content (pos=0): snippet is not prefixed with garbage
+- Keyword at end of content: snippet is not suffixed with garbage
+- Keyword matches in documents (by filename) are returned; soft-deleted documents are **excluded**
 - Keyword matches in memories are returned
-- `types` filter correctly excludes non-requested types
-- Date range filters work correctly
+- `types=messages` filter excludes documents and memories
+- `types=foobar` returns 422
+- `date_from` / `date_to` filter works correctly
 - User A cannot see User B's results (isolation)
-- `q` too long returns 422
-- Empty `q` returns 422
-- Rate limit enforced (mock limiter)
+- `q` shorter than 3 chars returns 422
+- `q` longer than 200 chars returns 422
+- Rate limit enforced (mock limiter, verify user-ID key not IP)
+- Workspace member can find messages from workspace conversations
 
 ### Export Tests (`test_export.py`)
 
-- Single conversation Markdown export: correct format, correct `Content-Disposition`
-- Single conversation JSON export: valid JSON, all messages present
-- Export of another user's conversation returns 403/404
-- Account export enqueues ARQ task, returns task_id
-- Second account export within 24h returns 429 with cooldown info
-- ARQ task produces ZIP with expected files
-- ZIP does not contain `api_keys` values
-- Status endpoint reflects task progress
+- Single conversation Markdown export: correct format (title, metadata header, messages), correct `Content-Disposition: attachment`
+- Single conversation Markdown with > 1000 messages: returns most recent 1000, includes truncation note
+- Single conversation JSON export: valid JSON, `truncated` field present, all messages present (up to 1000)
+- Export of another user's conversation returns 404
+- Account export `POST` returns 200 and enqueues ARQ task
+- Account export atomic cooldown: concurrent requests cannot both succeed (mock Redis SET NX)
+- Second account export request within 24h returns 429 with `retry_after`
+- `export_account` ARQ task produces ZIP containing `conversations/`, `documents.json`, `memories.json`, `settings.json`
+- ZIP `settings.json` does **not** contain `api_keys` values (replaced with `[REDACTED]`)
+- ZIP uses temp file, not in-memory BytesIO (verify `tempfile.NamedTemporaryFile` called)
+- Status endpoint reflects `pending` → `done` transition
+- Status endpoint returns 200 with empty status (no prior export) gracefully
+- `cleanup_expired_exports` cron deletes the correct MinIO object key and removes it from the Redis sorted set
+- `cleanup_expired_exports` with MinIO failure: key remains in sorted set, no exception propagated
 
 ---
 
@@ -367,3 +437,4 @@ New section "数据与隐私":
 - Export of raw document files (MinIO objects) — metadata only to keep ZIP size manageable
 - Import of previously exported data — future phase
 - PDF rendering of exported conversations — Markdown is sufficient for Phase 21
+- DB-backed export status table — Redis-based status with documented TTL loss is acceptable for Phase 21
