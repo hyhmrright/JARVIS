@@ -3,11 +3,12 @@
 from collections.abc import AsyncIterator
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
 from app.api.deps import get_current_user
+from app.core.limiter import limiter
 from app.db.models import User
 from app.gateway.security import PAIRING_CODE_TTL, PairingManager
 from app.infra.redis import get_redis_url
@@ -32,7 +33,9 @@ async def _get_redis() -> AsyncIterator[Redis]:
 
 
 @router.post("/pair")
+@limiter.limit("10/minute")
 async def generate_pairing_code(
+    request: Request,
     user: User = Depends(get_current_user),
     redis: Redis = Depends(_get_redis),
 ) -> dict[str, str | int]:

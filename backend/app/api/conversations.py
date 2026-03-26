@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any, Literal
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user, get_current_user_optional
+from app.core.limiter import limiter
 from app.db.models import (
     Conversation,
     ConversationTag,
@@ -70,7 +71,9 @@ class ConversationPage(BaseModel):
 
 
 @router.post("", response_model=ConversationOut, status_code=201)
+@limiter.limit("60/minute")
 async def create_conversation(
+    request: Request,
     body: ConversationCreate,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -98,7 +101,9 @@ async def create_conversation(
 
 
 @router.get("", response_model=ConversationPage)
+@limiter.limit("60/minute")
 async def list_conversations(
+    request: Request,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     limit: int = Query(50, ge=1, le=200),
@@ -165,7 +170,9 @@ class SearchResult(BaseModel):
 
 
 @router.get("/search", response_model=list[SearchResult])
+@limiter.limit("10/minute")
 async def search_conversations(
+    request: Request,
     q: str = Query(..., min_length=2, description="Search query, min 2 chars"),
     limit: int = Query(20, ge=1, le=50),
     user: User = Depends(get_current_user),
@@ -232,7 +239,9 @@ async def search_conversations(
 
 
 @router.get("/bookmarked", response_model=list[BookmarkedMessageOut])
+@limiter.limit("60/minute")
 async def list_bookmarked_messages(
+    request: Request,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[BookmarkedMessageOut]:
@@ -258,7 +267,9 @@ async def list_bookmarked_messages(
 
 
 @router.get("/tags", response_model=list[str])
+@limiter.limit("60/minute")
 async def list_user_tags(
+    request: Request,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[str]:
@@ -275,7 +286,9 @@ async def list_user_tags(
 
 
 @router.get("/{conv_id}/export")
+@limiter.limit("60/minute")
 async def export_conversation(
+    request: Request,
     conv_id: uuid.UUID,
     format: Literal["md", "json", "txt"] = Query("md"),
     token: str | None = Query(None, description="Share token for public access"),
@@ -356,7 +369,9 @@ async def export_conversation(
 
 
 @router.get("/{conv_id}/messages", response_model=list[MessageOut])
+@limiter.limit("60/minute")
 async def list_messages(
+    request: Request,
     conv_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -378,7 +393,9 @@ async def list_messages(
 
 
 @router.patch("/{conv_id}/messages/{msg_id}/bookmark", response_model=MessageOut)
+@limiter.limit("60/minute")
 async def toggle_bookmark(
+    request: Request,
     conv_id: uuid.UUID,
     msg_id: uuid.UUID,
     user: User = Depends(get_current_user),
@@ -415,7 +432,9 @@ class RateMessageRequest(BaseModel):
 
 
 @router.patch("/{conv_id}/messages/{msg_id}/rate", response_model=MessageOut)
+@limiter.limit("60/minute")
 async def rate_message(
+    request: Request,
     conv_id: uuid.UUID,
     msg_id: uuid.UUID,
     body: RateMessageRequest,
@@ -450,7 +469,9 @@ async def rate_message(
 
 
 @router.delete("/{conv_id}/messages/{msg_id}", status_code=204)
+@limiter.limit("60/minute")
 async def delete_message(
+    request: Request,
     conv_id: uuid.UUID,
     msg_id: uuid.UUID,
     user: User = Depends(get_current_user),
@@ -479,7 +500,9 @@ async def delete_message(
 
 
 @router.delete("/{conv_id}", status_code=204)
+@limiter.limit("60/minute")
 async def delete_conversation(
+    request: Request,
     conv_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -497,7 +520,9 @@ async def delete_conversation(
 
 
 @router.patch("/{conv_id}/active-leaf", status_code=204)
+@limiter.limit("60/minute")
 async def set_active_leaf(
+    request: Request,
     conv_id: uuid.UUID,
     body: ActiveLeafUpdate,
     user: User = Depends(get_current_user),
@@ -524,7 +549,9 @@ async def set_active_leaf(
 
 
 @router.patch("/{conv_id}", response_model=ConversationOut)
+@limiter.limit("60/minute")
 async def update_conversation(
+    request: Request,
     conv_id: uuid.UUID,
     body: ConversationUpdate,
     user: User = Depends(get_current_user),
@@ -571,7 +598,9 @@ async def update_conversation(
 
 
 @router.patch("/{conv_id}/pin", status_code=204)
+@limiter.limit("60/minute")
 async def toggle_pin_conversation(
+    request: Request,
     conv_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -595,7 +624,9 @@ async def toggle_pin_conversation(
 
 
 @router.post("/{conv_id}/share", response_model=dict)
+@limiter.limit("60/minute")
 async def share_conversation(
+    request: Request,
     conv_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -662,7 +693,9 @@ class AddTagRequest(BaseModel):
 
 
 @router.post("/{conv_id}/tags", response_model=list[str], status_code=201)
+@limiter.limit("60/minute")
 async def add_tag(
+    request: Request,
     conv_id: uuid.UUID,
     body: AddTagRequest,
     user: User = Depends(get_current_user),
@@ -702,7 +735,9 @@ async def add_tag(
 
 
 @router.delete("/{conv_id}/tags/{tag}", status_code=204)
+@limiter.limit("60/minute")
 async def remove_tag(
+    request: Request,
     conv_id: uuid.UUID,
     tag: str,
     user: User = Depends(get_current_user),

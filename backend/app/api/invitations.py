@@ -2,12 +2,13 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.limiter import limiter
 from app.core.notifications import create_notification
 from app.db.models import Invitation, User, Workspace, WorkspaceMember
 from app.db.session import get_db
@@ -43,7 +44,9 @@ def _inv_to_dict(inv: Invitation) -> dict:
 
 
 @router.post("/api/workspaces/{ws_id}/members/invite", status_code=201)
+@limiter.limit("60/minute")
 async def invite_member(
+    request: Request,
     ws_id: uuid.UUID,
     body: InviteRequest,
     user: User = Depends(get_current_user),
@@ -133,7 +136,9 @@ async def invite_member(
 
 
 @router.get("/api/invitations/{token}")
+@limiter.limit("20/minute")
 async def get_invitation(
+    request: Request,
     token: uuid.UUID,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -153,7 +158,9 @@ async def get_invitation(
 
 
 @router.post("/api/invitations/{token}/accept")
+@limiter.limit("60/minute")
 async def accept_invitation(
+    request: Request,
     token: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -213,7 +220,9 @@ async def accept_invitation(
 
 
 @router.put("/api/workspaces/{ws_id}/members/{member_user_id}")
+@limiter.limit("60/minute")
 async def update_member_role(
+    request: Request,
     ws_id: uuid.UUID,
     member_user_id: uuid.UUID,
     body: UpdateRoleRequest,
@@ -264,7 +273,9 @@ async def update_member_role(
 
 
 @router.delete("/api/workspaces/{ws_id}/members/{member_user_id}", status_code=204)
+@limiter.limit("60/minute")
 async def remove_member(
+    request: Request,
     ws_id: uuid.UUID,
     member_user_id: uuid.UUID,
     user: User = Depends(get_current_user),

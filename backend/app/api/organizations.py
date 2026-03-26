@@ -2,12 +2,13 @@ import re
 import uuid
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.limiter import limiter
 from app.db.models import Organization, User
 from app.db.session import get_db
 
@@ -55,7 +56,9 @@ def _org_to_dict(org: Organization) -> dict:
 
 
 @router.post("", status_code=201)
+@limiter.limit("60/minute")
 async def create_organization(
+    request: Request,
     body: OrgCreate,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -76,7 +79,9 @@ async def create_organization(
 
 
 @router.get("/me")
+@limiter.limit("60/minute")
 async def get_my_organization(
+    request: Request,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -90,7 +95,9 @@ async def get_my_organization(
 
 
 @router.put("/{org_id}")
+@limiter.limit("60/minute")
 async def update_organization(
+    request: Request,
     org_id: uuid.UUID,
     body: OrgUpdate,
     user: User = Depends(get_current_user),

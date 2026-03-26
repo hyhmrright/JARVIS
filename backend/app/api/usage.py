@@ -6,11 +6,12 @@ import uuid
 from datetime import date, timedelta
 
 import structlog
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db, require_workspace_member
+from app.core.limiter import limiter
 from app.core.pricing import estimate_cost
 from app.db.models import Conversation, Message, User
 
@@ -19,7 +20,9 @@ router = APIRouter(prefix="/api/usage", tags=["usage"])
 
 
 @router.get("/summary")
+@limiter.limit("60/minute")
 async def get_usage_summary(
+    request: Request,
     days: int = 30,
     workspace_id: uuid.UUID | None = Query(None),
     user: User = Depends(get_current_user),

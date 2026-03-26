@@ -1,12 +1,13 @@
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_admin_user
+from app.core.limiter import limiter
 from app.db.models import AuditLog, Conversation, Message, User, UserRole
 from app.db.session import get_db
 
@@ -19,7 +20,9 @@ class UserUpdate(BaseModel):
 
 
 @router.get("/users")
+@limiter.limit("60/minute")
 async def list_users(
+    request: Request,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -52,7 +55,9 @@ async def list_users(
 
 
 @router.patch("/users/{user_id}")
+@limiter.limit("60/minute")
 async def update_user(
+    request: Request,
     user_id: uuid.UUID,
     data: UserUpdate,
     db: AsyncSession = Depends(get_db),
@@ -85,7 +90,9 @@ async def update_user(
 
 
 @router.delete("/users/{user_id}")
+@limiter.limit("60/minute")
 async def delete_user(
+    request: Request,
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_admin_user),
@@ -109,7 +116,9 @@ async def delete_user(
 
 
 @router.get("/stats")
+@limiter.limit("60/minute")
 async def get_system_stats(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_admin_user),
 ) -> dict[str, Any]:
@@ -149,7 +158,9 @@ async def get_system_stats(
 
 
 @router.get("/audit-logs")
+@limiter.limit("60/minute")
 async def list_audit_logs(
+    request: Request,
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=200),
     action: str | None = Query(None, description="Filter by action name"),

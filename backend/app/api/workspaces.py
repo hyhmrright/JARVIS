@@ -1,13 +1,14 @@
 import uuid
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
+from app.core.limiter import limiter
 from app.core.security import decrypt_api_keys, encrypt_api_keys
 from app.db.models import (
     Organization,
@@ -54,7 +55,9 @@ async def _require_org(user: User, db: AsyncSession) -> Organization:
 
 
 @router.post("", status_code=201)
+@limiter.limit("60/minute")
 async def create_workspace(
+    request: Request,
     body: WorkspaceCreate,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -70,7 +73,9 @@ async def create_workspace(
 
 
 @router.get("")
+@limiter.limit("60/minute")
 async def list_workspaces(
+    request: Request,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict]:
@@ -87,7 +92,9 @@ async def list_workspaces(
 
 
 @router.put("/{ws_id}")
+@limiter.limit("60/minute")
 async def update_workspace(
+    request: Request,
     ws_id: uuid.UUID,
     body: WorkspaceUpdate,
     user: User = Depends(get_current_user),
@@ -105,7 +112,9 @@ async def update_workspace(
 
 
 @router.delete("/{ws_id}", status_code=204)
+@limiter.limit("60/minute")
 async def delete_workspace(
+    request: Request,
     ws_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -126,7 +135,9 @@ async def delete_workspace(
 
 
 @router.get("/{ws_id}/members")
+@limiter.limit("60/minute")
 async def list_members(
+    request: Request,
     ws_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -159,7 +170,9 @@ class WorkspaceSettingsUpdate(BaseModel):
 
 
 @router.get("/{ws_id}/settings")
+@limiter.limit("60/minute")
 async def get_workspace_settings(
+    request: Request,
     ws_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -196,7 +209,9 @@ async def get_workspace_settings(
 
 
 @router.put("/{ws_id}/settings")
+@limiter.limit("60/minute")
 async def update_workspace_settings(
+    request: Request,
     ws_id: uuid.UUID,
     body: WorkspaceSettingsUpdate,
     user: User = Depends(get_current_user),

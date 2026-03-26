@@ -3,12 +3,13 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.limiter import limiter
 from app.db.models import Notification, User
 from app.db.session import get_db
 
@@ -28,7 +29,9 @@ class NotificationOut(BaseModel):
 
 
 @router.get("", response_model=list[NotificationOut])
+@limiter.limit("60/minute")
 async def list_notifications(
+    request: Request,
     limit: int = Query(20, ge=1, le=100),
     include_read: bool = Query(False),
     user: User = Depends(get_current_user),
@@ -45,7 +48,9 @@ async def list_notifications(
 
 
 @router.get("/unread-count")
+@limiter.limit("60/minute")
 async def get_unread_count(
+    request: Request,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -60,7 +65,9 @@ async def get_unread_count(
 
 
 @router.patch("/{notification_id}/read", status_code=204)
+@limiter.limit("60/minute")
 async def mark_as_read(
+    request: Request,
     notification_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -75,7 +82,9 @@ async def mark_as_read(
 
 
 @router.post("/mark-all-read", status_code=204)
+@limiter.limit("60/minute")
 async def mark_all_read(
+    request: Request,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:

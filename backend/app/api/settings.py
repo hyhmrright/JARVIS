@@ -1,12 +1,13 @@
 from typing import Literal
 
 import structlog
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.limiter import limiter
 from app.core.permissions import DEFAULT_ENABLED_TOOLS, TOOL_NAMES, TOOL_REGISTRY
 from app.core.security import decrypt_api_keys, encrypt_api_keys
 from app.db.models import User, UserSettings
@@ -92,7 +93,8 @@ class SettingsUpdate(BaseModel):
 
 
 @router.get("/models")
-async def list_available_models() -> dict[str, list[str]]:
+@limiter.limit("60/minute")
+async def list_available_models(request: Request) -> dict[str, list[str]]:
     """Return all available LLM models for each provider."""
     all_models = PROVIDER_MODELS.copy()
     try:
@@ -106,7 +108,9 @@ async def list_available_models() -> dict[str, list[str]]:
 
 
 @router.put("")
+@limiter.limit("60/minute")
 async def update_settings(
+    request: Request,
     body: SettingsUpdate,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -156,7 +160,9 @@ async def update_settings(
 
 
 @router.get("")
+@limiter.limit("60/minute")
 async def get_settings(
+    request: Request,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:

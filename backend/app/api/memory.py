@@ -3,12 +3,13 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.limiter import limiter
 from app.db.models import User, UserMemory
 from app.db.session import get_db
 
@@ -26,7 +27,9 @@ class MemoryOut(BaseModel):
 
 
 @router.get("", response_model=list[MemoryOut])
+@limiter.limit("60/minute")
 async def list_memories(
+    request: Request,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[UserMemory]:
@@ -40,7 +43,9 @@ async def list_memories(
 
 
 @router.delete("/{memory_id}", status_code=204)
+@limiter.limit("60/minute")
 async def delete_memory(
+    request: Request,
     memory_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -58,7 +63,9 @@ async def delete_memory(
 
 
 @router.delete("", status_code=204)
+@limiter.limit("3/minute")
 async def clear_all_memories(
+    request: Request,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
