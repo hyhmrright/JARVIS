@@ -21,7 +21,9 @@ depends_on = None
 def upgrade() -> None:
     # CREATE INDEX CONCURRENTLY must run outside a transaction block.
     # Use a fresh AUTOCOMMIT engine so Alembic's transaction is unaffected.
+    # Strip asyncpg driver prefix so we get a sync psycopg2 connection.
     url = op.get_context().config.get_main_option("sqlalchemy.url")
+    url = url.replace("postgresql+asyncpg://", "postgresql://")
     engine = sa.create_engine(url, isolation_level="AUTOCOMMIT")
     try:
         with engine.connect() as conn:
@@ -51,6 +53,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     url = op.get_context().config.get_main_option("sqlalchemy.url")
+    url = url.replace("postgresql+asyncpg://", "postgresql://")
     engine = sa.create_engine(url, isolation_level="AUTOCOMMIT")
     try:
         with engine.connect() as conn:
