@@ -501,5 +501,23 @@
   "notFound": {
     "message": "Page not found",
     "backHome": "Back to Home"
+  },
+  "search": {
+    "title": "Search",
+    "placeholder": "Search conversations, documents, and memories (min 3 chars)",
+    "minLength": "Please enter at least 3 characters",
+    "noResults": "No results found",
+    "resultCount": "{count} result(s) found",
+    "types": {
+      "all": "All",
+      "messages": "Messages",
+      "documents": "Documents",
+      "memories": "Memories"
+    },
+    "labels": {
+      "conversation": "From: {title}",
+      "document": "Document: {filename}",
+      "memory": "Memory"
+    }
   }
 }

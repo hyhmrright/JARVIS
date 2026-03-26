@@ -18,7 +18,23 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
 import ToastContainer from '@/components/ToastContainer.vue'
+
+const router = useRouter()
+
+function onGlobalKeyDown(e: KeyboardEvent) {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    // Don't override ChatPage's own Cmd+K (local conversation search)
+    if (router.currentRoute.value.path === '/') return;
+    e.preventDefault()
+    router.push('/search')
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', onGlobalKeyDown))
+onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKeyDown))
 </script>
 
 <style>

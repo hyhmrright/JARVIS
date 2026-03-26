@@ -93,6 +93,9 @@
             >
               <Bookmark class="w-4 h-4" :class="bookmarkMode ? 'text-amber-400' : 'text-zinc-400'" />
             </button>
+            <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors" :title="$t('search.title')" @click="$router.push('/search')">
+              <Search class="w-4 h-4 text-zinc-400" />
+            </button>
             <button class="p-1.5 hover:bg-zinc-800 rounded transition-colors" title="New Chat" @click="chat.newConversation">
               <SquarePen class="w-4 h-4 text-zinc-400" />
             </button>

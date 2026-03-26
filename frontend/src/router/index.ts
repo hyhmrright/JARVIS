@@ -20,6 +20,7 @@ const router = createRouter({
     { path: "/workspace/members", component: () => import("@/pages/WorkspaceMembersPage.vue"), meta: { requiresAuth: true } },
     { path: "/invite/:token", component: () => import("@/pages/InviteAcceptPage.vue") },
     { path: "/share/:token", component: () => import("@/pages/SharedChatPage.vue") },
+    { path: "/search", component: () => import("@/pages/SearchPage.vue"), meta: { requiresAuth: true } },
     { path: "/:pathMatch(.*)*", name: "NotFound", component: () => import("@/pages/NotFoundPage.vue") },
   ],
 });

@@ -501,5 +501,23 @@
   "notFound": {
     "message": "页面未找到",
     "backHome": "返回首页"
+  },
+  "search": {
+    "title": "搜索",
+    "placeholder": "搜索对话、文档和记忆（至少3个字符）",
+    "minLength": "请至少输入3个字符",
+    "noResults": "未找到相关内容",
+    "resultCount": "共 {count} 条结果",
+    "types": {
+      "all": "全部",
+      "messages": "对话消息",
+      "documents": "文档",
+      "memories": "记忆"
+    },
+    "labels": {
+      "conversation": "来自对话：{title}",
+      "document": "文档：{filename}",
+      "memory": "记忆"
+    }
   }
 }

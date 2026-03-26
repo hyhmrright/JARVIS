@@ -489,5 +489,23 @@
   "notFound": {
     "message": "Page non trouvée",
     "backHome": "Retour à l'accueil"
+  },
+  "search": {
+    "title": "Recherche",
+    "placeholder": "Rechercher conversations, documents et mémoires (min 3 car.)",
+    "minLength": "Veuillez saisir au moins 3 caractères",
+    "noResults": "Aucun résultat trouvé",
+    "resultCount": "{count} résultat(s)",
+    "types": {
+      "all": "Tout",
+      "messages": "Messages",
+      "documents": "Documents",
+      "memories": "Mémoires"
+    },
+    "labels": {
+      "conversation": "De : {title}",
+      "document": "Document : {filename}",
+      "memory": "Mémoire"
+    }
   }
 }

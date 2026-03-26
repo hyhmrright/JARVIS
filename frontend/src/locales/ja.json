@@ -489,5 +489,23 @@
   "notFound": {
     "message": "ページが見つかりません",
     "backHome": "ホームに戻る"
+  },
+  "search": {
+    "title": "検索",
+    "placeholder": "会話・ドキュメント・記憶を検索（3文字以上）",
+    "minLength": "3文字以上入力してください",
+    "noResults": "結果が見つかりません",
+    "resultCount": "{count}件の結果",
+    "types": {
+      "all": "すべて",
+      "messages": "メッセージ",
+      "documents": "ドキュメント",
+      "memories": "記憶"
+    },
+    "labels": {
+      "conversation": "会話：{title}",
+      "document": "ドキュメント：{filename}",
+      "memory": "記憶"
+    }
   }
 }
