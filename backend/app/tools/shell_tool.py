@@ -77,7 +77,9 @@ async def shell_exec(command: str, timeout_seconds: int = 30) -> str:
         logger.warning("shell_exec_sandbox_disabled_refused", command=command[:100])
         return "Shell execution is not available: sandbox is disabled."
 
-    output = await _exec_sandbox(command, timeout_seconds)
+    # Cap at configured maximum so agents cannot request arbitrarily long timeouts.
+    effective_timeout = min(timeout_seconds, settings.tool_shell_max_timeout)
+    output = await _exec_sandbox(command, effective_timeout)
 
     if not output.strip():
         return "(no output)"

@@ -12,7 +12,11 @@ def _cjk_ratio(text: str) -> float:
     if not text:
         return 0.0
     cjk_count = sum(
-        1 for c in text if "\u4e00" <= c <= "\u9fff" or "\u3040" <= c <= "\u30ff"
+        1
+        for c in text
+        if "\u4e00" <= c <= "\u9fff"
+        or "\u3040" <= c <= "\u30ff"
+        or "\uac00" <= c <= "\ud7af"  # Korean Hangul syllables
     )
     return cjk_count / len(text)
 

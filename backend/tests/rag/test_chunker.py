@@ -79,7 +79,9 @@ def test_japanese_text_char_split():
 
 
 def test_korean_text_char_split():
-    """Test that Korean text uses character-based splitting."""
-    text = "이것은 한국어 텍스트입니다." * 300
+    """Test that Korean text uses character-based splitting (CJK path)."""
+    text = "이것은한국어텍스트입니다" * 300  # pure Hangul, no spaces → char-split
     chunks = chunk_text(text)
-    assert len(chunks) > 0
+    assert len(chunks) > 1
+    for chunk in chunks:
+        assert len(chunk) <= 600  # _CJK_CHUNK_SIZE + buffer
