@@ -10,7 +10,7 @@ def test_get_llm_ollama():
     model = "llama3"
     api_key = ""  # Ollama doesn't need an API key
 
-    with patch("app.agent.llm.ChatOllama") as mock_chat_ollama:
+    with patch("app.core.llm_factory.ChatOllama") as mock_chat_ollama:
         mock_instance = MagicMock(spec=ChatOllama)
         mock_chat_ollama.return_value = mock_instance
 
@@ -29,7 +29,7 @@ def test_get_llm_ollama_default_params():
     model = "mistral"
     api_key = ""
 
-    with patch("app.agent.llm.ChatOllama") as mock_chat_ollama:
+    with patch("app.core.llm_factory.ChatOllama") as mock_chat_ollama:
         get_llm(provider, model, api_key)
 
         # Verify default temperature=0.7 and max_retries=2

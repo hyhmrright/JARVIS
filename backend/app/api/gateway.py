@@ -8,10 +8,10 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
 from app.api.deps import get_current_user
+from app.core.config import settings
 from app.core.limiter import limiter
 from app.db.models import User
 from app.gateway.security import PAIRING_CODE_TTL, PairingManager
-from app.infra.redis import get_redis_url
 
 logger = structlog.get_logger(__name__)
 
@@ -25,7 +25,7 @@ async def _get_redis() -> AsyncIterator[Redis]:
     request rather than pooling, which is acceptable for the low-frequency
     pairing endpoint.  The connection is closed after the request completes.
     """
-    client = Redis.from_url(get_redis_url(), decode_responses=False)
+    client = Redis.from_url(settings.redis_url, decode_responses=False)
     try:
         yield client
     finally:

@@ -9,14 +9,14 @@ from app.agent.llm import get_llm_with_fallback
 async def test_llm_failover_logic():
     """验证当主模型失败时，是否能切换到备用模型。"""
 
-    with patch("app.agent.llm.settings") as mock_settings:
+    with patch("app.core.llm_factory.settings") as mock_settings:
         mock_settings.openai_api_key = "sk-backup"
         mock_settings.anthropic_api_key = ""
 
         # Actually LangChain's with_fallbacks handles the retry logic.
         # We want to test if get_llm_with_fallback returns a model with fallbacks.
 
-        with patch("app.agent.llm.get_llm") as mock_get_llm:
+        with patch("app.core.llm_factory.get_llm") as mock_get_llm:
             mock_primary = MagicMock()
             mock_primary.with_fallbacks = MagicMock(return_value="fallback_wrapper")
 
@@ -36,12 +36,12 @@ async def test_llm_failover_logic():
 @pytest.mark.asyncio
 async def test_llm_no_fallback_if_no_keys():
     """验证当没有备用 Key 时，不创建 fallback 链。"""
-    with patch("app.agent.llm.settings") as mock_settings:
+    with patch("app.core.llm_factory.settings") as mock_settings:
         mock_settings.openai_api_key = ""
         mock_settings.deepseek_api_key = ""
         mock_settings.anthropic_api_key = ""
 
-        with patch("app.agent.llm.get_llm") as mock_get_llm:
+        with patch("app.core.llm_factory.get_llm") as mock_get_llm:
             mock_primary = MagicMock()
             mock_get_llm.return_value = mock_primary
 

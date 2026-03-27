@@ -15,12 +15,12 @@ def test_fallback_init_failure_logs_provider_name() -> None:
     """
     from app.agent.llm import get_llm_with_fallback
 
-    with patch("app.agent.llm.settings") as mock_settings:
+    with patch("app.core.llm_factory.settings") as mock_settings:
         mock_settings.openai_api_key = "test-key"
         mock_settings.deepseek_api_key = None
         mock_settings.ollama_base_url = None
 
-        with patch("app.agent.llm.get_llm") as mock_get_llm:
+        with patch("app.core.llm_factory.get_llm") as mock_get_llm:
             primary = MagicMock()
             primary.with_fallbacks = MagicMock(return_value=primary)
 
@@ -33,7 +33,7 @@ def test_fallback_init_failure_logs_provider_name() -> None:
 
             mock_get_llm.side_effect = side_effect
 
-            with patch("app.agent.llm.logger") as mock_logger:
+            with patch("app.core.llm_factory.logger") as mock_logger:
                 get_llm_with_fallback("deepseek", "deepseek-chat", "key")
 
         # The warning must be called with fallback_provider="openai"
@@ -49,12 +49,12 @@ def test_all_providers_fail_raises_llm_init_error() -> None:
     """
     from app.agent.llm import LLMInitError, get_llm_with_fallback
 
-    with patch("app.agent.llm.settings") as mock_settings:
+    with patch("app.core.llm_factory.settings") as mock_settings:
         mock_settings.openai_api_key = "test-key"
         mock_settings.deepseek_api_key = "ds-key"
         mock_settings.ollama_base_url = None
 
-        with patch("app.agent.llm.get_llm") as mock_get_llm:
+        with patch("app.core.llm_factory.get_llm") as mock_get_llm:
             # All providers fail
             mock_get_llm.side_effect = ValueError("provider unreachable")
 

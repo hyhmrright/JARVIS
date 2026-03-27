@@ -18,8 +18,8 @@ import structlog
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, ValidationError
 
-from app.agent.llm import get_llm_with_fallback
 from app.core.config import settings
+from app.core.llm_factory import get_llm_with_fallback
 from app.core.security import fernet_decrypt
 from app.scheduler.fetch import fetch_page_content
 from app.scheduler.prompts import (

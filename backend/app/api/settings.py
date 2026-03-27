@@ -12,7 +12,7 @@ from app.core.permissions import DEFAULT_ENABLED_TOOLS, TOOL_NAMES, TOOL_REGISTR
 from app.core.security import decrypt_api_keys, encrypt_api_keys
 from app.db.models import User, UserSettings
 from app.db.session import get_db
-from app.infra.ollama import get_ollama_models
+from app.services.model_discovery import get_ollama_models
 
 logger = structlog.get_logger(__name__)
 

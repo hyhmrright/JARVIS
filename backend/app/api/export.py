@@ -21,7 +21,6 @@ from app.core.config import settings
 from app.core.limiter import limiter
 from app.db.models import User
 from app.db.session import get_db
-from app.infra.redis import get_redis_url
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/export", tags=["export"])
@@ -40,7 +39,7 @@ def _status_key(user_id: uuid.UUID) -> str:
 
 async def _get_redis() -> AsyncIterator[Redis]:
     """Yield a short-lived Redis connection; closed after each request."""
-    client = Redis.from_url(get_redis_url(), decode_responses=True)
+    client = Redis.from_url(settings.redis_url, decode_responses=True)
     try:
         yield client
     finally:

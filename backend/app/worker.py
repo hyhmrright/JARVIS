@@ -34,6 +34,7 @@ from app.db.session import AsyncSessionLocal
 from app.gateway.agent_runner import run_agent_for_user
 from app.infra.minio import get_minio_client
 from app.scheduler.triggers import evaluate_trigger
+from app.services.document_service import delete_file as delete_minio_file
 
 logger = structlog.get_logger(__name__)
 
@@ -484,15 +485,10 @@ async def cleanup_expired_exports(ctx: dict) -> None:
     if not expired_keys:
         return
 
-    minio_client = get_minio_client()
     for raw_key in expired_keys:
         object_key = raw_key.decode() if isinstance(raw_key, bytes) else raw_key
         try:
-            await asyncio.to_thread(
-                minio_client.remove_object,
-                settings.minio_bucket,
-                object_key,
-            )
+            await delete_minio_file(object_key)
             await redis.zrem(_CLEANUP_ZSET_KEY, object_key)
             logger.info("export_cleanup_deleted", object_key=object_key)
         except Exception:

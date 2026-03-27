@@ -12,7 +12,6 @@ from bs4 import BeautifulSoup
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from qdrant_client.models import FieldCondition, Filter, MatchValue
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,14 +21,18 @@ from app.api.deps import (
     get_llm_config,
     require_workspace_member,
 )
-from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.security import resolve_api_key
 from app.db.models import Document, User, UserSettings, WorkspaceMember
 from app.db.session import get_db
-from app.infra.minio import get_minio_client
-from app.infra.qdrant import get_qdrant_client, user_collection_name
+from app.infra.qdrant import user_collection_name
 from app.rag.indexer import index_document
+from app.services.document_service import (
+    delete_file,
+    delete_vectors,
+    sync_filename_to_vectors,
+    upload_file,
+)
 from app.tools.web_fetch_tool import is_safe_url
 
 logger = structlog.get_logger(__name__)
@@ -187,19 +190,7 @@ async def rename_document(
     # Sync new filename to Qdrant vector payload so search results stay fresh.
     collection = doc.qdrant_collection or user_collection_name(str(user.id))
     try:
-        q_client = await get_qdrant_client()
-        await q_client.set_payload(
-            collection_name=collection,
-            payload={"filename": body.filename},
-            points=Filter(
-                must=[
-                    FieldCondition(
-                        key="doc_id",
-                        match=MatchValue(value=str(doc.id)),
-                    )
-                ]
-            ),
-        )
+        await sync_filename_to_vectors(collection, str(doc.id), body.filename)
     except Exception as exc:
         logger.warning("qdrant_rename_sync_failed", doc_id=str(doc.id), error=str(exc))
 
@@ -226,18 +217,7 @@ async def delete_document(
     # Use the stored collection name so workspace docs are cleaned up correctly.
     collection = doc.qdrant_collection or user_collection_name(str(user.id))
     try:
-        q_client = await get_qdrant_client()
-        await q_client.delete(
-            collection_name=collection,
-            points_selector=Filter(
-                must=[
-                    FieldCondition(
-                        key="doc_id",
-                        match=MatchValue(value=str(doc.id)),
-                    )
-                ]
-            ),
-        )
+        await delete_vectors(collection, str(doc.id))
     except Exception:
         logger.exception("qdrant_delete_failed", doc_id=str(doc.id))
         logger.info("document_deleted", user_id=str(user.id), doc_id=str(doc.id))
@@ -280,21 +260,16 @@ async def upload_document(
 
     # Validate workspace membership before touching MinIO to avoid orphaned objects.
     qdrant_collection = await _get_qdrant_collection(workspace_id, user, db)
-    minio_client = get_minio_client()
 
     safe_name = Path(file.filename or "upload").name
     object_key = f"{user.id}/{uuid.uuid4()}_{safe_name}"
 
     try:
-        await asyncio.to_thread(
-            minio_client.put_object,
-            settings.minio_bucket,
-            object_key,
-            io.BytesIO(content),
-            len(content),
+        # Run upload and text extraction concurrently — neither depends on the other.
+        _, text = await asyncio.gather(
+            upload_file(content, object_key),
+            asyncio.to_thread(extract_text, content, ext),
         )
-
-        text = await asyncio.to_thread(extract_text, content, ext)
         doc = Document(
             user_id=user.id,
             filename=safe_name,
@@ -330,11 +305,7 @@ async def upload_document(
         # Best-effort orphan cleanup: remove the MinIO object if anything
         # downstream (DB flush, indexing, etc.) fails after the upload.
         try:
-            await asyncio.to_thread(
-                minio_client.remove_object,
-                settings.minio_bucket,
-                object_key,
-            )
+            await delete_file(object_key)
         except Exception:
             logger.warning(
                 "minio_orphan_cleanup_failed",
@@ -386,7 +357,7 @@ def _extract_page_text(html_bytes: bytes, url: str = "") -> tuple[str, str]:
 
 @router.post("/ingest-url", response_model=DocumentOut, status_code=201)
 @limiter.limit("10/minute")
-async def ingest_url(
+async def ingest_url(  # noqa: C901
     request: Request,
     body: IngestUrlRequest,
     user: User = Depends(get_current_user),
@@ -448,39 +419,43 @@ async def ingest_url(
     text_bytes = text.encode("utf-8")
     object_key = f"{user.id}/{uuid.uuid4()}_webpage.txt"
 
-    minio_client = get_minio_client()
-    await asyncio.to_thread(
-        minio_client.put_object,
-        settings.minio_bucket,
-        object_key,
-        io.BytesIO(text_bytes),
-        len(text_bytes),
-    )
+    try:
+        await upload_file(text_bytes, object_key)
 
-    doc = Document(
-        user_id=user.id,
-        filename=title[:255],
-        file_type="txt",
-        file_size_bytes=len(text_bytes),
-        qdrant_collection=qdrant_collection,
-        minio_object_key=object_key,
-        source_url=body.url,
-    )
-    if workspace_id is not None:
-        doc.workspace_id = workspace_id
-    db.add(doc)
-    await db.flush()
+        doc = Document(
+            user_id=user.id,
+            filename=title[:255],
+            file_type="txt",
+            file_size_bytes=len(text_bytes),
+            qdrant_collection=qdrant_collection,
+            minio_object_key=object_key,
+            source_url=body.url,
+        )
+        if workspace_id is not None:
+            doc.workspace_id = workspace_id
+        db.add(doc)
+        await db.flush()
 
-    chunk_count = await index_document(
-        str(user.id),
-        str(doc.id),
-        text,
-        openai_key,
-        doc_name=title,
-        collection_name=qdrant_collection,
-    )
-    doc.chunk_count = chunk_count
-    await db.commit()
+        chunk_count = await index_document(
+            str(user.id),
+            str(doc.id),
+            text,
+            openai_key,
+            doc_name=title,
+            collection_name=qdrant_collection,
+        )
+        doc.chunk_count = chunk_count
+        await db.commit()
+    except Exception:
+        try:
+            await delete_file(object_key)
+        except Exception:
+            logger.warning(
+                "minio_orphan_cleanup_failed",
+                object_key=object_key,
+                user_id=str(user.id),
+            )
+        raise
     logger.info(
         "document_url_ingested",
         user_id=str(user.id),
