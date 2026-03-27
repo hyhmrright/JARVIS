@@ -32,6 +32,9 @@ from app.db.models import (
 )
 from app.db.session import AsyncSessionLocal
 from app.gateway.agent_runner import run_agent_for_user
+
+# export_account uses streaming file upload + presigned_get_object, neither of
+# which is wrapped by document_service, so infra.minio is accessed directly here.
 from app.infra.minio import get_minio_client
 from app.scheduler.triggers import evaluate_trigger
 from app.services.document_service import delete_file as delete_minio_file

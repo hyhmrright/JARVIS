@@ -32,7 +32,7 @@ def test_get_llm_ollama_default_params():
     with patch("app.core.llm_factory.ChatOllama") as mock_chat_ollama:
         get_llm(provider, model, api_key)
 
-        # Verify default temperature=0.7 and max_retries=2
+        # max_retries is stripped for ChatOllama (unsupported parameter)
         _, kwargs = mock_chat_ollama.call_args
         assert kwargs["temperature"] == 0.7
-        assert kwargs["max_retries"] == 2
+        assert "max_retries" not in kwargs

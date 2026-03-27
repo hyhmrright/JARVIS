@@ -14,11 +14,12 @@ from qdrant_client.models import FieldCondition, Filter, MatchValue
 
 from app.core.config import settings
 from app.infra.minio import get_minio_client
-from app.infra.qdrant import get_qdrant_client
+from app.infra.qdrant import get_qdrant_client, user_collection_name
 
 logger = structlog.get_logger(__name__)
 
 __all__ = [
+    "user_collection_name",
     "upload_file",
     "delete_file",
     "sync_filename_to_vectors",

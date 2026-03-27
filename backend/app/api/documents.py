@@ -25,13 +25,13 @@ from app.core.limiter import limiter
 from app.core.security import resolve_api_key
 from app.db.models import Document, User, UserSettings, WorkspaceMember
 from app.db.session import get_db
-from app.infra.qdrant import user_collection_name
 from app.rag.indexer import index_document
 from app.services.document_service import (
     delete_file,
     delete_vectors,
     sync_filename_to_vectors,
     upload_file,
+    user_collection_name,
 )
 from app.tools.web_fetch_tool import is_safe_url
 
