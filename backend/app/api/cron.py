@@ -31,7 +31,7 @@ _VALID_TRIGGER_TYPES = {"cron", "web_watcher", "semantic_watcher", "email"}
 
 def _validate_cron_schedule(v: str) -> str:
     try:
-        from croniter import croniter  # type: ignore[import-untyped]
+        from croniter import croniter
 
         if not croniter.is_valid(v):
             raise ValueError(f"Invalid cron expression: {v}")

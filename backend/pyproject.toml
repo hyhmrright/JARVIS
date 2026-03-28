@@ -87,6 +87,12 @@ ignore = [
     "N818",  # 允许自定义异常不以 Error 结尾
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# SQLAlchemy string-based relationship annotations reference classes defined in
+# sibling modules; they are resolved at runtime by the mapper registry, not by
+# ruff's static analysis. Suppress the false-positive F821 for all model files.
+"app/db/models/*.py" = ["F821"]
+
 [tool.ruff.lint.mccabe]
 max-complexity = 10
 
@@ -115,6 +121,19 @@ allow_redefinition = true
 ignore_missing_imports = true
 explicit_package_bases = true
 exclude = ["alembic/", "tests/"]
+
+[[tool.mypy.overrides]]
+# SQLAlchemy string relationship annotations (e.g. Mapped["User"]) reference
+# classes in sibling modules; the mapper registry resolves them at runtime.
+# Suppress the false-positive name-defined errors for all model domain files.
+module = "app.db.models.*"
+disable_error_code = ["name-defined"]
+
+[[tool.mypy.overrides]]
+# croniter has types-croniter stubs available but not installed; the import is
+# guarded by a try/except so runtime behaviour is unaffected.
+module = "app.api.cron"
+disable_error_code = ["import-untyped"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
