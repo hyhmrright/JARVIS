@@ -1,33 +1,42 @@
+"""FastAPI route handlers for the chat streaming API."""
+
 import asyncio
 import json
 import uuid
 from collections.abc import AsyncGenerator
 from dataclasses import replace as dc_replace
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any
 
 import structlog
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    Request,
-)
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
-from langchain_core.tools import BaseTool
-from langgraph.graph.state import CompiledStateGraph
-from pydantic import BaseModel, Field, field_validator
+from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.compressor import compact_messages
-from app.agent.graph import create_graph
 from app.agent.persona import build_system_prompt
 from app.agent.router import classify_task
 from app.agent.state import AgentState
 from app.agent.supervisor import SupervisorState, create_supervisor_graph
+from app.api.chat.graph_builder import (
+    build_expert_graph,
+    load_personal_plugin_tools,
+    load_tools,
+)
+from app.api.chat.message_builder import (
+    build_langchain_messages,
+    build_memory_message,
+    walk_message_chain,
+)
+from app.api.chat.schemas import ChatRequest, RegenerateRequest
+from app.api.chat.sse import (
+    extract_token_counts,
+    format_sse,
+    serialize_tool_message,
+    sse_events_from_chunk,
+    tool_call_signature,
+)
 from app.api.deps import get_current_user, get_llm_config
 from app.api.settings import PROVIDER_MODELS
 from app.core.config import settings
@@ -35,415 +44,14 @@ from app.core.limiter import limiter
 from app.core.metrics import llm_requests_total
 from app.core.sanitizer import sanitize_user_input
 from app.core.security import resolve_api_key
-from app.db.models import (
-    AgentSession,
-    Conversation,
-    InstalledPlugin,
-    Message,
-    User,
-    UserMemory,
-)
+from app.db.models import AgentSession, Conversation, Message, User
 from app.db.session import AsyncSessionLocal, get_db
-from app.plugins import plugin_registry
 from app.rag.context import build_rag_context
 from app.services.memory_sync import sync_conversation_to_markdown
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
-
-_ROLE_TO_MESSAGE = {
-    "human": HumanMessage,
-    "ai": AIMessage,
-    "tool": ToolMessage,
-    "system": SystemMessage,
-}
-
-
-_MEMORY_PROMPT_LIMIT = 100
-_MEMORY_CHAR_LIMIT = 8000
-
-
-async def _build_memory_message(
-    db: AsyncSession, user_id: uuid.UUID
-) -> SystemMessage | None:
-    """Load user memories and return a SystemMessage for prompt injection, or None."""
-    rows = await db.scalars(
-        select(UserMemory)
-        .where(UserMemory.user_id == user_id)
-        .order_by(UserMemory.category, UserMemory.key)
-        .limit(_MEMORY_PROMPT_LIMIT)
-    )
-    memories = list(rows.all())
-
-    # Build memory lines with char-cap
-    lines: list[str] = []
-    total_chars = 0
-    for m in reversed(memories):
-        line = f"- [{m.category}] {m.key}: {m.value}"
-        if total_chars + len(line) > _MEMORY_CHAR_LIMIT:
-            break
-        lines.append(line)
-        total_chars += len(line)
-
-    if not lines:
-        return None
-
-    block = "## 用户个人记忆（跨对话持久化）\n" + "\n".join(lines)
-    return SystemMessage(content=block)
-
-
-def _format_sse(payload: dict) -> str:
-    """Encode a dict as an SSE data line."""
-    return "data: " + json.dumps(payload) + "\n\n"
-
-
-def _sse_events_from_chunk(
-    chunk: dict,
-    full_content: str,
-    human_msg_id: uuid.UUID | None = None,
-) -> tuple[list[str], str]:
-    """Convert a LangGraph stream chunk into SSE event lines.
-
-    Returns (list_of_sse_lines, updated_full_content).
-    """
-    events: list[str] = []
-
-    if "approval" in chunk:
-        pending = chunk["approval"]["pending_tool_call"]
-        if pending is not None:
-            events.append(
-                _format_sse(
-                    {
-                        "type": "approval_required",
-                        "tool": pending["name"],
-                        "args": pending.get("args", {}),
-                        "human_msg_id": str(human_msg_id) if human_msg_id else None,
-                    }
-                )
-            )
-    elif "llm" in chunk:
-        ai_msg = chunk["llm"]["messages"][-1]
-        if hasattr(ai_msg, "tool_calls") and ai_msg.tool_calls:
-            for tc in ai_msg.tool_calls:
-                events.append(
-                    _format_sse(
-                        {
-                            "type": "tool_start",
-                            "tool": tc["name"],
-                            "args": tc.get("args", {}),
-                        }
-                    )
-                )
-
-        new_content = ai_msg.content
-        delta = new_content[len(full_content) :]
-        full_content = new_content
-        if delta:
-            events.append(
-                _format_sse({"type": "delta", "delta": delta, "content": full_content})
-            )
-    elif "tools" in chunk:
-        for tm in chunk["tools"]["messages"]:
-            events.append(
-                _format_sse(
-                    {
-                        "type": "tool_end",
-                        "tool": tm.name,
-                        "result_preview": tm.content[:200],
-                    }
-                )
-            )
-    return events, full_content
-
-
-def _walk_message_chain(
-    msg_dict: dict,
-    start_id: uuid.UUID | None,
-    max_depth: int = 500,
-) -> list:
-    """Trace parent_id links from start_id, returning messages chronologically."""
-    history: list = []
-    current_id = start_id
-    depth = 0
-    while current_id and current_id in msg_dict and depth < max_depth:
-        history.append(msg_dict[current_id])
-        current_id = msg_dict[current_id].parent_id
-        depth += 1
-    history.reverse()
-    return history
-
-
-def _build_langchain_messages(history: list) -> list:
-    """Convert a sequence of DB Message objects into LangChain message types."""
-    lc_messages = []
-    for msg in history:
-        message_class = _ROLE_TO_MESSAGE.get(msg.role)
-        if not message_class:
-            logger.debug(
-                "chat_history_message_skipped",
-                role=msg.role,
-                msg_id=str(msg.id),
-            )
-            continue
-
-        kwargs = _build_message_kwargs(msg)
-
-        lc_messages.append(message_class(**kwargs))
-    return lc_messages
-
-
-def _build_message_kwargs(msg: Message) -> dict[str, Any]:
-    kwargs: dict[str, Any] = {"content": msg.content}
-
-    if msg.role == "human" and msg.image_urls:
-        content_blocks: list[dict[str, Any]] = [{"type": "text", "text": msg.content}]
-        for url in msg.image_urls:
-            content_blocks.append({"type": "image_url", "image_url": {"url": url}})
-        kwargs["content"] = content_blocks
-
-    if msg.role == "ai" and msg.tool_calls:
-        kwargs["tool_calls"] = msg.tool_calls
-
-    if msg.role == "tool":
-        kwargs.update(_build_tool_message_kwargs(msg))
-
-    return kwargs
-
-
-def _build_tool_message_kwargs(msg: Message) -> dict[str, Any]:
-    tool_payload: dict[str, Any] | None = None
-    try:
-        parsed = json.loads(msg.content)
-        if isinstance(parsed, dict):
-            tool_payload = parsed
-    except json.JSONDecodeError:
-        tool_payload = None
-
-    if not tool_payload:
-        return {"tool_call_id": str(msg.id)}
-
-    kwargs: dict[str, Any] = {
-        "content": str(tool_payload.get("content", msg.content)),
-        "tool_call_id": str(tool_payload.get("tool_call_id") or msg.id),
-    }
-    if tool_payload.get("name"):
-        kwargs["name"] = str(tool_payload["name"])
-    return kwargs
-
-
-def _tool_call_signature(tool_calls: list[dict[str, Any]]) -> tuple[str, ...]:
-    return tuple(
-        str(tc.get("id") or f"{tc.get('name', 'tool')}_{idx}")
-        for idx, tc in enumerate(tool_calls)
-    )
-
-
-def _serialize_tool_message(tool_msg: ToolMessage) -> str:
-    return json.dumps(
-        {
-            "tool_call_id": getattr(tool_msg, "tool_call_id", None),
-            "name": tool_msg.name,
-            "content": tool_msg.content,
-        }
-    )
-
-
-def _extract_token_counts(ai_msg: object | None) -> tuple[int, int]:
-    """Return (tokens_in, tokens_out) from an AIMessage's usage_metadata."""
-    if ai_msg is None:
-        return 0, 0
-    meta = getattr(ai_msg, "usage_metadata", None)
-    if not meta:
-        return 0, 0
-    return meta.get("input_tokens", 0) or 0, meta.get("output_tokens", 0) or 0
-
-
-def _build_expert_graph(
-    route: str,
-    *,
-    provider: str,
-    model: str,
-    api_key: str,
-    api_keys: list[str] | None,
-    user_id: str,
-    openai_api_key: str | None,
-    tavily_api_key: str | None,
-    enabled_tools: list[str] | None,
-    mcp_tools: list,
-    plugin_tools: list | None,
-    conversation_id: str,
-    base_url: str | None = None,
-    workflow_dsl: dict | None = None,
-    temperature: float = 0.7,
-    max_tokens: int | None = None,
-) -> CompiledStateGraph:
-    """Return the appropriate compiled LangGraph for the given routing label.
-
-    Expert agents (code/research/writing) each select a focused tool subset.
-    Workflow DSLs take precedence over default agents.
-    Unknown labels fall back to the standard ReAct graph with all enabled tools.
-    """
-    if workflow_dsl:
-        from app.agent.compiler import GraphCompiler, WorkflowDSL
-
-        compiler = GraphCompiler(
-            dsl=WorkflowDSL(**workflow_dsl),
-            llm_config={
-                "provider": provider,
-                "api_key": api_key,
-                "base_url": base_url,
-                "temperature": temperature,
-                **({"max_tokens": max_tokens} if max_tokens else {}),
-            },
-        )
-        return compiler.compile()
-
-    from app.agent.experts import (
-        create_code_agent_graph,
-        create_research_agent_graph,
-        create_writing_agent_graph,
-    )
-
-    if route == "code":
-        return create_code_agent_graph(
-            provider=provider,
-            model=model,
-            api_key=api_key,
-            user_id=user_id,
-            openai_api_key=openai_api_key,
-            api_keys=api_keys,
-            mcp_tools=mcp_tools,
-            plugin_tools=plugin_tools,
-            conversation_id=conversation_id,
-            base_url=base_url,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-    if route == "research":
-        return create_research_agent_graph(
-            provider=provider,
-            model=model,
-            api_key=api_key,
-            user_id=user_id,
-            openai_api_key=openai_api_key,
-            tavily_api_key=tavily_api_key,
-            api_keys=api_keys,
-            mcp_tools=mcp_tools,
-            plugin_tools=plugin_tools,
-            conversation_id=conversation_id,
-            base_url=base_url,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-    if route == "writing":
-        return create_writing_agent_graph(
-            provider=provider,
-            model=model,
-            api_key=api_key,
-            user_id=user_id,
-            openai_api_key=openai_api_key,
-            api_keys=api_keys,
-            mcp_tools=mcp_tools,
-            plugin_tools=plugin_tools,
-            conversation_id=conversation_id,
-            base_url=base_url,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-    return create_graph(
-        provider=provider,
-        model=model,
-        api_key=api_key,
-        enabled_tools=enabled_tools,
-        api_keys=api_keys,
-        user_id=user_id,
-        openai_api_key=openai_api_key,
-        tavily_api_key=tavily_api_key,
-        mcp_tools=mcp_tools,
-        plugin_tools=plugin_tools,
-        conversation_id=conversation_id,
-        base_url=base_url,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
-
-
-async def _load_personal_plugin_tools(user_id: str) -> list[BaseTool]:
-    """Load personal installed skill_md/python_plugin tools for this request."""
-    try:
-        from app.plugins.loader import _load_from_directory, load_markdown_skills
-        from app.plugins.registry import PluginRegistry
-
-        async with AsyncSessionLocal() as db:
-            result = await db.execute(
-                select(InstalledPlugin).where(
-                    InstalledPlugin.scope == "personal",
-                    InstalledPlugin.installed_by == user_id,
-                    InstalledPlugin.type.in_(["skill_md", "python_plugin"]),
-                )
-            )
-            rows = result.scalars().all()
-            if not rows:
-                return []
-
-        personal_dir = Path(settings.installed_plugins_dir) / "users" / str(user_id)
-        if not personal_dir.exists():
-            return []
-
-        personal_registry = PluginRegistry()
-        _load_from_directory(personal_registry, personal_dir)
-        await load_markdown_skills(personal_registry, [personal_dir])
-        return personal_registry.get_all_tools()
-    except Exception:
-        logger.exception("personal_plugin_load_failed", user_id=user_id)
-        return []
-
-
-async def _load_tools(enabled_tools: list[str] | None) -> tuple[list, list | None]:
-    """Load MCP and plugin tools based on the user's enabled_tools config."""
-    mcp_tools: list = []
-    if enabled_tools is None or "mcp" in enabled_tools:
-        from app.tools.mcp_client import create_mcp_tools, parse_mcp_configs
-
-        mcp_tools = await create_mcp_tools(parse_mcp_configs(settings.mcp_servers_json))
-
-    plugin_tools: list | None = None
-    if enabled_tools is None or "plugin" in enabled_tools:
-        plugin_tools = plugin_registry.get_all_tools() or None
-
-    return mcp_tools, plugin_tools
-
-
-class FileContext(BaseModel):
-    """会话中携带的文件上下文（文本已提取）。"""
-
-    filename: str = Field(max_length=255)
-    extracted_text: str = Field(max_length=30_000)
-
-
-class ChatRequest(BaseModel):
-    conversation_id: uuid.UUID
-    content: str = Field(min_length=1, max_length=50000)
-    image_urls: list[str] | None = None
-    workspace_id: uuid.UUID | None = None
-    parent_message_id: uuid.UUID | None = None
-    persona_id: uuid.UUID | None = None
-    workflow_dsl: dict | None = None
-    model_override: str | None = Field(None, max_length=100)
-    file_context: FileContext | None = None
-
-    @field_validator("image_urls")
-    @classmethod
-    def validate_image_urls(cls, v: list[str] | None) -> list[str] | None:
-        if v is None:
-            return v
-        if len(v) > 4:
-            raise ValueError("Maximum 4 images per message")
-        for url in v:
-            if len(url) > 5_600_000:
-                raise ValueError("Image too large (max 4 MB per image)")
-        return v
 
 
 @router.post("/stream")
@@ -564,8 +172,8 @@ async def chat_stream(  # noqa: C901
     if not start_id and all_conv_messages:
         start_id = all_conv_messages[-1].id
 
-    all_history = _walk_message_chain(msg_dict, start_id)
-    lc_messages = _build_langchain_messages(all_history)
+    all_history = walk_message_chain(msg_dict, start_id)
+    lc_messages = build_langchain_messages(all_history)
 
     # 优先使用用户自定义的 system_prompt，否则使用 persona_override 构造
     if llm.system_prompt:
@@ -575,12 +183,12 @@ async def chat_stream(  # noqa: C901
     lc_messages = [system_msg, *lc_messages]
 
     # Inject persistent user memories after the main system prompt
-    _mem_msg = await _build_memory_message(db, user.id)
+    _mem_msg = await build_memory_message(db, user.id)
     if _mem_msg:
         lc_messages = [lc_messages[0], _mem_msg, *lc_messages[1:]]
 
     # Detect first exchange (for auto title generation later)
-    is_first_exchange = sum(1 for m in lc_messages if isinstance(m, HumanMessage)) == 1
+    is_first_exchange = sum(1 for m in lc_messages if isinstance(m, AIMessage)) == 0
 
     openai_key = resolve_api_key("openai", llm.raw_keys)
     last_ai_content = next(
@@ -614,12 +222,12 @@ async def chat_stream(  # noqa: C901
     tavily_key = settings.tavily_api_key
 
     async def generate() -> AsyncGenerator[str]:  # noqa: C901
-        stream_error = False  # noqa: C901
+        stream_error = False
         nonlocal lc_messages
         # Immediately notify the frontend of the persisted human message ID so
         # it can patch the optimistic message even if the stream is cancelled.
         if human_msg_id:
-            yield _format_sse(
+            yield format_sse(
                 {"type": "human_msg_saved", "human_msg_id": str(human_msg_id)}
             )
         compressed_summary: str | None = None
@@ -659,9 +267,9 @@ async def chat_stream(  # noqa: C901
         except Exception:
             logger.warning("agent_session_create_failed", exc_info=True)
 
-        mcp_tools, plugin_tools = await _load_tools(llm.enabled_tools)
+        mcp_tools, plugin_tools = await load_tools(llm.enabled_tools)
 
-        personal_tools = await _load_personal_plugin_tools(str(user.id))
+        personal_tools = await load_personal_plugin_tools(str(user.id))
         if personal_tools:
             plugin_tools = [*(plugin_tools or []), *personal_tools]
 
@@ -674,7 +282,7 @@ async def chat_stream(  # noqa: C901
                 api_key=llm.api_key,
                 base_url=llm.base_url,
             )
-            yield _format_sse({"type": "routing", "agent": route})
+            yield format_sse({"type": "routing", "agent": route})
             logger.info("chat_routed", route=route, conv_id=str(conv_id))
 
         full_content = ""
@@ -689,7 +297,7 @@ async def chat_stream(  # noqa: C901
         try:
             if route == "complex":
                 # Supervisor pattern: non-streaming, runs plan→execute→aggregate
-                yield _format_sse({"type": "status", "message": "正在规划复杂任务..."})
+                yield format_sse({"type": "status", "message": "正在规划复杂任务..."})
                 supervisor = create_supervisor_graph(
                     provider=llm.provider,
                     model=llm.model_name,
@@ -707,12 +315,12 @@ async def chat_stream(  # noqa: C901
                 )
                 msgs = final_state.get("messages", [])
                 if not msgs:
-                    yield _format_sse({"type": "delta", "delta": "", "content": ""})
+                    yield format_sse({"type": "delta", "delta": "", "content": ""})
                 else:
                     last_ai_msg = msgs[-1]
                     full_content = str(getattr(last_ai_msg, "content", ""))
                     if not full_content:
-                        yield _format_sse({"type": "delta", "delta": "", "content": ""})
+                        yield format_sse({"type": "delta", "delta": "", "content": ""})
                     else:
                         # Chunk output every 50 chars for a streaming feel;
                         # yield control between pieces so ASGI flushes each frame.
@@ -724,7 +332,7 @@ async def chat_stream(  # noqa: C901
                             sse_event: dict = {"type": "delta", "delta": piece}
                             if is_last_chunk:
                                 sse_event["content"] = full_content
-                            yield _format_sse(sse_event)
+                            yield format_sse(sse_event)
                             if await request.is_disconnected():
                                 is_disconnected = True
                                 break
@@ -732,7 +340,7 @@ async def chat_stream(  # noqa: C901
                                 await asyncio.sleep(0)
             else:
                 # Expert or standard ReAct — all use streaming AgentState graphs
-                graph = _build_expert_graph(
+                graph = build_expert_graph(
                     route,
                     provider=llm.provider,
                     model=llm.model_name,
@@ -759,7 +367,7 @@ async def chat_stream(  # noqa: C901
                                 tool_calls = (
                                     getattr(last_ai_msg, "tool_calls", None) or []
                                 )
-                                signature = _tool_call_signature(tool_calls)
+                                signature = tool_call_signature(tool_calls)
                                 if (
                                     tool_calls
                                     and signature not in persisted_tool_batches
@@ -799,14 +407,14 @@ async def chat_stream(  # noqa: C901
                                                 persisted_tool = Message(
                                                     conversation_id=conv_id,
                                                     role="tool",
-                                                    content=_serialize_tool_message(tm),
+                                                    content=serialize_tool_message(tm),
                                                     parent_id=persisted_parent_id,
                                                 )
                                                 persist_sess.add(persisted_tool)
                                                 await persist_sess.flush()
                                                 persisted_parent_id = persisted_tool.id
                                         persisted_tool_results.add(tool_call_id)
-                            events, full_content = _sse_events_from_chunk(
+                            events, full_content = sse_events_from_chunk(
                                 chunk, full_content, human_msg_id
                             )
                             for event in events:
@@ -829,7 +437,7 @@ async def chat_stream(  # noqa: C901
         finally:
             new_title: str | None = None
             ai_msg_id: uuid.UUID | None = None
-            tokens_in, tokens_out = _extract_token_counts(last_ai_msg)
+            tokens_in, tokens_out = extract_token_counts(last_ai_msg)
             if full_content:
                 try:
                     if stream_completed and is_first_exchange:
@@ -909,9 +517,9 @@ async def chat_stream(  # noqa: C901
                 provider=llm.provider, model=llm.model_name, status=llm_status
             ).inc()
             if new_title:
-                yield _format_sse({"type": "title_updated", "title": new_title})
+                yield format_sse({"type": "title_updated", "title": new_title})
             if stream_completed and human_msg_id and ai_msg_id:
-                yield _format_sse(
+                yield format_sse(
                     {
                         "type": "done",
                         "human_msg_id": str(human_msg_id),
@@ -924,13 +532,6 @@ async def chat_stream(  # noqa: C901
                 )
 
     return StreamingResponse(generate(), media_type="text/event-stream")
-
-
-class RegenerateRequest(BaseModel):
-    conversation_id: uuid.UUID
-    message_id: uuid.UUID
-    workspace_id: uuid.UUID | None = None
-    model_override: str | None = Field(None, max_length=100)
 
 
 @router.post("/regenerate")
@@ -964,7 +565,7 @@ async def chat_regenerate(  # noqa: C901
     target_msg = await db.scalar(
         select(Message).where(
             Message.id == body.message_id, Message.conversation_id == conv.id
-        )  # noqa: E501
+        )
     )
     if not target_msg:
         raise HTTPException(status_code=404, detail="Message not found")
@@ -978,9 +579,9 @@ async def chat_regenerate(  # noqa: C901
 
     msg_dict = {msg.id: msg for msg in all_conv_messages}
     # Trace back from target_msg's parent to reconstruct conversation history
-    all_history = _walk_message_chain(msg_dict, target_msg.parent_id)
+    all_history = walk_message_chain(msg_dict, target_msg.parent_id)
 
-    lc_messages = _build_langchain_messages(all_history)
+    lc_messages = build_langchain_messages(all_history)
 
     # 优先使用用户自定义的 system_prompt，否则使用 persona_override 构造
     if llm.system_prompt:
@@ -990,7 +591,7 @@ async def chat_regenerate(  # noqa: C901
     lc_messages = [system_msg, *lc_messages]
 
     # Inject persistent user memories after the main system prompt
-    _mem_msg = await _build_memory_message(db, user.id)
+    _mem_msg = await build_memory_message(db, user.id)
     if _mem_msg:
         lc_messages = [lc_messages[0], _mem_msg, *lc_messages[1:]]
 
@@ -1001,12 +602,12 @@ async def chat_regenerate(  # noqa: C901
             msg.content
             for msg in reversed(lc_messages[:-1])
             if isinstance(msg, AIMessage)
-        ),  # noqa: E501
+        ),
         "",
     )
     rag_query = (
         f"{user_content}\n{last_ai_content[:200]}" if last_ai_content else user_content
-    )  # noqa: E501
+    )
     workspace_ids = [str(body.workspace_id)] if body.workspace_id else None
     rag_ctx = await build_rag_context(
         str(user.id), rag_query, openai_key, workspace_ids=workspace_ids
@@ -1049,9 +650,9 @@ async def chat_regenerate(  # noqa: C901
         except Exception:
             logger.warning("agent_session_create_failed", exc_info=True)
 
-        mcp_tools, plugin_tools = await _load_tools(llm.enabled_tools)
+        mcp_tools, plugin_tools = await load_tools(llm.enabled_tools)
 
-        personal_tools = await _load_personal_plugin_tools(str(user.id))
+        personal_tools = await load_personal_plugin_tools(str(user.id))
         if personal_tools:
             plugin_tools = [*(plugin_tools or []), *personal_tools]
 
@@ -1067,14 +668,14 @@ async def chat_regenerate(  # noqa: C901
         except Exception as e:
             logger.error("classify_task_failed_falling_back", error=str(e))
 
-        yield _format_sse({"type": "routing", "agent": route})
+        yield format_sse({"type": "routing", "agent": route})
         full_content = ""
         last_ai_msg = None
         stream_error = False
         tools_used: list[str] = []
 
         try:
-            graph = _build_expert_graph(
+            graph = build_expert_graph(
                 route,
                 provider=llm.provider,
                 model=llm.model_name,
@@ -1099,7 +700,7 @@ async def chat_regenerate(  # noqa: C901
                         if "llm" in chunk:
                             last_ai_msg = chunk["llm"]["messages"][-1]
                             tool_calls = getattr(last_ai_msg, "tool_calls", None) or []
-                            signature = _tool_call_signature(tool_calls)
+                            signature = tool_call_signature(tool_calls)
                             if tool_calls and signature not in persisted_tool_batches:
                                 async with AsyncSessionLocal() as persist_sess:
                                     async with persist_sess.begin():
@@ -1136,14 +737,14 @@ async def chat_regenerate(  # noqa: C901
                                             persisted_tool = Message(
                                                 conversation_id=conv_id,
                                                 role="tool",
-                                                content=_serialize_tool_message(tm),
+                                                content=serialize_tool_message(tm),
                                                 parent_id=persisted_parent_id,
                                             )
                                             persist_sess.add(persisted_tool)
                                             await persist_sess.flush()
                                             persisted_parent_id = persisted_tool.id
                                     persisted_tool_results.add(tool_call_id)
-                        events, full_content = _sse_events_from_chunk(
+                        events, full_content = sse_events_from_chunk(
                             chunk, full_content
                         )
                         for event in events:
@@ -1159,7 +760,7 @@ async def chat_regenerate(  # noqa: C901
             stream_error = True
             raise
         finally:
-            tokens_in, tokens_out = _extract_token_counts(last_ai_msg)
+            tokens_in, tokens_out = extract_token_counts(last_ai_msg)
             regen_ai_msg_id: uuid.UUID | None = None
             if full_content:
                 try:
@@ -1206,7 +807,7 @@ async def chat_regenerate(  # noqa: C901
                 except Exception:
                     logger.warning("agent_session_update_failed", exc_info=True)
             if regen_ai_msg_id and not stream_error:
-                yield _format_sse(
+                yield format_sse(
                     {
                         "type": "done",
                         "ai_msg_id": str(regen_ai_msg_id),

@@ -4,7 +4,7 @@ import json
 
 from langchain_core.messages import AIMessage, ToolMessage
 
-from app.api.chat import _sse_events_from_chunk
+from app.api.chat.sse import sse_events_from_chunk as _sse_events_from_chunk
 
 
 def _make_llm_chunk_with_tool_calls() -> dict:

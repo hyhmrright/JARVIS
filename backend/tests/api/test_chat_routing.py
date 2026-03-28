@@ -5,7 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.api.chat import _build_expert_graph, _format_sse
+from app.api.chat.graph_builder import build_expert_graph as _build_expert_graph
+from app.api.chat.sse import format_sse as _format_sse
 
 _COMMON_KWARGS: dict = {
     "provider": "openai",
@@ -67,7 +68,7 @@ def test_build_expert_graph_writing_route(
     mock_create_graph.assert_not_called()
 
 
-@patch("app.api.chat.create_graph")
+@patch("app.api.chat.graph_builder.create_graph")
 def test_build_expert_graph_simple_route(mock_create_graph: MagicMock) -> None:
     """'simple' route should fall through to create_graph."""
     mock_create_graph.return_value = MagicMock()
@@ -75,7 +76,7 @@ def test_build_expert_graph_simple_route(mock_create_graph: MagicMock) -> None:
     mock_create_graph.assert_called_once()
 
 
-@patch("app.api.chat.create_graph")
+@patch("app.api.chat.graph_builder.create_graph")
 def test_build_expert_graph_unknown_route_falls_back(
     mock_create_graph: MagicMock,
 ) -> None:

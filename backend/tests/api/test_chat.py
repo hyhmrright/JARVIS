@@ -8,15 +8,13 @@ import pytest
 from langchain_core.messages import AIMessage, ToolMessage
 from sqlalchemy import select
 
-from app.api.chat import (
-    ChatRequest,
-    RegenerateRequest,
-    _build_langchain_messages,
-    _load_tools,
-    _sse_events_from_chunk,
-    chat_regenerate,
-    chat_stream,
+from app.api.chat import chat_regenerate, chat_stream
+from app.api.chat.graph_builder import load_tools as _load_tools
+from app.api.chat.message_builder import (
+    build_langchain_messages as _build_langchain_messages,
 )
+from app.api.chat.schemas import ChatRequest, RegenerateRequest
+from app.api.chat.sse import sse_events_from_chunk as _sse_events_from_chunk
 from app.api.deps import ResolvedLLMConfig
 from app.db.models import AgentSession, Conversation, Message
 
@@ -36,21 +34,21 @@ def _user_stub(user_id: uuid.UUID):
 
 
 async def test_load_tools_both_when_enabled_tools_is_none():
-    with patch("app.api.chat.plugin_registry") as mock_plugin_reg:
+    with patch("app.api.chat.graph_builder.plugin_registry") as mock_plugin_reg:
         mock_plugin_reg.get_all_tools.return_value = ["plugin_tool"]
         mcp_tools, plugin_tools = await _load_tools(None)
         assert plugin_tools == ["plugin_tool"]
 
 
 async def test_load_tools_mcp_only_skips_plugin():
-    with patch("app.api.chat.plugin_registry") as mock_plugin_reg:
+    with patch("app.api.chat.graph_builder.plugin_registry") as mock_plugin_reg:
         mock_plugin_reg.get_all_tools.return_value = ["plugin_tool"]
         mcp_tools, plugin_tools = await _load_tools(["mcp"])
         assert not plugin_tools
 
 
 async def test_load_tools_plugin_only_skips_mcp():
-    with patch("app.api.chat.plugin_registry") as mock_plugin_reg:
+    with patch("app.api.chat.graph_builder.plugin_registry") as mock_plugin_reg:
         mock_plugin_reg.get_all_tools.return_value = ["plugin_tool"]
         mcp_tools, plugin_tools = await _load_tools(["plugin"])
         assert not mcp_tools
@@ -58,7 +56,7 @@ async def test_load_tools_plugin_only_skips_mcp():
 
 
 async def test_load_tools_neither_when_no_relevant_tool():
-    with patch("app.api.chat.plugin_registry") as mock_plugin_reg:
+    with patch("app.api.chat.graph_builder.plugin_registry") as mock_plugin_reg:
         mock_plugin_reg.get_all_tools.return_value = ["plugin_tool"]
         mcp_tools, plugin_tools = await _load_tools(["search"])
         assert not mcp_tools
@@ -180,13 +178,21 @@ async def test_chat_stream_sets_parent_id(auth_client, db_session):
     mock_graph.astream = mock_astream
 
     with (
-        patch("app.api.chat.get_llm_config", new_callable=AsyncMock) as mock_get_llm,
-        patch("app.api.chat.classify_task", new_callable=AsyncMock) as mock_classify,
-        patch("app.api.chat._build_expert_graph") as mock_build_graph,
-        patch("app.api.chat.compact_messages", new_callable=AsyncMock) as mock_compact,
-        patch("app.api.chat.build_rag_context", new_callable=AsyncMock) as mock_rag,
         patch(
-            "app.api.chat.AsyncSessionLocal",
+            "app.api.chat.routes.get_llm_config", new_callable=AsyncMock
+        ) as mock_get_llm,
+        patch(
+            "app.api.chat.routes.classify_task", new_callable=AsyncMock
+        ) as mock_classify,
+        patch("app.api.chat.routes.build_expert_graph") as mock_build_graph,
+        patch(
+            "app.api.chat.routes.compact_messages", new_callable=AsyncMock
+        ) as mock_compact,
+        patch(
+            "app.api.chat.routes.build_rag_context", new_callable=AsyncMock
+        ) as mock_rag,
+        patch(
+            "app.api.chat.routes.AsyncSessionLocal",
             return_value=_PatchedChatSession(db_session),
         ),
         patch(
@@ -257,13 +263,21 @@ async def test_chat_stream_uses_active_leaf_when_parent_missing(
     mock_graph.astream = mock_astream
 
     with (
-        patch("app.api.chat.get_llm_config", new_callable=AsyncMock) as mock_get_llm,
-        patch("app.api.chat.classify_task", new_callable=AsyncMock) as mock_classify,
-        patch("app.api.chat._build_expert_graph") as mock_build_graph,
-        patch("app.api.chat.compact_messages", new_callable=AsyncMock) as mock_compact,
-        patch("app.api.chat.build_rag_context", new_callable=AsyncMock) as mock_rag,
         patch(
-            "app.api.chat.AsyncSessionLocal",
+            "app.api.chat.routes.get_llm_config", new_callable=AsyncMock
+        ) as mock_get_llm,
+        patch(
+            "app.api.chat.routes.classify_task", new_callable=AsyncMock
+        ) as mock_classify,
+        patch("app.api.chat.routes.build_expert_graph") as mock_build_graph,
+        patch(
+            "app.api.chat.routes.compact_messages", new_callable=AsyncMock
+        ) as mock_compact,
+        patch(
+            "app.api.chat.routes.build_rag_context", new_callable=AsyncMock
+        ) as mock_rag,
+        patch(
+            "app.api.chat.routes.AsyncSessionLocal",
             return_value=_PatchedChatSession(db_session),
         ),
         patch(
@@ -338,13 +352,21 @@ async def test_chat_stream_persists_tool_transcript(auth_client, db_session):
     mock_graph.astream = mock_astream
 
     with (
-        patch("app.api.chat.get_llm_config", new_callable=AsyncMock) as mock_get_llm,
-        patch("app.api.chat.classify_task", new_callable=AsyncMock) as mock_classify,
-        patch("app.api.chat._build_expert_graph") as mock_build_graph,
-        patch("app.api.chat.compact_messages", new_callable=AsyncMock) as mock_compact,
-        patch("app.api.chat.build_rag_context", new_callable=AsyncMock) as mock_rag,
         patch(
-            "app.api.chat.AsyncSessionLocal",
+            "app.api.chat.routes.get_llm_config", new_callable=AsyncMock
+        ) as mock_get_llm,
+        patch(
+            "app.api.chat.routes.classify_task", new_callable=AsyncMock
+        ) as mock_classify,
+        patch("app.api.chat.routes.build_expert_graph") as mock_build_graph,
+        patch(
+            "app.api.chat.routes.compact_messages", new_callable=AsyncMock
+        ) as mock_compact,
+        patch(
+            "app.api.chat.routes.build_rag_context", new_callable=AsyncMock
+        ) as mock_rag,
+        patch(
+            "app.api.chat.routes.AsyncSessionLocal",
             return_value=_PatchedChatSession(db_session),
         ),
         patch(
@@ -414,12 +436,20 @@ async def test_chat_regenerate_updates_agent_session_status(auth_client, db_sess
     tracking_session = _PatchedChatSession(db_session)
 
     with (
-        patch("app.api.chat.get_llm_config", new_callable=AsyncMock) as mock_get_llm,
-        patch("app.api.chat.classify_task", new_callable=AsyncMock) as mock_classify,
-        patch("app.api.chat._build_expert_graph") as mock_build_graph,
-        patch("app.api.chat.compact_messages", new_callable=AsyncMock) as mock_compact,
-        patch("app.api.chat.build_rag_context", new_callable=AsyncMock) as mock_rag,
-        patch("app.api.chat.AsyncSessionLocal", return_value=tracking_session),
+        patch(
+            "app.api.chat.routes.get_llm_config", new_callable=AsyncMock
+        ) as mock_get_llm,
+        patch(
+            "app.api.chat.routes.classify_task", new_callable=AsyncMock
+        ) as mock_classify,
+        patch("app.api.chat.routes.build_expert_graph") as mock_build_graph,
+        patch(
+            "app.api.chat.routes.compact_messages", new_callable=AsyncMock
+        ) as mock_compact,
+        patch(
+            "app.api.chat.routes.build_rag_context", new_callable=AsyncMock
+        ) as mock_rag,
+        patch("app.api.chat.routes.AsyncSessionLocal", return_value=tracking_session),
     ):
         mock_get_llm.return_value = mock_llm
         mock_classify.return_value = "main"
@@ -479,11 +509,21 @@ async def test_model_override_replaces_model_name(auth_client, db_session):
         return mock_graph
 
     with (
-        patch("app.api.chat.get_llm_config", new_callable=AsyncMock) as mock_get_llm,
-        patch("app.api.chat.classify_task", new_callable=AsyncMock) as mock_classify,
-        patch("app.api.chat._build_expert_graph", side_effect=capture_build_graph),
-        patch("app.api.chat.compact_messages", new_callable=AsyncMock) as mock_compact,
-        patch("app.api.chat.build_rag_context", new_callable=AsyncMock) as mock_rag,
+        patch(
+            "app.api.chat.routes.get_llm_config", new_callable=AsyncMock
+        ) as mock_get_llm,
+        patch(
+            "app.api.chat.routes.classify_task", new_callable=AsyncMock
+        ) as mock_classify,
+        patch(
+            "app.api.chat.routes.build_expert_graph", side_effect=capture_build_graph
+        ),
+        patch(
+            "app.api.chat.routes.compact_messages", new_callable=AsyncMock
+        ) as mock_compact,
+        patch(
+            "app.api.chat.routes.build_rag_context", new_callable=AsyncMock
+        ) as mock_rag,
     ):
         mock_get_llm.return_value = base_llm
         mock_classify.return_value = "main"
@@ -537,11 +577,19 @@ async def test_chat_regenerate(auth_client, db_session):
     mock_graph.astream = mock_astream
 
     with (
-        patch("app.api.chat.get_llm_config", new_callable=AsyncMock) as mock_get_llm,
-        patch("app.api.chat.classify_task", new_callable=AsyncMock) as mock_classify,
-        patch("app.api.chat._build_expert_graph") as mock_build_graph,
-        patch("app.api.chat.compact_messages", new_callable=AsyncMock) as mock_compact,
-        patch("app.api.chat.build_rag_context", new_callable=AsyncMock) as mock_rag,
+        patch(
+            "app.api.chat.routes.get_llm_config", new_callable=AsyncMock
+        ) as mock_get_llm,
+        patch(
+            "app.api.chat.routes.classify_task", new_callable=AsyncMock
+        ) as mock_classify,
+        patch("app.api.chat.routes.build_expert_graph") as mock_build_graph,
+        patch(
+            "app.api.chat.routes.compact_messages", new_callable=AsyncMock
+        ) as mock_compact,
+        patch(
+            "app.api.chat.routes.build_rag_context", new_callable=AsyncMock
+        ) as mock_rag,
     ):
         mock_get_llm.return_value = mock_llm
         mock_classify.return_value = "main"

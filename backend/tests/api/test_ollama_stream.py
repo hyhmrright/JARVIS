@@ -2,7 +2,7 @@ import json
 
 from langchain_core.messages import AIMessage
 
-from app.api.chat import _sse_events_from_chunk
+from app.api.chat.sse import sse_events_from_chunk as _sse_events_from_chunk
 
 
 def test_sse_events_from_ollama_chunk():
