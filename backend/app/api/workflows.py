@@ -3,15 +3,16 @@ from __future__ import annotations
 import copy
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated, Any, Literal
+from typing import Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent.workflow_schema import WorkflowDSLSchema
 from app.api.deps import get_current_user
 from app.core.limiter import limiter
 from app.db.models import User, Workflow, WorkflowRun
@@ -33,118 +34,6 @@ async def _get_workflow_or_404(
     return workflow
 
 
-# ---------------------------------------------------------------------------
-# DSL node schemas (discriminated union on `type`)
-# ---------------------------------------------------------------------------
-
-
-class _InputNodeDef(BaseModel):
-    id: str
-    type: Literal["input"]
-    data: dict[str, Any] = {}
-
-
-class _LLMNodeDef(BaseModel):
-    id: str
-    type: Literal["llm"]
-    data: dict[str, Any] = {}
-
-
-class _ToolNodeDef(BaseModel):
-    id: str
-    type: Literal["tool"]
-    data: dict[str, Any] = {}
-
-
-class _ConditionNodeDef(BaseModel):
-    id: str
-    type: Literal["condition"]
-    data: dict[str, Any] = {}
-
-
-class _OutputNodeDef(BaseModel):
-    id: str
-    type: Literal["output"]
-    data: dict[str, Any] = {}
-
-
-class _ImageGenNodeDef(BaseModel):
-    id: str
-    type: Literal["image_gen"]
-    data: dict[str, Any] = {}
-
-
-_NodeDef = Annotated[
-    _InputNodeDef
-    | _LLMNodeDef
-    | _ToolNodeDef
-    | _ConditionNodeDef
-    | _OutputNodeDef
-    | _ImageGenNodeDef,
-    Field(discriminator="type"),
-]
-
-
-class _EdgeDef(BaseModel):
-    model_config = {"populate_by_name": True}
-
-    id: str
-    source: str
-    target: str
-    source_handle: str | None = Field(default=None, alias="sourceHandle")
-    target_handle: str | None = Field(default=None, alias="targetHandle")
-
-
-def _build_adjacency(nodes: list[Any], edges: list[_EdgeDef]) -> dict[str, list[str]]:
-    adj: dict[str, list[str]] = {n.id: [] for n in nodes}
-    for edge in edges:
-        adj[edge.source].append(edge.target)
-    return adj
-
-
-def _dfs_has_cycle(
-    node: str,
-    adj: dict[str, list[str]],
-    visited: set[str],
-    rec_stack: set[str],
-) -> bool:
-    visited.add(node)
-    rec_stack.add(node)
-    for neighbor in adj.get(node, []):
-        if neighbor not in visited:
-            if _dfs_has_cycle(neighbor, adj, visited, rec_stack):
-                return True
-        elif neighbor in rec_stack:
-            return True
-    rec_stack.discard(node)
-    return False
-
-
-class _WorkflowDSLSchema(BaseModel):
-    nodes: list[_NodeDef]
-    edges: list[_EdgeDef] = []
-
-    @model_validator(mode="after")
-    def validate_dag(self) -> _WorkflowDSLSchema:
-        node_ids = {n.id for n in self.nodes}
-        for edge in self.edges:
-            if edge.source not in node_ids:
-                raise ValueError(f"Edge source '{edge.source}' not in nodes")
-            if edge.target not in node_ids:
-                raise ValueError(f"Edge target '{edge.target}' not in nodes")
-        adj = _build_adjacency(self.nodes, self.edges)
-        visited: set[str] = set()
-        rec_stack: set[str] = set()
-        for node_id in node_ids:
-            if node_id not in visited and _dfs_has_cycle(
-                node_id, adj, visited, rec_stack
-            ):
-                raise ValueError(
-                    "Workflow DSL contains a cycle (loops are not supported)"
-                )
-        return self
-
-
 class WorkflowCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     description: str | None = Field(default=None, max_length=500)
@@ -156,7 +45,7 @@ class WorkflowCreate(BaseModel):
         # Only validate when the DSL contains a `nodes` key so that
         # minimal / legacy payloads (e.g. `{}`) remain accepted.
         if isinstance(v, dict) and "nodes" in v:
-            _WorkflowDSLSchema.model_validate(v)
+            WorkflowDSLSchema.model_validate(v)
         return v
 
 
