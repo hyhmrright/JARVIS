@@ -195,7 +195,7 @@ async def _suppress_chat_async_session():
     patched_session.add = MagicMock()
     patched_session.flush = AsyncMock()
     patched_session.get = AsyncMock(return_value=None)
-    with patch("app.api.chat.AsyncSessionLocal", return_value=patched_session):
+    with patch("app.api.chat.routes.AsyncSessionLocal", return_value=patched_session):
         yield
 
 
