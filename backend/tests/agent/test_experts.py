@@ -47,4 +47,5 @@ def test_expert_agent_passes_correct_tools_to_create_graph(
             **extra_kwargs,
         )
     mock_create.assert_called_once()
-    assert mock_create.call_args.kwargs["enabled_tools"] == expected_tools
+    # Use .get() to guard against KeyError if enabled_tools is ever passed positionally.
+    assert mock_create.call_args.kwargs.get("enabled_tools") == expected_tools

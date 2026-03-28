@@ -18,8 +18,14 @@ def _make_edge(
     return EdgeDef(id=id, source=source, target=target, sourceHandle=source_handle)
 
 
+def _compiler(dsl: WorkflowDSL) -> GraphCompiler:
+    return GraphCompiler(
+        dsl=dsl, llm_config={"provider": "deepseek", "api_key": "test"}
+    )
+
+
 # ---------------------------------------------------------------------------
-# GraphCompiler.compile()
+# GraphCompiler.compile() — node type dispatch
 # ---------------------------------------------------------------------------
 
 
@@ -36,16 +42,29 @@ def test_compile_linear_dsl_returns_compiled_graph():
             _make_edge("e2", "n_llm", "n_out"),
         ],
     )
-    compiler = GraphCompiler(
-        dsl=dsl,
-        llm_config={"provider": "deepseek", "api_key": "test"},
+    graph = _compiler(dsl).compile()
+    assert isinstance(graph, CompiledStateGraph)
+
+
+def test_compile_tool_node_missing_tool_name_does_not_raise():
+    """tool nodes compile without error; missing tool yields error string at runtime."""
+    dsl = WorkflowDSL(
+        nodes=[
+            WorkflowNodeDSL(id="n_in", type="input", data={}),
+            WorkflowNodeDSL(id="n_tool", type="tool", data={"tool_name": "noop"}),
+            WorkflowNodeDSL(id="n_out", type="output", data={}),
+        ],
+        edges=[
+            _make_edge("e1", "n_in", "n_tool"),
+            _make_edge("e2", "n_tool", "n_out"),
+        ],
     )
-    graph = compiler.compile()
+    graph = _compiler(dsl).compile()
     assert isinstance(graph, CompiledStateGraph)
 
 
 def test_compile_condition_node_is_not_added_as_graph_node():
-    """condition nodes become routers, not graph nodes — compile() must not raise."""
+    """condition nodes become routers, not graph nodes — n_cond absent from graph."""
     dsl = WorkflowDSL(
         nodes=[
             WorkflowNodeDSL(id="n_in", type="input", data={}),
@@ -63,10 +82,22 @@ def test_compile_condition_node_is_not_added_as_graph_node():
             _make_edge("e3", "n_cond", "n_false", source_handle="false"),
         ],
     )
-    compiler = GraphCompiler(
-        dsl=dsl, llm_config={"provider": "deepseek", "api_key": "test"}
+    graph = _compiler(dsl).compile()
+    assert isinstance(graph, CompiledStateGraph)
+    # condition node must be a router, not a registered node
+    assert "n_cond" not in graph.nodes
+
+
+def test_compile_entry_edge_falls_back_to_first_node_when_no_input_node():
+    """When no input node exists, START connects to the first node in the list."""
+    dsl = WorkflowDSL(
+        nodes=[
+            WorkflowNodeDSL(id="n_llm", type="llm", data={"prompt": "hello"}),
+            WorkflowNodeDSL(id="n_out", type="output", data={}),
+        ],
+        edges=[_make_edge("e1", "n_llm", "n_out")],
     )
-    graph = compiler.compile()
+    graph = _compiler(dsl).compile()
     assert isinstance(graph, CompiledStateGraph)
 
 
