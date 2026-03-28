@@ -1,5 +1,6 @@
 """LangGraph compilation and tool-loading helpers for the chat API."""
 
+import asyncio
 from pathlib import Path
 
 import structlog
@@ -176,8 +177,6 @@ async def load_all_tools(
     user_id: str, enabled_tools: list[str] | None
 ) -> tuple[list, list | None]:
     """Load MCP, plugin, and personal plugin tools concurrently."""
-    import asyncio
-
     (mcp_tools, plugin_tools), personal_tools = await asyncio.gather(
         load_tools(enabled_tools),
         load_personal_plugin_tools(user_id),

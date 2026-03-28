@@ -1,5 +1,5 @@
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -256,8 +256,6 @@ async def test_rename_document_syncs_qdrant(auth_client, db_session):
         resp = await auth_client.patch(
             f"/api/documents/{doc_id}", json={"filename": "renamed.txt"}
         )
-
-    from unittest.mock import ANY
 
     assert resp.status_code == 200
     assert resp.json()["filename"] == "renamed.txt"
