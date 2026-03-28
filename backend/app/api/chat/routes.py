@@ -267,9 +267,10 @@ async def chat_stream(  # noqa: C901
         except Exception:
             logger.warning("agent_session_create_failed", exc_info=True)
 
-        mcp_tools, plugin_tools = await load_tools(llm.enabled_tools)
-
-        personal_tools = await load_personal_plugin_tools(str(user.id))
+        (mcp_tools, plugin_tools), personal_tools = await asyncio.gather(
+            load_tools(llm.enabled_tools),
+            load_personal_plugin_tools(str(user.id)),
+        )
         if personal_tools:
             plugin_tools = [*(plugin_tools or []), *personal_tools]
 
@@ -650,9 +651,10 @@ async def chat_regenerate(  # noqa: C901
         except Exception:
             logger.warning("agent_session_create_failed", exc_info=True)
 
-        mcp_tools, plugin_tools = await load_tools(llm.enabled_tools)
-
-        personal_tools = await load_personal_plugin_tools(str(user.id))
+        (mcp_tools, plugin_tools), personal_tools = await asyncio.gather(
+            load_tools(llm.enabled_tools),
+            load_personal_plugin_tools(str(user.id)),
+        )
         if personal_tools:
             plugin_tools = [*(plugin_tools or []), *personal_tools]
 

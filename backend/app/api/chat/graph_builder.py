@@ -132,6 +132,10 @@ async def load_personal_plugin_tools(user_id: str) -> list[BaseTool]:
         from app.plugins.loader import _load_from_directory, load_markdown_skills
         from app.plugins.registry import PluginRegistry
 
+        personal_dir = Path(settings.installed_plugins_dir) / "users" / str(user_id)
+        if not personal_dir.exists():
+            return []
+
         async with AsyncSessionLocal() as db:
             result = await db.execute(
                 select(InstalledPlugin).where(
@@ -143,10 +147,6 @@ async def load_personal_plugin_tools(user_id: str) -> list[BaseTool]:
             rows = result.scalars().all()
             if not rows:
                 return []
-
-        personal_dir = Path(settings.installed_plugins_dir) / "users" / str(user_id)
-        if not personal_dir.exists():
-            return []
 
         personal_registry = PluginRegistry()
         _load_from_directory(personal_registry, personal_dir)

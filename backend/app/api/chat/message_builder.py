@@ -35,7 +35,7 @@ async def build_memory_message(
         .order_by(UserMemory.category, UserMemory.key)
         .limit(_MEMORY_PROMPT_LIMIT)
     )
-    memories = list(rows.all())
+    memories = rows.all()
 
     lines: list[str] = []
     total_chars = 0
