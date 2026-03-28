@@ -1,4 +1,4 @@
-"""Audit log utilities for recording security-relevant user actions."""
+"""Audit log service — persists security-relevant user actions to the database."""
 
 from __future__ import annotations
 
