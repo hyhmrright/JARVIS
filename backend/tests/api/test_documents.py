@@ -245,6 +245,26 @@ async def test_rename_document(auth_client, db_session):
 
 
 @pytest.mark.anyio
+async def test_rename_document_syncs_qdrant(auth_client, db_session):
+    """Renaming a document calls sync_filename_to_vectors with the new name."""
+    user_id = await _get_user_id(auth_client)
+    doc_id = await _create_test_document(db_session, user_id)
+
+    with patch(
+        "app.api.documents.sync_filename_to_vectors", new=AsyncMock(return_value=None)
+    ) as mock_sync:
+        resp = await auth_client.patch(
+            f"/api/documents/{doc_id}", json={"filename": "renamed.txt"}
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["filename"] == "renamed.txt"
+    mock_sync.assert_called_once()
+    assert mock_sync.call_args.args[1] == str(doc_id)
+    assert mock_sync.call_args.args[2] == "renamed.txt"
+
+
+@pytest.mark.anyio
 async def test_rename_document_empty_name_rejected(auth_client, db_session):
     """Empty filename should be rejected with 422."""
     user_id = await _get_user_id(auth_client)
