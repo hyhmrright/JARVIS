@@ -1,42 +1,50 @@
 """Tests for expert agent factories."""
 
+from unittest.mock import patch
+
+import pytest
+
 from app.agent.experts.code_agent import create_code_agent_graph
 from app.agent.experts.research_agent import create_research_agent_graph
 from app.agent.experts.writing_agent import create_writing_agent_graph
 
+_CASES = [
+    pytest.param(
+        "app.agent.experts.code_agent.create_graph",
+        create_code_agent_graph,
+        {},
+        ["code_exec", "shell", "file", "datetime"],
+        id="code_agent",
+    ),
+    pytest.param(
+        "app.agent.experts.research_agent.create_graph",
+        create_research_agent_graph,
+        {"openai_api_key": "oai_test"},
+        ["rag_search", "search", "web_fetch", "datetime"],
+        id="research_agent",
+    ),
+    pytest.param(
+        "app.agent.experts.writing_agent.create_graph",
+        create_writing_agent_graph,
+        {},
+        ["rag_search", "web_fetch", "datetime"],
+        id="writing_agent",
+    ),
+]
 
-def test_code_agent_returns_compiled_graph():
-    """create_code_agent_graph returns a compiled LangGraph."""
-    graph = create_code_agent_graph(
-        provider="deepseek",
-        model="deepseek-chat",
-        api_key="test",
-        user_id="user123",
-    )
-    assert graph is not None
-    assert hasattr(graph, "astream")
 
-
-def test_research_agent_returns_compiled_graph():
-    """create_research_agent_graph returns a compiled LangGraph."""
-    graph = create_research_agent_graph(
-        provider="deepseek",
-        model="deepseek-chat",
-        api_key="test",
-        user_id="user123",
-        openai_api_key="oai_test",
-    )
-    assert graph is not None
-    assert hasattr(graph, "astream")
-
-
-def test_writing_agent_returns_compiled_graph():
-    """create_writing_agent_graph returns a compiled LangGraph."""
-    graph = create_writing_agent_graph(
-        provider="deepseek",
-        model="deepseek-chat",
-        api_key="test",
-        user_id="user123",
-    )
-    assert graph is not None
-    assert hasattr(graph, "astream")
+@pytest.mark.parametrize("patch_target,factory_fn,extra_kwargs,expected_tools", _CASES)
+def test_expert_agent_passes_correct_tools_to_create_graph(
+    patch_target, factory_fn, extra_kwargs, expected_tools
+):
+    """Each expert factory delegates to create_graph with its specific tool set."""
+    with patch(patch_target) as mock_create:
+        factory_fn(
+            provider="deepseek",
+            model="deepseek-chat",
+            api_key="test",
+            user_id="user123",
+            **extra_kwargs,
+        )
+    mock_create.assert_called_once()
+    assert mock_create.call_args.kwargs["enabled_tools"] == expected_tools

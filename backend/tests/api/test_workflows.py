@@ -11,7 +11,7 @@ async def test_list_workflows_empty(auth_client):
 
 
 @pytest.mark.anyio
-async def test_create_workflow(auth_client):
+async def test_create_workflow_returns_201_with_id(auth_client):
     resp = await auth_client.post(
         "/api/workflows",
         json={
@@ -29,7 +29,7 @@ async def test_create_workflow(auth_client):
 
 
 @pytest.mark.anyio
-async def test_get_workflow(auth_client):
+async def test_get_workflow_returns_stored_name(auth_client):
     create_resp = await auth_client.post(
         "/api/workflows",
         json={"name": "Fetchable", "description": None, "dsl": {}},
@@ -43,7 +43,7 @@ async def test_get_workflow(auth_client):
 
 
 @pytest.mark.anyio
-async def test_update_workflow(auth_client):
+async def test_update_workflow_persists_new_name_and_description(auth_client):
     create_resp = await auth_client.post(
         "/api/workflows",
         json={"name": "Old", "description": None, "dsl": {}},
@@ -66,7 +66,7 @@ async def test_update_workflow(auth_client):
 
 
 @pytest.mark.anyio
-async def test_delete_workflow(auth_client):
+async def test_delete_workflow_removes_it_from_list(auth_client):
     create_resp = await auth_client.post(
         "/api/workflows",
         json={"name": "Delete Me", "description": None, "dsl": {}},
@@ -83,7 +83,7 @@ async def test_delete_workflow(auth_client):
 
 
 @pytest.mark.anyio
-async def test_clone_workflow(auth_client):
+async def test_clone_workflow_creates_copy_with_suffix(auth_client):
     create_resp = await auth_client.post(
         "/api/workflows",
         json={

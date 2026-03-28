@@ -181,25 +181,6 @@ async def second_user_auth_headers(client) -> dict:
 
 
 @pytest.fixture(autouse=True)
-async def _suppress_chat_async_session():
-    patched_session = MagicMock()
-    patched_session.__aenter__ = AsyncMock(return_value=patched_session)
-    patched_session.__aexit__ = AsyncMock(return_value=None)
-    patched_session.begin = MagicMock(return_value=patched_session)
-    patched_session.scalar = AsyncMock(return_value=None)
-    _scalars = MagicMock()
-    _scalars.all = MagicMock(return_value=[])
-    _execute_result = MagicMock()
-    _execute_result.scalars = MagicMock(return_value=_scalars)
-    patched_session.execute = AsyncMock(return_value=_execute_result)
-    patched_session.add = MagicMock()
-    patched_session.flush = AsyncMock()
-    patched_session.get = AsyncMock(return_value=None)
-    with patch("app.api.chat.routes.AsyncSessionLocal", return_value=patched_session):
-        yield
-
-
-@pytest.fixture(autouse=True)
 async def _suppress_worker_async_session():
     """Mock AsyncSessionLocal in worker to prevent cross-event-loop pool contamination.
 
