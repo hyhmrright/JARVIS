@@ -190,6 +190,7 @@ async def voice_stream(
         await websocket.close(code=1008, reason="Authentication required")
         return
     except Exception:
+        logger.warning("voice_ws_receive_failed", exc_info=True)
         await websocket.close(
             code=1011, reason="Unexpected error during authentication"
         )
@@ -202,6 +203,7 @@ async def voice_stream(
     try:
         user = await resolve_user_token(str(auth_payload["token"]), db)
     except Exception:
+        logger.warning("voice_ws_token_invalid", exc_info=True)
         await websocket.close(code=1008, reason="Invalid token")
         return
 

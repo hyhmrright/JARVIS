@@ -351,6 +351,7 @@ def _llm_config_from_settings(user_settings: Any) -> dict[str, Any]:
             raw_key = (user_settings.api_keys or {}).get(provider, "")
             api_key = fernet_decrypt(raw_key) if raw_key else ""
         except Exception:
+            logger.warning("workflow_api_key_decrypt_failed", exc_info=True)
             api_key = ""
     return {"provider": provider, "model": model, "api_key": api_key}
 
@@ -455,6 +456,7 @@ async def execute_workflow(
             yield f"data: {_json.dumps(done_event)}\n\n"
 
         except Exception as exc:
+            logger.exception("workflow_stream_error", run_id=run_id)
             err_event = {"type": "run_error", "run_id": run_id, "error": str(exc)}
             yield f"data: {_json.dumps(err_event)}\n\n"
             await _update_run_status(run_uuid, "failed", error_message=str(exc))
