@@ -52,7 +52,10 @@ def create_subagent_tool(
                 "Please handle this task directly."
             )
 
-        # Delayed import to avoid circular dependency (graph → tools → graph)
+        # Delayed import breaks the tools↔agent circular dependency:
+        #   tools/subagent_tool.py  imports  agent/graph.py  (at call time)
+        #   agent/graph.py          imports  tools/subagent_tool.py  (at call time)
+        # See agent/graph.py create_graph() for the symmetric delayed import.
         from langchain_core.messages import HumanMessage, SystemMessage
 
         from app.agent.graph import create_graph

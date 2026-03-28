@@ -86,6 +86,12 @@ def _resolve_tools(  # noqa: C901
         and model
         and api_key
     ):
+        # Delayed import breaks the tools↔agent circular dependency:
+        #   agent/graph.py  imports  tools/subagent_tool.py  (at call time)
+        #   tools/subagent_tool.py  imports  agent/graph.py  (at call time)
+        # Both sides use function-body imports so the module-level import graph
+        # remains acyclic; the circular call path is only resolved at runtime
+        # when create_graph() and the subagent tool are actually invoked.
         from app.tools.subagent_tool import create_subagent_tool
 
         tools.append(
