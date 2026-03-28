@@ -263,7 +263,7 @@ async def run_workflow(  # noqa: C901
                 run_obj.run_log = run_log
                 run_obj.completed_at = datetime.now(UTC)
 
-    from app.core.notifications import create_notification
+    from app.services.notifications import create_notification
 
     body_text = (
         error_message[:100]

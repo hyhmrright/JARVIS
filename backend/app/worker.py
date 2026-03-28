@@ -17,7 +17,6 @@ from sqlalchemy.engine import CursorResult
 
 from app.core.config import settings
 from app.core.metrics import cron_executions_total
-from app.core.notifications import create_notification
 from app.db.models import (
     Conversation,
     CronJob,
@@ -38,6 +37,7 @@ from app.gateway.agent_runner import run_agent_for_user
 from app.infra.minio import get_minio_client
 from app.scheduler.triggers import evaluate_trigger
 from app.services.document_service import delete_file as delete_minio_file
+from app.services.notifications import create_notification
 
 logger = structlog.get_logger(__name__)
 
