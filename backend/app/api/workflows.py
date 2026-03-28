@@ -165,7 +165,7 @@ class WorkflowOut(BaseModel):
     name: str
     description: str | None = None
     dsl: dict
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class WorkflowPage(BaseModel):

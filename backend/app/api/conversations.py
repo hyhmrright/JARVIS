@@ -7,7 +7,7 @@ from typing import Any, Literal
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,7 +42,7 @@ class ConversationOut(BaseModel):
     persona_id: uuid.UUID | None = None
     updated_at: datetime | None = None
     tags: list[str] = []
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ActiveLeafUpdate(BaseModel):
@@ -154,7 +154,7 @@ class MessageOut(BaseModel):
     tokens_output: int | None = None
     is_bookmarked: bool = False
     user_rating: Literal[1, -1] | None = None
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BookmarkedMessageOut(MessageOut):

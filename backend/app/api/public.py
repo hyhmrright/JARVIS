@@ -2,7 +2,7 @@ from typing import Annotated, Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Path, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -17,13 +17,16 @@ router = APIRouter(prefix="/api/public", tags=["public"])
 
 
 class PublicMessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     role: str
     content: str
     image_urls: list[str] | None = None
-    model_config = {"from_attributes": True}
 
 
 class PublicConversationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     title: str
     messages: list[PublicMessageOut]
 

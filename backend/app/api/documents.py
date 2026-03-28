@@ -11,7 +11,7 @@ import structlog
 from bs4 import BeautifulSoup
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -111,7 +111,7 @@ class DocumentOut(BaseModel):
     chunk_count: int
     created_at: datetime
     workspace_id: uuid.UUID | None = None
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DocumentRename(BaseModel):

@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 import structlog
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 logger = structlog.get_logger(__name__)
 
@@ -15,6 +15,8 @@ _REGISTRY_PATH = Path(__file__).parents[3] / "registry" / "index.json"
 
 
 class MarketSkillOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     name: str
     description: str

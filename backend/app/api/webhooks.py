@@ -13,7 +13,7 @@ from arq import create_pool
 from arq.connections import RedisSettings
 from cryptography.fernet import InvalidToken
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -52,7 +52,7 @@ class WebhookOut(BaseModel):
     last_triggered_at: datetime | None
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class WebhookCreateOut(WebhookOut):
@@ -235,7 +235,7 @@ class WebhookDeliveryOut(BaseModel):
     attempt: int
     next_retry_at: datetime | None
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 @router.get("/{webhook_id}/deliveries", response_model=list[WebhookDeliveryOut])

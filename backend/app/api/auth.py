@@ -17,7 +17,7 @@ from datetime import UTC, datetime, timedelta
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -86,6 +86,8 @@ class ProfileUpdateRequest(BaseModel):
 
 
 class ProfileOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     display_name: str | None = None
 
 
