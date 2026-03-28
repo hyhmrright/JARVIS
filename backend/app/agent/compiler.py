@@ -7,9 +7,10 @@ from langchain_core.tools import BaseTool
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.graph.state import CompiledStateGraph
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from app.agent.llm import get_llm
+from app.agent.workflow_schema import EdgeDef
 
 logger = structlog.get_logger(__name__)
 
@@ -31,17 +32,9 @@ class WorkflowNodeDSL(BaseModel):
     data: dict[str, Any]
 
 
-class WorkflowEdgeDSL(BaseModel):
-    id: str
-    source: str
-    target: str
-    source_handle: str | None = Field(None, alias="sourceHandle")
-    target_handle: str | None = Field(None, alias="targetHandle")
-
-
 class WorkflowDSL(BaseModel):
     nodes: list[WorkflowNodeDSL]
-    edges: list[WorkflowEdgeDSL] = []
+    edges: list[EdgeDef] = []
 
 
 class GraphCompiler:
