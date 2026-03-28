@@ -95,7 +95,7 @@ def test_build_expert_graph_returns_graph_object(route: str) -> None:
             "app.agent.experts.create_code_agent_graph",
             "app.agent.experts.create_research_agent_graph",
             "app.agent.experts.create_writing_agent_graph",
-            "app.api.chat.create_graph",
+            "app.api.chat.graph_builder.create_graph",
         ]:
             stack.enter_context(patch(target, return_value=fake_graph))
         result = _build_expert_graph(route, **_COMMON_KWARGS)
