@@ -21,8 +21,7 @@ from app.agent.state import AgentState
 from app.agent.supervisor import SupervisorState, create_supervisor_graph
 from app.api.chat.graph_builder import (
     build_expert_graph,
-    load_personal_plugin_tools,
-    load_tools,
+    load_all_tools,
 )
 from app.api.chat.message_builder import (
     build_langchain_messages,
@@ -267,12 +266,7 @@ async def chat_stream(  # noqa: C901
         except Exception:
             logger.warning("agent_session_create_failed", exc_info=True)
 
-        (mcp_tools, plugin_tools), personal_tools = await asyncio.gather(
-            load_tools(llm.enabled_tools),
-            load_personal_plugin_tools(str(user.id)),
-        )
-        if personal_tools:
-            plugin_tools = [*(plugin_tools or []), *personal_tools]
+        mcp_tools, plugin_tools = await load_all_tools(str(user.id), llm.enabled_tools)
 
         route = "simple"
         if not is_consent:
@@ -651,12 +645,7 @@ async def chat_regenerate(  # noqa: C901
         except Exception:
             logger.warning("agent_session_create_failed", exc_info=True)
 
-        (mcp_tools, plugin_tools), personal_tools = await asyncio.gather(
-            load_tools(llm.enabled_tools),
-            load_personal_plugin_tools(str(user.id)),
-        )
-        if personal_tools:
-            plugin_tools = [*(plugin_tools or []), *personal_tools]
+        mcp_tools, plugin_tools = await load_all_tools(str(user.id), llm.enabled_tools)
 
         route = "main"
         try:

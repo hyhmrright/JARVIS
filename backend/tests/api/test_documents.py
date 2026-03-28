@@ -257,11 +257,11 @@ async def test_rename_document_syncs_qdrant(auth_client, db_session):
             f"/api/documents/{doc_id}", json={"filename": "renamed.txt"}
         )
 
+    from unittest.mock import ANY
+
     assert resp.status_code == 200
     assert resp.json()["filename"] == "renamed.txt"
-    mock_sync.assert_called_once()
-    assert mock_sync.call_args.args[1] == str(doc_id)
-    assert mock_sync.call_args.args[2] == "renamed.txt"
+    mock_sync.assert_called_once_with(ANY, str(doc_id), "renamed.txt")
 
 
 @pytest.mark.anyio

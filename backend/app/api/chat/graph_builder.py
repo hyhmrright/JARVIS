@@ -170,3 +170,18 @@ async def load_tools(enabled_tools: list[str] | None) -> tuple[list, list | None
         plugin_tools = plugin_registry.get_all_tools() or None
 
     return mcp_tools, plugin_tools
+
+
+async def load_all_tools(
+    user_id: str, enabled_tools: list[str] | None
+) -> tuple[list, list | None]:
+    """Load MCP, plugin, and personal plugin tools concurrently."""
+    import asyncio
+
+    (mcp_tools, plugin_tools), personal_tools = await asyncio.gather(
+        load_tools(enabled_tools),
+        load_personal_plugin_tools(user_id),
+    )
+    if personal_tools:
+        plugin_tools = [*(plugin_tools or []), *personal_tools]
+    return mcp_tools, plugin_tools
