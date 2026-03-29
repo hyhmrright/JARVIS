@@ -78,7 +78,7 @@ async def create_conversation(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> ConversationOut:
-    conv = Conversation(user_id=user.id, title=body.title)
+    conv = Conversation.create(user_id=user.id, title=body.title)
     db.add(conv)
     await db.commit()
     await db.refresh(conv)
@@ -602,7 +602,7 @@ async def set_active_leaf(
     )
     if not msg:
         raise HTTPException(status_code=404, detail="Message not found in conversation")
-    conv.active_leaf_id = body.active_leaf_id
+    conv.activate_leaf(body.active_leaf_id)
     await db.commit()
 
 
