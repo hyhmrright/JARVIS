@@ -135,6 +135,32 @@ class UserSettings(Base):
 
     user: Mapped["User"] = relationship(back_populates="settings")
 
+    def get_api_key(self, provider: str, fernet: Any) -> str | None:
+        """Decrypt and return the API key for the given provider.
+
+        Returns None if not set or if decryption fails.
+        """
+        raw = (self.api_keys or {}).get(provider)
+        if raw is None:
+            return None
+        try:
+            payload = raw.encode() if isinstance(raw, str) else raw
+            return fernet.decrypt(payload).decode()
+        except Exception:
+            return None
+
+    def set_api_key(self, provider: str, plaintext_key: str, fernet: Any) -> None:
+        """Encrypt and store the API key for the given provider."""
+        payload = (
+            plaintext_key.encode() if isinstance(plaintext_key, str) else plaintext_key
+        )
+        encrypted = fernet.encrypt(payload)
+        if self.api_keys is None:
+            self.api_keys = {}
+        self.api_keys[provider] = (
+            encrypted.decode() if isinstance(encrypted, bytes) else encrypted
+        )
+
 
 class ApiKey(Base):
     """Personal Access Token record. The raw token is never stored — only its
