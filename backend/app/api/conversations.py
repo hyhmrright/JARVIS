@@ -2,7 +2,7 @@ import json as _json
 import secrets
 import uuid
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_current_user, get_current_user_optional
+from app.api.deps import PaginationParams, get_current_user, get_current_user_optional
 from app.core.limiter import limiter
 from app.db.models import (
     Conversation,
@@ -104,10 +104,9 @@ async def create_conversation(
 @limiter.limit("60/minute")
 async def list_conversations(
     request: Request,
+    pagination: Annotated[PaginationParams, Depends()],
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
 ) -> ConversationPage:
     total = (
         await db.scalar(
@@ -119,8 +118,8 @@ async def list_conversations(
         .where(Conversation.user_id == user.id)
         .options(selectinload(Conversation.tags))
         .order_by(Conversation.is_pinned.desc(), Conversation.updated_at.desc())
-        .limit(limit)
-        .offset(offset)
+        .limit(pagination.limit)
+        .offset(pagination.skip)
     )
     return ConversationPage(
         items=[
@@ -135,8 +134,8 @@ async def list_conversations(
             for c in rows.all()
         ],
         total=total,
-        offset=offset,
-        limit=limit,
+        offset=pagination.skip,
+        limit=pagination.limit,
     )
 
 
@@ -423,6 +422,7 @@ class MessagePage(BaseModel):
 async def list_messages(
     request: Request,
     conv_id: uuid.UUID,
+    # NOTE: custom limit (le=500 > PaginationParams max of 200)
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     user: User = Depends(get_current_user),

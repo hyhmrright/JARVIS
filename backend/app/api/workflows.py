@@ -3,17 +3,17 @@ from __future__ import annotations
 import copy
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.workflow_schema import WorkflowDSLSchema
-from app.api.deps import get_current_user
+from app.api.deps import PaginationParams, get_current_user
 from app.core.limiter import limiter
 from app.db.models import User, Workflow, WorkflowRun
 from app.db.session import AsyncSessionLocal, get_db
@@ -64,8 +64,7 @@ class WorkflowPage(BaseModel):
 
 @router.get("", response_model=WorkflowPage)
 async def list_workflows(
-    limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
+    pagination: Annotated[PaginationParams, Depends()],
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> WorkflowPage:
@@ -78,8 +77,8 @@ async def list_workflows(
         select(Workflow)
         .where(Workflow.user_id == user.id)
         .order_by(Workflow.name)
-        .limit(limit)
-        .offset(offset)
+        .limit(pagination.limit)
+        .offset(pagination.skip)
     )
     return WorkflowPage(
         items=[WorkflowOut.model_validate(w) for w in rows.all()], total=total
@@ -190,8 +189,7 @@ class WorkflowRunOut(BaseModel):
 @router.get("/{workflow_id}/runs", response_model=list[WorkflowRunOut])
 async def list_workflow_runs(
     workflow_id: uuid.UUID,
-    limit: int = Query(default=20, le=100),
-    offset: int = Query(default=0, ge=0),
+    pagination: Annotated[PaginationParams, Depends()],
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Any:
@@ -211,8 +209,8 @@ async def list_workflow_runs(
             WorkflowRun.user_id == current_user.id,
         )
         .order_by(WorkflowRun.started_at.desc())
-        .limit(limit)
-        .offset(offset)
+        .limit(pagination.limit)
+        .offset(pagination.skip)
     )
     return result.scalars().all()
 

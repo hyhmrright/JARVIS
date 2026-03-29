@@ -2,13 +2,14 @@
 
 import uuid
 from datetime import datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import PaginationParams, get_current_user
 from app.core.limiter import limiter
 from app.db.models import Notification, User
 from app.db.session import get_db
@@ -32,7 +33,7 @@ class NotificationOut(BaseModel):
 @limiter.limit("60/minute")
 async def list_notifications(
     request: Request,
-    limit: int = Query(20, ge=1, le=100),
+    pagination: Annotated[PaginationParams, Depends()],
     include_read: bool = Query(False),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -42,7 +43,7 @@ async def list_notifications(
     if not include_read:
         stmt = stmt.where(Notification.is_read.is_(False))
 
-    stmt = stmt.order_by(Notification.created_at.desc()).limit(limit)
+    stmt = stmt.order_by(Notification.created_at.desc()).limit(pagination.limit)
     result = await db.execute(stmt)
     return list(result.scalars().all())
 

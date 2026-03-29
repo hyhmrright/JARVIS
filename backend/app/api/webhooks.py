@@ -7,17 +7,18 @@ import json
 import secrets
 import uuid
 from datetime import UTC, datetime
+from typing import Annotated
 
 import structlog
 from arq import create_pool
 from arq.connections import RedisSettings
 from cryptography.fernet import InvalidToken
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import PaginationParams, get_current_user, get_db
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.security import fernet_decrypt, fernet_encrypt
@@ -241,8 +242,7 @@ class WebhookDeliveryOut(BaseModel):
 @router.get("/{webhook_id}/deliveries", response_model=list[WebhookDeliveryOut])
 async def list_webhook_deliveries(
     webhook_id: uuid.UUID,
-    limit: int = Query(20, ge=1, le=100),
-    offset: int = Query(0, ge=0),
+    pagination: Annotated[PaginationParams, Depends()],
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[WebhookDeliveryOut]:
@@ -260,7 +260,7 @@ async def list_webhook_deliveries(
         select(WebhookDelivery)
         .where(WebhookDelivery.webhook_id == webhook_id)
         .order_by(WebhookDelivery.triggered_at.desc())
-        .limit(limit)
-        .offset(offset)
+        .limit(pagination.limit)
+        .offset(pagination.skip)
     )
     return [WebhookDeliveryOut.model_validate(r) for r in rows.all()]

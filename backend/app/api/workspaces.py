@@ -1,13 +1,14 @@
 import uuid
+from typing import Annotated
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_current_user
+from app.api.deps import PaginationParams, get_current_user
 from app.core.limiter import limiter
 from app.core.security import decrypt_api_keys, encrypt_api_keys
 from app.db.models import (
@@ -152,8 +153,7 @@ async def delete_workspace(
 async def list_members(
     request: Request,
     ws_id: uuid.UUID,
-    limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
+    pagination: Annotated[PaginationParams, Depends()],
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -172,8 +172,8 @@ async def list_members(
         select(WorkspaceMember)
         .where(WorkspaceMember.workspace_id == ws_id)
         .options(selectinload(WorkspaceMember.user))
-        .limit(limit)
-        .offset(offset)
+        .limit(pagination.limit)
+        .offset(pagination.skip)
     )
     items = [
         {

@@ -40,7 +40,7 @@ async def test_list_conversations(auth_client):
 async def test_list_conversations_pagination(auth_client):
     for i in range(3):
         await auth_client.post("/api/conversations", json={"title": f"Page Conv {i}"})
-    resp = await auth_client.get("/api/conversations?limit=2&offset=0")
+    resp = await auth_client.get("/api/conversations?limit=2&skip=0")
     assert resp.status_code == 200
     body = resp.json()
     assert len(body["items"]) == 2
@@ -48,7 +48,7 @@ async def test_list_conversations_pagination(auth_client):
     assert body["limit"] == 2
     assert body["offset"] == 0
 
-    resp2 = await auth_client.get("/api/conversations?limit=2&offset=2")
+    resp2 = await auth_client.get("/api/conversations?limit=2&skip=2")
     assert resp2.status_code == 200
     body2 = resp2.json()
     assert body2["offset"] == 2

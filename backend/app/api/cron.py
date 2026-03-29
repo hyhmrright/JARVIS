@@ -2,16 +2,16 @@ import asyncio
 import time
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func as sql_func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, require_workspace_member
+from app.api.deps import PaginationParams, get_current_user, require_workspace_member
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.security import fernet_encrypt
@@ -318,7 +318,7 @@ async def update_cron_job(
 async def get_job_history(
     request: Request,
     job_id: uuid.UUID,
-    limit: int = Query(default=20, ge=1, le=100),
+    pagination: Annotated[PaginationParams, Depends()],
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[JobExecutionSchema]:
@@ -346,7 +346,7 @@ async def get_job_history(
         .join(ranked_cte, JobExecution.id == ranked_cte.c.id)
         .where(ranked_cte.c.rn == 1)
         .order_by(ranked_cte.c.fired_at.desc())
-        .limit(limit)
+        .limit(pagination.limit)
     )
     return result.scalars().all()
 

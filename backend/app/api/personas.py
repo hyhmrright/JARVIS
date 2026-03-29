@@ -1,13 +1,13 @@
 import uuid
-from typing import Any
+from typing import Annotated, Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import PaginationParams, get_current_user
 from app.core.limiter import limiter
 from app.db.models import Persona, User
 from app.db.session import get_db
@@ -57,8 +57,7 @@ class PersonaPage(BaseModel):
 
 @router.get("", response_model=PersonaPage)
 async def list_personas(
-    limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
+    pagination: Annotated[PaginationParams, Depends()],
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> PersonaPage:
@@ -71,8 +70,8 @@ async def list_personas(
         select(Persona)
         .where(Persona.user_id == user.id)
         .order_by(Persona.name)
-        .limit(limit)
-        .offset(offset)
+        .limit(pagination.limit)
+        .offset(pagination.skip)
     )
     return PersonaPage(
         items=[PersonaOut.model_validate(p) for p in rows.all()], total=total

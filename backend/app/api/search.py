@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import PaginationParams, get_current_user
 from app.core.limiter import limiter
 from app.db.models import (
     Conversation,
@@ -64,11 +64,11 @@ class SearchResponse(BaseModel):
 @limiter.limit("30/minute")
 async def search(
     request: Request,
+    pagination: Annotated[PaginationParams, Depends()],
     q: str = Query(..., min_length=3, max_length=200),
     types: str = Query(default="messages,documents,memories"),
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
-    limit: int = Query(default=20, ge=1, le=50),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> SearchResponse:
@@ -94,14 +94,20 @@ async def search(
     all_results: list[SearchResultItem] = []
     if "messages" in requested:
         all_results.extend(
-            await _search_messages(*args, workspace_subq, date_from, date_to, limit)
+            await _search_messages(
+                *args, workspace_subq, date_from, date_to, pagination.limit
+            )
         )
     if "documents" in requested:
         all_results.extend(
-            await _search_documents(*args, workspace_subq, date_from, date_to, limit)
+            await _search_documents(
+                *args, workspace_subq, date_from, date_to, pagination.limit
+            )
         )
     if "memories" in requested:
-        all_results.extend(await _search_memories(*args, date_from, date_to, limit))
+        all_results.extend(
+            await _search_memories(*args, date_from, date_to, pagination.limit)
+        )
     all_results.sort(key=lambda r: r.created_at, reverse=True)
 
     return SearchResponse(results=all_results, total=len(all_results))
