@@ -5,15 +5,19 @@ import pytest
 from app.agent.interfaces import AgentGraphFactory
 
 
-def test_agent_graph_factory_is_protocol():
-    """AgentGraphFactory must be a structural Protocol, not an ABC."""
-    import typing
+def test_agent_graph_factory_is_runtime_checkable():
+    """AgentGraphFactory must be @runtime_checkable so isinstance() works."""
 
-    assert (
-        hasattr(AgentGraphFactory, "__protocol_attrs__")
-        or typing.get_origin(AgentGraphFactory) is not None
-        or AgentGraphFactory.__bases__[0].__name__ in ("Protocol", "object")
-    )
+    class ConcreteFactory:
+        async def create(self, messages, config):
+            return None
+
+    class MissingCreate:
+        pass
+
+    # @runtime_checkable allows isinstance checks
+    assert isinstance(ConcreteFactory(), AgentGraphFactory)
+    assert not isinstance(MissingCreate(), AgentGraphFactory)
 
 
 @pytest.mark.anyio
@@ -29,5 +33,5 @@ async def test_concrete_factory_satisfies_protocol():
 
     # Runtime check: Protocol is satisfied structurally
     factory = ConcreteFactory()
-    # If Protocol isn't satisfied, this will raise TypeError at runtime
     assert callable(factory.create)
+    assert isinstance(factory, AgentGraphFactory)

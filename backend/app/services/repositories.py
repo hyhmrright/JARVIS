@@ -11,7 +11,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import CronJob, UserMemory
@@ -76,8 +76,6 @@ class MemoryRepository:
     async def search_memories(
         self, user_id: uuid.UUID, query: str, limit: int = 100
     ) -> list[UserMemory]:
-        from sqlalchemy import or_
-
         result = await self._db.scalars(
             select(UserMemory)
             .where(
