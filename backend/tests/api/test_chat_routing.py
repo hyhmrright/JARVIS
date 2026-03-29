@@ -7,20 +7,25 @@ import pytest
 
 from app.api.chat.graph_builder import build_expert_graph as _build_expert_graph
 from app.api.chat.sse import format_sse as _format_sse
+from app.core.llm_config import AgentConfig, ResolvedLLMConfig
 
-_COMMON_KWARGS: dict = {
-    "provider": "openai",
-    "model": "gpt-4o",
-    "api_key": "sk-test",
-    "api_keys": None,
-    "user_id": "user-1",
-    "openai_api_key": "sk-oai",
-    "tavily_api_key": None,
-    "enabled_tools": None,
-    "mcp_tools": [],
-    "plugin_tools": None,
-    "conversation_id": "conv-1",
-}
+_BASE_LLM = ResolvedLLMConfig(
+    provider="openai",
+    model_name="gpt-4o",
+    api_key="sk-test",
+    api_keys=["sk-test"],
+    enabled_tools=None,
+    persona_override=None,
+    raw_keys={},
+)
+
+_COMMON_CONFIG = AgentConfig(
+    llm=_BASE_LLM,
+    user_id="user-1",
+    conversation_id="conv-1",
+    openai_api_key="sk-oai",
+    tavily_api_key=None,
+)
 
 
 def test_routing_sse_event_format() -> None:
@@ -39,7 +44,7 @@ def test_build_expert_graph_code_route(
 ) -> None:
     """'code' route should call create_code_agent_graph, not create_graph."""
     mock_code.return_value = MagicMock()
-    _build_expert_graph("code", **_COMMON_KWARGS)
+    _build_expert_graph("code", _COMMON_CONFIG)
     mock_code.assert_called_once()
     mock_create_graph.assert_not_called()
 
@@ -51,7 +56,7 @@ def test_build_expert_graph_research_route(
 ) -> None:
     """'research' route should call create_research_agent_graph."""
     mock_research.return_value = MagicMock()
-    _build_expert_graph("research", **_COMMON_KWARGS)
+    _build_expert_graph("research", _COMMON_CONFIG)
     mock_research.assert_called_once()
     mock_create_graph.assert_not_called()
 
@@ -63,7 +68,7 @@ def test_build_expert_graph_writing_route(
 ) -> None:
     """'writing' route should call create_writing_agent_graph."""
     mock_writing.return_value = MagicMock()
-    _build_expert_graph("writing", **_COMMON_KWARGS)
+    _build_expert_graph("writing", _COMMON_CONFIG)
     mock_writing.assert_called_once()
     mock_create_graph.assert_not_called()
 
@@ -72,7 +77,7 @@ def test_build_expert_graph_writing_route(
 def test_build_expert_graph_simple_route(mock_create_graph: MagicMock) -> None:
     """'simple' route should fall through to create_graph."""
     mock_create_graph.return_value = MagicMock()
-    _build_expert_graph("simple", **_COMMON_KWARGS)
+    _build_expert_graph("simple", _COMMON_CONFIG)
     mock_create_graph.assert_called_once()
 
 
@@ -82,7 +87,7 @@ def test_build_expert_graph_unknown_route_falls_back(
 ) -> None:
     """Unknown route labels should fall back to the standard ReAct graph."""
     mock_create_graph.return_value = MagicMock()
-    _build_expert_graph("unknown_label", **_COMMON_KWARGS)
+    _build_expert_graph("unknown_label", _COMMON_CONFIG)
     mock_create_graph.assert_called_once()
 
 
@@ -98,5 +103,5 @@ def test_build_expert_graph_returns_graph_object(route: str) -> None:
             "app.api.chat.graph_builder.create_graph",
         ]:
             stack.enter_context(patch(target, return_value=fake_graph))
-        result = _build_expert_graph(route, **_COMMON_KWARGS)
+        result = _build_expert_graph(route, _COMMON_CONFIG)
     assert result is not None

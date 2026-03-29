@@ -40,6 +40,7 @@ from app.api.deps import get_current_user, get_llm_config
 from app.api.settings import PROVIDER_MODELS
 from app.core.config import settings
 from app.core.limiter import limiter
+from app.core.llm_config import AgentConfig
 from app.core.metrics import llm_requests_total
 from app.core.sanitizer import sanitize_user_input
 from app.core.security import resolve_api_key
@@ -338,21 +339,16 @@ async def chat_stream(  # noqa: C901
                 # Expert or standard ReAct — all use streaming AgentState graphs
                 graph = build_expert_graph(
                     route,
-                    provider=llm.provider,
-                    model=llm.model_name,
-                    api_key=llm.api_key,
-                    api_keys=llm.api_keys,
-                    user_id=str(user.id),
-                    openai_api_key=openai_key,
-                    tavily_api_key=tavily_key,
-                    enabled_tools=llm.enabled_tools,
-                    mcp_tools=mcp_tools,
-                    plugin_tools=plugin_tools,
-                    conversation_id=str(conv.id),
-                    base_url=llm.base_url,
-                    workflow_dsl=conv.workflow_dsl,
-                    temperature=llm.temperature,
-                    max_tokens=llm.max_tokens,
+                    AgentConfig(
+                        llm=llm,
+                        user_id=str(user.id),
+                        conversation_id=str(conv.id),
+                        openai_api_key=openai_key,
+                        tavily_api_key=tavily_key,
+                        mcp_tools=mcp_tools or [],
+                        plugin_tools=plugin_tools or [],
+                        workflow_dsl=conv.workflow_dsl,
+                    ),
                 )
                 state = AgentState(messages=lc_messages, approved=approved)
                 try:
@@ -674,21 +670,16 @@ async def chat_regenerate(  # noqa: C901
         try:
             graph = build_expert_graph(
                 route,
-                provider=llm.provider,
-                model=llm.model_name,
-                api_key=llm.api_key,
-                api_keys=llm.api_keys,
-                user_id=str(user.id),
-                openai_api_key=openai_key,
-                tavily_api_key=tavily_key,
-                enabled_tools=llm.enabled_tools,
-                mcp_tools=mcp_tools,
-                plugin_tools=plugin_tools,
-                conversation_id=str(conv.id),
-                base_url=llm.base_url,
-                workflow_dsl=conv.workflow_dsl,
-                temperature=llm.temperature,
-                max_tokens=llm.max_tokens,
+                AgentConfig(
+                    llm=llm,
+                    user_id=str(user.id),
+                    conversation_id=str(conv.id),
+                    openai_api_key=openai_key,
+                    tavily_api_key=tavily_key,
+                    mcp_tools=mcp_tools or [],
+                    plugin_tools=plugin_tools or [],
+                    workflow_dsl=conv.workflow_dsl,
+                ),
             )
             state = AgentState(messages=lc_messages, approved=None)
             try:
