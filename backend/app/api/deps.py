@@ -1,14 +1,17 @@
 import hashlib
 import uuid
-from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.llm_config import AgentConfig as AgentConfig  # noqa: F401 re-export
+from app.core.llm_config import (
+    ResolvedLLMConfig as ResolvedLLMConfig,  # noqa: F401 re-export
+)
 from app.core.permissions import DEFAULT_ENABLED_TOOLS
 from app.core.security import decode_access_token, resolve_api_keys
 from app.db.models import (
@@ -48,23 +51,6 @@ class PaginationParams:
     ) -> None:
         self.skip = skip
         self.limit = limit
-
-
-@dataclass(frozen=True, slots=True)
-class ResolvedLLMConfig:
-    """Immutable container for resolved LLM provider settings."""
-
-    provider: str
-    model_name: str
-    api_key: str
-    api_keys: list[str]
-    enabled_tools: list[str] | None
-    persona_override: str | None
-    raw_keys: dict[str, Any]
-    base_url: str | None = None
-    temperature: float = 0.7
-    max_tokens: int | None = None
-    system_prompt: str | None = None
 
 
 async def _resolve_user(
