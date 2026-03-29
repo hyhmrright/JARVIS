@@ -2,7 +2,7 @@ import hashlib
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -23,6 +23,31 @@ from app.db.models import (
 from app.db.session import AsyncSessionLocal, get_db
 
 security = HTTPBearer()
+
+
+class PaginationParams:
+    """Reusable pagination dependency for list endpoints.
+
+    Usage::
+
+        @router.get("/items")
+        async def list_items(p: Annotated[PaginationParams, Depends()]):
+            return db.query(...).offset(p.skip).limit(p.limit).all()
+
+    Individual routes may override the default ``limit`` by subclassing or
+    adding their own ``Query`` parameters — but they should use this class as
+    the baseline so all endpoints share the same skip/limit semantics.
+    """
+
+    def __init__(
+        self,
+        skip: Annotated[int, Query(ge=0, description="Number of records to skip")] = 0,
+        limit: Annotated[
+            int, Query(ge=1, le=200, description="Maximum records to return")
+        ] = 50,
+    ) -> None:
+        self.skip = skip
+        self.limit = limit
 
 
 @dataclass(frozen=True, slots=True)
