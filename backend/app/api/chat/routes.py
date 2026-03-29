@@ -252,6 +252,7 @@ async def chat_stream(  # noqa: C901
         agent_session_id: uuid.UUID | None = None
         tools_used: list[str] = []
         try:
+            # SSE: per-chunk commit; no isolated_session()
             async with AsyncSessionLocal() as _init_sess:
                 async with _init_sess.begin():
                     ag_sess = AgentSession(
@@ -367,6 +368,7 @@ async def chat_stream(  # noqa: C901
                                     tool_calls
                                     and signature not in persisted_tool_batches
                                 ):
+                                    # SSE: per-chunk commit; no isolated_session()
                                     async with AsyncSessionLocal() as persist_sess:
                                         async with persist_sess.begin():
                                             persisted_ai = Message(
@@ -397,6 +399,7 @@ async def chat_stream(  # noqa: C901
                                         )
                                         if tool_call_id in persisted_tool_results:
                                             continue
+                                        # SSE: per-chunk commit; no isolated_session()
                                         async with AsyncSessionLocal() as persist_sess:
                                             async with persist_sess.begin():
                                                 persisted_tool = Message(
@@ -447,6 +450,7 @@ async def chat_stream(  # noqa: C901
                             base_url=llm.base_url,
                         )
 
+                    # SSE: per-chunk commit; no isolated_session()
                     async with AsyncSessionLocal() as session:
                         async with session.begin():
                             saved_ai_msg = Message(
@@ -498,6 +502,7 @@ async def chat_stream(  # noqa: C901
                     }
                     if compressed_summary:
                         update_values["context_summary"] = compressed_summary
+                    # SSE: per-chunk commit; no isolated_session()
                     async with AsyncSessionLocal() as status_sess:
                         async with status_sess.begin():
                             await status_sess.execute(
@@ -632,6 +637,7 @@ async def chat_regenerate(  # noqa: C901
 
         agent_session_id: uuid.UUID | None = None
         try:
+            # SSE: per-chunk commit; no isolated_session()
             async with AsyncSessionLocal() as _init_sess:
                 async with _init_sess.begin():
                     ag_sess = AgentSession(
@@ -693,6 +699,7 @@ async def chat_regenerate(  # noqa: C901
                             tool_calls = getattr(last_ai_msg, "tool_calls", None) or []
                             signature = tool_call_signature(tool_calls)
                             if tool_calls and signature not in persisted_tool_batches:
+                                # SSE: per-chunk commit; no isolated_session()
                                 async with AsyncSessionLocal() as persist_sess:
                                     async with persist_sess.begin():
                                         persisted_ai = Message(
@@ -723,6 +730,7 @@ async def chat_regenerate(  # noqa: C901
                                     )
                                     if tool_call_id in persisted_tool_results:
                                         continue
+                                    # SSE: per-chunk commit; no isolated_session()
                                     async with AsyncSessionLocal() as persist_sess:
                                         async with persist_sess.begin():
                                             persisted_tool = Message(
@@ -755,6 +763,7 @@ async def chat_regenerate(  # noqa: C901
             regen_ai_msg_id: uuid.UUID | None = None
             if full_content:
                 try:
+                    # SSE: per-chunk commit; no isolated_session()
                     async with AsyncSessionLocal() as session:
                         async with session.begin():
                             saved_regen_msg = Message(
@@ -777,6 +786,7 @@ async def chat_regenerate(  # noqa: C901
                     logger.warning("regenerate_save_message_failed", exc_info=True)
             if agent_session_id:
                 try:
+                    # SSE: per-chunk commit; no isolated_session()
                     async with AsyncSessionLocal() as status_sess:
                         async with status_sess.begin():
                             await status_sess.execute(

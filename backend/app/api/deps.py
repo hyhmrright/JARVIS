@@ -20,7 +20,7 @@ from app.db.models import (
     WorkspaceMember,
     WorkspaceSettings,
 )
-from app.db.session import AsyncSessionLocal, get_db
+from app.db.session import get_db, isolated_session
 
 security = HTTPBearer()
 
@@ -130,13 +130,10 @@ async def _resolve_pat(
         )
     # Update last_used_at in an isolated session to avoid committing the
     # shared request session from within the auth dependency.
-    async with AsyncSessionLocal() as _session:
-        async with _session.begin():
-            result = await _session.scalar(
-                select(ApiKey).where(ApiKey.id == api_key.id)
-            )
-            if result is not None:
-                result.last_used_at = datetime.now(UTC)
+    async with isolated_session() as _session:
+        result = await _session.scalar(select(ApiKey).where(ApiKey.id == api_key.id))
+        if result is not None:
+            result.last_used_at = datetime.now(UTC)
     if request is not None:
         request.state.api_key_scope = api_key.scope
     return user

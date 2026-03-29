@@ -251,6 +251,7 @@ async def _update_run_status(
     error_message: str | None = None,
 ) -> None:
     """Persist run status to DB in a fresh session."""
+    # SSE: per-chunk commit, cannot use isolated_session()
     async with AsyncSessionLocal() as update_db:
         run_record = await update_db.get(WorkflowRun, run_uuid)
         if run_record:

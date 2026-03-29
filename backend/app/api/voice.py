@@ -22,7 +22,7 @@ from app.core.config import settings
 from app.core.permissions import DEFAULT_ENABLED_TOOLS
 from app.core.security import resolve_api_key, resolve_api_keys
 from app.db.models import Conversation, Message, UserSettings
-from app.db.session import AsyncSessionLocal, get_db
+from app.db.session import get_db, isolated_session
 from app.rag.context import build_rag_context
 
 logger = structlog.get_logger(__name__)
@@ -260,7 +260,7 @@ async def _persist_voice_turn(
     Silently skips if the conversation does not belong to the user.
     """
     try:
-        async with AsyncSessionLocal() as save_db:
+        async with isolated_session() as save_db:
             conv = await save_db.scalar(
                 select(Conversation).where(
                     Conversation.id == conversation_id,
@@ -284,7 +284,6 @@ async def _persist_voice_turn(
             save_db.add(ai_msg)
             await save_db.flush()
             conv.active_leaf_id = ai_msg.id
-            await save_db.commit()
     except Exception:
         logger.warning(
             "voice_persist_failed",

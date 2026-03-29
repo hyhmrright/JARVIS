@@ -13,7 +13,7 @@ from sqlalchemy import select
 
 from app.api.deps import get_current_user
 from app.db.models import Conversation, User
-from app.db.session import AsyncSessionLocal
+from app.db.session import isolated_session
 from app.tools.canvas_tool import get_canvas_bus
 
 logger = structlog.get_logger(__name__)
@@ -39,7 +39,7 @@ async def canvas_stream(
     # Perform the ownership check in a short-lived session that is closed
     # before streaming begins.  Holding get_db() open for the lifetime of an
     # SSE stream would exhaust the connection pool.
-    async with AsyncSessionLocal() as db:
+    async with isolated_session() as db:
         conv = await db.scalar(
             select(Conversation).where(
                 Conversation.id == conv_uuid,

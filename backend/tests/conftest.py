@@ -58,20 +58,19 @@ async def _suppress_auth_audit_logging():
 
 @pytest.fixture(autouse=True)
 async def _suppress_pat_last_used_update():
-    """Mock AsyncSessionLocal in deps to prevent cross-event-loop pool contamination.
+    """Mock isolated_session in deps to prevent cross-event-loop pool contamination.
 
-    _resolve_pat() uses AsyncSessionLocal (now imported at module level in deps.py)
+    _resolve_pat() uses isolated_session() (imported at module level in deps.py)
     to update last_used_at. Those connections are bound to the calling event loop
     and become invalid in the next test's event loop. Patching
-    app.api.deps.AsyncSessionLocal only affects the deps module namespace —
+    app.api.deps.isolated_session only affects the deps module namespace —
     app.db.session.AsyncSessionLocal (used by get_db) is left intact.
     """
     mock_session = MagicMock()
     mock_session.__aenter__ = AsyncMock(return_value=mock_session)
     mock_session.__aexit__ = AsyncMock(return_value=None)
-    mock_session.begin = MagicMock(return_value=mock_session)
     mock_session.scalar = AsyncMock(return_value=None)
-    with patch("app.api.deps.AsyncSessionLocal", return_value=mock_session):
+    with patch("app.api.deps.isolated_session", return_value=mock_session):
         yield
 
 
