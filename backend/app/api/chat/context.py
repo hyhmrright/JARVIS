@@ -63,6 +63,8 @@ async def build_chat_context(  # noqa: C901
     user: User,
     db: AsyncSession,
     llm: ResolvedLLMConfig,
+    *,
+    _regen_parent_id: uuid.UUID | None = None,
 ) -> ChatContext:
     """Resolve conversation state and return a ready-to-stream ChatContext."""
     # ── model override ────────────────────────────────────────────────────────
@@ -142,7 +144,7 @@ async def build_chat_context(  # noqa: C901
 
     # ── human message persistence ─────────────────────────────────────────────
     human_msg_id: uuid.UUID | None = None
-    if not is_consent:
+    if not is_consent and _regen_parent_id is None:
         final_content = user_content
         if body.file_context:
             final_content = (
@@ -171,11 +173,19 @@ async def build_chat_context(  # noqa: C901
 
     msg_dict = {msg.id: msg for msg in all_conv_messages}
 
-    start_id = human_msg_id if not is_consent else parent_message_id
+    if _regen_parent_id is not None:
+        start_id: uuid.UUID | None = _regen_parent_id
+    elif not is_consent:
+        start_id = human_msg_id
+    else:
+        start_id = parent_message_id
     if not start_id and all_conv_messages:
         start_id = all_conv_messages[-1].id
 
     all_history = walk_message_chain(msg_dict, start_id)
+    # For regenerate mode derive user_content from history (not body.content)
+    if _regen_parent_id is not None:
+        user_content = all_history[-1].content if all_history else ""
     lc_messages: list[BaseMessage] = build_langchain_messages(all_history)
 
     # ── system prompt ─────────────────────────────────────────────────────────
