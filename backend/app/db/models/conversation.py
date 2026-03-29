@@ -88,6 +88,23 @@ class Conversation(Base):
         order_by="ConversationTag.tag",
     )
 
+    @classmethod
+    def create(
+        cls,
+        user_id: uuid.UUID,
+        title: str = "New Conversation",
+    ) -> "Conversation":
+        """Factory: create a Conversation instance. Caller must call db.add()."""
+        return cls(id=uuid.uuid4(), user_id=user_id, title=title)
+
+    def activate_leaf(self, message_id: uuid.UUID) -> None:
+        """Set the active leaf message for this conversation."""
+        self.active_leaf_id = message_id
+
+    def update_title(self, new_title: str) -> None:
+        """Update the conversation title."""
+        self.title = new_title
+
 
 class ConversationTag(Base):
     __tablename__ = "conversation_tags"
@@ -245,6 +262,35 @@ class Message(Base):
     agent_session: Mapped["AgentSession | None"] = relationship(
         back_populates="messages"
     )
+
+    @classmethod
+    def create(
+        cls,
+        conversation_id: uuid.UUID,
+        role: str,
+        content: str,
+        parent_id: uuid.UUID | None = None,
+        image_urls: list | None = None,
+        tool_calls: list | None = None,
+        model_provider: str | None = None,
+        model_name: str | None = None,
+        tokens_input: int | None = None,
+        tokens_output: int | None = None,
+    ) -> "Message":
+        """Factory: create a Message instance. Caller must call db.add()."""
+        return cls(
+            id=uuid.uuid4(),
+            conversation_id=conversation_id,
+            role=role,
+            content=content,
+            parent_id=parent_id,
+            image_urls=image_urls,
+            tool_calls=tool_calls,
+            model_provider=model_provider,
+            model_name=model_name,
+            tokens_input=tokens_input,
+            tokens_output=tokens_output,
+        )
 
 
 class SharedConversation(Base):
