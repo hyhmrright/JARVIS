@@ -6,18 +6,18 @@ import uuid
 from datetime import UTC, datetime
 
 import structlog
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from sqlalchemy import select, update
 
-from app.agent.graph import create_graph
 from app.agent.persona import build_system_prompt
-from app.agent.state import AgentState
 from app.core.config import settings
+from app.core.llm_config import AgentConfig, ResolvedLLMConfig
 from app.core.permissions import DEFAULT_ENABLED_TOOLS
 from app.core.security import resolve_api_key, resolve_api_keys
 from app.db.models import AgentSession, Conversation, Message, UserSettings
 from app.db.session import AsyncSessionLocal
 from app.rag.context import build_rag_context
+from app.services.agent_execution import AgentExecutionService
 
 logger = structlog.get_logger(__name__)
 
@@ -118,17 +118,22 @@ async def run_agent_for_user(
                     parse_mcp_configs(settings.mcp_servers_json)
                 )
 
-            graph = create_graph(
+            llm = ResolvedLLMConfig(
                 provider=provider,
-                model=model_name,
+                model_name=model_name,
                 api_key=api_keys[0],
-                enabled_tools=enabled,
                 api_keys=api_keys,
+                enabled_tools=enabled,
+                persona_override=persona,
+                raw_keys=raw_keys,
+            )
+            config = AgentConfig(
+                llm=llm,
                 user_id=user_id,
-                openai_api_key=resolve_api_key("openai", raw_keys),
-                tavily_api_key=settings.tavily_api_key,
-                mcp_tools=mcp_tools,
                 conversation_id=str(conv.id),
+                mcp_tools=mcp_tools,
+                openai_api_key=openai_key,
+                tavily_api_key=settings.tavily_api_key,
             )
 
             # Create AgentSession for this background run
@@ -146,15 +151,11 @@ async def run_agent_for_user(
                 logger.warning("agent_session_create_failed", exc_info=True)
 
             run_error = False
-            result = None
-            tools_used: list[str] = []
+            ai_content = ""
             try:
-                result = await graph.ainvoke(AgentState(messages=lc_messages))
-                _seen: set[str] = set()
-                for m in result.get("messages", []):
-                    if isinstance(m, ToolMessage) and m.name and m.name not in _seen:
-                        tools_used.append(m.name)
-                        _seen.add(m.name)
+                ai_content = await AgentExecutionService().run_blocking(
+                    lc_messages, config
+                )
             except Exception:
                 run_error = True
                 raise
@@ -169,7 +170,6 @@ async def run_agent_for_user(
                         metadata: dict[str, object] = {
                             "model": model_name,
                             "provider": provider,
-                            "tools_used": tools_used,
                             "trigger_type": trigger_type,
                         }
                         async with AsyncSessionLocal() as sess:
@@ -185,9 +185,6 @@ async def run_agent_for_user(
                                 )
                     except Exception:
                         logger.warning("agent_session_update_failed", exc_info=True)
-
-            # result is non-None here: if ainvoke raised, the except above re-raised
-            ai_content = str(result["messages"][-1].content)
 
             db.add(
                 Message(

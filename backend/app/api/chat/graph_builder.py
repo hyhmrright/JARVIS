@@ -10,6 +10,7 @@ from sqlalchemy import select
 
 from app.agent.graph import create_graph
 from app.core.config import settings
+from app.core.llm_config import AgentConfig
 from app.db.models import InstalledPlugin
 from app.db.session import AsyncSessionLocal
 from app.plugins import plugin_registry
@@ -17,42 +18,28 @@ from app.plugins import plugin_registry
 logger = structlog.get_logger(__name__)
 
 
-def build_expert_graph(
-    route: str,
-    *,
-    provider: str,
-    model: str,
-    api_key: str,
-    api_keys: list[str] | None,
-    user_id: str,
-    openai_api_key: str | None,
-    tavily_api_key: str | None,
-    enabled_tools: list[str] | None,
-    mcp_tools: list,
-    plugin_tools: list | None,
-    conversation_id: str,
-    base_url: str | None = None,
-    workflow_dsl: dict | None = None,
-    temperature: float = 0.7,
-    max_tokens: int | None = None,
-) -> CompiledStateGraph:
+def build_expert_graph(route: str, config: AgentConfig) -> CompiledStateGraph:
     """Return the appropriate compiled LangGraph for the given routing label.
 
     Expert agents (code/research/writing) each select a focused tool subset.
     Workflow DSLs take precedence over default agents.
     Unknown labels fall back to the standard ReAct graph with all enabled tools.
     """
-    if workflow_dsl:
+    if config.workflow_dsl:
         from app.agent.compiler import GraphCompiler, WorkflowDSL
 
         compiler = GraphCompiler(
-            dsl=WorkflowDSL(**workflow_dsl),
+            dsl=WorkflowDSL(**config.workflow_dsl),
             llm_config={
-                "provider": provider,
-                "api_key": api_key,
-                "base_url": base_url,
-                "temperature": temperature,
-                **({"max_tokens": max_tokens} if max_tokens else {}),
+                "provider": config.llm.provider,
+                "api_key": config.llm.api_key,
+                "base_url": config.llm.base_url,
+                "temperature": config.llm.temperature,
+                **(
+                    {"max_tokens": config.llm.max_tokens}
+                    if config.llm.max_tokens
+                    else {}
+                ),
             },
         )
         return compiler.compile()
@@ -65,66 +52,51 @@ def build_expert_graph(
 
     if route == "code":
         return create_code_agent_graph(
-            provider=provider,
-            model=model,
-            api_key=api_key,
-            user_id=user_id,
-            openai_api_key=openai_api_key,
-            api_keys=api_keys,
-            mcp_tools=mcp_tools,
-            plugin_tools=plugin_tools,
-            conversation_id=conversation_id,
-            base_url=base_url,
-            temperature=temperature,
-            max_tokens=max_tokens,
+            provider=config.llm.provider,
+            model=config.llm.model_name,
+            api_key=config.llm.api_key,
+            user_id=config.user_id,
+            openai_api_key=config.openai_api_key,
+            api_keys=config.llm.api_keys,
+            mcp_tools=config.mcp_tools or None,
+            plugin_tools=config.plugin_tools or None,
+            conversation_id=config.conversation_id,
+            base_url=config.llm.base_url,
+            temperature=config.llm.temperature,
+            max_tokens=config.llm.max_tokens,
         )
     if route == "research":
         return create_research_agent_graph(
-            provider=provider,
-            model=model,
-            api_key=api_key,
-            user_id=user_id,
-            openai_api_key=openai_api_key,
-            tavily_api_key=tavily_api_key,
-            api_keys=api_keys,
-            mcp_tools=mcp_tools,
-            plugin_tools=plugin_tools,
-            conversation_id=conversation_id,
-            base_url=base_url,
-            temperature=temperature,
-            max_tokens=max_tokens,
+            provider=config.llm.provider,
+            model=config.llm.model_name,
+            api_key=config.llm.api_key,
+            user_id=config.user_id,
+            openai_api_key=config.openai_api_key,
+            tavily_api_key=config.tavily_api_key,
+            api_keys=config.llm.api_keys,
+            mcp_tools=config.mcp_tools or None,
+            plugin_tools=config.plugin_tools or None,
+            conversation_id=config.conversation_id,
+            base_url=config.llm.base_url,
+            temperature=config.llm.temperature,
+            max_tokens=config.llm.max_tokens,
         )
     if route == "writing":
         return create_writing_agent_graph(
-            provider=provider,
-            model=model,
-            api_key=api_key,
-            user_id=user_id,
-            openai_api_key=openai_api_key,
-            api_keys=api_keys,
-            mcp_tools=mcp_tools,
-            plugin_tools=plugin_tools,
-            conversation_id=conversation_id,
-            base_url=base_url,
-            temperature=temperature,
-            max_tokens=max_tokens,
+            provider=config.llm.provider,
+            model=config.llm.model_name,
+            api_key=config.llm.api_key,
+            user_id=config.user_id,
+            openai_api_key=config.openai_api_key,
+            api_keys=config.llm.api_keys,
+            mcp_tools=config.mcp_tools or None,
+            plugin_tools=config.plugin_tools or None,
+            conversation_id=config.conversation_id,
+            base_url=config.llm.base_url,
+            temperature=config.llm.temperature,
+            max_tokens=config.llm.max_tokens,
         )
-    return create_graph(
-        provider=provider,
-        model=model,
-        api_key=api_key,
-        enabled_tools=enabled_tools,
-        api_keys=api_keys,
-        user_id=user_id,
-        openai_api_key=openai_api_key,
-        tavily_api_key=tavily_api_key,
-        mcp_tools=mcp_tools,
-        plugin_tools=plugin_tools,
-        conversation_id=conversation_id,
-        base_url=base_url,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
+    return create_graph(config)
 
 
 async def load_personal_plugin_tools(user_id: str) -> list[BaseTool]:

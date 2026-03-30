@@ -135,6 +135,23 @@ class UserSettings(Base):
 
     user: Mapped["User"] = relationship(back_populates="settings")
 
+    def get_api_key(self, provider: str) -> str | None:
+        """Decrypt and return the API key for the given provider.
+
+        Returns None if the provider key is not set.
+        """
+        from app.core.security import decrypt_api_keys
+
+        return decrypt_api_keys(self.api_keys or {}).get(provider)
+
+    def set_api_key(self, provider: str, plaintext_key: str) -> None:
+        """Encrypt and store the API key for the given provider."""
+        from app.core.security import decrypt_api_keys, encrypt_api_keys
+
+        current = decrypt_api_keys(self.api_keys or {})
+        current[provider] = plaintext_key
+        self.api_keys = encrypt_api_keys(current)
+
 
 class ApiKey(Base):
     """Personal Access Token record. The raw token is never stored — only its

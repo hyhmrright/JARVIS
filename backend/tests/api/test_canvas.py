@@ -63,7 +63,7 @@ async def test_canvas_stream_invalid_uuid():
 async def test_canvas_stream_nonexistent_conversation(db_session):
     """Random UUID that has no conversation row returns 404."""
     with patch(
-        "app.api.canvas.AsyncSessionLocal",
+        "app.api.canvas.isolated_session",
         return_value=_PatchedCanvasSession(db_session),
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -83,7 +83,7 @@ async def test_canvas_stream_other_users_conversation(db_session):
     conv_id = await _create_conversation(db_session, user_id)
     other_user = _UserStub(uuid.uuid4())
     with patch(
-        "app.api.canvas.AsyncSessionLocal",
+        "app.api.canvas.isolated_session",
         return_value=_PatchedCanvasSession(db_session),
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -112,7 +112,7 @@ async def test_canvas_stream_valid_opens(db_session):
 
     with (
         patch(
-            "app.api.canvas.AsyncSessionLocal",
+            "app.api.canvas.isolated_session",
             return_value=_PatchedCanvasSession(db_session),
         ),
         patch("app.api.canvas.get_canvas_bus", return_value=_FakeCanvasBus()),

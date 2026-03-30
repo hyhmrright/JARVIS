@@ -1,14 +1,17 @@
 import hashlib
 import uuid
-from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated
 
 from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.llm_config import AgentConfig as AgentConfig  # noqa: F401 re-export
+from app.core.llm_config import (
+    ResolvedLLMConfig as ResolvedLLMConfig,  # noqa: F401 re-export
+)
 from app.core.permissions import DEFAULT_ENABLED_TOOLS
 from app.core.security import decode_access_token, resolve_api_keys
 from app.db.models import (
@@ -20,26 +23,34 @@ from app.db.models import (
     WorkspaceMember,
     WorkspaceSettings,
 )
-from app.db.session import AsyncSessionLocal, get_db
+from app.db.session import get_db, isolated_session
 
 security = HTTPBearer()
 
 
-@dataclass(frozen=True, slots=True)
-class ResolvedLLMConfig:
-    """Immutable container for resolved LLM provider settings."""
+class PaginationParams:
+    """Reusable pagination dependency for list endpoints.
 
-    provider: str
-    model_name: str
-    api_key: str
-    api_keys: list[str]
-    enabled_tools: list[str] | None
-    persona_override: str | None
-    raw_keys: dict[str, Any]
-    base_url: str | None = None
-    temperature: float = 0.7
-    max_tokens: int | None = None
-    system_prompt: str | None = None
+    Usage::
+
+        @router.get("/items")
+        async def list_items(p: Annotated[PaginationParams, Depends()]):
+            return db.query(...).offset(p.skip).limit(p.limit).all()
+
+    Individual routes may override the default ``limit`` by subclassing or
+    adding their own ``Query`` parameters — but they should use this class as
+    the baseline so all endpoints share the same skip/limit semantics.
+    """
+
+    def __init__(
+        self,
+        skip: Annotated[int, Query(ge=0, description="Number of records to skip")] = 0,
+        limit: Annotated[
+            int, Query(ge=1, le=200, description="Maximum records to return")
+        ] = 50,
+    ) -> None:
+        self.skip = skip
+        self.limit = limit
 
 
 async def _resolve_user(
@@ -105,13 +116,10 @@ async def _resolve_pat(
         )
     # Update last_used_at in an isolated session to avoid committing the
     # shared request session from within the auth dependency.
-    async with AsyncSessionLocal() as _session:
-        async with _session.begin():
-            result = await _session.scalar(
-                select(ApiKey).where(ApiKey.id == api_key.id)
-            )
-            if result is not None:
-                result.last_used_at = datetime.now(UTC)
+    async with isolated_session() as _session:
+        result = await _session.scalar(select(ApiKey).where(ApiKey.id == api_key.id))
+        if result is not None:
+            result.last_used_at = datetime.now(UTC)
     if request is not None:
         request.state.api_key_scope = api_key.scope
     return user

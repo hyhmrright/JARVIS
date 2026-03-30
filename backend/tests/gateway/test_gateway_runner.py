@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from langchain_core.messages import AIMessage
 
 from app.gateway.agent_runner import run_agent_for_user
 
@@ -34,19 +33,18 @@ async def test_run_agent_for_user_returns_ai_reply():
     mock_ctx.__aenter__ = AsyncMock(return_value=mock_db)
     mock_ctx.__aexit__ = AsyncMock(return_value=None)
 
-    mock_graph = AsyncMock()
-    mock_graph.ainvoke.return_value = {"messages": [AIMessage(content="任务完成。")]}
-
     with (
         patch("app.gateway.agent_runner.AsyncSessionLocal", return_value=mock_ctx),
         patch("app.gateway.agent_runner.resolve_api_keys", return_value=["fake-key"]),
         patch("app.gateway.agent_runner.build_rag_context", AsyncMock(return_value="")),
-        patch("app.gateway.agent_runner.create_graph", return_value=mock_graph),
+        patch(
+            "app.services.agent_execution.AgentExecutionService.run_blocking",
+            AsyncMock(return_value="任务完成。"),
+        ),
     ):
         result = await run_agent_for_user(_USER_ID, "帮我做个计划")
 
     assert result == "任务完成。"
-    mock_graph.ainvoke.assert_called_once()
 
 
 @pytest.mark.asyncio

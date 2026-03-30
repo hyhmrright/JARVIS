@@ -189,7 +189,7 @@ async def test_chat_stream_sets_parent_id(auth_client, db_session):
             "app.api.chat.routes.compact_messages", new_callable=AsyncMock
         ) as mock_compact,
         patch(
-            "app.api.chat.routes.build_rag_context", new_callable=AsyncMock
+            "app.api.chat.context.build_rag_context", new_callable=AsyncMock
         ) as mock_rag,
         patch(
             "app.api.chat.routes.AsyncSessionLocal",
@@ -274,7 +274,7 @@ async def test_chat_stream_uses_active_leaf_when_parent_missing(
             "app.api.chat.routes.compact_messages", new_callable=AsyncMock
         ) as mock_compact,
         patch(
-            "app.api.chat.routes.build_rag_context", new_callable=AsyncMock
+            "app.api.chat.context.build_rag_context", new_callable=AsyncMock
         ) as mock_rag,
         patch(
             "app.api.chat.routes.AsyncSessionLocal",
@@ -363,7 +363,7 @@ async def test_chat_stream_persists_tool_transcript(auth_client, db_session):
             "app.api.chat.routes.compact_messages", new_callable=AsyncMock
         ) as mock_compact,
         patch(
-            "app.api.chat.routes.build_rag_context", new_callable=AsyncMock
+            "app.api.chat.context.build_rag_context", new_callable=AsyncMock
         ) as mock_rag,
         patch(
             "app.api.chat.routes.AsyncSessionLocal",
@@ -447,7 +447,7 @@ async def test_chat_regenerate_updates_agent_session_status(auth_client, db_sess
             "app.api.chat.routes.compact_messages", new_callable=AsyncMock
         ) as mock_compact,
         patch(
-            "app.api.chat.routes.build_rag_context", new_callable=AsyncMock
+            "app.api.chat.context.build_rag_context", new_callable=AsyncMock
         ) as mock_rag,
         patch("app.api.chat.routes.AsyncSessionLocal", return_value=tracking_session),
     ):
@@ -503,9 +503,9 @@ async def test_model_override_replaces_model_name(auth_client, db_session):
     mock_graph = MagicMock()
     mock_graph.astream = mock_astream
 
-    def capture_build_graph(route, *args, **kwargs):
+    def capture_build_graph(route, config, *args, **kwargs):
         assert route == "main"
-        captured_model.append(kwargs["model"])
+        captured_model.append(config.llm.model_name)
         return mock_graph
 
     with (
@@ -522,7 +522,7 @@ async def test_model_override_replaces_model_name(auth_client, db_session):
             "app.api.chat.routes.compact_messages", new_callable=AsyncMock
         ) as mock_compact,
         patch(
-            "app.api.chat.routes.build_rag_context", new_callable=AsyncMock
+            "app.api.chat.context.build_rag_context", new_callable=AsyncMock
         ) as mock_rag,
     ):
         mock_get_llm.return_value = base_llm
@@ -588,7 +588,7 @@ async def test_chat_regenerate(auth_client, db_session):
             "app.api.chat.routes.compact_messages", new_callable=AsyncMock
         ) as mock_compact,
         patch(
-            "app.api.chat.routes.build_rag_context", new_callable=AsyncMock
+            "app.api.chat.context.build_rag_context", new_callable=AsyncMock
         ) as mock_rag,
     ):
         mock_get_llm.return_value = mock_llm

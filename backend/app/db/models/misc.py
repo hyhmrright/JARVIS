@@ -2,7 +2,7 @@
 Workflow, WorkflowRun."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import (
@@ -176,6 +176,22 @@ class Workflow(Base):
 
     user: Mapped["User"] = relationship()
 
+    @classmethod
+    def create(
+        cls,
+        user_id: uuid.UUID,
+        name: str,
+        dsl: dict,
+        description: str | None = None,
+    ) -> "Workflow":
+        return cls(
+            id=uuid.uuid4(),
+            user_id=user_id,
+            name=name,
+            dsl=dsl,
+            description=description,
+        )
+
 
 class WorkflowRun(Base):
     """工作流运行记录模型。"""
@@ -218,3 +234,24 @@ class WorkflowRun(Base):
     )
 
     workflow: Mapped["Workflow"] = relationship("Workflow")
+
+    @classmethod
+    def start(cls, workflow_id: uuid.UUID, user_id: uuid.UUID) -> "WorkflowRun":
+        """Create a WorkflowRun in 'running' status."""
+        return cls(
+            id=uuid.uuid4(),
+            workflow_id=workflow_id,
+            user_id=user_id,
+            status="running",
+            started_at=datetime.now(UTC),
+        )
+
+    def complete(self, output: dict) -> None:
+        self.status = "completed"
+        self.output_data = output
+        self.completed_at = datetime.now(UTC)
+
+    def fail(self, error: str) -> None:
+        self.status = "failed"
+        self.error_message = error
+        self.completed_at = datetime.now(UTC)

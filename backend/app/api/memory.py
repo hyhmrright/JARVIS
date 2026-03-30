@@ -2,13 +2,14 @@
 
 import uuid
 from datetime import datetime
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import PaginationParams, get_current_user
 from app.core.limiter import limiter
 from app.db.models import User, UserMemory
 from app.db.session import get_db
@@ -39,8 +40,7 @@ class MemoryPage(BaseModel):
 @limiter.limit("60/minute")
 async def list_memories(
     request: Request,
-    limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
+    pagination: Annotated[PaginationParams, Depends()],
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> MemoryPage:
@@ -54,8 +54,8 @@ async def list_memories(
         select(UserMemory)
         .where(UserMemory.user_id == user.id)
         .order_by(UserMemory.category, UserMemory.key)
-        .limit(limit)
-        .offset(offset)
+        .limit(pagination.limit)
+        .offset(pagination.skip)
     )
     return MemoryPage(items=list(rows.all()), total=total)
 

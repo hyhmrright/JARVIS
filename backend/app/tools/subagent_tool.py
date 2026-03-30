@@ -9,15 +9,27 @@ A ``MAX_DEPTH`` guard prevents unbounded recursion.
 """
 
 import asyncio
+from typing import Any
 
 import structlog
 from langchain_core.tools import BaseTool, tool
 
+from app.agent.interfaces import AgentGraphFactory
 from app.core.config import settings
 
 logger = structlog.get_logger(__name__)
 
 MAX_DEPTH = 3
+
+# Module-level factory — injected by app/main.py at startup.
+# Falls back to a direct import of create_graph when None.
+_graph_factory: AgentGraphFactory | None = None
+
+
+def set_graph_factory(factory: AgentGraphFactory) -> None:
+    """Called once from app/main.py to inject the concrete graph factory."""
+    global _graph_factory
+    _graph_factory = factory
 
 
 def create_subagent_tool(
@@ -52,13 +64,8 @@ def create_subagent_tool(
                 "Please handle this task directly."
             )
 
-        # Delayed import breaks the tools↔agent circular dependency:
-        #   tools/subagent_tool.py  imports  agent/graph.py  (at call time)
-        #   agent/graph.py          imports  tools/subagent_tool.py  (at call time)
-        # See agent/graph.py create_graph() for the symmetric delayed import.
         from langchain_core.messages import HumanMessage, SystemMessage
 
-        from app.agent.graph import create_graph
         from app.agent.state import AgentState
 
         logger.info(
@@ -69,7 +76,7 @@ def create_subagent_tool(
 
         sub_enabled = [t for t in (enabled_tools or []) if t != "subagent"]
 
-        graph = create_graph(
+        graph_kwargs: dict[str, Any] = dict(
             provider=provider,
             model=model,
             api_key=api_key,
@@ -80,6 +87,15 @@ def create_subagent_tool(
             tavily_api_key=tavily_api_key,
             base_url=base_url,
         )
+
+        if _graph_factory is not None:
+            graph = await _graph_factory.create([], graph_kwargs)
+        else:
+            # Fallback: delayed import breaks the tools↔agent circular dependency
+            # at module level while still allowing tests to patch create_graph.
+            from app.agent.graph import create_graph  # noqa: PLC0415
+
+            graph = create_graph(**graph_kwargs)
 
         try:
             async with asyncio.timeout(settings.graph_timeout_seconds):

@@ -60,9 +60,26 @@ from app.plugins.loader import (
 )
 from app.scheduler.runner import start_scheduler, stop_scheduler
 from app.tools.mcp_client import mcp_connection_pool
+from app.tools.subagent_tool import set_graph_factory as _set_subagent_graph_factory
 
 configure_logging()
 logger = structlog.get_logger(__name__)
+
+
+class _ConcreteGraphFactory:
+    """Thin wrapper — delegates to ``create_graph`` with kwargs from subagent_tool."""
+
+    async def create(
+        self,
+        messages: object,
+        config: object,
+    ) -> object:
+        from app.agent.graph import create_graph
+
+        return create_graph(**(config if isinstance(config, dict) else {}))
+
+
+_set_subagent_graph_factory(_ConcreteGraphFactory())  # type: ignore[arg-type]
 
 # Global registry for messaging channels
 channel_registry = ChannelRegistry()

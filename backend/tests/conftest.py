@@ -58,20 +58,19 @@ async def _suppress_auth_audit_logging():
 
 @pytest.fixture(autouse=True)
 async def _suppress_pat_last_used_update():
-    """Mock AsyncSessionLocal in deps to prevent cross-event-loop pool contamination.
+    """Mock isolated_session in deps to prevent cross-event-loop pool contamination.
 
-    _resolve_pat() uses AsyncSessionLocal (now imported at module level in deps.py)
+    _resolve_pat() uses isolated_session() (imported at module level in deps.py)
     to update last_used_at. Those connections are bound to the calling event loop
     and become invalid in the next test's event loop. Patching
-    app.api.deps.AsyncSessionLocal only affects the deps module namespace —
+    app.api.deps.isolated_session only affects the deps module namespace —
     app.db.session.AsyncSessionLocal (used by get_db) is left intact.
     """
     mock_session = MagicMock()
     mock_session.__aenter__ = AsyncMock(return_value=mock_session)
     mock_session.__aexit__ = AsyncMock(return_value=None)
-    mock_session.begin = MagicMock(return_value=mock_session)
     mock_session.scalar = AsyncMock(return_value=None)
-    with patch("app.api.deps.AsyncSessionLocal", return_value=mock_session):
+    with patch("app.api.deps.isolated_session", return_value=mock_session):
         yield
 
 
@@ -204,20 +203,24 @@ async def _suppress_worker_async_session():
 
 @pytest.fixture(autouse=True)
 async def _suppress_user_memory_tool_async_session():
-    """Mock AsyncSessionLocal in user_memory_tool to prevent cross-loop contamination.
+    """Mock isolated_session and _make_repository in user_memory_tool to prevent
+    cross-loop contamination.
 
-    The remember/recall tools open AsyncSessionLocal() directly. Those connections
-    bind to the calling event loop and are invalid in the next test's event loop,
-    causing asyncpg "Future attached to a different loop".
+    The remember/recall tools call isolated_session() which opens a DB connection.
+    Those connections bind to the calling event loop and are invalid in the next
+    test's event loop, causing asyncpg "Future attached to a different loop".
     """
-    mock_session = MagicMock()
-    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-    mock_session.__aexit__ = AsyncMock(return_value=None)
-    mock_session.execute = AsyncMock(return_value=MagicMock())
-    mock_session.commit = AsyncMock()
-    _scalars = MagicMock()
-    _scalars.all = MagicMock(return_value=[])
-    mock_session.scalars = AsyncMock(return_value=_scalars)
-    target = "app.tools.user_memory_tool.AsyncSessionLocal"
-    with patch(target, return_value=mock_session):
+    mock_repo = AsyncMock()
+    mock_repo.get_memories = AsyncMock(return_value=[])
+    mock_repo.search_memories = AsyncMock(return_value=[])
+    mock_repo.save_memory = AsyncMock(
+        return_value=MagicMock(key="k", value="v", category="general")
+    )
+    mock_cm = MagicMock()
+    mock_cm.__aenter__ = AsyncMock(return_value=MagicMock())
+    mock_cm.__aexit__ = AsyncMock(return_value=False)
+    with (
+        patch("app.tools.user_memory_tool.isolated_session", return_value=mock_cm),
+        patch("app.tools.user_memory_tool._make_repository", return_value=mock_repo),
+    ):
         yield
