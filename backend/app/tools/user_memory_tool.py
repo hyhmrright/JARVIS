@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import sys
 import uuid
 
 import structlog
 from langchain_core.tools import BaseTool, tool
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.session import isolated_session
 from app.services.repositories import MemoryRepository
 
 logger = structlog.get_logger(__name__)
@@ -18,46 +18,30 @@ _MAX_VALUE_LEN = 2_000
 _RECALL_LIMIT = 100
 
 
-async def _make_repository(user_id: uuid.UUID) -> tuple[MemoryRepository, AsyncSession]:
-    """Return (repo, session) using an isolated DB session.
-
-    The caller MUST call ``await sess.__aexit__(None, None, None)`` after use.
-    This is a module-level function so tests can patch it.
-    """
-    from app.db.session import AsyncSessionLocal
-
-    sess = AsyncSessionLocal()
-    db = await sess.__aenter__()
-    return MemoryRepository(db), sess
+def _make_repository(db: AsyncSession) -> MemoryRepository:
+    """Wrap a DB session in a MemoryRepository. Module-level so tests can patch it."""
+    return MemoryRepository(db)
 
 
 async def _do_remember(
     uid: uuid.UUID, user_id: str, key: str, value: str, category: str
 ) -> str:
     """Execute the remember operation using MemoryRepository."""
-    repo, sess = await _make_repository(uid)
-    try:
+    async with isolated_session() as db:
+        repo = _make_repository(db)
         mem = await repo.save_memory(uid, key, value, category)
-        await sess.__aexit__(None, None, None)
-    except Exception:
-        await sess.__aexit__(*sys.exc_info())
-        raise
-    logger.info("user_memory_saved", user_id=user_id, key=key, category=category)
-    return f"Memory saved: {mem.key} = {mem.value!r} (category: {category})"
+        logger.info("user_memory_saved", user_id=user_id, key=key, category=category)
+        return f"Memory saved: {mem.key} = {mem.value!r} (category: {category})"
 
 
 async def _do_recall(uid: uuid.UUID, query: str) -> str:
     """Execute the recall operation using MemoryRepository."""
-    repo, sess = await _make_repository(uid)
-    try:
+    async with isolated_session() as db:
+        repo = _make_repository(db)
         if query:
             memories = await repo.search_memories(uid, query, limit=_RECALL_LIMIT)
         else:
-            memories = (await repo.get_memories(uid))[:_RECALL_LIMIT]
-        await sess.__aexit__(None, None, None)
-    except Exception:
-        await sess.__aexit__(*sys.exc_info())
-        raise
+            memories = await repo.get_memories(uid, limit=_RECALL_LIMIT)
 
     if not memories:
         if query:

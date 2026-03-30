@@ -23,10 +23,13 @@ class MemoryRepository:
     def __init__(self, db: AsyncSession) -> None:
         self._db = db
 
-    async def get_memories(self, user_id: uuid.UUID) -> list[UserMemory]:
-        result = await self._db.scalars(
-            select(UserMemory).where(UserMemory.user_id == user_id)
-        )
+    async def get_memories(
+        self, user_id: uuid.UUID, limit: int | None = None
+    ) -> list[UserMemory]:
+        q = select(UserMemory).where(UserMemory.user_id == user_id)
+        if limit is not None:
+            q = q.limit(limit)
+        result = await self._db.scalars(q)
         return list(result.all())
 
     async def get_memory_by_key(

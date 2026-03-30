@@ -10,6 +10,19 @@ def user_id():
     return str(uuid.uuid4())
 
 
+def _mock_isolated_session(mock_repo: object):
+    """Return a patch context that makes isolated_session() yield a fake DB
+    and makes _make_repository() return the given mock repo."""
+    mock_db = MagicMock()
+    mock_cm = MagicMock()
+    mock_cm.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_cm.__aexit__ = AsyncMock(return_value=False)
+
+    return patch(
+        "app.tools.user_memory_tool.isolated_session", return_value=mock_cm
+    ), patch("app.tools.user_memory_tool._make_repository", return_value=mock_repo)
+
+
 @pytest.mark.anyio
 async def test_remember_tool_calls_repository_save(user_id):
     """remember() tool must delegate to MemoryRepository.save_memory()."""
@@ -18,10 +31,8 @@ async def test_remember_tool_calls_repository_save(user_id):
     mock_repo = AsyncMock()
     mock_repo.save_memory = AsyncMock(return_value=MagicMock(key="name", value="Alice"))
 
-    with patch(
-        "app.tools.user_memory_tool._make_repository",
-        return_value=(mock_repo, AsyncMock()),
-    ):
+    session_patch, repo_patch = _mock_isolated_session(mock_repo)
+    with session_patch, repo_patch:
         tools = create_user_memory_tools(user_id)
         remember = next(t for t in tools if t.name == "remember")
         result = await remember.ainvoke(
@@ -48,10 +59,8 @@ async def test_recall_tool_calls_repository_search(user_id):
     mock_repo = AsyncMock()
     mock_repo.search_memories = AsyncMock(return_value=[fake_mem])
 
-    with patch(
-        "app.tools.user_memory_tool._make_repository",
-        return_value=(mock_repo, AsyncMock()),
-    ):
+    session_patch, repo_patch = _mock_isolated_session(mock_repo)
+    with session_patch, repo_patch:
         tools = create_user_memory_tools(user_id)
         recall = next(t for t in tools if t.name == "recall")
         result = await recall.ainvoke({"query": "name"})

@@ -2,7 +2,7 @@
 Workflow, WorkflowRun."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import (
@@ -184,7 +184,6 @@ class Workflow(Base):
         dsl: dict,
         description: str | None = None,
     ) -> "Workflow":
-        """Factory: create a Workflow instance. Caller must call db.add()."""
         return cls(
             id=uuid.uuid4(),
             user_id=user_id,
@@ -239,8 +238,6 @@ class WorkflowRun(Base):
     @classmethod
     def start(cls, workflow_id: uuid.UUID, user_id: uuid.UUID) -> "WorkflowRun":
         """Create a WorkflowRun in 'running' status."""
-        from datetime import UTC, datetime
-
         return cls(
             id=uuid.uuid4(),
             workflow_id=workflow_id,
@@ -250,17 +247,11 @@ class WorkflowRun(Base):
         )
 
     def complete(self, output: dict) -> None:
-        """Transition to 'completed' status with output data."""
-        from datetime import UTC, datetime
-
         self.status = "completed"
         self.output_data = output
         self.completed_at = datetime.now(UTC)
 
     def fail(self, error: str) -> None:
-        """Transition to 'failed' status with error message."""
-        from datetime import UTC, datetime
-
         self.status = "failed"
         self.error_message = error
         self.completed_at = datetime.now(UTC)

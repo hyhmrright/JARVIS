@@ -135,31 +135,22 @@ class UserSettings(Base):
 
     user: Mapped["User"] = relationship(back_populates="settings")
 
-    def get_api_key(self, provider: str, fernet: Any) -> str | None:
+    def get_api_key(self, provider: str) -> str | None:
         """Decrypt and return the API key for the given provider.
 
-        Returns None if not set or if decryption fails.
+        Returns None if the provider key is not set.
         """
-        raw = (self.api_keys or {}).get(provider)
-        if raw is None:
-            return None
-        try:
-            payload = raw.encode() if isinstance(raw, str) else raw
-            return fernet.decrypt(payload).decode()
-        except Exception:
-            return None
+        from app.core.security import decrypt_api_keys
 
-    def set_api_key(self, provider: str, plaintext_key: str, fernet: Any) -> None:
+        return decrypt_api_keys(self.api_keys or {}).get(provider)
+
+    def set_api_key(self, provider: str, plaintext_key: str) -> None:
         """Encrypt and store the API key for the given provider."""
-        payload = (
-            plaintext_key.encode() if isinstance(plaintext_key, str) else plaintext_key
-        )
-        encrypted = fernet.encrypt(payload)
-        if self.api_keys is None:
-            self.api_keys = {}
-        self.api_keys[provider] = (
-            encrypted.decode() if isinstance(encrypted, bytes) else encrypted
-        )
+        from app.core.security import decrypt_api_keys, encrypt_api_keys
+
+        current = decrypt_api_keys(self.api_keys or {})
+        current[provider] = plaintext_key
+        self.api_keys = encrypt_api_keys(current)
 
 
 class ApiKey(Base):

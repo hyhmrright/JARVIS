@@ -203,21 +203,24 @@ async def _suppress_worker_async_session():
 
 @pytest.fixture(autouse=True)
 async def _suppress_user_memory_tool_async_session():
-    """Mock _make_repository in user_memory_tool to prevent cross-loop contamination.
+    """Mock isolated_session and _make_repository in user_memory_tool to prevent
+    cross-loop contamination.
 
-    The remember/recall tools call _make_repository() which opens AsyncSessionLocal.
+    The remember/recall tools call isolated_session() which opens a DB connection.
     Those connections bind to the calling event loop and are invalid in the next
     test's event loop, causing asyncpg "Future attached to a different loop".
     """
     mock_repo = AsyncMock()
-    _scalars = MagicMock()
-    _scalars.all = MagicMock(return_value=[])
     mock_repo.get_memories = AsyncMock(return_value=[])
     mock_repo.search_memories = AsyncMock(return_value=[])
     mock_repo.save_memory = AsyncMock(
         return_value=MagicMock(key="k", value="v", category="general")
     )
-    mock_session = AsyncMock()
-    target = "app.tools.user_memory_tool._make_repository"
-    with patch(target, return_value=(mock_repo, mock_session)):
+    mock_cm = MagicMock()
+    mock_cm.__aenter__ = AsyncMock(return_value=MagicMock())
+    mock_cm.__aexit__ = AsyncMock(return_value=False)
+    with (
+        patch("app.tools.user_memory_tool.isolated_session", return_value=mock_cm),
+        patch("app.tools.user_memory_tool._make_repository", return_value=mock_repo),
+    ):
         yield

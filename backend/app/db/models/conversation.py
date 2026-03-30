@@ -94,15 +94,12 @@ class Conversation(Base):
         user_id: uuid.UUID,
         title: str = "New Conversation",
     ) -> "Conversation":
-        """Factory: create a Conversation instance. Caller must call db.add()."""
         return cls(id=uuid.uuid4(), user_id=user_id, title=title)
 
     def activate_leaf(self, message_id: uuid.UUID) -> None:
-        """Set the active leaf message for this conversation."""
         self.active_leaf_id = message_id
 
     def update_title(self, new_title: str) -> None:
-        """Update the conversation title."""
         self.title = new_title
 
 
@@ -277,7 +274,6 @@ class Message(Base):
         tokens_input: int | None = None,
         tokens_output: int | None = None,
     ) -> "Message":
-        """Factory: create a Message instance. Caller must call db.add()."""
         return cls(
             id=uuid.uuid4(),
             conversation_id=conversation_id,

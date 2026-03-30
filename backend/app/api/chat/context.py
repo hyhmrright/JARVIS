@@ -130,16 +130,6 @@ async def build_chat_context(  # noqa: C901
                 if body.workflow_dsl:
                     conv.workflow_dsl = body.workflow_dsl
                     await db.commit()
-    elif body.workflow_dsl and not is_consent:
-        # Store workflow DSL for a new conversation when the consent branch
-        # was not taken.  (Mirrors the original elif in routes.py.)
-        _msg_count = await db.scalar(
-            select(func.count(Message.id)).where(Message.conversation_id == conv.id)
-        )
-        if (_msg_count or 0) == 0:
-            conv.workflow_dsl = body.workflow_dsl
-            await db.commit()
-
     parent_message_id = body.parent_message_id or conv.active_leaf_id
 
     # ── human message persistence ─────────────────────────────────────────────

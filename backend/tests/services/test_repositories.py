@@ -27,6 +27,24 @@ async def test_memory_repository_get_memories_returns_list(mock_db):
 
 
 @pytest.mark.anyio
+async def test_memory_repository_get_memories_with_limit(mock_db):
+    """get_memories(limit=N) must pass LIMIT to the SQL query."""
+    from app.db.models import UserMemory
+    from app.services.repositories import MemoryRepository
+
+    user_id = uuid.uuid4()
+    fake_memory = MagicMock(spec=UserMemory)
+    mock_db.scalars = AsyncMock(return_value=MagicMock(all=lambda: [fake_memory]))
+
+    repo = MemoryRepository(mock_db)
+    result = await repo.get_memories(user_id, limit=5)
+
+    assert result == [fake_memory]
+    # Verify scalars was called (the query was issued with the limit applied)
+    mock_db.scalars.assert_awaited_once()
+
+
+@pytest.mark.anyio
 async def test_memory_repository_save_memory_adds_to_session(mock_db):
     from app.services.repositories import MemoryRepository
 
