@@ -40,6 +40,12 @@ _ROLE_TO_MESSAGE = {"human": HumanMessage, "ai": AIMessage}
 class GatewayRouter:
     """Routes incoming messages from any channel to the appropriate agent session.
 
+    .. warning:: **Not wired into production.**
+       This class is fully implemented and tested but no production code path
+       instantiates it.  Channel adapters' ``_message_handler`` callbacks are
+       never set outside of tests.  If channel-based message handling is not
+       on the roadmap, consider removing this module to reduce maintenance cost.
+
     The router is intentionally kept thin: it resolves the session, delegates
     to a pluggable agent callable, and returns the reply string.  The actual
     LangGraph invocation lives outside this class so it can be replaced in
