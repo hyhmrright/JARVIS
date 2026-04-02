@@ -58,6 +58,48 @@ class CronJob(Base):
         "JobExecution", back_populates="job", cascade="all, delete-orphan"
     )
 
+    _VALID_TRIGGER_TYPES = frozenset(
+        {"cron", "web_watcher", "semantic_watcher", "email"}
+    )
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        user_id: uuid.UUID,
+        schedule: str,
+        task: str,
+        trigger_type: str,
+        workspace_id: uuid.UUID | None = None,
+        trigger_metadata: dict | None = None,
+        is_active: bool = True,
+    ) -> "CronJob":
+        """Factory method — validates trigger_type before construction."""
+        cls.validate_trigger_type(trigger_type)
+        return cls(
+            id=uuid.uuid4(),
+            user_id=user_id,
+            schedule=schedule,
+            task=task,
+            trigger_type=trigger_type,
+            workspace_id=workspace_id,
+            trigger_metadata=trigger_metadata,
+            is_active=is_active,
+        )
+
+    @classmethod
+    def validate_trigger_type(cls, trigger_type: str) -> None:
+        """Raise ValueError if trigger_type is not recognized."""
+        if trigger_type not in cls._VALID_TRIGGER_TYPES:
+            valid = sorted(cls._VALID_TRIGGER_TYPES)
+            raise ValueError(
+                f"Invalid trigger_type '{trigger_type}'. Must be one of: {valid}"
+            )
+
+    def toggle(self) -> None:
+        """Flip the is_active flag."""
+        self.is_active = not self.is_active
+
 
 class JobExecution(Base):
     __tablename__ = "job_executions"
