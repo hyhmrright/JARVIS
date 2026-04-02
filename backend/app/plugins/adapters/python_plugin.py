@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import io
-import zipfile
 from pathlib import Path
 
 import httpx
 import structlog
 import yaml
 
+from app.plugins.loader import safe_extract_zip
 from app.tools.web_fetch_tool import is_safe_url
 
 logger = structlog.get_logger(__name__)
@@ -46,23 +45,10 @@ async def download_python_plugin(url: str, dest_dir: Path) -> tuple[Path, str | 
             logger.info("python_plugin_downloaded", url=url, path=str(dest_path))
             return dest_path, None
 
-        # ZIP — extract off the event loop to avoid blocking; filter members to
-        # prevent zip path traversal (e.g. entries with "../" in their name).
-        def _extract(data: bytes, pkg_dir: Path) -> None:
-            with zipfile.ZipFile(io.BytesIO(data)) as z:
-                safe_members = [
-                    m
-                    for m in z.infolist()
-                    if not (
-                        m.filename.startswith("/")
-                        or ".." in m.filename.replace("\\", "/").split("/")
-                    )
-                ]
-                z.extractall(pkg_dir, members=safe_members)
-
+        # ZIP — extract off the event loop to avoid blocking
         pkg_name = clean_path.split("/")[-1].removesuffix(".zip")
         pkg_dir = dest_dir / pkg_name
-        await asyncio.to_thread(_extract, response.content, pkg_dir)
+        await asyncio.to_thread(safe_extract_zip, response.content, pkg_dir)
         manifest_name = _read_manifest_name(pkg_dir)
         logger.info("python_plugin_extracted", url=url, path=str(pkg_dir))
         return pkg_dir, manifest_name
