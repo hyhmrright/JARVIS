@@ -67,13 +67,9 @@ logger = structlog.get_logger(__name__)
 
 
 class _ConcreteGraphFactory:
-    """Thin wrapper — delegates to ``create_graph`` with kwargs from subagent_tool."""
+    """Satisfies ``AgentGraphFactory`` protocol for subagent_tool."""
 
-    async def create(
-        self,
-        messages: object,
-        config: object,
-    ) -> object:
+    async def create(self, messages: object, config: object) -> object:
         from app.agent.graph import create_graph
 
         return create_graph(**(config if isinstance(config, dict) else {}))

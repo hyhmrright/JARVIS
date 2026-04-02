@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.infra.ollama import get_ollama_models
+from app.services.model_discovery import get_ollama_models
 
 
 @pytest.mark.anyio
