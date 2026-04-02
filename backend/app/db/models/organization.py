@@ -67,6 +67,10 @@ class Workspace(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
+    def soft_delete(self) -> None:
+        """Mark workspace as deleted."""
+        self.is_deleted = True
+
     organization: Mapped["Organization"] = relationship(back_populates="workspaces")
     members: Mapped[list["WorkspaceMember"]] = relationship(
         "WorkspaceMember",
@@ -103,6 +107,10 @@ class WorkspaceMember(Base):
     joined_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+    def is_privileged(self) -> bool:
+        """Return True if this member has owner or admin role."""
+        return self.role in {"owner", "admin"}
 
     workspace: Mapped["Workspace"] = relationship("Workspace", overlaps="members")
     user: Mapped["User"] = relationship("User")

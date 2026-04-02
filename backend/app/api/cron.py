@@ -12,21 +12,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import PaginationParams, get_current_user, require_workspace_member
-from app.core.config import settings
 from app.core.limiter import limiter
-from app.core.security import fernet_encrypt
 from app.db.models import CronJob, JobExecution, User
 from app.db.session import get_db
 from app.gateway.agent_runner import run_agent_for_user
-from app.scheduler.runner import register_cron_job, unregister_cron_job
-from app.scheduler.trigger_schemas import validate_trigger_metadata
 from app.scheduler.triggers import evaluate_trigger
+from app.services.cron_service import CronService
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/cron", tags=["cron"])
-
-_VALID_TRIGGER_TYPES = {"cron", "web_watcher", "semantic_watcher", "email"}
 
 
 def _validate_cron_schedule(v: str) -> str:
@@ -121,76 +116,25 @@ async def list_cron_jobs(
 
 @router.post("")
 @limiter.limit("10/minute")
-async def create_cron_job(  # noqa: C901
+async def create_cron_job(
     request: Request,
     data: CronJobCreate,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     """Create a new proactive monitoring job."""
-    if data.trigger_type not in _VALID_TRIGGER_TYPES:
-        valid = sorted(_VALID_TRIGGER_TYPES)
-        raise HTTPException(
-            status_code=400, detail=f"Invalid trigger_type. Must be one of: {valid}"
-        )
+    if data.workspace_id is not None:
+        await require_workspace_member(data.workspace_id, user, db)
 
-    # Quota check
-    active_count = await db.scalar(
-        select(sql_func.count()).where(
-            CronJob.user_id == user.id,
-            CronJob.is_active.is_(True),
-        )
-    )
-    if (active_count or 0) >= settings.max_cron_jobs_per_user:
-        raise HTTPException(
-            status_code=429,
-            detail=(
-                "Job quota exceeded "
-                f"(max {settings.max_cron_jobs_per_user} active jobs)"
-            ),
-        )
-
-    # Validate trigger metadata
-    try:
-        validate_trigger_metadata(data.trigger_type, data.trigger_metadata or {})
-    except Exception as exc:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Invalid trigger_metadata: {exc}",
-        ) from exc
-
-    # Encrypt sensitive fields in trigger_metadata before storage
-    trigger_metadata = dict(data.trigger_metadata) if data.trigger_metadata else None
-    if (
-        trigger_metadata
-        and data.trigger_type == "email"
-        and "imap_password" in trigger_metadata
-    ):
-        trigger_metadata["imap_password"] = fernet_encrypt(
-            str(trigger_metadata["imap_password"])
-        )
-
-    job = CronJob(
+    svc = CronService(db)
+    job = await svc.create_job(
         user_id=user.id,
         schedule=data.schedule,
         task=data.task,
         trigger_type=data.trigger_type,
-        trigger_metadata=trigger_metadata,
+        trigger_metadata=data.trigger_metadata,
+        workspace_id=data.workspace_id,
     )
-    if data.workspace_id is not None:
-        await require_workspace_member(data.workspace_id, user, db)
-        job.workspace_id = data.workspace_id
-    db.add(job)
-    await db.commit()
-    await db.refresh(job)
-
-    # Register with live scheduler
-    if job.is_active:
-        next_run_time = register_cron_job(str(job.id), job.schedule)
-        if next_run_time:
-            job.next_run_at = next_run_time
-            await db.commit()
-
     return {"status": "ok", "id": str(job.id)}
 
 
@@ -231,10 +175,8 @@ async def delete_cron_job(
     job = await db.get(CronJob, job_id)
     if not job or job.user_id != user.id:
         raise HTTPException(status_code=404, detail="Job not found")
-
-    unregister_cron_job(str(job.id))
-    await db.delete(job)
-    await db.commit()
+    svc = CronService(db)
+    await svc.delete_job(job)
 
 
 @router.patch("/{job_id}/toggle")
@@ -249,20 +191,8 @@ async def toggle_cron_job(
     job = await db.get(CronJob, job_id)
     if not job or job.user_id != user.id:
         raise HTTPException(status_code=404, detail="Job not found")
-
-    job.is_active = not job.is_active
-    await db.commit()
-
-    if job.is_active:
-        next_run_time = register_cron_job(str(job.id), job.schedule)
-        if next_run_time:
-            job.next_run_at = next_run_time
-            await db.commit()
-    else:
-        unregister_cron_job(str(job.id))
-        job.next_run_at = None
-        await db.commit()
-
+    svc = CronService(db)
+    await svc.toggle_job(job)
     return {"status": "ok", "is_active": job.is_active}
 
 
@@ -279,37 +209,13 @@ async def update_cron_job(
     job = await db.get(CronJob, job_id)
     if not job or job.user_id != user.id:
         raise HTTPException(status_code=404, detail="Job not found")
-
-    if data.trigger_metadata is not None:
-        try:
-            validate_trigger_metadata(job.trigger_type, data.trigger_metadata)
-        except Exception as exc:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Invalid trigger_metadata: {exc}",
-            ) from exc
-
-    if data.schedule is not None:
-        job.schedule = data.schedule
-    if data.task is not None:
-        job.task = data.task
-    if data.trigger_metadata is not None:
-        trigger_metadata = dict(data.trigger_metadata)
-        if job.trigger_type == "email" and "imap_password" in trigger_metadata:
-            trigger_metadata["imap_password"] = fernet_encrypt(
-                str(trigger_metadata["imap_password"])
-            )
-        job.trigger_metadata = trigger_metadata
-
-    await db.commit()
-
-    if job.is_active:
-        unregister_cron_job(str(job.id))
-        next_run_time = register_cron_job(str(job.id), job.schedule)
-        if next_run_time:
-            job.next_run_at = next_run_time
-            await db.commit()
-
+    svc = CronService(db)
+    await svc.update_job(
+        job,
+        schedule=data.schedule,
+        task=data.task,
+        trigger_metadata=data.trigger_metadata,
+    )
     return {"status": "ok", "id": str(job.id)}
 
 

@@ -18,7 +18,8 @@ from app.db.models import (
     WorkspaceSettings,
 )
 from app.db.session import get_db
-from app.services.authorization import require_org, require_workspace_role
+from app.services.authorization import require_workspace_role
+from app.services.workspace_service import WorkspaceService
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/workspaces", tags=["workspaces"])
@@ -52,12 +53,8 @@ async def create_workspace(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Create a new workspace in the user's organization."""
-    org = await require_org(user, db)
-    ws = Workspace(name=body.name, organization_id=org.id)
-    db.add(ws)
-    await db.commit()
-    await db.refresh(ws)
-    logger.info("workspace_created", ws_id=str(ws.id), org_id=str(org.id))
+    svc = WorkspaceService(db)
+    ws = await svc.create_workspace(user=user, name=body.name)
     return _ws_to_dict(ws)
 
 
@@ -90,14 +87,8 @@ async def update_workspace(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Update workspace name. User must be an owner or admin of the workspace."""
-    ws = await db.get(Workspace, ws_id)
-    if not ws or ws.is_deleted:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    if ws.organization_id != user.organization_id:
-        raise HTTPException(status_code=403, detail="Access denied")
-    await require_workspace_role(workspace_id=ws_id, user_id=user.id, db=db)
-    ws.name = body.name
-    await db.commit()
+    svc = WorkspaceService(db)
+    ws = await svc.update_workspace(ws_id=ws_id, user=user, name=body.name)
     return _ws_to_dict(ws)
 
 
@@ -110,18 +101,8 @@ async def delete_workspace(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     """Soft-delete a workspace. Only org owner may do this."""
-    org = await require_org(user, db)
-    ws = await db.get(Workspace, ws_id)
-    if not ws or ws.is_deleted:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    if ws.organization_id != org.id:
-        raise HTTPException(status_code=403, detail="Access denied")
-    if org.owner_id != user.id:
-        raise HTTPException(
-            status_code=403, detail="Only the owner can delete workspaces"
-        )
-    ws.is_deleted = True
-    await db.commit()
+    svc = WorkspaceService(db)
+    await svc.delete_workspace(ws_id=ws_id, user=user)
 
 
 @router.get("/{ws_id}/members")
