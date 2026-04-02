@@ -23,9 +23,10 @@ from app.api.deps import (
 )
 from app.core.limiter import limiter
 from app.core.security import resolve_api_key
-from app.db.models import Document, User, UserSettings, WorkspaceMember
+from app.db.models import Document, User, UserSettings
 from app.db.session import get_db
 from app.rag.indexer import index_document
+from app.services.authorization import assert_doc_write_access
 from app.services.document_service import (
     delete_file,
     delete_vectors,
@@ -38,8 +39,6 @@ from app.tools.web_fetch_tool import is_safe_url
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
-
-_PRIVILEGED_ROLES = frozenset({"owner", "admin"})
 
 ALLOWED_TYPES = {"pdf", "txt", "md", "docx"}
 MAX_SIZE = 50 * 1024 * 1024
@@ -59,35 +58,12 @@ ALLOWED_MIME_PREFIXES = (
 )
 
 
-async def _assert_doc_write_access(
-    doc: "Document",
-    user: User,
-    db: AsyncSession,
-) -> None:
-    """Raise HTTPException if user lacks write permission on this document.
-
-    Workspace documents: allow owner/admin members.
-    Personal documents: allow only the original uploader.
-    """
-    if doc.workspace_id is not None:
-        membership = await db.scalar(
-            select(WorkspaceMember).where(
-                WorkspaceMember.workspace_id == doc.workspace_id,
-                WorkspaceMember.user_id == user.id,
-            )
-        )
-        if not membership or membership.role not in _PRIVILEGED_ROLES:
-            raise HTTPException(status_code=403, detail="Not authorized")
-    elif doc.user_id != user.id:
-        raise HTTPException(status_code=404, detail="Document not found")
-
-
-async def _get_qdrant_collection(
+async def get_document_collection(
     workspace_id: uuid.UUID | None,
     user: User,
     db: AsyncSession,
 ) -> str:
-    """Get the Qdrant collection name for a user or workspace document.
+    """Return the vector collection name for a user or workspace document.
 
     For workspace documents: validates membership via require_workspace_member
     and returns the workspace collection name.
@@ -183,7 +159,7 @@ async def rename_document(
     doc = await db.get(Document, doc_id)
     if not doc or doc.is_deleted:
         raise HTTPException(status_code=404, detail="Document not found")
-    await _assert_doc_write_access(doc, user, db)
+    await assert_doc_write_access(doc, user, db)
     doc.filename = body.filename
     await db.commit()
 
@@ -208,7 +184,7 @@ async def delete_document(
     doc = await db.get(Document, doc_id)
     if not doc or doc.is_deleted:
         raise HTTPException(status_code=404, detail="Document not found")
-    await _assert_doc_write_access(doc, user, db)
+    await assert_doc_write_access(doc, user, db)
 
     doc.is_deleted = True
     doc.chunk_count = 0
@@ -259,7 +235,7 @@ async def upload_document(
         )
 
     # Validate workspace membership before touching MinIO to avoid orphaned objects.
-    qdrant_collection = await _get_qdrant_collection(workspace_id, user, db)
+    qdrant_collection = await get_document_collection(workspace_id, user, db)
 
     safe_name = Path(file.filename or "upload").name
     object_key = f"{user.id}/{uuid.uuid4()}_{safe_name}"
@@ -371,7 +347,7 @@ async def ingest_url(  # noqa: C901
         )
 
     workspace_id = body.workspace_id
-    qdrant_collection = await _get_qdrant_collection(workspace_id, user, db)
+    qdrant_collection = await get_document_collection(workspace_id, user, db)
 
     # Resolve OpenAI key before fetching the URL (fail fast).
     user_settings = await db.scalar(

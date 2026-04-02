@@ -12,18 +12,16 @@ from app.api.deps import PaginationParams, get_current_user
 from app.core.limiter import limiter
 from app.core.security import decrypt_api_keys, encrypt_api_keys
 from app.db.models import (
-    Organization,
     User,
     Workspace,
     WorkspaceMember,
     WorkspaceSettings,
 )
 from app.db.session import get_db
+from app.services.authorization import require_org, require_workspace_role
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/workspaces", tags=["workspaces"])
-
-_PRIVILEGED_ROLES = frozenset({"owner", "admin"})
 
 
 class WorkspaceCreate(BaseModel):
@@ -45,18 +43,6 @@ def _ws_to_dict(ws: Workspace) -> dict:
     }
 
 
-async def _require_org(user: User, db: AsyncSession) -> Organization:
-    """Raise 403 if user has no org."""
-    if not user.organization_id:
-        raise HTTPException(
-            status_code=403, detail="You must belong to an organization"
-        )
-    org = await db.get(Organization, user.organization_id)
-    if not org:
-        raise HTTPException(status_code=403, detail="Organization not found")
-    return org
-
-
 @router.post("", status_code=201)
 @limiter.limit("60/minute")
 async def create_workspace(
@@ -66,7 +52,7 @@ async def create_workspace(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Create a new workspace in the user's organization."""
-    org = await _require_org(user, db)
+    org = await require_org(user, db)
     ws = Workspace(name=body.name, organization_id=org.id)
     db.add(ws)
     await db.commit()
@@ -109,17 +95,7 @@ async def update_workspace(
         raise HTTPException(status_code=404, detail="Workspace not found")
     if ws.organization_id != user.organization_id:
         raise HTTPException(status_code=403, detail="Access denied")
-    membership = await db.scalar(
-        select(WorkspaceMember).where(
-            WorkspaceMember.workspace_id == ws_id,
-            WorkspaceMember.user_id == user.id,
-        )
-    )
-    if not membership or membership.role not in _PRIVILEGED_ROLES:
-        raise HTTPException(
-            status_code=403,
-            detail="Only workspace owners and admins can update workspaces",
-        )
+    await require_workspace_role(workspace_id=ws_id, user_id=user.id, db=db)
     ws.name = body.name
     await db.commit()
     return _ws_to_dict(ws)
@@ -134,7 +110,7 @@ async def delete_workspace(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     """Soft-delete a workspace. Only org owner may do this."""
-    org = await _require_org(user, db)
+    org = await require_org(user, db)
     ws = await db.get(Workspace, ws_id)
     if not ws or ws.is_deleted:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -246,14 +222,7 @@ async def update_workspace_settings(
     ws = await db.get(Workspace, ws_id)
     if not ws or ws.is_deleted or ws.organization_id != user.organization_id:
         raise HTTPException(status_code=404, detail="Workspace not found")
-    membership = await db.scalar(
-        select(WorkspaceMember).where(
-            WorkspaceMember.workspace_id == ws_id,
-            WorkspaceMember.user_id == user.id,
-        )
-    )
-    if not membership or membership.role not in ("owner", "admin"):
-        raise HTTPException(status_code=403, detail="Admin access required")
+    await require_workspace_role(workspace_id=ws_id, user_id=user.id, db=db)
 
     ws_settings = await db.scalar(
         select(WorkspaceSettings).where(WorkspaceSettings.workspace_id == ws_id)
