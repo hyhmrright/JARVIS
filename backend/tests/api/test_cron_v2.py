@@ -102,7 +102,7 @@ async def test_test_trigger_evaluate_failure_returns_triggered_false(
 @pytest.mark.asyncio
 async def test_create_job_quota_exceeded(client: AsyncClient, auth_headers: dict):
     """Creating more than MAX_CRON_JOBS_PER_USER active jobs returns 429."""
-    with patch("app.api.cron.settings") as mock_settings:
+    with patch("app.services.cron_service.settings") as mock_settings:
         mock_settings.max_cron_jobs_per_user = 0
         response = await client.post(
             "/api/cron",

@@ -36,6 +36,25 @@ _DEFAULT_PLUGIN_DIR = Path.home() / ".jarvis" / "plugins"
 _system_reload_lock = asyncio.Lock()
 
 
+def safe_extract_zip(data: bytes, dest: Path) -> None:
+    """Extract a ZIP archive to *dest*, filtering out unsafe path entries.
+
+    Rejects entries with absolute paths or ``..`` components to prevent
+    zip-slip attacks.  Runs synchronously — callers should wrap with
+    ``asyncio.to_thread`` if needed.
+    """
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        safe_members = [
+            m
+            for m in z.infolist()
+            if not (
+                m.filename.startswith("/")
+                or ".." in m.filename.replace("\\", "/").split("/")
+            )
+        ]
+        z.extractall(dest, members=safe_members)
+
+
 async def reload_system_plugins(registry: PluginRegistry) -> None:
     """Reload system plugins under a lock to prevent concurrent reload races."""
     async with _system_reload_lock:
@@ -63,29 +82,28 @@ async def install_plugin_from_url(url: str, registry: PluginRegistry) -> str:
 
         # Handle .zip (OpenClaw skill package)
         if url.endswith(".zip") or "archive" in url:
-            with zipfile.ZipFile(io.BytesIO(response.content)) as z:
-                # Extract to a unique directory under plugins
-                pkg_name = (
-                    url.split("/")[-1]
-                    .replace(".zip", "")
-                    .replace(".main", "")
-                    .replace(".master", "")
-                )
-                extract_path = _DEFAULT_PLUGIN_DIR / pkg_name
-                z.extractall(extract_path)
+            # Extract to a unique directory under plugins
+            pkg_name = (
+                url.split("/")[-1]
+                .replace(".zip", "")
+                .replace(".main", "")
+                .replace(".master", "")
+            )
+            extract_path = _DEFAULT_PLUGIN_DIR / pkg_name
+            safe_extract_zip(response.content, extract_path)
 
-                # Check if nested (common in GitHub zips)
-                nested_dirs = list(extract_path.glob("*/manifest.yaml"))
-                if nested_dirs:
-                    # Move content up
-                    real_pkg_path = nested_dirs[0].parent
-                    temp_path = _DEFAULT_PLUGIN_DIR / f"{pkg_name}_tmp"
-                    shutil.copytree(real_pkg_path, temp_path)
-                    shutil.rmtree(extract_path)
-                    shutil.move(temp_path, extract_path)
+            # Check if nested (common in GitHub zips)
+            nested_dirs = list(extract_path.glob("*/manifest.yaml"))
+            if nested_dirs:
+                # Move content up
+                real_pkg_path = nested_dirs[0].parent
+                temp_path = _DEFAULT_PLUGIN_DIR / f"{pkg_name}_tmp"
+                shutil.copytree(real_pkg_path, temp_path)
+                shutil.rmtree(extract_path)
+                shutil.move(temp_path, extract_path)
 
-                _load_plugin_package(extract_path, registry)
-                return pkg_name
+            _load_plugin_package(extract_path, registry)
+            return pkg_name
 
     return "unknown"
 
