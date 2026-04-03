@@ -100,15 +100,14 @@ class CronService:
             trigger_metadata=prepared_metadata,
         )
         self._db.add(job)
-        await self._db.commit()
-        await self._db.refresh(job)
 
         if job.is_active:
             next_run_time = register_cron_job(str(job.id), job.schedule)
             if next_run_time:
                 job.next_run_at = next_run_time
-                await self._db.commit()
 
+        await self._db.commit()
+        await self._db.refresh(job)
         return job
 
     async def update_job(
@@ -137,15 +136,14 @@ class CronService:
             job.trigger_metadata = self.prepare_trigger_metadata(
                 job.trigger_type, trigger_metadata
             )
-        await self._db.commit()
 
         if job.is_active:
             unregister_cron_job(str(job.id))
             next_run_time = register_cron_job(str(job.id), job.schedule)
             if next_run_time:
                 job.next_run_at = next_run_time
-                await self._db.commit()
 
+        await self._db.commit()
         return job
 
     async def delete_job(self, job: CronJob) -> None:
@@ -157,16 +155,14 @@ class CronService:
     async def toggle_job(self, job: CronJob) -> CronJob:
         """Toggle active/inactive and update scheduler registration."""
         job.toggle()
-        await self._db.commit()
 
         if job.is_active:
             next_run_time = register_cron_job(str(job.id), job.schedule)
             if next_run_time:
                 job.next_run_at = next_run_time
-                await self._db.commit()
         else:
             unregister_cron_job(str(job.id))
             job.next_run_at = None
-            await self._db.commit()
 
+        await self._db.commit()
         return job

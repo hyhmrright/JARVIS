@@ -226,6 +226,62 @@ async def test_create_job_inactive_job_skips_registration() -> None:
 
 
 # ---------------------------------------------------------------------------
+# update_job
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_update_job_schedule_while_active() -> None:
+    db = _make_db()
+    job = _make_job(is_active=True)
+    next_run = datetime(2030, 6, 1, tzinfo=UTC)
+
+    with (
+        patch("app.services.cron_service.unregister_cron_job") as mock_unreg,
+        patch(
+            "app.services.cron_service.register_cron_job", return_value=next_run
+        ) as mock_reg,
+    ):
+        svc = CronService(db)
+        result = await svc.update_job(job, schedule="*/5 * * * *")
+
+    assert result.schedule == "*/5 * * * *"
+    mock_unreg.assert_called_once_with(str(job.id))
+    mock_reg.assert_called_once()
+    assert result.next_run_at == next_run
+    db.commit.assert_called()
+
+
+@pytest.mark.anyio
+async def test_update_job_invalid_metadata_raises_422() -> None:
+    db = _make_db()
+    job = _make_job()
+
+    with patch(
+        "app.services.cron_service.validate_trigger_metadata",
+        side_effect=ValueError("bad field"),
+    ):
+        svc = CronService(db)
+        with pytest.raises(HTTPException) as exc_info:
+            await svc.update_job(job, trigger_metadata={"bad": "data"})
+    assert exc_info.value.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_update_job_task_only_inactive_no_registration() -> None:
+    db = _make_db()
+    job = _make_job(is_active=False)
+
+    with patch("app.services.cron_service.register_cron_job") as mock_reg:
+        svc = CronService(db)
+        result = await svc.update_job(job, task="new task")
+
+    assert result.task == "new task"
+    mock_reg.assert_not_called()
+    db.commit.assert_called()
+
+
+# ---------------------------------------------------------------------------
 # toggle_job
 # ---------------------------------------------------------------------------
 

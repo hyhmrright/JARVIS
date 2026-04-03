@@ -70,5 +70,5 @@ class WorkspaceService:
             raise HTTPException(
                 status_code=403, detail="Only the owner can delete workspaces"
             )
-        ws.is_deleted = True
+        ws.soft_delete()
         await self._db.commit()

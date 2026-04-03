@@ -103,6 +103,28 @@ async def test_update_workspace_wrong_org_raises_403():
     assert exc_info.value.status_code == 403
 
 
+@pytest.mark.anyio
+async def test_update_workspace_success():
+    org_id = uuid.uuid4()
+    user = _make_user(org_id)
+    ws = MagicMock()
+    ws.is_deleted = False
+    ws.organization_id = org_id
+
+    db = _make_db()
+    db.get = AsyncMock(return_value=ws)
+
+    with patch(
+        "app.services.workspace_service.require_workspace_role",
+        new=AsyncMock(return_value=MagicMock()),
+    ):
+        svc = WorkspaceService(db)
+        result = await svc.update_workspace(ws_id=uuid.uuid4(), user=user, name="New")
+
+    assert result.name == "New"
+    db.commit.assert_called_once()
+
+
 # ---------------------------------------------------------------------------
 # delete_workspace
 # ---------------------------------------------------------------------------
