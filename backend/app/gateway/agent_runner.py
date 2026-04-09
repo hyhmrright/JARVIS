@@ -3,20 +3,10 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
 
 import structlog
-from langchain_core.messages import HumanMessage, SystemMessage
-from sqlalchemy import select, update
 
-from app.agent.persona import build_system_prompt
-from app.core.config import settings
-from app.core.llm_config import AgentConfig, ResolvedLLMConfig
-from app.core.permissions import DEFAULT_ENABLED_TOOLS
-from app.core.security import resolve_api_key, resolve_api_keys
-from app.db.models import AgentSession, Conversation, Message, UserSettings
 from app.db.session import AsyncSessionLocal
-from app.rag.context import build_rag_context
 from app.services.agent_execution import AgentExecutionService
 
 logger = structlog.get_logger(__name__)
@@ -50,159 +40,32 @@ async def run_agent_for_user(
     task: str,
     trigger_ctx: dict | None = None,
 ) -> str:
-    """Execute the JARVIS agent for the given user and task text.
+    """为给定用户和任务执行 JARVIS Agent。
 
-    Creates a new conversation, runs the agent, persists the response,
-    and returns the AI reply string.  Raises on failure so callers can
-    detect errors reliably.  Special case: returns a descriptive string
-    (without raising) when no API key is configured.
+    由 AgentExecutionService 统一处理配置、会话、消息持久化和 Graph 运行。
     """
+    ctx_block = format_trigger_context(trigger_ctx)
+    full_task = f"{ctx_block}\n\n[用户任务]\n{task}" if ctx_block else task
+    trigger_type = (
+        trigger_ctx.get("trigger_type", "unknown") if trigger_ctx else "unknown"
+    )
+
     try:
         async with AsyncSessionLocal() as db:
-            us = await db.scalar(
-                select(UserSettings).where(UserSettings.user_id == uuid.UUID(user_id))
-            )
-            provider = us.model_provider if us else "deepseek"
-            model_name = us.model_name if us else "deepseek-chat"
-            raw_keys = us.api_keys if us else {}
-            persona = us.persona_override if us else None
-            enabled = (
-                us.enabled_tools
-                if us and us.enabled_tools is not None
-                else DEFAULT_ENABLED_TOOLS
-            )
-
-            api_keys = resolve_api_keys(provider, raw_keys)
-            if not api_keys:
-                logger.warning("agent_runner_no_api_keys", user_id=user_id)
-                return "未配置可用的 API Key，请先在设置页面中添加。"
-
-            conv = Conversation(
+            service = AgentExecutionService(db)
+            # 注意：run_blocking 内部会处理会话创建和消息持久化
+            reply = await service.run_blocking(
                 user_id=uuid.UUID(user_id),
-                title=f"Auto: {task[:60]}",
+                content=full_task,
+                channel=f"runner:{trigger_type}",
             )
-            db.add(conv)
-            await db.flush()
-
-            # Build full task with optional trigger context prefix
-            ctx_block = format_trigger_context(trigger_ctx)
-            full_task = f"{ctx_block}\n\n[用户任务]\n{task}" if ctx_block else task
-
-            # RAG: inject relevant knowledge-base context
-            openai_key = resolve_api_key("openai", raw_keys)
-            rag_context = await build_rag_context(user_id, full_task, openai_key)
-
-            # Persist human message BEFORE invoking agent so its timestamp
-            # precedes the AI message in chronological ordering.
-            human_msg = Message(
-                conversation_id=conv.id, role="human", content=full_task
-            )
-            db.add(human_msg)
-            await db.flush()
-
-            system_content = build_system_prompt(persona)
-            lc_messages = [
-                SystemMessage(content=system_content),
-                *([SystemMessage(content=rag_context)] if rag_context else []),
-                HumanMessage(content=full_task),
-            ]
-
-            mcp_tools: list = []
-            if "mcp" in enabled:
-                from app.tools.mcp_client import (
-                    create_mcp_tools,
-                    parse_mcp_configs,
-                )
-
-                mcp_tools = await create_mcp_tools(
-                    parse_mcp_configs(settings.mcp_servers_json)
-                )
-
-            llm = ResolvedLLMConfig(
-                provider=provider,
-                model_name=model_name,
-                api_key=api_keys[0],
-                api_keys=api_keys,
-                enabled_tools=enabled,
-                persona_override=persona,
-                raw_keys=raw_keys,
-            )
-            config = AgentConfig(
-                llm=llm,
-                user_id=user_id,
-                conversation_id=str(conv.id),
-                mcp_tools=mcp_tools,
-                openai_api_key=openai_key,
-                tavily_api_key=settings.tavily_api_key,
-            )
-
-            # Create AgentSession for this background run
-            agent_session_id: uuid.UUID | None = None
-            try:
-                ag = AgentSession(
-                    conversation_id=conv.id,
-                    agent_type="main",
-                    status="active",
-                )
-                db.add(ag)
-                await db.flush()
-                agent_session_id = ag.id
-            except Exception:
-                logger.warning("agent_session_create_failed", exc_info=True)
-
-            run_error = False
-            ai_content = ""
-            try:
-                ai_content = await AgentExecutionService().run_blocking(
-                    lc_messages, config
-                )
-            except Exception:
-                run_error = True
-                raise
-            finally:
-                if agent_session_id:
-                    try:
-                        trigger_type = (
-                            trigger_ctx.get("trigger_type", "unknown")
-                            if trigger_ctx
-                            else "unknown"
-                        )
-                        metadata: dict[str, object] = {
-                            "model": model_name,
-                            "provider": provider,
-                            "trigger_type": trigger_type,
-                        }
-                        async with AsyncSessionLocal() as sess:
-                            async with sess.begin():
-                                await sess.execute(
-                                    update(AgentSession)
-                                    .where(AgentSession.id == agent_session_id)
-                                    .values(
-                                        status="error" if run_error else "completed",
-                                        completed_at=datetime.now(UTC),
-                                        metadata_json=metadata,
-                                    )
-                                )
-                    except Exception:
-                        logger.warning("agent_session_update_failed", exc_info=True)
-
-            db.add(
-                Message(
-                    conversation_id=conv.id,
-                    role="ai",
-                    content=ai_content,
-                    model_provider=provider,
-                    model_name=model_name,
-                )
-            )
-            await db.commit()
 
             logger.info(
                 "agent_runner_completed",
                 user_id=user_id,
-                reply_chars=len(ai_content),
+                reply_chars=len(reply),
             )
-            return ai_content
+            return reply
     except Exception:
         logger.exception("agent_runner_error", user_id=user_id)
         raise
