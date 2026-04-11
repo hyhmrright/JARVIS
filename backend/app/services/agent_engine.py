@@ -24,6 +24,10 @@ from langchain_core.messages import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.graph import create_graph
+from app.agent.interpreter import (
+    events_from_chunk,
+    extract_token_counts,
+)
 from app.agent.protocol import (
     AgentEvent,
     ErrorEvent,
@@ -35,10 +39,6 @@ from app.agent.router import classify_task
 from app.agent.state import AgentState
 from app.agent.supervisor import SupervisorState, create_supervisor_graph
 from app.api.chat.graph_builder import build_expert_graph
-from app.api.chat.sse import (
-    extract_token_counts,
-    sse_events_from_chunk,
-)
 from app.core.config import settings
 from app.core.llm_config import AgentConfig, ResolvedLLMConfig
 from app.core.security import resolve_api_key
@@ -66,9 +66,10 @@ class AgentEngine:
         content: str,
         conversation_id: uuid.UUID | None = None,
         channel: str = "api",
+        workspace_id: uuid.UUID | None = None,
     ) -> str:
         """同步阻塞式运行。"""
-        llm = await self.config_service.get_llm_config(user_id)
+        llm = await self.config_service.get_llm_config(user_id, workspace_id)
         conv = await self._ensure_conversation(user_id, conversation_id, channel)
 
         # 1. 保存用户消息
@@ -109,17 +110,35 @@ class AgentEngine:
         conversation_id: uuid.UUID,
         is_disconnected_func: Any = None,
         model_override: str | None = None,
+        workspace_id: uuid.UUID | None = None,
+        image_urls: list[str] | None = None,
+        parent_message_id: uuid.UUID | None = None,
+        persona_id: uuid.UUID | None = None,
+        workflow_dsl: dict | None = None,
     ) -> AsyncGenerator[AgentEvent]:
         """统一的流式运行逻辑。"""
-        llm = await self.config_service.get_llm_config(user_id)
+        llm = await self.config_service.get_llm_config(user_id, workspace_id)
         if model_override:
             llm = replace(llm, model_name=model_override)
 
         user_id_str = str(user_id)
         conv = await self._ensure_conversation(user_id, conversation_id, "chat")
 
+        # 应用 Persona 和 Workflow 覆盖
+        if persona_id:
+            from app.db.models import Persona
+
+            persona = await self.db.get(Persona, persona_id)
+            if persona and persona.user_id == user_id:
+                llm = replace(llm, persona_override=persona.system_prompt)
+
         # 1. 持久化人类消息
-        human_msg = conv.add_message(role="human", content=content)
+        human_msg = conv.add_message(
+            role="human",
+            content=content,
+            image_urls=image_urls,
+            parent_id=parent_message_id,
+        )
         await self.db.flush()
         human_msg_id = human_msg.id
         yield HumanMessageSavedEvent(human_msg_id=str(human_msg_id))
@@ -128,6 +147,24 @@ class AgentEngine:
         lc_messages = await self.context_service.build_messages(
             user_id, conv, llm, content, compress=True
         )
+
+        # 处理多模态消息 (如果存在图片)
+        if image_urls:
+            # 找到最后一条 Human 消息并替换为包含图片的格式
+            for i in range(len(lc_messages) - 1, -1, -1):
+                from langchain_core.messages import HumanMessage
+
+                if isinstance(lc_messages[i], HumanMessage):
+                    content_list: list[dict[str, Any]] = [
+                        {"type": "text", "text": content}
+                    ]
+                    for url in image_urls:
+                        content_list.append(
+                            {"type": "image_url", "image_url": {"url": url}}
+                        )
+                    lc_messages[i].content = content_list  # type: ignore
+                    break
+
         compressed_summary = None
         for m in lc_messages:
             m_content = getattr(m, "content", "")
@@ -141,9 +178,17 @@ class AgentEngine:
         mcp_tools, plugin_tools = await self.tool_service.load_all_tools(
             user_id_str, llm.enabled_tools
         )
-        route = await classify_task(
-            content, provider=llm.provider, model=llm.model_name, api_key=llm.api_key
-        )
+
+        # 如果有 Workflow DSL，强制走 complex 模式或特定逻辑
+        if workflow_dsl:
+            route = "workflow"
+        else:
+            route = await classify_task(
+                content,
+                provider=llm.provider,
+                model=llm.model_name,
+                api_key=llm.api_key,
+            )
         yield RoutingEvent(agent=route)
 
         # 4. 执行 Graph 循环
@@ -189,6 +234,7 @@ class AgentEngine:
                         tavily_api_key=settings.tavily_api_key,
                         mcp_tools=mcp_tools or [],
                         plugin_tools=plugin_tools or [],
+                        workflow_dsl=workflow_dsl,
                     ),
                 )
                 async for chunk in graph.astream(AgentState(messages=lc_messages)):
@@ -204,7 +250,7 @@ class AgentEngine:
                             ):
                                 tools_used.append(tm_name)
 
-                    events, full_content = sse_events_from_chunk(
+                    events, full_content = events_from_chunk(
                         chunk, full_content, human_msg_id
                     )
                     for e in events:

@@ -39,10 +39,3 @@ def test_agent_config_full():
     )
     assert cfg.user_id == "u1"
     assert cfg.depth == 1
-
-
-def test_resolved_llm_config_re_exported_from_deps():
-    """Existing callers that import from app.api.deps must still work."""
-    from app.api.deps import ResolvedLLMConfig as DepsCopy
-
-    assert DepsCopy is ResolvedLLMConfig

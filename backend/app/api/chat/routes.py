@@ -37,11 +37,16 @@ async def chat_stream(
 
     async def generate() -> AsyncGenerator[str]:
         async for event in engine.run_streaming(
-            user.id,
-            body.content,
-            body.conversation_id,
-            request.is_disconnected,
+            user_id=user.id,
+            content=body.content,
+            conversation_id=body.conversation_id,
+            is_disconnected_func=request.is_disconnected,
             model_override=body.model_override,
+            workspace_id=body.workspace_id,
+            image_urls=body.image_urls,
+            parent_message_id=body.parent_message_id,
+            persona_id=body.persona_id,
+            workflow_dsl=body.workflow_dsl,
         ):
             yield format_sse(event)
 
@@ -73,17 +78,45 @@ async def chat_regenerate(
     if not target_msg:
         raise HTTPException(status_code=404, detail="Message not found")
 
-    # 构建合成请求
+    # 获取父消息（人类消息）以重新触发
+    parent_msg = await db.scalar(
+        select(Message).where(
+            Message.id == target_msg.parent_id, Message.conversation_id == conv.id
+        )
+    )
+    # 如果没有父消息（例如重新生成第一条消息），则使用当前 AI 消息的前一条
+    if not parent_msg:
+        parent_msg = await db.scalar(
+            select(Message)
+            .where(
+                Message.conversation_id == conv.id,
+                Message.created_at < target_msg.created_at,
+                Message.role == "human",
+            )
+            .order_by(Message.created_at.desc())
+            .limit(1)
+        )
+
+    if not parent_msg:
+        raise HTTPException(
+            status_code=400, detail="Could not find parent human message to regenerate"
+        )
+
+    # 逻辑删除旧的 AI 消息（或直接替换，这里选择由 Engine 处理或后续由 UI 决定）
+    # 目前 run_streaming 会产生一条新的 AI 消息并挂在 parent_msg 下
+
     engine = AgentEngine(db)
 
     async def generate() -> AsyncGenerator[str]:
-        # 注意：此处 regenerate 逻辑应在 Engine 中进一步完善，暂用 run_streaming 模拟
         async for event in engine.run_streaming(
-            user.id,
-            ".",  # 重新生成标志
-            body.conversation_id,
-            request.is_disconnected,
+            user_id=user.id,
+            content=parent_msg.content,
+            conversation_id=body.conversation_id,
+            is_disconnected_func=request.is_disconnected,
             model_override=body.model_override,
+            workspace_id=body.workspace_id,
+            parent_message_id=parent_msg.parent_id,  # 保持树结构
+            image_urls=parent_msg.image_urls,
         ):
             yield format_sse(event)
 

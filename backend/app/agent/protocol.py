@@ -33,20 +33,20 @@ class RoutingEvent(AgentEvent):
     agent: str
 
 
-class ToolUseEvent(AgentEvent):
+class ToolStartEvent(AgentEvent):
     """Indicates a tool is being called."""
 
-    type: Literal["tool_use"] = "tool_use"
-    tool_name: str
-    tool_input: Any | None = None
+    type: Literal["tool_start"] = "tool_start"
+    tool: str
+    args: Any | None = None
 
 
-class ToolResultEvent(AgentEvent):
+class ToolEndEvent(AgentEvent):
     """Result of a tool execution."""
 
-    type: Literal["tool_result"] = "tool_result"
-    tool_name: str
-    output: str
+    type: Literal["tool_end"] = "tool_end"
+    tool: str
+    result_preview: str
 
 
 class ErrorEvent(AgentEvent):

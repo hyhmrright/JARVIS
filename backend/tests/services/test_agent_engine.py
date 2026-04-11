@@ -16,9 +16,15 @@ async def test_run_blocking_integration_logic(db_session, client):
     这解决了 [Mock Abuse] 风险，确保数据库操作和叶子节点更新逻辑被真实验证。
     """
     # 1. 准备测试数据
-    from tests.api.test_auth import create_test_user
+    import uuid
 
-    user = await create_test_user(db_session)
+    from app.db.models import User
+
+    user = User(email=f"test_{uuid.uuid4()}@example.com", password_hash="x")
+    db_session.add(user)
+    await db_session.flush()
+    await db_session.refresh(user)
+
     content = "你好，JARVIS"
 
     # 2. 模拟 LLM Graph 的执行
@@ -74,10 +80,16 @@ async def test_run_streaming_unhappy_path(db_session, client):
     测试 AgentEngine 的 run_streaming 异常路径。
     验证在流式执行中发生内部错误时，能否正确产生 ErrorEvent，并且妥善结束事务。
     """
-    from app.agent.protocol import ErrorEvent
-    from tests.api.test_auth import create_test_user
+    import uuid
 
-    user = await create_test_user(db_session)
+    from app.agent.protocol import ErrorEvent
+    from app.db.models import User
+
+    user = User(email=f"test_{uuid.uuid4()}@example.com", password_hash="x")
+    db_session.add(user)
+    await db_session.flush()
+    await db_session.refresh(user)
+
     content = "你好，流式测试"
 
     # 模拟内部抛出异常
