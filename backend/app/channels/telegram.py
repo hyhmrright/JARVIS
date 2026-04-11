@@ -7,20 +7,19 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from fastapi import APIRouter, Request, Response
 
-from app.channels.base import BaseChannelAdapter, GatewayMessage, chunk_text
+from app.channels.base import BaseChannelAdapter, GatewayMessage
 
 logger = structlog.get_logger(__name__)
 
-_TELEGRAM_MAX_MESSAGE_LEN = 4096
-
 
 class TelegramChannel(BaseChannelAdapter):
-    """Telegram bot channel adapter using aiogram.
+    """使用 aiogram 的 Telegram 机器人渠道适配器。
 
-    Supports both long-polling and Webhooks.
+    支持长轮询和 Webhook 两种模式。
     """
 
     channel_name = "telegram"
+    max_message_length = 4096
 
     def __init__(self, bot_token: str, webhook_url: str | None = None) -> None:
         super().__init__()
@@ -54,15 +53,14 @@ class TelegramChannel(BaseChannelAdapter):
             if self._message_handler is not None:
                 try:
                     response = await self._message_handler(gw_msg)
+                    if response:
+                        # 使用基类方法发送，自动处理分块
+                        await self.send_message(str(message.chat.id), response)
                 except Exception:
                     logger.exception(
                         "telegram_handler_error",
                         sender_id=gw_msg.sender_id,
                     )
-                    return
-                if response:
-                    for chunk in chunk_text(response, _TELEGRAM_MAX_MESSAGE_LEN):
-                        await message.reply(chunk)
 
     def _setup_router(self) -> None:
         @self.router.post("/webhook")
@@ -80,11 +78,7 @@ class TelegramChannel(BaseChannelAdapter):
                 return Response(status_code=500)
 
     async def start(self) -> None:
-        """Start the channel adapter.
-
-        If webhook_url is provided, it sets the webhook.
-        Otherwise, it starts long-polling in the background.
-        """
+        """启动适配器。"""
         if self.webhook_url:
             webhook_path = (
                 f"{self.webhook_url.rstrip('/')}/api/channels/telegram/webhook"
@@ -99,7 +93,7 @@ class TelegramChannel(BaseChannelAdapter):
             logger.info("telegram_polling_started")
 
     async def stop(self) -> None:
-        """Stop long-polling or delete webhook, and release the bot session."""
+        """停止适配器并释放资源。"""
         if self.webhook_url:
             await self.bot.delete_webhook()
             logger.info("telegram_webhook_deleted")
@@ -116,21 +110,18 @@ class TelegramChannel(BaseChannelAdapter):
         await self.bot.session.close()
         logger.info("telegram_channel_stopped")
 
-    async def send_message(
+    async def _send_raw_message(
         self,
         channel_id: str,
         content: str,
         attachments: list[Any] | None = None,
     ) -> None:
-        """Send a message back to the channel."""
+        """调用 Telegram API 发送原始消息块。"""
         try:
             chat_id = int(channel_id)
+            await self.bot.send_message(chat_id=chat_id, text=content)
         except ValueError:
             logger.warning("telegram_invalid_chat_id", channel_id=channel_id)
-            return
-
-        try:
-            for chunk in chunk_text(content, _TELEGRAM_MAX_MESSAGE_LEN):
-                await self.bot.send_message(chat_id=chat_id, text=chunk)
         except Exception:
-            logger.warning("telegram_send_failed", channel_id=channel_id)
+            # 基类会捕获并记录完整异常，此处仅需向上抛出
+            raise

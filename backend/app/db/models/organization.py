@@ -42,6 +42,12 @@ class Organization(Base):
         back_populates="organization", cascade="all, delete-orphan"
     )
 
+    def add_workspace(self, name: str) -> "Workspace":
+        """创建并关联一个新的工作区。"""
+        workspace = Workspace(name=name, organization_id=self.id)
+        self.workspaces.append(workspace)
+        return workspace
+
 
 class Workspace(Base):
     __tablename__ = "workspaces"
@@ -70,6 +76,25 @@ class Workspace(Base):
     def soft_delete(self) -> None:
         """Mark workspace as deleted."""
         self.is_deleted = True
+
+    def add_member(self, user_id: uuid.UUID, role: str = "member") -> "WorkspaceMember":
+        """向工作区添加成员，或更新现有成员的角色。"""
+        for member in self.members:
+            if member.user_id == user_id:
+                member.role = role
+                return member
+
+        new_member = WorkspaceMember(workspace_id=self.id, user_id=user_id, role=role)
+        self.members.append(new_member)
+        return new_member
+
+    def remove_member(self, user_id: uuid.UUID) -> bool:
+        """从工作区移除成员，返回是否成功移除。"""
+        for member in list(self.members):
+            if member.user_id == user_id:
+                self.members.remove(member)
+                return True
+        return False
 
     organization: Mapped["Organization"] = relationship(back_populates="workspaces")
     members: Mapped[list["WorkspaceMember"]] = relationship(

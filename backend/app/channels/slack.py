@@ -6,17 +6,16 @@ import structlog
 from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
 from slack_bolt.app.async_app import AsyncApp
 
-from app.channels.base import BaseChannelAdapter, GatewayMessage, chunk_text
+from app.channels.base import BaseChannelAdapter, GatewayMessage
 
 logger = structlog.get_logger(__name__)
 
-_SLACK_MAX_MESSAGE_LEN = 4000
-
 
 class SlackChannel(BaseChannelAdapter):
-    """Slack bot channel adapter using Socket Mode (AsyncBolt)."""
+    """使用 Socket Mode (AsyncBolt) 的 Slack 机器人渠道适配器。"""
 
     channel_name = "slack"
+    max_message_length = 4000
 
     def __init__(self, bot_token: str, app_token: str) -> None:
         super().__init__()
@@ -27,22 +26,22 @@ class SlackChannel(BaseChannelAdapter):
 
         @self.app.event("app_mention")
         async def handle_mention(event: dict[str, Any], say: Any) -> None:
-            await self._on_slack_message(event, say)
+            await self._on_slack_message(event)
 
         @self.app.message(re.compile(".*"))
         async def handle_message(event: dict[str, Any], say: Any) -> None:
-            # Only respond to direct messages (DMs) to avoid noise in channels
+            # 仅响应直接消息 (DM)，以避免频道中的噪音
             if event.get("channel_type") == "im":
-                await self._on_slack_message(event, say)
+                await self._on_slack_message(event)
 
-    async def _on_slack_message(self, event: dict[str, Any], say: Any) -> None:
+    async def _on_slack_message(self, event: dict[str, Any]) -> None:
         user_id = event.get("user")
         text = event.get("text")
         channel_id = event.get("channel")
         if not user_id or not text or not channel_id:
             return
 
-        # Clean up mention from text if present
+        # 如果存在提及，则从文本中清除提及
         text = re.sub(r"<@[A-Z0-9]+>", "", text).strip()
         if not text:
             return
@@ -62,11 +61,10 @@ class SlackChannel(BaseChannelAdapter):
                 return
 
             if response:
-                for chunk in chunk_text(response, _SLACK_MAX_MESSAGE_LEN):
-                    await say(text=chunk)
+                await self.send_message(channel_id, response)
 
     async def start(self) -> None:
-        """Start the Slack Socket Mode handler in a background task."""
+        """在后台任务中启动 Slack Socket Mode 处理程序。"""
         if self._polling_task is not None and not self._polling_task.done():
             logger.warning("slack_channel_already_started")
             return
@@ -76,7 +74,7 @@ class SlackChannel(BaseChannelAdapter):
         logger.info("slack_channel_started")
 
     async def stop(self) -> None:
-        """Stop the Socket Mode handler."""
+        """停止 Socket Mode 处理程序。"""
         if self._handler is not None:
             await self._handler.close_async()
             self._handler = None
@@ -89,15 +87,14 @@ class SlackChannel(BaseChannelAdapter):
             self._polling_task = None
         logger.info("slack_channel_stopped")
 
-    async def send_message(
+    async def _send_raw_message(
         self,
         channel_id: str,
         content: str,
         attachments: list[Any] | None = None,
     ) -> None:
-        """Send a message to a Slack channel/DM."""
+        """发送消息到 Slack 频道或直接消息。"""
         try:
-            for chunk in chunk_text(content, _SLACK_MAX_MESSAGE_LEN):
-                await self.app.client.chat_postMessage(channel=channel_id, text=chunk)
+            await self.app.client.chat_postMessage(channel=channel_id, text=content)
         except Exception:
             logger.warning("slack_send_failed", channel_id=channel_id)

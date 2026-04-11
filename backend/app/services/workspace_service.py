@@ -28,7 +28,7 @@ class WorkspaceService:
     async def create_workspace(self, *, user: User, name: str) -> Workspace:
         """Create a new workspace in the user's organization."""
         org = await require_org(user, self._db)
-        ws = Workspace(name=name, organization_id=org.id)
+        ws = org.add_workspace(name)
         self._db.add(ws)
         await self._db.commit()
         await self._db.refresh(ws)

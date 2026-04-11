@@ -9,14 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Conversation
 from app.gateway.channel_registry import ChannelRegistry
 from app.gateway.models import GatewayMessage
-from app.gateway.security import (
+from app.gateway.pairing import (
     PAIRING_INVALID,
     PAIRING_PROMPT,
     PAIRING_SUCCESS,
     PairingManager,
 )
 from app.gateway.session_manager import SessionManager
-from app.services.agent_execution import AgentExecutionService
+from app.services.agent_engine import AgentEngine
 
 logger = structlog.get_logger(__name__)
 
@@ -24,7 +24,7 @@ _CODE_RE = re.compile(r"^\s*(\d{6})\s*$")
 
 
 class GatewayRouter:
-    """路由来自任何渠道的消息到适当 aAgent 会话。"""
+    """路由来自任何渠道的消息到适当的 Agent 会话。"""
 
     def __init__(
         self,
@@ -62,24 +62,22 @@ class GatewayRouter:
 
         try:
             async with self._db_session_factory() as db:
-                service = AgentExecutionService(db)
+                engine = AgentEngine(db)
                 conv_id_str = session.get("conversation_id")
                 conv_id = uuid.UUID(conv_id_str) if conv_id_str else None
 
-                reply = await service.run_blocking(
+                reply = await engine.run_blocking(
                     user_id=uuid.UUID(user_id),
                     content=msg.content,
                     conversation_id=conv_id,
                     channel=msg.channel,
                 )
 
-                # 如果是新会话，更新会话管理器中的映射
+                # 更新会话映射
                 if not conv_id_str:
                     conv = await db.scalar(
                         select(Conversation)
-                        .where(
-                            Conversation.user_id == uuid.UUID(user_id),
-                        )
+                        .where(Conversation.user_id == uuid.UUID(user_id))
                         .order_by(Conversation.created_at.desc())
                     )
                     if conv:
@@ -96,11 +94,9 @@ class GatewayRouter:
             return "抱歉，处理您的请求时出错。请稍后再试。"
 
     async def _handle_unauthenticated(self, msg: GatewayMessage) -> str:
-        """处理未关联账号的消息，尝试配对或返回配对提示。"""
+        """处理未关联账号的消息。"""
         logger.warning(
-            "gateway_unauthenticated",
-            channel=msg.channel,
-            sender_id=msg.sender_id,
+            "gateway_unauthenticated", channel=msg.channel, sender_id=msg.sender_id
         )
 
         match = _CODE_RE.match(msg.content)

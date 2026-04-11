@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from typing import Any
 
 import structlog
@@ -14,6 +15,18 @@ from app.db.models import CronJob
 from app.db.session import AsyncSessionLocal
 
 logger = structlog.get_logger(__name__)
+
+_register_cron_job: Callable[[str, str], None] | None = None
+_unregister_cron_job: Callable[[str], None] | None = None
+
+
+def set_cron_callbacks(
+    register: Callable[[str, str], None], unregister: Callable[[str], None]
+) -> None:
+    """Inject runner callbacks to break circular dependency with scheduler module."""
+    global _register_cron_job, _unregister_cron_job
+    _register_cron_job = register
+    _unregister_cron_job = unregister
 
 
 def create_cron_tools(user_id: str) -> tuple[BaseTool, BaseTool, BaseTool]:
@@ -114,9 +127,10 @@ def create_cron_tools(user_id: str) -> tuple[BaseTool, BaseTool, BaseTool]:
                 return f"Cron job {job_id!r} not found."
             job.is_active = False
             await db.commit()
-        from app.scheduler.runner import unregister_cron_job
 
-        unregister_cron_job(job_id)
+        if _unregister_cron_job:
+            _unregister_cron_job(job_id)
+
         logger.info("cron_job_deleted", user_id=user_id, job_id=job_id)
         return f"Deleted cron job {job_id}."
 

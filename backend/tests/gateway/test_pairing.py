@@ -8,14 +8,14 @@ import pytest
 
 from app.channels.base import BaseChannelAdapter, GatewayMessage
 from app.gateway.channel_registry import ChannelRegistry
-from app.gateway.router import GatewayRouter
-from app.gateway.security import (
+from app.gateway.pairing import (
     PAIRING_INVALID,
     PAIRING_PREFIX,
     PAIRING_PROMPT,
     PAIRING_SUCCESS,
     PairingManager,
 )
+from app.gateway.router import GatewayRouter
 from app.gateway.session_manager import SessionManager
 
 # ---------------------------------------------------------------------------

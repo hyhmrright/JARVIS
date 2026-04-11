@@ -91,11 +91,7 @@ def create_subagent_tool(
         if _graph_factory is not None:
             graph = await _graph_factory.create([], graph_kwargs)
         else:
-            # Fallback: delayed import breaks the tools↔agent circular dependency
-            # at module level while still allowing tests to patch create_graph.
-            from app.agent.graph import create_graph  # noqa: PLC0415
-
-            graph = create_graph(**graph_kwargs)
+            raise RuntimeError("SubAgent tool requires an injected AgentGraphFactory")
 
         try:
             async with asyncio.timeout(settings.graph_timeout_seconds):

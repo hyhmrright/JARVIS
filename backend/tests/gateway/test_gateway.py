@@ -250,7 +250,7 @@ async def test_router_unknown_channel_raises() -> None:
 @pytest.mark.asyncio
 async def test_router_unauthenticated_returns_pairing_prompt() -> None:
     """handle_message without a linked user should return the pairing prompt."""
-    from app.gateway.security import PAIRING_PROMPT
+    from app.gateway.pairing import PAIRING_PROMPT
 
     registry = ChannelRegistry()
     registry.register(_FakeAdapter())

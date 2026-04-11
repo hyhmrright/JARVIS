@@ -8,20 +8,14 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.llm_config import AgentConfig as AgentConfig  # noqa: F401 re-export
-from app.core.llm_config import (
-    ResolvedLLMConfig as ResolvedLLMConfig,  # noqa: F401 re-export
-)
-from app.core.permissions import DEFAULT_ENABLED_TOOLS
-from app.core.security import decode_access_token, resolve_api_keys
+from app.core.llm_config import ResolvedLLMConfig
+from app.core.security import decode_access_token
 from app.db.models import (
     ApiKey,
     User,
     UserRole,
-    UserSettings,
     Workspace,
     WorkspaceMember,
-    WorkspaceSettings,
 )
 from app.db.session import get_db, isolated_session
 
@@ -216,78 +210,17 @@ async def get_llm_config(
     db: AsyncSession = Depends(get_db),
     workspace_id: uuid.UUID | None = None,
 ) -> ResolvedLLMConfig:
-    """Load user LLM settings and resolve a valid API key.
+    """Load user LLM settings and resolve a valid API key using ConfigService."""
+    from app.services.config_service import ConfigService
 
-    Resolution order (three-tier):
-      1. Personal user keys (user_settings)
-      2. Workspace keys (if workspace_id provided and user is a member)
-      3. System env-var fallback (handled inside resolve_api_keys)
+    service = ConfigService(db)
+    config = await service.get_llm_config(user.id, workspace_id)
 
-    Raises ``HTTPException(400)`` when no API key can be found for the
-    configured provider across all tiers.
-    """
-    user_settings = await db.scalar(
-        select(UserSettings).where(UserSettings.user_id == user.id)
-    )
-
-    provider = user_settings.model_provider if user_settings else "deepseek"
-    model_name = user_settings.model_name if user_settings else "deepseek-chat"
-    raw_keys = user_settings.api_keys if user_settings else {}
-
-    # Tier 1: try personal keys (system env-var included via resolve_api_keys)
-    api_keys = resolve_api_keys(provider, raw_keys)
-
-    # Tier 2: workspace keys — only if workspace_id is provided, user is a
-    # member, and no personal key was found for the configured provider.
-    if not api_keys and workspace_id is not None:
-        membership = await db.scalar(
-            select(WorkspaceMember).where(
-                WorkspaceMember.workspace_id == workspace_id,
-                WorkspaceMember.user_id == user.id,
-            )
-        )
-        if membership:
-            ws_settings = await db.scalar(
-                select(WorkspaceSettings).where(
-                    WorkspaceSettings.workspace_id == workspace_id
-                )
-            )
-            if ws_settings:
-                sj = ws_settings.settings_json
-                ws_provider = sj.get("model_provider") or provider
-                ws_model = sj.get("model_name") or model_name
-                ws_raw_keys = sj.get("api_keys", {})
-                ws_api_keys = resolve_api_keys(ws_provider, ws_raw_keys)
-                if ws_api_keys:
-                    provider = ws_provider
-                    model_name = ws_model
-                    # Keep encrypted blob: consistent with user path.
-                    raw_keys = ws_raw_keys
-                    api_keys = ws_api_keys
-
-    if not api_keys:
+    # Validation for API layer
+    if config.api_key == "missing":
         raise HTTPException(
             status_code=400,
-            detail=f"No API key configured for provider '{provider}'. "
+            detail=f"No API key configured for provider '{config.provider}'. "
             "Set it in Settings or ask the admin to configure a server-level key.",
         )
-
-    return ResolvedLLMConfig(
-        provider=provider,
-        model_name=model_name,
-        api_key=api_keys[0],
-        api_keys=api_keys,
-        enabled_tools=(
-            user_settings.enabled_tools
-            if user_settings and user_settings.enabled_tools is not None
-            else DEFAULT_ENABLED_TOOLS
-        ),
-        persona_override=user_settings.persona_override if user_settings else None,
-        raw_keys=raw_keys,
-        base_url=raw_keys.get(f"{provider}_base_url")
-        if isinstance(raw_keys.get(f"{provider}_base_url"), str)
-        else None,
-        temperature=user_settings.temperature if user_settings else 0.7,
-        max_tokens=user_settings.max_tokens if user_settings else None,
-        system_prompt=user_settings.system_prompt if user_settings else None,
-    )
+    return config

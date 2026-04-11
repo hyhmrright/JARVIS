@@ -42,36 +42,71 @@ def disable_rate_limiting():
     limiter.enabled = True
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 async def _suppress_auth_audit_logging():
-    """Mock audit logging in auth endpoints to prevent cross-event-loop pool issues.
-
-    Each async test gets its own event loop. log_action() acquires connections from
-    the module-level AsyncSessionLocal pool; those connections are bound to the calling
-    event loop and become invalid in the next test's event loop, causing asyncpg's
-    "another operation is in progress" error. Suppressing the call here prevents pool
-    contamination without affecting the dedicated test_audit.py unit tests.
-    """
+    """Mock audit logging in auth endpoints to prevent cross-event-loop pool issues."""
     with patch("app.api.auth.log_action", AsyncMock(return_value=None)):
         yield
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 async def _suppress_pat_last_used_update():
-    """Mock isolated_session in deps to prevent cross-event-loop pool contamination.
-
-    _resolve_pat() uses isolated_session() (imported at module level in deps.py)
-    to update last_used_at. Those connections are bound to the calling event loop
-    and become invalid in the next test's event loop. Patching
-    app.api.deps.isolated_session only affects the deps module namespace —
-    app.db.session.AsyncSessionLocal (used by get_db) is left intact.
-    """
+    """Mock isolated_session in deps to prevent cross-event-loop pool contamination."""
     mock_session = MagicMock()
     mock_session.__aenter__ = AsyncMock(return_value=mock_session)
     mock_session.__aexit__ = AsyncMock(return_value=None)
     mock_session.scalar = AsyncMock(return_value=None)
     with patch("app.api.deps.isolated_session", return_value=mock_session):
         yield
+
+
+@pytest.fixture
+async def _suppress_worker_async_session():
+    """Mock AsyncSessionLocal in worker to prevent cross-loop pool contamination."""
+    mock_session = MagicMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+    mock_session.begin = MagicMock(return_value=mock_session)
+    mock_session.scalar = AsyncMock(return_value=None)
+    mock_session.execute = AsyncMock(return_value=MagicMock())
+    mock_session.get = AsyncMock(return_value=None)
+    mock_session.add = MagicMock()
+    mock_session.flush = AsyncMock()
+    mock_session.commit = AsyncMock()
+    with patch("app.worker.AsyncSessionLocal", return_value=mock_session):
+        yield
+
+
+@pytest.fixture
+async def _suppress_user_memory_tool_async_session():
+    """Mock isolated_session and _make_repository in user_memory_tool to prevent
+    cross-loop contamination.
+    """
+    mock_repo = AsyncMock()
+    mock_repo.get_memories = AsyncMock(return_value=[])
+    mock_repo.search_memories = AsyncMock(return_value=[])
+    mock_repo.save_memory = AsyncMock(
+        return_value=MagicMock(key="k", value="v", category="general")
+    )
+    mock_cm = MagicMock()
+    mock_cm.__aenter__ = AsyncMock(return_value=MagicMock())
+    mock_cm.__aexit__ = AsyncMock(return_value=False)
+    with (
+        patch("app.tools.user_memory_tool.isolated_session", return_value=mock_cm),
+        patch("app.tools.user_memory_tool._make_repository", return_value=mock_repo),
+    ):
+        yield
+
+
+@pytest.fixture
+async def mock_background_db_tasks(
+    _suppress_auth_audit_logging,
+    _suppress_pat_last_used_update,
+    _suppress_worker_async_session,
+    _suppress_user_memory_tool_async_session,
+):
+    """Explicitly suppress background DB tasks to avoid cross-loop issues."""
+    yield
 
 
 @pytest.fixture(scope="session")
@@ -117,7 +152,7 @@ async def db_session(setup_tables):
 
 
 @pytest.fixture
-async def client(db_session):
+async def client(db_session, mock_background_db_tasks):
     """提供已配置好的测试 HTTP 客户端，注入测试 DB session。"""
 
     async def _override_get_db():
@@ -179,48 +214,4 @@ async def second_user_auth_headers(client) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-@pytest.fixture(autouse=True)
-async def _suppress_worker_async_session():
-    """Mock AsyncSessionLocal in worker to prevent cross-event-loop pool contamination.
-
-    execute_cron_job() and deliver_webhook() use AsyncSessionLocal directly.
-    Those connections bind to the calling event loop and are invalid in the
-    next test's event loop, causing asyncpg "another operation is in progress".
-    """
-    mock_session = MagicMock()
-    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-    mock_session.__aexit__ = AsyncMock(return_value=None)
-    mock_session.begin = MagicMock(return_value=mock_session)
-    mock_session.scalar = AsyncMock(return_value=None)
-    mock_session.execute = AsyncMock(return_value=MagicMock())
-    mock_session.get = AsyncMock(return_value=None)
-    mock_session.add = MagicMock()
-    mock_session.flush = AsyncMock()
-    mock_session.commit = AsyncMock()
-    with patch("app.worker.AsyncSessionLocal", return_value=mock_session):
-        yield
-
-
-@pytest.fixture(autouse=True)
-async def _suppress_user_memory_tool_async_session():
-    """Mock isolated_session and _make_repository in user_memory_tool to prevent
-    cross-loop contamination.
-
-    The remember/recall tools call isolated_session() which opens a DB connection.
-    Those connections bind to the calling event loop and are invalid in the next
-    test's event loop, causing asyncpg "Future attached to a different loop".
-    """
-    mock_repo = AsyncMock()
-    mock_repo.get_memories = AsyncMock(return_value=[])
-    mock_repo.search_memories = AsyncMock(return_value=[])
-    mock_repo.save_memory = AsyncMock(
-        return_value=MagicMock(key="k", value="v", category="general")
-    )
-    mock_cm = MagicMock()
-    mock_cm.__aenter__ = AsyncMock(return_value=MagicMock())
-    mock_cm.__aexit__ = AsyncMock(return_value=False)
-    with (
-        patch("app.tools.user_memory_tool.isolated_session", return_value=mock_cm),
-        patch("app.tools.user_memory_tool._make_repository", return_value=mock_repo),
-    ):
-        yield
+# The explicit fixtures have been moved up and combined into mock_background_db_tasks.

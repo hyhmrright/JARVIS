@@ -11,7 +11,7 @@ from app.api.deps import get_current_user
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.db.models import User
-from app.gateway.security import PAIRING_CODE_TTL, PairingManager
+from app.gateway.pairing import PAIRING_CODE_TTL, PairingManager
 
 logger = structlog.get_logger(__name__)
 

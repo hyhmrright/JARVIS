@@ -207,28 +207,34 @@ def create_graph(  # noqa: C901
 
     async def call_llm(state: AgentState) -> dict:
         response = await llm_with_tools.ainvoke(state.messages)
-        return {"messages": [response]}
+        # 显式更新消息和元数据
+        from datetime import UTC, datetime
+
+        return {
+            "messages": [response],
+            "metadata": {
+                **state.metadata,
+                "last_llm_call": datetime.now(UTC).isoformat(),
+            },
+        }
 
     async def ask_approval(state: AgentState) -> dict:
         last_msg = state.messages[-1]
         tool_calls = last_msg.tool_calls if isinstance(last_msg, AIMessage) else []
+        # 显式记录挂起的工具调用
         return {"pending_tool_call": tool_calls[0] if tool_calls else None}
 
     async def review_output(state: AgentState) -> dict:
-        """Self-Correction Node (Reflection)"""
+        """输出审核节点"""
         last = state.messages[-1]
-        # In a full implementation, this uses an LLM as a Critic.
-        # Here we mock a basic check: if answer seems too short, append a
-        # self-correction prompt.
         if (
             isinstance(last, AIMessage)
             and not getattr(last, "tool_calls", None)
             and len(str(last.content)) < 10
         ):
-            # We don't actually trigger another LLM call in this mock to
-            # save tokens/time, but this establishes the routing architecture.
+            # 这里可以增加逻辑
             pass
-        return {}
+        return {"is_completed": True}
 
     graph: StateGraph[AgentState] = StateGraph(AgentState)
     graph.add_node("llm", call_llm)

@@ -1,19 +1,10 @@
-"""LangGraph compilation and tool-loading helpers for the chat API."""
-
-import asyncio
-from pathlib import Path
+"""LangGraph compilation helpers for the chat API."""
 
 import structlog
-from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
-from sqlalchemy import select
 
 from app.agent.graph import create_graph
-from app.core.config import settings
 from app.core.llm_config import AgentConfig
-from app.db.models import InstalledPlugin
-from app.db.session import AsyncSessionLocal
-from app.plugins import plugin_registry
 
 logger = structlog.get_logger(__name__)
 
@@ -97,62 +88,3 @@ def build_expert_graph(route: str, config: AgentConfig) -> CompiledStateGraph:
             max_tokens=config.llm.max_tokens,
         )
     return create_graph(config)
-
-
-async def load_personal_plugin_tools(user_id: str) -> list[BaseTool]:
-    """Load personal installed skill_md/python_plugin tools for this request."""
-    try:
-        from app.plugins.loader import _load_from_directory, load_markdown_skills
-        from app.plugins.registry import PluginRegistry
-
-        personal_dir = Path(settings.installed_plugins_dir) / "users" / str(user_id)
-        if not personal_dir.exists():
-            return []
-
-        async with AsyncSessionLocal() as db:
-            result = await db.execute(
-                select(InstalledPlugin).where(
-                    InstalledPlugin.scope == "personal",
-                    InstalledPlugin.installed_by == user_id,
-                    InstalledPlugin.type.in_(["skill_md", "python_plugin"]),
-                )
-            )
-            rows = result.scalars().all()
-            if not rows:
-                return []
-
-        personal_registry = PluginRegistry()
-        _load_from_directory(personal_registry, personal_dir)
-        await load_markdown_skills(personal_registry, [personal_dir])
-        return personal_registry.get_all_tools()
-    except Exception:
-        logger.exception("personal_plugin_load_failed", user_id=user_id)
-        return []
-
-
-async def load_tools(enabled_tools: list[str] | None) -> tuple[list, list | None]:
-    """Load MCP and plugin tools based on the user's enabled_tools config."""
-    mcp_tools: list = []
-    if enabled_tools is None or "mcp" in enabled_tools:
-        from app.tools.mcp_client import create_mcp_tools, parse_mcp_configs
-
-        mcp_tools = await create_mcp_tools(parse_mcp_configs(settings.mcp_servers_json))
-
-    plugin_tools: list | None = None
-    if enabled_tools is None or "plugin" in enabled_tools:
-        plugin_tools = plugin_registry.get_all_tools() or None
-
-    return mcp_tools, plugin_tools
-
-
-async def load_all_tools(
-    user_id: str, enabled_tools: list[str] | None
-) -> tuple[list, list | None]:
-    """Load MCP, plugin, and personal plugin tools concurrently."""
-    (mcp_tools, plugin_tools), personal_tools = await asyncio.gather(
-        load_tools(enabled_tools),
-        load_personal_plugin_tools(user_id),
-    )
-    if personal_tools:
-        plugin_tools = [*(plugin_tools or []), *personal_tools]
-    return mcp_tools, plugin_tools

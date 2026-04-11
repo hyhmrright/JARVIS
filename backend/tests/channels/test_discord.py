@@ -11,7 +11,7 @@ import discord
 import pytest
 
 from app.channels.base import GatewayMessage
-from app.channels.discord import _DISCORD_MAX_MESSAGE_LEN, DiscordChannel
+from app.channels.discord import DiscordChannel
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
@@ -215,14 +215,14 @@ async def test_send_message_long_content_split() -> None:
     mock_text_channel.send = AsyncMock()
     channel._client.get_channel = MagicMock(return_value=mock_text_channel)
 
-    long_text = "x" * (_DISCORD_MAX_MESSAGE_LEN * 2 + 100)
+    long_text = "x" * (DiscordChannel.max_message_length * 2 + 100)
     await channel.send_message(channel_id="999", content=long_text)
 
     # Should be called 3 times: two full chunks + one remainder
     assert mock_text_channel.send.await_count == 3
     calls = mock_text_channel.send.await_args_list
-    assert len(calls[0].args[0]) == _DISCORD_MAX_MESSAGE_LEN
-    assert len(calls[1].args[0]) == _DISCORD_MAX_MESSAGE_LEN
+    assert len(calls[0].args[0]) == DiscordChannel.max_message_length
+    assert len(calls[1].args[0]) == DiscordChannel.max_message_length
     assert len(calls[2].args[0]) == 100
 
 

@@ -24,12 +24,20 @@ from app.plugins.loader import (
     deactivate_all_plugins,
     load_all_plugins,
 )
-from app.scheduler.runner import start_scheduler, stop_scheduler
+from app.scheduler.runner import (
+    register_cron_job,
+    start_scheduler,
+    stop_scheduler,
+    unregister_cron_job,
+)
+from app.tools.cron_tool import set_cron_callbacks
 from app.tools.mcp_client import mcp_connection_pool
 from app.tools.subagent_tool import set_graph_factory as _set_subagent_graph_factory
 
 configure_logging()
 logger = structlog.get_logger(__name__)
+
+set_cron_callbacks(register_cron_job, unregister_cron_job)  # type: ignore[arg-type]
 
 
 class _ConcreteGraphFactory:

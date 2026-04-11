@@ -9,7 +9,7 @@ logger = structlog.get_logger(__name__)
 
 
 class WebhookChannel(BaseChannelAdapter):
-    """Generic Webhook channel adapter for third-party integrations."""
+    """用于第三方集成的通用 Webhook 渠道适配器。"""
 
     channel_name = "webhook"
 
@@ -19,9 +19,9 @@ class WebhookChannel(BaseChannelAdapter):
 
         @self.router.post("/receive", response_model=None)
         async def handle_webhook(request: Request) -> Response | dict[str, str]:
-            """Endpoint to receive messages from any external source.
+            """接收来自任何外部源的消息的端点。
 
-            Expected JSON: {"user_id": "...", "text": "...", "reply_url": "..."}
+            期望的 JSON: {"user_id": "...", "text": "...", "reply_url": "..."}
             """
             try:
                 data = await request.json()
@@ -44,6 +44,9 @@ class WebhookChannel(BaseChannelAdapter):
 
                 response = await self._message_handler(gw_msg)
                 if response:
+                    # 按照基类规范发送消息
+                    await self.send_message(reply_url or user_id, response)
+                    # 同时保持同步回复，以防客户端需要
                     return {"reply": response}
 
                 return Response(content="OK", status_code=200)
@@ -57,13 +60,13 @@ class WebhookChannel(BaseChannelAdapter):
     async def stop(self) -> None:
         logger.info("webhook_channel_stopped")
 
-    async def send_message(
+    async def _send_raw_message(
         self,
         channel_id: str,
         content: str,
         attachments: list[Any] | None = None,
     ) -> None:
-        """Fallback for generic webhooks."""
+        """通用 Webhook 的回退逻辑。"""
         logger.info(
             "webhook_outbound_triggered",
             channel_id=channel_id,

@@ -96,10 +96,30 @@ class Conversation(Base):
     ) -> "Conversation":
         return cls(id=uuid.uuid4(), user_id=user_id, title=title)
 
-    def activate_leaf(self, message_id: uuid.UUID) -> None:
-        self.active_leaf_id = message_id
+    def add_message(
+        self,
+        role: str,
+        content: str,
+        parent_id: uuid.UUID | None = None,
+        **kwargs: Any,
+    ) -> "Message":
+        """向会话添加一条新消息，并自动更新 active_leaf_id。"""
+        # 如果未指定父消息，则尝试使用当前的 active_leaf_id
+        effective_parent_id = parent_id or self.active_leaf_id
+
+        msg = Message(
+            conversation_id=self.id,
+            role=role,
+            content=content,
+            parent_id=effective_parent_id,
+            **kwargs,
+        )
+        self.messages.append(msg)
+        self.active_leaf_id = msg.id
+        return msg
 
     def update_title(self, new_title: str) -> None:
+        """更新会话标题。"""
         self.title = new_title
 
 

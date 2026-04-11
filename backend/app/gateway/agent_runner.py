@@ -7,7 +7,7 @@ import uuid
 import structlog
 
 from app.db.session import AsyncSessionLocal
-from app.services.agent_execution import AgentExecutionService
+from app.services.agent_engine import AgentEngine
 
 logger = structlog.get_logger(__name__)
 
@@ -40,10 +40,7 @@ async def run_agent_for_user(
     task: str,
     trigger_ctx: dict | None = None,
 ) -> str:
-    """为给定用户和任务执行 JARVIS Agent。
-
-    由 AgentExecutionService 统一处理配置、会话、消息持久化和 Graph 运行。
-    """
+    """为给定用户和任务执行 JARVIS Agent。"""
     ctx_block = format_trigger_context(trigger_ctx)
     full_task = f"{ctx_block}\n\n[用户任务]\n{task}" if ctx_block else task
     trigger_type = (
@@ -52,9 +49,8 @@ async def run_agent_for_user(
 
     try:
         async with AsyncSessionLocal() as db:
-            service = AgentExecutionService(db)
-            # 注意：run_blocking 内部会处理会话创建和消息持久化
-            reply = await service.run_blocking(
+            engine = AgentEngine(db)
+            reply = await engine.run_blocking(
                 user_id=uuid.UUID(user_id),
                 content=full_task,
                 channel=f"runner:{trigger_type}",

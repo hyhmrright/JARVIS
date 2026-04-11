@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.channels.telegram import _TELEGRAM_MAX_MESSAGE_LEN, TelegramChannel
+from app.channels.telegram import TelegramChannel
 from app.gateway.models import GatewayMessage
 
 # ---------------------------------------------------------------------------
@@ -209,15 +209,15 @@ async def test_send_message_long_content_split() -> None:
     channel = _make_channel()
     channel.bot.send_message = AsyncMock()
 
-    long_text = "x" * (_TELEGRAM_MAX_MESSAGE_LEN * 2 + 100)
+    long_text = "x" * (TelegramChannel.max_message_length * 2 + 100)
     await channel.send_message(channel_id="999", content=long_text)
 
     # Should be called 3 times: two full chunks + one remainder
     assert channel.bot.send_message.await_count == 3
     calls = channel.bot.send_message.await_args_list
     assert calls[0].kwargs["chat_id"] == 999
-    assert len(calls[0].kwargs["text"]) == _TELEGRAM_MAX_MESSAGE_LEN
-    assert len(calls[1].kwargs["text"]) == _TELEGRAM_MAX_MESSAGE_LEN
+    assert len(calls[0].kwargs["text"]) == TelegramChannel.max_message_length
+    assert len(calls[1].kwargs["text"]) == TelegramChannel.max_message_length
     assert len(calls[2].kwargs["text"]) == 100
 
 

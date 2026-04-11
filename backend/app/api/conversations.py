@@ -602,7 +602,7 @@ async def set_active_leaf(
     )
     if not msg:
         raise HTTPException(status_code=404, detail="Message not found in conversation")
-    conv.activate_leaf(body.active_leaf_id)
+    conv.active_leaf_id = body.active_leaf_id
     await db.commit()
 
 
