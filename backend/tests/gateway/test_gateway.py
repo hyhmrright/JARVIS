@@ -31,7 +31,7 @@ class _FakeAdapter(BaseChannelAdapter):
     async def stop(self) -> None:
         self.stopped = True
 
-    async def send_message(
+    async def _send_raw_message(
         self,
         channel_id: str,
         content: str,
@@ -263,24 +263,35 @@ async def test_router_unauthenticated_returns_pairing_prompt() -> None:
 
 @pytest.mark.asyncio
 async def test_router_dispatches_to_agent() -> None:
-    """handle_message should call _run_agent and return its reply."""
+    """handle_message should call AgentEngine.run_blocking and return its reply."""
+    from unittest.mock import patch
+
     registry = ChannelRegistry()
     registry.register(_FakeAdapter())
     redis = _make_redis_mock()
     manager = SessionManager(redis)
     await manager.get_or_create_session("u1", "fake")
-    await manager.link_user("u1", "fake", "jarvis-user-1")
+    await manager.link_user("u1", "fake", "00000000-0000-0000-0000-000000000001")
 
-    router = GatewayRouter(registry, manager)
+    # Mock DB session factory
+    mock_db = AsyncMock()
+    mock_factory = MagicMock()
+    mock_ctx = AsyncMock()
+    mock_ctx.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_ctx.__aexit__ = AsyncMock(return_value=None)
+    mock_factory.return_value = mock_ctx
 
-    # Patch _run_agent to avoid requiring LangGraph infrastructure
-    async def _fake_agent(user_id: str, message: GatewayMessage, **_kw: object) -> str:
-        return f"Hello from agent, {user_id}"
+    router = GatewayRouter(registry, manager, db_session_factory=mock_factory)
 
-    router._run_agent = _fake_agent  # type: ignore[method-assign]
+    # Patch AgentEngine to avoid requiring LangGraph infrastructure
+    with patch("app.gateway.router.AgentEngine") as mock_engine_cls:
+        mock_engine = mock_engine_cls.return_value
+        mock_engine.run_blocking = AsyncMock(return_value="Hello from agent")
 
-    msg = GatewayMessage(
-        sender_id="u1", channel="fake", channel_id="c1", content="ping"
-    )
-    reply = await router.handle_message(msg)
-    assert reply == "Hello from agent, jarvis-user-1"
+        msg = GatewayMessage(
+            sender_id="u1", channel="fake", channel_id="c1", content="ping"
+        )
+        reply = await router.handle_message(msg)
+
+    assert reply == "Hello from agent"
+    mock_engine.run_blocking.assert_awaited_once()

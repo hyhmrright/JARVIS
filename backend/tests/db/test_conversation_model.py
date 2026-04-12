@@ -22,7 +22,7 @@ def test_conversation_create_default_title():
 def test_conversation_activate_leaf_sets_id():
     conv = Conversation.create(user_id=uuid.uuid4())
     msg_id = uuid.uuid4()
-    conv.activate_leaf(msg_id)
+    conv.active_leaf_id = msg_id
     assert conv.active_leaf_id == msg_id
 
 

@@ -61,14 +61,21 @@ def _make_mock_session():
 
 
 @pytest.fixture(autouse=True)
-def _global_db_mock():
+def _global_db_mock(request):
     """
     Global mock for all database sessions created via AsyncSessionLocal
     or isolated_session. This is the "Nuclear Option" to prevent
     cross-event-loop contamination.
 
     Instead of patching every service, we patch the source in app.db.session.
+
+    EXCLUSION: We skip this mock for 'tests/db/test_session.py' because those
+    tests specifically verify the behavior of these session helpers.
     """
+    if "tests/db/test_session.py" in str(request.node.fspath):
+        yield
+        return
+
     mock_session = _make_mock_session()
 
     # Mock isolated_session context manager

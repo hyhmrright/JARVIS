@@ -269,9 +269,10 @@ async def test_on_message_calls_handler_and_sends_reply() -> None:
         return "pong"
 
     channel.set_message_handler(my_handler)
+    channel.send_message = AsyncMock()
     await on_message(mock_msg)
 
-    mock_msg.channel.send.assert_awaited_once_with("pong")
+    channel.send_message.assert_awaited_once_with(str(mock_msg.channel.id), "pong")
 
 
 # ---------------------------------------------------------------------------
