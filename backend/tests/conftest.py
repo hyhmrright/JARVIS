@@ -6,13 +6,21 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.pool import NullPool
 
+# --- ANYIO BACKEND ---
+
+
+@pytest.fixture
+def anyio_backend():
+    """Force anyio to use asyncio."""
+    return "asyncio"
+
+
 # --- INFRASTRUCTURE MOCKS ---
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(autouse=True)
 def mock_infra():
-    """Mock background infrastructure for the entire session."""
-    # Note: Rate limiter is already disabled in app/core/limiter.py for tests
+    """Mock background infrastructure."""
     with (
         patch("app.infra.qdrant.get_qdrant_client", AsyncMock()),
         patch("app.infra.minio.get_minio_client", MagicMock()),
@@ -33,13 +41,9 @@ from app.main import create_app
 
 @pytest.fixture
 def app():
-    """
-    FRESH app instance per test. This is the ultimate isolation
-    to prevent cross-event-loop contamination from shared FastAPI state.
-    """
+    """Fresh app per test."""
     _app = create_app()
     _app.router.lifespan_context = MagicMock()
-    # Mock load_all_plugins if needed by legacy tests
     if not hasattr(_app, "load_all_plugins"):
         _app.load_all_plugins = MagicMock()
     return _app
@@ -79,7 +83,6 @@ async def engine(setup_tables):
         raise RuntimeError("POSTGRES_PASSWORD is required") from None
 
     test_url = f"postgresql+asyncpg://jarvis:{_pw}@localhost:5432/jarvis_test"
-    # NullPool is default in CI now via app/db/session.py refactor
     engine = create_async_engine(test_url, echo=False, poolclass=NullPool)
     yield engine
     await engine.dispose()
@@ -97,7 +100,6 @@ async def db_session(engine):
         m_iso.__aenter__ = AsyncMock(return_value=session)
         m_iso.__aexit__ = AsyncMock(return_value=None)
 
-        # Local override per test
         with (
             patch("app.db.session.AsyncSessionLocal", return_value=session),
             patch("app.db.session.isolated_session", return_value=m_iso),
@@ -117,8 +119,9 @@ async def client(app, db_session):
     app.dependency_overrides[get_db] = _override
     from httpx import ASGITransport, AsyncClient
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as c:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as c:
         yield c
     app.dependency_overrides.clear()
 
