@@ -1,56 +1,27 @@
 # ruff: noqa: E402
-import asyncio
 import os
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
-# --- THE "FORCE CURRENT LOOP" HACK ---
-import asyncpg
 import pytest
 from sqlalchemy.pool import NullPool
 
-_real_connect = asyncpg.connect
-
-
-async def _loop_safe_connect(*args, **kwargs):
-    if "loop" not in kwargs:
-        try:
-            kwargs["loop"] = asyncio.get_running_loop()
-        except RuntimeError:
-            pass
-    return await _real_connect(*args, **kwargs)
-
-
-patch("asyncpg.connect", _loop_safe_connect).start()
-
-# --- PRE-IMPORT HIJACKING ---
-
-# 1. Disable Rate Limiting and Infra
+# 1. Disable Rate Limiting globally and early
 patch("slowapi.Limiter.limit", lambda *args, **kw: lambda f: f).start()
+
+# 2. Early patches for background infra
 patch("app.infra.qdrant.get_qdrant_client", AsyncMock()).start()
 patch("app.infra.minio.get_minio_client", MagicMock()).start()
-
-# 2. Mock background infra
-mock_redis = AsyncMock()
-patch("redis.asyncio.Redis.from_url", return_value=mock_redis).start()
+patch("redis.asyncio.Redis.from_url", return_value=AsyncMock()).start()
 patch("arq.create_pool", return_value=AsyncMock()).start()
 patch("app.scheduler.runner.start_scheduler", AsyncMock()).start()
 patch("app.scheduler.runner.stop_scheduler", AsyncMock()).start()
 
-# 3. Global mock session factory
-shared_mock_session = MagicMock()
-shared_mock_session.__aenter__ = AsyncMock(return_value=shared_mock_session)
-shared_mock_session.__aexit__ = AsyncMock(return_value=None)
-shared_mock_session.begin = MagicMock(return_value=shared_mock_session)
-shared_mock_session.execute = AsyncMock(return_value=MagicMock())
-shared_mock_session.scalars = AsyncMock(
-    return_value=MagicMock(all=MagicMock(return_value=[]))
-)
-
-# --- NOW WE CAN IMPORT APP ---
+# 3. Import app and base
 from app.db.session import get_db
 from app.main import app
 
+# Disable lifespan
 app.router.lifespan_context = MagicMock()
 
 try:
@@ -65,13 +36,6 @@ _SYNC_DATABASE_URL = f"postgresql+psycopg2://jarvis:{_pw}@localhost:5432/jarvis_
 @pytest.fixture(scope="session")
 def anyio_backend():
     return "asyncio"
-
-
-@pytest.fixture(autouse=True)
-def reset_shared_mocks():
-    shared_mock_session.reset_mock()
-    mock_redis.reset_mock()
-    yield
 
 
 @pytest.fixture(scope="session")
@@ -94,34 +58,29 @@ import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 
-@pytest.fixture(scope="session")
-async def engine(setup_tables):
-    engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
-    yield engine
-    await engine.dispose()
-
-
 @pytest.fixture
-async def db_session(engine):
-    async with engine.connect() as conn:
-        await conn.begin()
-        session = AsyncSession(
-            bind=conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
-        )
-
-        m_iso = MagicMock()
-        m_iso.__aenter__ = AsyncMock(return_value=session)
-        m_iso.__aexit__ = AsyncMock(return_value=None)
-
-        with (
-            patch("app.db.session.AsyncSessionLocal", return_value=session),
-            patch("app.db.session.isolated_session", return_value=m_iso),
-        ):
-            try:
-                yield session
-            finally:
-                await session.close()
-                await conn.rollback()
+async def db_session(setup_tables):
+    # Fresh engine per test with NullPool + explicit dispose
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
+    try:
+        async with engine.connect() as conn:
+            await conn.begin()
+            session = AsyncSession(
+                bind=conn,
+                expire_on_commit=False,
+                join_transaction_mode="create_savepoint",
+            )
+            # Patch isolated_session to use THIS session bound to the CURRENT loop
+            with patch("app.db.session.isolated_session") as mock_iso:
+                mock_iso.return_value.__aenter__ = AsyncMock(return_value=session)
+                mock_iso.return_value.__aexit__ = AsyncMock(return_value=None)
+                try:
+                    yield session
+                finally:
+                    await session.close()
+                    await conn.rollback()
+    finally:
+        await engine.dispose()
 
 
 @pytest.fixture
@@ -132,8 +91,9 @@ async def client(db_session):
     app.dependency_overrides[get_db] = _override
     from httpx import ASGITransport, AsyncClient
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as c:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as c:
         yield c
     app.dependency_overrides.clear()
 
