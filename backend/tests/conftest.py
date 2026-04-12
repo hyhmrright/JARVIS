@@ -1,5 +1,4 @@
 # ruff: noqa: E402
-import asyncio
 import os
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -7,20 +6,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.pool import NullPool
 
-# --- FORCE SESSION-SCOPED EVENT LOOP ---
+# --- PRE-IMPORT HIJACKING ---
+# We must ensure app.db.session and Redis use mocks BEFORE app.main imports them.
 
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create a session-scoped event loop."""
-    policy = asyncio.get_event_loop_policy()
-    loop = policy.new_event_loop()
-    yield loop
-    loop.close()
-
-
-# --- GLOBAL MOCKS ---
-
+# 1. Create a very robust mock session
 mock_session = MagicMock()
 mock_session.__aenter__ = AsyncMock(return_value=mock_session)
 mock_session.__aexit__ = AsyncMock(return_value=None)
@@ -35,10 +24,12 @@ mock_session.rollback = AsyncMock()
 mock_session.close = AsyncMock()
 mock_session.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[])))
 
+# 2. Create a mock for isolated_session
 mock_isolated = MagicMock()
 mock_isolated.__aenter__ = AsyncMock(return_value=mock_session)
 mock_isolated.__aexit__ = AsyncMock(return_value=None)
 
+# 3. Hijack Redis
 mock_redis = AsyncMock()
 mock_redis.get = AsyncMock(return_value=None)
 mock_redis.set = AsyncMock(return_value=True)
@@ -47,15 +38,13 @@ mock_redis.delete = AsyncMock(return_value=1)
 mock_redis.getdel = AsyncMock(return_value=None)
 mock_redis.close = AsyncMock()
 
-mock_arq = AsyncMock()
-
-# --- HIJACKING ---
-
-# Hijack Redis and ARQ early
 patch("redis.asyncio.Redis.from_url", return_value=mock_redis).start()
+
+# 4. Hijack arq.create_pool
+mock_arq = AsyncMock()
 patch("arq.create_pool", return_value=mock_arq).start()
 
-# Import session and hijack the internal getters
+# 5. Hijack app.db.session members
 import app.db.session
 
 patch("app.db.session._get_engine", return_value=AsyncMock()).start()
@@ -156,6 +145,7 @@ def setup_tables():
 @pytest.fixture
 async def db_session(setup_tables):
     """每个测试创建独立的 async engine 和事务，结束后回滚，保证测试间互不影响。"""
+    # Use NullPool to force a fresh connection and NO pooling across tests
     engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
     try:
         async with engine.connect() as conn:
