@@ -1,26 +1,10 @@
 # ruff: noqa: E402
-import asyncio
 import os
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy.pool import NullPool
-
-# --- FORCE SESSION-SCOPED EVENT LOOP ---
-# This is the ULTIMATE fix for "Future attached to a different loop".
-# By sharing the same loop across all tests, objects created in one test
-# can safely be used/cleaned up in others.
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create a session-scoped event loop."""
-    policy = asyncio.get_event_loop_policy()
-    loop = policy.new_event_loop()
-    yield loop
-    loop.close()
-
 
 # --- PRE-IMPORT HIJACKING ---
 # We must ensure app.db.session and Redis use mocks BEFORE app.main imports them.
@@ -210,6 +194,7 @@ def setup_tables():
 @pytest.fixture
 async def db_session(setup_tables):
     """每个测试创建独立的 async engine 和事务，结束后回滚，保证测试间互不影响。"""
+    # Use NullPool to force a fresh connection and NO pooling across tests
     engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
     try:
         async with engine.connect() as conn:
