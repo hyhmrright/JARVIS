@@ -3,11 +3,12 @@ import os
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
-# --- SUPER-NUCLEAR PRE-IMPORT HIJACKING ---
-# We patch SQLAlchemy functions BEFORE anything else happens.
-# This ensures that when 'app.db.session' is imported, its module-level
-# 'engine' and 'AsyncSessionLocal' are created using our mocks.
+import pytest
 
+# --- PRE-IMPORT HIJACKING ---
+# We must ensure app.db.session uses mocks BEFORE app.main imports it.
+
+# 1. Create a very robust mock session
 mock_session = MagicMock()
 mock_session.__aenter__ = AsyncMock(return_value=mock_session)
 mock_session.__aexit__ = AsyncMock(return_value=None)
@@ -18,42 +19,41 @@ mock_session.get = AsyncMock(return_value=None)
 mock_session.add = MagicMock()
 mock_session.flush = AsyncMock()
 mock_session.commit = AsyncMock()
+mock_session.rollback = AsyncMock()
+mock_session.close = AsyncMock()
 mock_session.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[])))
 
+# 2. Create a mock for isolated_session
 mock_isolated = MagicMock()
 mock_isolated.__aenter__ = AsyncMock(return_value=mock_session)
 mock_isolated.__aexit__ = AsyncMock(return_value=None)
 
-# 1. Hijack create_async_engine to return a mock
-_real_create_engine = patch(
-    "sqlalchemy.ext.asyncio.create_async_engine", return_value=AsyncMock()
-).start()
+# 3. Explicitly import app.db.session and overwrite its members
+import app.db.session
 
-# 2. Hijack async_sessionmaker to return a factory that returns our mock session
-_real_sessionmaker = patch(
-    "sqlalchemy.ext.asyncio.async_sessionmaker", return_value=lambda **_k: mock_session
-).start()
+# Overwrite engine with a mock that supports async context manager for connect/begin
+mock_engine = AsyncMock()
+mock_engine.connect = MagicMock(return_value=AsyncMock())
+mock_engine.connect.return_value.__aenter__ = AsyncMock(return_value=AsyncMock())
+mock_engine.connect.return_value.__aexit__ = AsyncMock(return_value=None)
+app.db.session.engine = mock_engine
 
-# 3. Hijack the isolated_session utility if possible, but it's in app.db.session
-# which we haven't imported yet. We'll handle it via manual patch after import.
+# Overwrite AsyncSessionLocal with a factory that returns our mock session
+app.db.session.AsyncSessionLocal = MagicMock(return_value=mock_session)
 
-import pytest
+# Overwrite isolated_session
+app.db.session.isolated_session = MagicMock(return_value=mock_isolated)
+
+# --- NOW WE CAN IMPORT APP ---
 import sqlalchemy as sa
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine as sync_create_engine
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-# --- NOW WE CAN IMPORT APP ---
 from app.core.limiter import limiter
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-
-# Manual patch for isolated_session which is already defined in app.db.session
-with patch("app.db.session.isolated_session", return_value=mock_isolated):
-    # This block is just to ensure it's patched if anyone uses it immediately.
-    # But fixtures are better for per-test control.
-    pass
 
 try:
     _pg_password = os.environ["POSTGRES_PASSWORD"]
@@ -91,6 +91,7 @@ def reset_global_mocks():
     mock_session.add.reset_mock()
     mock_session.flush.reset_mock()
     mock_session.commit.reset_mock()
+    mock_session.rollback.reset_mock()
     mock_session.get.reset_mock()
     mock_session.execute.reset_mock()
     mock_session.scalar.reset_mock()
@@ -101,34 +102,52 @@ def reset_global_mocks():
 @pytest.fixture(autouse=True)
 def _global_db_mock_manager(request):
     """
-    Manage the global mock lifetime.
+    Ensure all modules that imported symbols from app.db.session
+    use the mocked versions.
     """
     if "tests/db/test_session.py" in str(request.node.fspath):
-        # Even though we hijacked the constructors, we might need
-        # to let the real logic through for session tests.
-        # This is getting complicated. For now, let's focus on fixing the main CI.
         yield
     else:
         # Patch isolated_session in all modules that might have imported it
         targets = [
-            "app.db.session",
             "app.api.deps",
             "app.api.voice",
             "app.api.canvas",
             "app.tools.user_memory_tool",
         ]
-        with patch("app.api.auth.log_action", AsyncMock(return_value=None)):
-            from contextlib import ExitStack
+        # Also patch AsyncSessionLocal in common places
+        local_targets = [
+            "app.worker",
+            "app.services.audit",
+            "app.services.notifications",
+            "app.services.memory_sync",
+            "app.scheduler.runner",
+            "app.gateway.agent_runner",
+            "app.gateway.router",
+            "app.tools.cron_tool",
+            "app.api.workflows",
+            "app.api.chat.routes",
+        ]
 
-            with ExitStack() as stack:
-                for t in targets:
-                    try:
-                        stack.enter_context(
-                            patch(f"{t}.isolated_session", return_value=mock_isolated)
-                        )
-                    except (ImportError, AttributeError):
-                        continue
-                yield
+        from contextlib import ExitStack
+
+        with ExitStack() as stack:
+            stack.enter_context(patch("app.api.auth.log_action", AsyncMock()))
+            for t in targets:
+                try:
+                    stack.enter_context(
+                        patch(f"{t}.isolated_session", return_value=mock_isolated)
+                    )
+                except (ImportError, AttributeError):
+                    continue
+            for t in local_targets:
+                try:
+                    stack.enter_context(
+                        patch(f"{t}.AsyncSessionLocal", return_value=mock_session)
+                    )
+                except (ImportError, AttributeError):
+                    continue
+            yield
 
 
 @pytest.fixture(scope="session")
@@ -151,11 +170,8 @@ def setup_tables():
 @pytest.fixture
 async def db_session(setup_tables):
     """每个测试创建独立的 async engine 和事务，结束后回滚，保证测试间互不影响。"""
-    # We use the REAL create_async_engine here because we need it for real tests.
-    # Our hijacking above affects the module-level one but we can still call
-    # the one we imported if we were careful.
-    # Wait, we hijacked the global one. We need the real one.
-    engine = _real_create_engine(TEST_DATABASE_URL, echo=False)
+    # Use a fresh engine per test to avoid pool pollution from THIS engine
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
     try:
         async with engine.connect() as conn:
             await conn.begin()
@@ -175,7 +191,7 @@ async def db_session(setup_tables):
 
 @pytest.fixture
 async def client(db_session):
-    """提供已配置好的测试 HTTP客户端，注入测试 DB session。"""
+    """提供已配置好的测试 HTTP 客户端，注入测试 DB session。"""
 
     async def _override_get_db():
         yield db_session
