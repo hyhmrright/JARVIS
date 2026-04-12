@@ -6,35 +6,43 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.pool import NullPool
 
-# --- PRE-IMPORT HIJACKING ---
+# --- INFRASTRUCTURE MOCKS ---
 
-# Mock background infra to avoid side effects
-patch("app.infra.qdrant.get_qdrant_client", AsyncMock()).start()
-patch("app.infra.minio.get_minio_client", MagicMock()).start()
-patch("redis.asyncio.Redis.from_url", return_value=AsyncMock()).start()
-patch("arq.create_pool", return_value=AsyncMock()).start()
-patch("app.scheduler.runner.start_scheduler", AsyncMock()).start()
-patch("app.scheduler.runner.stop_scheduler", AsyncMock()).start()
 
-# --- NOW WE CAN IMPORT APP ---
+@pytest.fixture(scope="session", autouse=True)
+def mock_infra():
+    """Mock background infrastructure for the entire session."""
+    # Note: Rate limiter is already disabled in app/core/limiter.py for tests
+    with (
+        patch("app.infra.qdrant.get_qdrant_client", AsyncMock()),
+        patch("app.infra.minio.get_minio_client", MagicMock()),
+        patch("redis.asyncio.Redis.from_url", return_value=AsyncMock()),
+        patch("arq.create_pool", return_value=AsyncMock()),
+        patch("app.scheduler.runner.start_scheduler", AsyncMock()),
+        patch("app.scheduler.runner.stop_scheduler", AsyncMock()),
+        patch("apscheduler.schedulers.asyncio.AsyncIOScheduler.start", MagicMock()),
+    ):
+        yield
+
+
+# --- APP AND DB FIXTURES ---
+
 from app.db.session import get_db
-from app.main import app
-
-# Disable app lifespan to avoid late-running background tasks
-app.router.lifespan_context = MagicMock()
-
-try:
-    _pw = os.environ["POSTGRES_PASSWORD"]
-except KeyError:
-    raise RuntimeError("POSTGRES_PASSWORD is required") from None
-
-TEST_DATABASE_URL = f"postgresql+asyncpg://jarvis:{_pw}@localhost:5432/jarvis_test"
-_SYNC_DATABASE_URL = f"postgresql+psycopg2://jarvis:{_pw}@localhost:5432/jarvis_test"
+from app.main import create_app
 
 
-@pytest.fixture(scope="session")
-def anyio_backend():
-    return "asyncio"
+@pytest.fixture
+def app():
+    """
+    FRESH app instance per test. This is the ultimate isolation
+    to prevent cross-event-loop contamination from shared FastAPI state.
+    """
+    _app = create_app()
+    _app.router.lifespan_context = MagicMock()
+    # Mock load_all_plugins if needed by legacy tests
+    if not hasattr(_app, "load_all_plugins"):
+        _app.load_all_plugins = MagicMock()
+    return _app
 
 
 @pytest.fixture(scope="session")
@@ -43,7 +51,13 @@ def setup_tables():
 
     from app.db.base import Base
 
-    engine = sync_create_engine(_SYNC_DATABASE_URL, echo=False)
+    try:
+        _pw = os.environ["POSTGRES_PASSWORD"]
+    except KeyError:
+        raise RuntimeError("POSTGRES_PASSWORD is required") from None
+
+    sync_url = f"postgresql+psycopg2://jarvis:{_pw}@localhost:5432/jarvis_test"
+    engine = sync_create_engine(sync_url, echo=False)
     with engine.begin() as conn:
         conn.execute(
             sa.text("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;")
@@ -57,38 +71,54 @@ import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 
-@pytest.fixture
-async def db_session(setup_tables):
-    # Note: app/db/session.py already uses NullPool in CI
-    engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
+@pytest.fixture(scope="session")
+async def engine(setup_tables):
     try:
-        async with engine.connect() as conn:
-            await conn.begin()
-            session = AsyncSession(
-                bind=conn,
-                expire_on_commit=False,
-                join_transaction_mode="create_savepoint",
-            )
+        _pw = os.environ["POSTGRES_PASSWORD"]
+    except KeyError:
+        raise RuntimeError("POSTGRES_PASSWORD is required") from None
+
+    test_url = f"postgresql+asyncpg://jarvis:{_pw}@localhost:5432/jarvis_test"
+    # NullPool is default in CI now via app/db/session.py refactor
+    engine = create_async_engine(test_url, echo=False, poolclass=NullPool)
+    yield engine
+    await engine.dispose()
+
+
+@pytest.fixture
+async def db_session(engine):
+    async with engine.connect() as conn:
+        await conn.begin()
+        session = AsyncSession(
+            bind=conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
+        )
+
+        m_iso = MagicMock()
+        m_iso.__aenter__ = AsyncMock(return_value=session)
+        m_iso.__aexit__ = AsyncMock(return_value=None)
+
+        # Local override per test
+        with (
+            patch("app.db.session.AsyncSessionLocal", return_value=session),
+            patch("app.db.session.isolated_session", return_value=m_iso),
+        ):
             try:
                 yield session
             finally:
                 await session.close()
                 await conn.rollback()
-    finally:
-        await engine.dispose()
 
 
 @pytest.fixture
-async def client(db_session):
+async def client(app, db_session):
     async def _override():
         yield db_session
 
     app.dependency_overrides[get_db] = _override
     from httpx import ASGITransport, AsyncClient
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as c:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
     app.dependency_overrides.clear()
 
@@ -97,7 +127,7 @@ async def _register_test_user(client) -> str:
     email = f"test_{uuid.uuid4().hex[:8]}@example.com"
     data = {"email": email, "password": "password123"}
     resp = await client.post("/api/auth/register", json=data)
-    assert resp.status_code == 201, f"Register failed: {resp.text}"
+    assert resp.status_code == 201
     return resp.json()["access_token"]
 
 
