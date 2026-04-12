@@ -6,47 +6,28 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.pool import NullPool
 
-# --- ANYIO BACKEND ---
+# --- GLOBAL MOCKS ---
 
-
-@pytest.fixture
-def anyio_backend():
-    """Force anyio to use asyncio."""
-    return "asyncio"
-
-
-# --- INFRASTRUCTURE MOCKS ---
-
-
-@pytest.fixture(autouse=True)
-def mock_infra():
-    """Mock background infrastructure."""
-    with (
-        patch("app.infra.qdrant.get_qdrant_client", AsyncMock()),
-        patch("app.infra.minio.get_minio_client", MagicMock()),
-        patch("redis.asyncio.Redis.from_url", return_value=AsyncMock()),
-        patch("arq.create_pool", return_value=AsyncMock()),
-        patch("app.scheduler.runner.start_scheduler", AsyncMock()),
-        patch("app.scheduler.runner.stop_scheduler", AsyncMock()),
-        patch("apscheduler.schedulers.asyncio.AsyncIOScheduler.start", MagicMock()),
-    ):
-        yield
-
+patch("slowapi.Limiter.limit", lambda *args, **kw: lambda f: f).start()
+patch("app.infra.qdrant.get_qdrant_client", AsyncMock()).start()
+patch("app.infra.minio.get_minio_client", MagicMock()).start()
+patch("redis.asyncio.Redis.from_url", return_value=AsyncMock()).start()
+patch("arq.create_pool", return_value=AsyncMock()).start()
+patch("app.scheduler.runner.start_scheduler", AsyncMock()).start()
+patch("app.scheduler.runner.stop_scheduler", AsyncMock()).start()
 
 # --- APP AND DB FIXTURES ---
 
 from app.db.session import get_db
-from app.main import create_app
+from app.main import app
+
+# Disable lifespan
+app.router.lifespan_context = MagicMock()
 
 
-@pytest.fixture
-def app():
-    """Fresh app per test."""
-    _app = create_app()
-    _app.router.lifespan_context = MagicMock()
-    if not hasattr(_app, "load_all_plugins"):
-        _app.load_all_plugins = MagicMock()
-    return _app
+@pytest.fixture(scope="session")
+def anyio_backend():
+    return "asyncio"
 
 
 @pytest.fixture(scope="session")
@@ -112,7 +93,7 @@ async def db_session(engine):
 
 
 @pytest.fixture
-async def client(app, db_session):
+async def client(db_session):
     async def _override():
         yield db_session
 

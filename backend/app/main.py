@@ -21,7 +21,7 @@ logger = structlog.get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """FastAPI 生命周期 management：初始化 Qdrant、MinIO 客户端及调度器。"""
+    """FastAPI 生命周期管理：初始化 Qdrant、MinIO 客户端及调度器。"""
     logger.info("app_startup_begin")
     try:
         # 确保基础设施连接正常
@@ -37,36 +37,29 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await stop_scheduler()
 
 
-def create_app() -> FastAPI:
-    """App factory to facilitate testing and ensure fresh state."""
-    _app = FastAPI(
-        title="JARVIS API",
-        version="0.1.0",
-        lifespan=lifespan,
-    )
+app = FastAPI(
+    title="JARVIS API",
+    version="0.1.0",
+    lifespan=lifespan,
+)
 
-    # 跨域配置
-    _app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.cors_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-    _app.add_middleware(LoggingMiddleware)
+# 跨域配置
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.add_middleware(LoggingMiddleware)
 
-    # 监控配置
-    Instrumentator().instrument(_app).expose(_app)
+# 监控配置
+Instrumentator().instrument(app).expose(app)
 
-    # 注册路由
-    _app.include_router(api_router)
-
-    @_app.get("/health")
-    async def health() -> dict[str, str]:
-        return {"status": "ok"}
-
-    return _app
+# 注册路由
+app.include_router(api_router)
 
 
-# Default instance for production/uvicorn
-app = create_app()
+@app.get("/health")
+async def health() -> dict[str, str]:
+    return {"status": "ok"}
