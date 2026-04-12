@@ -1,5 +1,4 @@
 # ruff: noqa: E402
-import asyncio
 import os
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -7,39 +6,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.pool import NullPool
 
-# --- TASK TRACKING ---
-# We track all tasks created during a test to ensure they are cleaned up.
-# This prevents "Future attached to a different loop" errors from leaked tasks.
+# --- THE ULTIMATE INFRA HIJACK ---
 
-_pending_tasks = set()
-_real_create_task = asyncio.create_task
-
-
-def _task_hijack(coro, *args, **kwargs):
-    task = _real_create_task(coro, *args, **kwargs)
-    _pending_tasks.add(task)
-    task.add_done_callback(_pending_tasks.discard)
-    return task
-
-
-patch("asyncio.create_task", _task_hijack).start()
-
-
-@pytest.fixture(autouse=True)
-async def cleanup_leaked_tasks():
-    """Ensure no background tasks survive between tests."""
-    yield
-    if _pending_tasks:
-        for task in list(_pending_tasks):
-            if not task.done():
-                task.cancel()
-        await asyncio.gather(*_pending_tasks, return_exceptions=True)
-        _pending_tasks.clear()
-
-
-# --- GLOBAL MOCKS ---
-
+# 1. Disable Rate Limiting
 patch("slowapi.Limiter.limit", lambda *args, **kw: lambda f: f).start()
+
+# 2. Mock background infra
 patch("app.infra.qdrant.get_qdrant_client", AsyncMock()).start()
 patch("app.infra.minio.get_minio_client", MagicMock()).start()
 patch("redis.asyncio.Redis.from_url", return_value=AsyncMock()).start()
@@ -47,13 +19,27 @@ patch("arq.create_pool", return_value=AsyncMock()).start()
 patch("app.scheduler.runner.start_scheduler", AsyncMock()).start()
 patch("app.scheduler.runner.stop_scheduler", AsyncMock()).start()
 
-# --- APP AND DB FIXTURES ---
+# 3. Hijack SQLAlchemy engine creation globally
+# This prevents ANY real engine from being created outside our control
+mock_engine = AsyncMock()
+mock_engine.connect = MagicMock(return_value=AsyncMock())
+mock_engine.connect.return_value.__aenter__ = AsyncMock(return_value=AsyncMock())
+mock_engine.connect.return_value.__aexit__ = AsyncMock(return_value=None)
+patch("sqlalchemy.ext.asyncio.create_async_engine", return_value=mock_engine).start()
 
+# --- NOW WE CAN IMPORT APP ---
 from app.db.session import get_db
 from app.main import app
 
-# Disable app lifespan
 app.router.lifespan_context = MagicMock()
+
+try:
+    _pw = os.environ["POSTGRES_PASSWORD"]
+except KeyError:
+    raise RuntimeError("POSTGRES_PASSWORD is required") from None
+
+TEST_DATABASE_URL = f"postgresql+asyncpg://jarvis:{_pw}@localhost:5432/jarvis_test"
+_SYNC_DATABASE_URL = f"postgresql+psycopg2://jarvis:{_pw}@localhost:5432/jarvis_test"
 
 
 @pytest.fixture(scope="session")
@@ -67,13 +53,7 @@ def setup_tables():
 
     from app.db.base import Base
 
-    try:
-        _pw = os.environ["POSTGRES_PASSWORD"]
-    except KeyError:
-        raise RuntimeError("POSTGRES_PASSWORD is required") from None
-
-    sync_url = f"postgresql+psycopg2://jarvis:{_pw}@localhost:5432/jarvis_test"
-    engine = sync_create_engine(sync_url, echo=False)
+    engine = sync_create_engine(_SYNC_DATABASE_URL, echo=False)
     with engine.begin() as conn:
         conn.execute(
             sa.text("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;")
@@ -84,22 +64,18 @@ def setup_tables():
 
 
 import sqlalchemy as sa
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine as real_create_async_engine
 
 
 @pytest.fixture
 async def db_session(setup_tables):
     """
-    Fresh engine and session per test.
-    We MUST use NullPool and ensure dispose() is awaited to avoid leaks.
+    Fresh REAL session per test.
+    We use the real constructor here to bypass our own global hijack.
     """
-    try:
-        _pw = os.environ["POSTGRES_PASSWORD"]
-    except KeyError:
-        raise RuntimeError("POSTGRES_PASSWORD is required") from None
-
-    test_url = f"postgresql+asyncpg://jarvis:{_pw}@localhost:5432/jarvis_test"
-    engine = create_async_engine(test_url, echo=False, poolclass=NullPool)
+    # Create a real engine just for this test loop
+    engine = real_create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
     try:
         async with engine.connect() as conn:
             await conn.begin()
@@ -109,14 +85,16 @@ async def db_session(setup_tables):
                 join_transaction_mode="create_savepoint",
             )
 
-            # Local session injection
-            m_iso = MagicMock()
-            m_iso.__aenter__ = AsyncMock(return_value=session)
-            m_iso.__aexit__ = AsyncMock(return_value=None)
-
+            # Local injection to force everyone in this loop to use this session
             with (
                 patch("app.db.session.AsyncSessionLocal", return_value=session),
-                patch("app.db.session.isolated_session", return_value=m_iso),
+                patch(
+                    "app.db.session.isolated_session",
+                    return_value=MagicMock(
+                        __aenter__=AsyncMock(return_value=session),
+                        __aexit__=AsyncMock(return_value=None),
+                    ),
+                ),
             ):
                 try:
                     yield session
