@@ -1,5 +1,4 @@
 # ruff: noqa: E402
-import asyncio
 import os
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -7,42 +6,43 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.pool import NullPool
 
-# --- THE ULTIMATE LOOP HIJACKING ---
-# We force every single call to get_event_loop or get_running_loop to return
-# the same session-scoped loop. This eliminates "different loop" errors at the source.
-
-_session_loop = None
+# --- GLOBAL MOCKS ---
 
 
-def _get_forced_loop():
-    global _session_loop
-    if _session_loop is None or _session_loop.is_closed():
-        _session_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(_session_loop)
-    return _session_loop
+@pytest.fixture
+def mock_session():
+    mock = MagicMock()
+    mock.__aenter__ = AsyncMock(return_value=mock)
+    mock.__aexit__ = AsyncMock(return_value=None)
+    mock.begin = MagicMock(return_value=mock)
+    mock.scalar = AsyncMock(return_value=None)
+    mock.execute = AsyncMock(return_value=MagicMock())
+    mock.get = AsyncMock(return_value=None)
+    mock.add = MagicMock()
+    mock.flush = AsyncMock()
+    mock.commit = AsyncMock()
+    mock.rollback = AsyncMock()
+    mock.close = AsyncMock()
+    mock.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[])))
+    return mock
 
 
-# Patch asyncio globally and permanently for the test process
-patch("asyncio.get_event_loop", _get_forced_loop).start()
-patch("asyncio.get_running_loop", _get_forced_loop).start()
-
-
-@pytest.fixture(scope="session", autouse=True)
-def event_loop():
-    """Shared session loop for all tests."""
-    loop = _get_forced_loop()
-    yield loop
-    # Do NOT close it here, let the process exit handle it to avoid late-task crashes
+@pytest.fixture
+def mock_redis():
+    mock = AsyncMock()
+    mock.get = AsyncMock(return_value=None)
+    mock.set = AsyncMock(return_value=True)
+    mock.close = AsyncMock()
+    return mock
 
 
 # --- PRE-IMPORT HIJACKING ---
 
+# We MUST patch infrastructure early to prevent real connections
 patch("slowapi.Limiter.limit", lambda *args, **kw: lambda f: f).start()
 patch("app.infra.qdrant.get_qdrant_client", AsyncMock()).start()
 patch("app.infra.minio.get_minio_client", MagicMock()).start()
-
-mock_redis = AsyncMock()
-patch("redis.asyncio.Redis.from_url", return_value=mock_redis).start()
+patch("redis.asyncio.Redis.from_url", return_value=AsyncMock()).start()
 patch("arq.create_pool", return_value=AsyncMock()).start()
 patch("app.scheduler.runner.start_scheduler", AsyncMock()).start()
 patch("app.scheduler.runner.stop_scheduler", AsyncMock()).start()
@@ -76,12 +76,6 @@ def app():
     return _app
 
 
-@pytest.fixture(autouse=True)
-def reset_shared_mocks():
-    mock_redis.reset_mock()
-    yield
-
-
 @pytest.fixture(scope="session")
 def setup_tables():
     from sqlalchemy import create_engine as sync_create_engine
@@ -104,7 +98,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 @pytest.fixture(scope="session")
 async def engine(setup_tables):
-    # NullPool + session scope
+    # NullPool is safer across multiple tests
     engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
     yield engine
     await engine.dispose()
@@ -118,13 +112,16 @@ async def db_session(engine):
             bind=conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
         )
 
-        m_iso = MagicMock()
-        m_iso.__aenter__ = AsyncMock(return_value=session)
-        m_iso.__aexit__ = AsyncMock(return_value=None)
-
+        # Inject per-test session into all possible targets
         with (
             patch("app.db.session.AsyncSessionLocal", return_value=session),
-            patch("app.db.session.isolated_session", return_value=m_iso),
+            patch(
+                "app.db.session.isolated_session",
+                return_value=MagicMock(
+                    __aenter__=AsyncMock(return_value=session),
+                    __aexit__=AsyncMock(return_value=None),
+                ),
+            ),
         ):
             try:
                 yield session
@@ -134,15 +131,28 @@ async def db_session(engine):
 
 
 @pytest.fixture
-async def client(app, db_session):
-    async def _override():
+async def client(app, db_session, mock_redis):
+    async def _override_db():
         yield db_session
 
-    app.dependency_overrides[get_db] = _override
+    async def _override_redis():
+        yield mock_redis
+
+    app.dependency_overrides[get_db] = _override_db
+    try:
+        from app.api.export import _get_redis as export_get_redis
+        from app.api.gateway import _get_redis as gateway_get_redis
+
+        app.dependency_overrides[gateway_get_redis] = _override_redis
+        app.dependency_overrides[export_get_redis] = _override_redis
+    except ImportError:
+        pass
+
     from httpx import ASGITransport, AsyncClient
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as c:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as c:
         yield c
     app.dependency_overrides.clear()
 
@@ -151,7 +161,7 @@ async def _register_test_user(client) -> str:
     email = f"test_{uuid.uuid4().hex[:8]}@example.com"
     data = {"email": email, "password": "password123"}
     resp = await client.post("/api/auth/register", json=data)
-    assert resp.status_code == 201
+    assert resp.status_code == 201, f"Register failed: {resp.text}"
     return resp.json()["access_token"]
 
 
