@@ -34,26 +34,53 @@ mock_redis = AsyncMock()
 patch("redis.asyncio.Redis.from_url", return_value=mock_redis).start()
 patch("arq.create_pool", return_value=AsyncMock()).start()
 
-# 4. Hijack Scheduler
+# 4. Hijack Scheduler and Worker Threads
 patch("app.scheduler.runner.start_scheduler", AsyncMock()).start()
 patch("app.scheduler.runner.stop_scheduler", AsyncMock()).start()
 patch("apscheduler.schedulers.asyncio.AsyncIOScheduler.start", MagicMock()).start()
 
-# 5. Hijack SQLAlchemy source getters in app.db.session
+# 5. Hijack SQLAlchemy source getters
 import app.db.session
 
 patch("app.db.session._get_engine", return_value=AsyncMock()).start()
 patch("app.db.session._get_sessionmaker", return_value=lambda: mock_session).start()
+# CRITICAL: Overwrite the exported isolated_session at module level
+app.db.session.isolated_session = MagicMock(return_value=mock_isolated)
 
 # --- NOW WE CAN IMPORT APP ---
 import sqlalchemy as sa
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import create_engine as sync_create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.core.limiter import limiter
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+
+# --- PERMANENT OVERRIDES ---
+# These overrides stay active for the entire pytest process to prevent
+# background tasks from leaking into real DB/Redis code after a test finishes.
+
+
+async def _permanent_override_get_db():
+    yield mock_session
+
+
+async def _permanent_override_redis():
+    yield mock_redis
+
+
+app.dependency_overrides[get_db] = _permanent_override_get_db
+
+try:
+    from app.api.export import _get_redis as export_get_redis
+    from app.api.gateway import _get_redis as gateway_get_redis
+
+    app.dependency_overrides[gateway_get_redis] = _permanent_override_redis
+    app.dependency_overrides[export_get_redis] = _permanent_override_redis
+except ImportError:
+    pass
 
 try:
     _pg_password = os.environ["POSTGRES_PASSWORD"]
@@ -86,38 +113,20 @@ def disable_rate_limiting():
 
 @pytest.fixture(autouse=True)
 def reset_global_mocks():
-    """每个测试重置 Mock。"""
+    """每个测试重置 Mock 对象状态。"""
     mock_session.reset_mock()
     mock_redis.reset_mock()
     yield
 
 
-@pytest.fixture(autouse=True)
-def _global_dependency_overrides():
-    """强制覆盖 FastAPI 依赖。"""
-    from app.api.export import _get_redis as export_get_redis
-    from app.api.gateway import _get_redis as gateway_get_redis
-
-    async def _override_redis():
-        yield mock_redis
-
-    app.dependency_overrides[gateway_get_redis] = _override_redis
-    app.dependency_overrides[export_get_redis] = _override_redis
-    yield
-    app.dependency_overrides.pop(gateway_get_redis, None)
-    app.dependency_overrides.pop(export_get_redis, None)
-
-
 @pytest.fixture(scope="session")
 def setup_tables():
-    """建表。"""
-    from sqlalchemy import create_engine as sync_create_engine
-
+    """使用同步驱动初始化测试表。"""
     engine = sync_create_engine(_SYNC_DATABASE_URL, echo=False)
     with engine.begin() as conn:
         conn.execute(
             sa.text("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;")
-        )  # noqa: E501
+        )
     Base.metadata.create_all(engine)
     yield
     engine.dispose()
@@ -125,7 +134,8 @@ def setup_tables():
 
 @pytest.fixture
 async def db_session(setup_tables):
-    """隔离的测试 DB session。"""
+    """为需要真实数据库操作的测试提供隔离的 session。"""
+    # Use NullPool and ensure cleanup to prevent cross-loop issues
     engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
     try:
         async with engine.connect() as conn:
@@ -146,21 +156,24 @@ async def db_session(setup_tables):
 
 @pytest.fixture
 async def client(db_session):
-    """测试 HTTP 客户端。"""
+    """测试 HTTP 客户端。
+    默认情况下，它会临时覆盖 get_db 以使用真实的测试数据库。
+    """
 
-    async def _override_get_db():
+    async def _temp_override_db():
         yield db_session
 
-    app.dependency_overrides[get_db] = _override_get_db
+    app.dependency_overrides[get_db] = _temp_override_db
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as c:
         yield c
-    app.dependency_overrides.clear()
+    # Revert back to permanent mock override
+    app.dependency_overrides[get_db] = _permanent_override_get_db
 
 
 async def _register_test_user(client) -> str:
-    """注册用户并返回 token。"""
+    """注册测试用户。"""
     email = f"test_{uuid.uuid4().hex[:8]}@example.com"
     resp = await client.post(
         "/api/auth/register",
