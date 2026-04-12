@@ -1,22 +1,64 @@
 # ruff: noqa: E402
+import asyncio
 import os
 import uuid
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from sqlalchemy.pool import NullPool
 
-# 1. Disable Rate Limiting globally and early
+# --- THE GOD MODE LOOP HIJACKING ---
+# We force the entire Python process to use ONE SINGLE loop, no matter what.
+# This fixes the clashing between pytest-asyncio, anyio, and other libraries.
+
+_session_loop = None
+
+
+def _get_forced_loop():
+    global _session_loop
+    if _session_loop is None or _session_loop.is_closed():
+        _session_loop = asyncio.new_event_loop()
+    return _session_loop
+
+
+class ForceSameLoopPolicy(asyncio.DefaultEventLoopPolicy):
+    def get_event_loop(self):
+        return _get_forced_loop()
+
+    def new_event_loop(self):
+        return _get_forced_loop()
+
+
+asyncio.set_event_loop_policy(ForceSameLoopPolicy())
+
+# Patch individual getter functions just in case
+patch("asyncio.get_event_loop", _get_forced_loop).start()
+patch("asyncio.get_running_loop", _get_forced_loop).start()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def event_loop():
+    """The one loop to rule them all."""
+    loop = _get_forced_loop()
+    asyncio.set_event_loop(loop)
+    yield loop
+
+
+# --- PRE-IMPORT HIJACKING ---
+
 patch("slowapi.Limiter.limit", lambda *args, **kw: lambda f: f).start()
+patch("app.infra.qdrant.get_qdrant_client", AsyncMock()).start()
+patch("app.infra.minio.get_minio_client", MagicMock()).start()
 
-# 2. Early patches for background infra
-patch("redis.asyncio.Redis.from_url", return_value=AsyncMock()).start()
+mock_redis = AsyncMock()
+patch("redis.asyncio.Redis.from_url", return_value=mock_redis).start()
 patch("arq.create_pool", return_value=AsyncMock()).start()
 patch("app.scheduler.runner.start_scheduler", AsyncMock()).start()
 patch("app.scheduler.runner.stop_scheduler", AsyncMock()).start()
 
-# 3. Import app and base
+# --- NOW WE CAN IMPORT APP FACTORY ---
 from app.db.session import get_db
-from app.main import app
+from app.main import create_app
 
 try:
     _pw = os.environ["POSTGRES_PASSWORD"]
@@ -30,6 +72,22 @@ _SYNC_DATABASE_URL = f"postgresql+psycopg2://jarvis:{_pw}@localhost:5432/jarvis_
 @pytest.fixture(scope="session")
 def anyio_backend():
     return "asyncio"
+
+
+@pytest.fixture(scope="session")
+def app():
+    """Session-scoped fresh app instance."""
+    _app = create_app()
+    _app.router.lifespan_context = MagicMock()
+    if not hasattr(_app, "load_all_plugins"):
+        _app.load_all_plugins = MagicMock()
+    return _app
+
+
+@pytest.fixture(autouse=True)
+def reset_shared_mocks():
+    mock_redis.reset_mock()
+    yield
 
 
 @pytest.fixture(scope="session")
@@ -52,40 +110,48 @@ import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 
-@pytest.fixture
-async def db_session(setup_tables):
-    # Note: app/db/session.py now uses NullPool if CI is set
-    from sqlalchemy.pool import NullPool
-
+@pytest.fixture(scope="session")
+async def engine(setup_tables):
     engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
-    try:
-        async with engine.connect() as conn:
-            await conn.begin()
-            session = AsyncSession(
-                bind=conn,
-                expire_on_commit=False,
-                join_transaction_mode="create_savepoint",
-            )
+    yield engine
+    await engine.dispose()
+
+
+@pytest.fixture
+async def db_session(engine):
+    async with engine.connect() as conn:
+        await conn.begin()
+        session = AsyncSession(
+            bind=conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
+        )
+
+        with (
+            patch("app.db.session.AsyncSessionLocal", return_value=session),
+            patch(
+                "app.db.session.isolated_session",
+                return_value=MagicMock(
+                    __aenter__=AsyncMock(return_value=session),
+                    __aexit__=AsyncMock(return_value=None),
+                ),
+            ),
+        ):
             try:
                 yield session
             finally:
                 await session.close()
                 await conn.rollback()
-    finally:
-        await engine.dispose()
 
 
 @pytest.fixture
-async def client(db_session):
+async def client(app, db_session):
     async def _override():
         yield db_session
 
     app.dependency_overrides[get_db] = _override
     from httpx import ASGITransport, AsyncClient
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as c:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
     app.dependency_overrides.clear()
 
