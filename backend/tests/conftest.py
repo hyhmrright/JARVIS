@@ -1,5 +1,4 @@
 # ruff: noqa: E402
-import asyncio
 import os
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -7,71 +6,30 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.pool import NullPool
 
-# --- THE GOD MODE LOOP HIJACKING ---
-# We force the entire Python process to use ONE SINGLE loop, no matter what.
-# This fixes the clashing between pytest-asyncio, anyio, and other libraries.
-
-_session_loop = None
-
-
-def _get_forced_loop():
-    global _session_loop
-    if _session_loop is None or _session_loop.is_closed():
-        _session_loop = asyncio.new_event_loop()
-    return _session_loop
-
-
-class ForceSameLoopPolicy(asyncio.DefaultEventLoopPolicy):
-    def get_event_loop(self):
-        return _get_forced_loop()
-
-    def new_event_loop(self):
-        return _get_forced_loop()
-
-
-asyncio.set_event_loop_policy(ForceSameLoopPolicy())
-
-# Patch individual getter functions just in case
-patch("asyncio.get_event_loop", _get_forced_loop).start()
-patch("asyncio.get_running_loop", _get_forced_loop).start()
+# --- NO TOP-LEVEL PATCHES ---
 
 
 @pytest.fixture(scope="session", autouse=True)
-def event_loop():
-    """The one loop to rule them all."""
-    loop = _get_forced_loop()
-    asyncio.set_event_loop(loop)
-    yield loop
+def mock_infra():
+    """Mock background infrastructure for the entire session."""
+    # Patch Limiter to avoid 429
+    with (
+        patch("slowapi.Limiter.limit", lambda *args, **kw: lambda f: f),
+        patch("app.infra.qdrant.get_qdrant_client", AsyncMock()),
+        patch("app.infra.minio.get_minio_client", MagicMock()),
+        patch("redis.asyncio.Redis.from_url", return_value=AsyncMock()),
+        patch("arq.create_pool", return_value=AsyncMock()),
+        patch("app.scheduler.runner.start_scheduler", AsyncMock()),
+        patch("app.scheduler.runner.stop_scheduler", AsyncMock()),
+        patch("apscheduler.schedulers.asyncio.AsyncIOScheduler.start", MagicMock()),
+    ):
+        yield
 
 
-# --- PRE-IMPORT HIJACKING ---
+# --- APP AND DB FIXTURES ---
 
-patch("slowapi.Limiter.limit", lambda *args, **kw: lambda f: f).start()
-patch("app.infra.qdrant.get_qdrant_client", AsyncMock()).start()
-patch("app.infra.minio.get_minio_client", MagicMock()).start()
-
-mock_redis = AsyncMock()
-patch("redis.asyncio.Redis.from_url", return_value=mock_redis).start()
-patch("arq.create_pool", return_value=AsyncMock()).start()
-patch("app.scheduler.runner.start_scheduler", AsyncMock()).start()
-patch("app.scheduler.runner.stop_scheduler", AsyncMock()).start()
-
-# --- NOW WE CAN IMPORT APP FACTORY ---
 from app.db.session import get_db
 from app.main import create_app
-
-try:
-    _pw = os.environ["POSTGRES_PASSWORD"]
-except KeyError:
-    raise RuntimeError("POSTGRES_PASSWORD is required") from None
-
-TEST_DATABASE_URL = f"postgresql+asyncpg://jarvis:{_pw}@localhost:5432/jarvis_test"
-_SYNC_DATABASE_URL = f"postgresql+psycopg2://jarvis:{_pw}@localhost:5432/jarvis_test"
-
-
-@pytest.fixture(scope="session")
-def anyio_backend():
-    return "asyncio"
 
 
 @pytest.fixture(scope="session")
@@ -84,19 +42,19 @@ def app():
     return _app
 
 
-@pytest.fixture(autouse=True)
-def reset_shared_mocks():
-    mock_redis.reset_mock()
-    yield
-
-
 @pytest.fixture(scope="session")
 def setup_tables():
     from sqlalchemy import create_engine as sync_create_engine
 
     from app.db.base import Base
 
-    engine = sync_create_engine(_SYNC_DATABASE_URL, echo=False)
+    try:
+        _pw = os.environ["POSTGRES_PASSWORD"]
+    except KeyError:
+        raise RuntimeError("POSTGRES_PASSWORD is required") from None
+
+    sync_url = f"postgresql+psycopg2://jarvis:{_pw}@localhost:5432/jarvis_test"
+    engine = sync_create_engine(sync_url, echo=False)
     with engine.begin() as conn:
         conn.execute(
             sa.text("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;")
@@ -112,7 +70,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 @pytest.fixture(scope="session")
 async def engine(setup_tables):
-    engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
+    try:
+        _pw = os.environ["POSTGRES_PASSWORD"]
+    except KeyError:
+        raise RuntimeError("POSTGRES_PASSWORD is required") from None
+
+    test_url = f"postgresql+asyncpg://jarvis:{_pw}@localhost:5432/jarvis_test"
+    engine = create_async_engine(test_url, echo=False, poolclass=NullPool)
     yield engine
     await engine.dispose()
 
@@ -125,15 +89,14 @@ async def db_session(engine):
             bind=conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
         )
 
+        m_iso = MagicMock()
+        m_iso.__aenter__ = AsyncMock(return_value=session)
+        m_iso.__aexit__ = AsyncMock(return_value=None)
+
+        # Local override
         with (
             patch("app.db.session.AsyncSessionLocal", return_value=session),
-            patch(
-                "app.db.session.isolated_session",
-                return_value=MagicMock(
-                    __aenter__=AsyncMock(return_value=session),
-                    __aexit__=AsyncMock(return_value=None),
-                ),
-            ),
+            patch("app.db.session.isolated_session", return_value=m_iso),
         ):
             try:
                 yield session
@@ -160,7 +123,7 @@ async def _register_test_user(client) -> str:
     email = f"test_{uuid.uuid4().hex[:8]}@example.com"
     data = {"email": email, "password": "password123"}
     resp = await client.post("/api/auth/register", json=data)
-    assert resp.status_code == 201
+    assert resp.status_code == 201, f"Register failed: {resp.text}"
     return resp.json()["access_token"]
 
 
