@@ -283,7 +283,7 @@ async def cleanup_old_executions(ctx: dict) -> None:
         await db.commit()
     logger.info(
         "job_executions_cleanup",
-        deleted=result.rowcount,  # type: ignore[attr-defined]
+        deleted=result.rowcount,
         retention_days=settings.cron_execution_retention_days,
     )
 
@@ -299,7 +299,7 @@ async def cleanup_old_deliveries(ctx: dict) -> None:
         await db.commit()
     logger.info(
         "webhook_deliveries_cleanup",
-        deleted=result.rowcount,  # type: ignore[attr-defined]
+        deleted=result.rowcount,
         retention_days=retention,
     )
 
