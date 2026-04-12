@@ -13,7 +13,6 @@ import structlog
 from arq.connections import RedisSettings
 from arq.cron import cron
 from sqlalchemy import delete, select, update
-from sqlalchemy.engine import CursorResult
 
 from app.core.config import settings
 from app.core.metrics import cron_executions_total
@@ -278,13 +277,13 @@ async def cleanup_old_executions(ctx: dict) -> None:
         days=settings.cron_execution_retention_days
     )
     async with AsyncSessionLocal() as db:
-        result: CursorResult = await db.execute(
+        result = await db.execute(
             delete(JobExecution).where(JobExecution.fired_at < cutoff)
         )
         await db.commit()
     logger.info(
         "job_executions_cleanup",
-        deleted=result.rowcount,
+        deleted=result.rowcount,  # type: ignore[attr-defined]
         retention_days=settings.cron_execution_retention_days,
     )
 
@@ -294,13 +293,13 @@ async def cleanup_old_deliveries(ctx: dict) -> None:
     retention = settings.webhook_delivery_retention_days
     cutoff = datetime.now(tz=UTC) - timedelta(days=retention)
     async with AsyncSessionLocal() as db:
-        result: CursorResult = await db.execute(
+        result = await db.execute(
             delete(WebhookDelivery).where(WebhookDelivery.triggered_at < cutoff)
         )
         await db.commit()
     logger.info(
         "webhook_deliveries_cleanup",
-        deleted=result.rowcount,
+        deleted=result.rowcount,  # type: ignore[attr-defined]
         retention_days=retention,
     )
 

@@ -6,36 +6,75 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.pool import NullPool
 
-# --- GLOBAL MOCKS ---
-# These are used to stub out background infrastructure
-
-mock_session = MagicMock()
-mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-mock_session.__aexit__ = AsyncMock(return_value=None)
-mock_session.begin = MagicMock(return_value=mock_session)
-mock_session.scalar = AsyncMock(return_value=None)
-mock_session.execute = AsyncMock(return_value=MagicMock())
-mock_session.get = AsyncMock(return_value=None)
-mock_session.add = MagicMock()
-mock_session.flush = AsyncMock()
-mock_session.commit = AsyncMock()
-mock_session.rollback = AsyncMock()
-mock_session.close = AsyncMock()
-mock_session.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[])))
-
-mock_redis = AsyncMock()
-mock_redis.get = AsyncMock(return_value=None)
-mock_redis.set = AsyncMock(return_value=True)
-mock_redis.close = AsyncMock()
-
 # --- PRE-IMPORT HIJACKING ---
-# We patch everything that could start background tasks or threads
 
-patch("redis.asyncio.Redis.from_url", return_value=mock_redis).start()
-patch("arq.create_pool", return_value=AsyncMock()).start()
-patch("app.scheduler.runner.start_scheduler", AsyncMock()).start()
-patch("app.scheduler.runner.stop_scheduler", AsyncMock()).start()
-patch("apscheduler.schedulers.asyncio.AsyncIOScheduler.start", MagicMock()).start()
+
+# 1. Create a factory for fresh mock sessions per test
+def _make_mock_session():
+    mock = MagicMock()
+    mock.__aenter__ = AsyncMock(return_value=mock)
+    mock.__aexit__ = AsyncMock(return_value=None)
+    mock.begin = MagicMock(return_value=mock)
+    mock.scalar = AsyncMock(return_value=None)
+    mock.execute = AsyncMock(return_value=MagicMock())
+    mock.get = AsyncMock(return_value=None)
+    mock.add = MagicMock()
+    mock.flush = AsyncMock()
+    mock.commit = AsyncMock()
+    mock.rollback = AsyncMock()
+    mock.close = AsyncMock()
+    mock.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[])))
+    return mock
+
+
+# Global mock instances
+shared_mock_session = _make_mock_session()
+shared_mock_isolated = MagicMock()
+shared_mock_isolated.__aenter__ = AsyncMock(return_value=shared_mock_session)
+shared_mock_isolated.__aexit__ = AsyncMock(return_value=None)
+
+# 2. Apply aggressive module-level patches
+from contextlib import ExitStack
+
+_early_stack = ExitStack()
+
+# Hijack Redis and ARQ
+_early_stack.enter_context(
+    patch("redis.asyncio.Redis.from_url", return_value=AsyncMock())
+)
+_early_stack.enter_context(patch("arq.create_pool", return_value=AsyncMock()))
+
+# Hijack Scheduler
+_early_stack.enter_context(patch("app.scheduler.runner.start_scheduler", AsyncMock()))
+_early_stack.enter_context(patch("app.scheduler.runner.stop_scheduler", AsyncMock()))
+
+# Hijack ALL possible isolated_session and AsyncSessionLocal targets
+targets = [
+    "app.db.session",
+    "app.api.deps",
+    "app.worker",
+    "app.services.audit",
+    "app.services.notifications",
+    "app.services.memory_sync",
+    "app.scheduler.runner",
+    "app.gateway.agent_runner",
+    "app.gateway.router",
+    "app.tools.cron_tool",
+    "app.api.workflows",
+    "app.api.chat.routes",
+    "app.tools.user_memory_tool",
+]
+
+for t in targets:
+    try:
+        _early_stack.enter_context(
+            patch(f"{t}.isolated_session", return_value=shared_mock_isolated)
+        )
+        _early_stack.enter_context(
+            patch(f"{t}.AsyncSessionLocal", return_value=shared_mock_session)
+        )
+    except (ImportError, AttributeError):
+        pass
 
 # --- NOW WE CAN IMPORT APP ---
 import sqlalchemy as sa
@@ -61,24 +100,22 @@ def anyio_backend():
 
 
 @pytest.fixture(autouse=True)
-def reset_mocks():
-    """Reset mocks before each test."""
-    mock_session.reset_mock()
-    mock_session.add.reset_mock()
-    mock_session.flush.reset_mock()
-    mock_session.commit.reset_mock()
-    mock_session.rollback.reset_mock()
-    mock_session.get.reset_mock()
-    mock_session.execute.reset_mock()
-    mock_session.scalar.reset_mock()
-    mock_session.scalars.reset_mock()
-    mock_redis.reset_mock()
+def reset_shared_mocks():
+    """Reset the shared mocks before each test."""
+    shared_mock_session.reset_mock()
+    shared_mock_session.add.reset_mock()
+    shared_mock_session.flush.reset_mock()
+    shared_mock_session.commit.reset_mock()
+    shared_mock_session.rollback.reset_mock()
+    shared_mock_session.get.reset_mock()
+    shared_mock_session.execute.reset_mock()
+    shared_mock_session.scalar.reset_mock()
+    shared_mock_session.scalars.reset_mock()
     yield
 
 
 @pytest.fixture(scope="session")
 def setup_tables():
-    """Create tables using a sync engine to avoid loop issues."""
     from sqlalchemy import create_engine as sync_create_engine
 
     engine = sync_create_engine(_SYNC_DATABASE_URL, echo=False)
@@ -93,10 +130,7 @@ def setup_tables():
 
 @pytest.fixture(scope="session")
 async def engine(setup_tables):
-    """
-    Session-scoped engine. This is the KEY FIX for different-loop errors.
-    By using a single engine created in the session loop, we avoid pool contamination.
-    """
+    # Use session scope for the engine to ensure only one pool exists
     engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
     yield engine
     await engine.dispose()
@@ -104,7 +138,6 @@ async def engine(setup_tables):
 
 @pytest.fixture
 async def db_session(engine):
-    """Fresh session per test using the session-scoped engine."""
     async with engine.connect() as conn:
         await conn.begin()
         session = AsyncSession(
@@ -121,8 +154,6 @@ async def db_session(engine):
 
 @pytest.fixture
 async def client(db_session):
-    """Override get_db to use our test session."""
-
     async def _override():
         yield db_session
 
@@ -133,24 +164,25 @@ async def client(db_session):
     app.dependency_overrides.clear()
 
 
-@pytest.fixture
-async def auth_client(client):
+async def _register_test_user(client) -> str:
     email = f"test_{uuid.uuid4().hex[:8]}@example.com"
     resp = await client.post(
         "/api/auth/register", json={"email": email, "password": "password123"}
     )
-    token = resp.json()["access_token"]
+    assert resp.status_code == 201
+    return resp.json()["access_token"]
+
+
+@pytest.fixture
+async def auth_client(client):
+    token = await _register_test_user(client)
     client.headers["Authorization"] = f"Bearer {token}"
     return client
 
 
 @pytest.fixture
 async def auth_headers(client) -> dict:
-    email = f"test_{uuid.uuid4().hex[:8]}@example.com"
-    resp = await client.post(
-        "/api/auth/register", json={"email": email, "password": "password123"}
-    )
-    token = resp.json()["access_token"]
+    token = await _register_test_user(client)
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -159,11 +191,7 @@ async def admin_auth_headers(client, db_session) -> dict:
     from app.core.security import decode_access_token
     from app.db.models import User
 
-    email = f"test_{uuid.uuid4().hex[:8]}@example.com"
-    resp = await client.post(
-        "/api/auth/register", json={"email": email, "password": "password123"}
-    )
-    token = resp.json()["access_token"]
+    token = await _register_test_user(client)
     user_id = decode_access_token(token)
     await db_session.execute(
         sa.update(User).where(User.id == user_id).values(role="admin")
