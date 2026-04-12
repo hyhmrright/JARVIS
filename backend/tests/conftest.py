@@ -42,27 +42,8 @@ def disable_rate_limiting():
     limiter.enabled = True
 
 
-@pytest.fixture
-async def _suppress_auth_audit_logging():
-    """Mock audit logging in auth endpoints to prevent cross-event-loop pool issues."""
-    with patch("app.api.auth.log_action", AsyncMock(return_value=None)):
-        yield
-
-
-@pytest.fixture
-async def _suppress_pat_last_used_update():
-    """Mock isolated_session in deps to prevent cross-event-loop pool contamination."""
-    mock_session = MagicMock()
-    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-    mock_session.__aexit__ = AsyncMock(return_value=None)
-    mock_session.scalar = AsyncMock(return_value=None)
-    with patch("app.api.deps.isolated_session", return_value=mock_session):
-        yield
-
-
-@pytest.fixture
-async def _suppress_worker_async_session():
-    """Mock AsyncSessionLocal in worker to prevent cross-loop pool contamination."""
+def _make_mock_session():
+    """Create a mock AsyncSession that behaves like a context manager."""
     mock_session = MagicMock()
     mock_session.__aenter__ = AsyncMock(return_value=mock_session)
     mock_session.__aexit__ = AsyncMock(return_value=None)
@@ -73,15 +54,39 @@ async def _suppress_worker_async_session():
     mock_session.add = MagicMock()
     mock_session.flush = AsyncMock()
     mock_session.commit = AsyncMock()
-    with patch("app.worker.AsyncSessionLocal", return_value=mock_session):
+    mock_session.scalars = AsyncMock(
+        return_value=MagicMock(all=MagicMock(return_value=[]))
+    )
+    return mock_session
+
+
+@pytest.fixture
+async def _suppress_auth_audit_logging():
+    """Mock audit logging in auth endpoints."""
+    with patch("app.api.auth.log_action", AsyncMock(return_value=None)):
+        yield
+
+
+@pytest.fixture
+async def _suppress_pat_last_used_update():
+    """Mock isolated_session in deps."""
+    mock_cm = MagicMock()
+    mock_cm.__aenter__ = AsyncMock(return_value=MagicMock())
+    mock_cm.__aexit__ = AsyncMock(return_value=None)
+    with patch("app.api.deps.isolated_session", return_value=mock_cm):
+        yield
+
+
+@pytest.fixture
+async def _suppress_worker_async_session():
+    """Mock AsyncSessionLocal in worker."""
+    with patch("app.worker.AsyncSessionLocal", return_value=_make_mock_session()):
         yield
 
 
 @pytest.fixture
 async def _suppress_user_memory_tool_async_session():
-    """Mock isolated_session and _make_repository in user_memory_tool to prevent
-    cross-loop contamination.
-    """
+    """Mock isolated_session and _make_repository in user_memory_tool."""
     mock_repo = AsyncMock()
     mock_repo.get_memories = AsyncMock(return_value=[])
     mock_repo.search_memories = AsyncMock(return_value=[])
@@ -99,11 +104,82 @@ async def _suppress_user_memory_tool_async_session():
 
 
 @pytest.fixture
+async def _suppress_memory_sync_async_session():
+    """Mock AsyncSessionLocal in memory_sync."""
+    with patch(
+        "app.services.memory_sync.AsyncSessionLocal", return_value=_make_mock_session()
+    ):
+        yield
+
+
+@pytest.fixture
+async def _suppress_audit_service_async_session():
+    """Mock AsyncSessionLocal in audit service."""
+    with patch(
+        "app.services.audit.AsyncSessionLocal", return_value=_make_mock_session()
+    ):
+        yield
+
+
+@pytest.fixture
+async def _suppress_notifications_async_session():
+    """Mock AsyncSessionLocal in notifications service."""
+    with patch(
+        "app.services.notifications.AsyncSessionLocal",
+        return_value=_make_mock_session(),
+    ):
+        yield
+
+
+@pytest.fixture
+async def _suppress_cron_tool_async_session():
+    """Mock AsyncSessionLocal in cron_tool."""
+    with patch(
+        "app.tools.cron_tool.AsyncSessionLocal", return_value=_make_mock_session()
+    ):
+        yield
+
+
+@pytest.fixture
+async def _suppress_workflow_api_async_session():
+    """Mock AsyncSessionLocal in workflows API (for _update_run_status)."""
+    with patch(
+        "app.api.workflows.AsyncSessionLocal", return_value=_make_mock_session()
+    ):
+        yield
+
+
+@pytest.fixture
+async def _suppress_agent_runner_async_session():
+    """Mock AsyncSessionLocal in agent_runner (gateway)."""
+    with patch(
+        "app.gateway.agent_runner.AsyncSessionLocal", return_value=_make_mock_session()
+    ):
+        yield
+
+
+@pytest.fixture
+async def _suppress_scheduler_runner_async_session():
+    """Mock AsyncSessionLocal in scheduler runner."""
+    with patch(
+        "app.scheduler.runner.AsyncSessionLocal", return_value=_make_mock_session()
+    ):
+        yield
+
+
+@pytest.fixture(autouse=True)
 async def mock_background_db_tasks(
     _suppress_auth_audit_logging,
     _suppress_pat_last_used_update,
     _suppress_worker_async_session,
     _suppress_user_memory_tool_async_session,
+    _suppress_memory_sync_async_session,
+    _suppress_audit_service_async_session,
+    _suppress_notifications_async_session,
+    _suppress_cron_tool_async_session,
+    _suppress_workflow_api_async_session,
+    _suppress_agent_runner_async_session,
+    _suppress_scheduler_runner_async_session,
 ):
     """Explicitly suppress background DB tasks to avoid cross-loop issues."""
     yield
@@ -212,6 +288,3 @@ async def second_user_auth_headers(client) -> dict:
     """Auth headers for a second (non-admin) user."""
     token = await _register_test_user(client)
     return {"Authorization": f"Bearer {token}"}
-
-
-# The explicit fixtures have been moved up and combined into mock_background_db_tasks.
