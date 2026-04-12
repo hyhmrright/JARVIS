@@ -6,12 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.pool import NullPool
 
-# --- THE ULTIMATE INFRA HIJACK ---
+# --- GLOBAL INFRA MOCKS ---
 
-# 1. Disable Rate Limiting
-patch("slowapi.Limiter.limit", lambda *args, **kw: lambda f: f).start()
-
-# 2. Mock background infra
 patch("app.infra.qdrant.get_qdrant_client", AsyncMock()).start()
 patch("app.infra.minio.get_minio_client", MagicMock()).start()
 patch("redis.asyncio.Redis.from_url", return_value=AsyncMock()).start()
@@ -19,27 +15,22 @@ patch("arq.create_pool", return_value=AsyncMock()).start()
 patch("app.scheduler.runner.start_scheduler", AsyncMock()).start()
 patch("app.scheduler.runner.stop_scheduler", AsyncMock()).start()
 
-# 3. Hijack SQLAlchemy engine creation globally
-# This prevents ANY real engine from being created outside our control
-mock_engine = AsyncMock()
-mock_engine.connect = MagicMock(return_value=AsyncMock())
-mock_engine.connect.return_value.__aenter__ = AsyncMock(return_value=AsyncMock())
-mock_engine.connect.return_value.__aexit__ = AsyncMock(return_value=None)
-patch("sqlalchemy.ext.asyncio.create_async_engine", return_value=mock_engine).start()
+# --- APP FIXTURES ---
 
-# --- NOW WE CAN IMPORT APP ---
+from app.core.limiter import limiter
 from app.db.session import get_db
 from app.main import app
 
+# Disable app lifespan
 app.router.lifespan_context = MagicMock()
 
-try:
-    _pw = os.environ["POSTGRES_PASSWORD"]
-except KeyError:
-    raise RuntimeError("POSTGRES_PASSWORD is required") from None
 
-TEST_DATABASE_URL = f"postgresql+asyncpg://jarvis:{_pw}@localhost:5432/jarvis_test"
-_SYNC_DATABASE_URL = f"postgresql+psycopg2://jarvis:{_pw}@localhost:5432/jarvis_test"
+@pytest.fixture(autouse=True)
+def disable_rate_limiting():
+    """测试期间禁用频率限制。"""
+    limiter.enabled = False
+    yield
+    limiter.enabled = True
 
 
 @pytest.fixture(scope="session")
@@ -53,7 +44,13 @@ def setup_tables():
 
     from app.db.base import Base
 
-    engine = sync_create_engine(_SYNC_DATABASE_URL, echo=False)
+    try:
+        _pw = os.environ["POSTGRES_PASSWORD"]
+    except KeyError:
+        raise RuntimeError("POSTGRES_PASSWORD is required") from None
+
+    sync_url = f"postgresql+psycopg2://jarvis:{_pw}@localhost:5432/jarvis_test"
+    engine = sync_create_engine(sync_url, echo=False)
     with engine.begin() as conn:
         conn.execute(
             sa.text("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;")
@@ -64,18 +61,21 @@ def setup_tables():
 
 
 import sqlalchemy as sa
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import create_async_engine as real_create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 
 @pytest.fixture
 async def db_session(setup_tables):
     """
-    Fresh REAL session per test.
-    We use the real constructor here to bypass our own global hijack.
+    FRESH engine and session per test.
     """
-    # Create a real engine just for this test loop
-    engine = real_create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
+    try:
+        _pw = os.environ["POSTGRES_PASSWORD"]
+    except KeyError:
+        raise RuntimeError("POSTGRES_PASSWORD is required") from None
+
+    test_url = f"postgresql+asyncpg://jarvis:{_pw}@localhost:5432/jarvis_test"
+    engine = create_async_engine(test_url, echo=False, poolclass=NullPool)
     try:
         async with engine.connect() as conn:
             await conn.begin()
@@ -85,16 +85,16 @@ async def db_session(setup_tables):
                 join_transaction_mode="create_savepoint",
             )
 
-            # Local injection to force everyone in this loop to use this session
+            m_iso = MagicMock()
+            m_iso.__aenter__ = AsyncMock(return_value=session)
+            m_iso.__aexit__ = AsyncMock(return_value=None)
+
+            # Critical injection
             with (
                 patch("app.db.session.AsyncSessionLocal", return_value=session),
-                patch(
-                    "app.db.session.isolated_session",
-                    return_value=MagicMock(
-                        __aenter__=AsyncMock(return_value=session),
-                        __aexit__=AsyncMock(return_value=None),
-                    ),
-                ),
+                patch("app.db.session.isolated_session", return_value=m_iso),
+                patch("app.api.deps.isolated_session", return_value=m_iso),
+                patch("app.worker.AsyncSessionLocal", return_value=session),
             ):
                 try:
                     yield session

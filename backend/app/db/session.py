@@ -16,7 +16,7 @@ async def get_db() -> AsyncGenerator[AsyncSession]:
 
 @asynccontextmanager
 async def isolated_session() -> AsyncIterator[AsyncSession]:
-    """Context manager for a one-off DB session."""
+    """Isolated session manager for background tasks."""
     async with AsyncSessionLocal() as session:
         try:
             yield session
