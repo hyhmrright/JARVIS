@@ -67,8 +67,6 @@ def _global_db_mock(request):
     or isolated_session. This is the "Nuclear Option" to prevent
     cross-event-loop contamination.
 
-    Instead of patching every service, we patch the source in app.db.session.
-
     EXCLUSION: We skip this mock for 'tests/db/test_session.py' because those
     tests specifically verify the behavior of these session helpers.
     """
@@ -83,31 +81,52 @@ def _global_db_mock(request):
     mock_isolated.__aenter__ = AsyncMock(return_value=mock_session)
     mock_isolated.__aexit__ = AsyncMock(return_value=None)
 
-    with (
-        patch("app.db.session.AsyncSessionLocal", return_value=mock_session),
-        patch("app.db.session.isolated_session", return_value=mock_isolated),
-        # Patch specific imports in other modules to ensure they use the mock
-        patch("app.worker.AsyncSessionLocal", return_value=mock_session),
-        patch("app.services.audit.AsyncSessionLocal", return_value=mock_session),
-        patch(
-            "app.services.notifications.AsyncSessionLocal",
-            return_value=mock_session,
-        ),
-        patch("app.services.memory_sync.AsyncSessionLocal", return_value=mock_session),
-        patch("app.scheduler.runner.AsyncSessionLocal", return_value=mock_session),
-        patch("app.gateway.agent_runner.AsyncSessionLocal", return_value=mock_session),
-        patch("app.tools.cron_tool.AsyncSessionLocal", return_value=mock_session),
-        patch("app.api.workflows.AsyncSessionLocal", return_value=mock_session),
-        patch("app.api.deps.isolated_session", return_value=mock_isolated),
-        patch("app.api.voice.isolated_session", return_value=mock_isolated),
-        patch("app.api.canvas.isolated_session", return_value=mock_isolated),
-        patch(
-            "app.tools.user_memory_tool.isolated_session", return_value=mock_isolated
-        ),
-        # Mock audit logging which often triggers background DB tasks
-        patch("app.api.auth.log_action", AsyncMock(return_value=None)),
-    ):
-        yield
+    # Modules that might import symbols using 'from app.db.session import ...'
+    # Required as they hold a reference to the original object once imported.
+    db_import_targets = [
+        "app.db.session",
+        "app.worker",
+        "app.services.audit",
+        "app.services.notifications",
+        "app.services.memory_sync",
+        "app.scheduler.runner",
+        "app.gateway.agent_runner",
+        "app.gateway.router",
+        "app.tools.cron_tool",
+        "app.api.workflows",
+        "app.api.deps",
+        "app.api.voice",
+        "app.api.canvas",
+        "app.api.chat.routes",
+        "app.tools.user_memory_tool",
+    ]
+
+    with patch("app.api.auth.log_action", AsyncMock(return_value=None)):
+        # Apply patches to all target modules
+        patches = [patch("app.db.session.engine", AsyncMock())]
+        for target in db_import_targets:
+            try:
+                # Patch AsyncSessionLocal
+                patches.append(
+                    patch(f"{target}.AsyncSessionLocal", return_value=mock_session)
+                )
+                # Patch isolated_session (if imported)
+                patches.append(
+                    patch(f"{target}.isolated_session", return_value=mock_isolated)
+                )
+            except Exception:
+                pass
+
+        # Execute all patches
+        from contextlib import ExitStack
+
+        with ExitStack() as stack:
+            for p in patches:
+                try:
+                    stack.enter_context(p)
+                except (AttributeError, ImportError):
+                    continue
+            yield
 
 
 @pytest.fixture(scope="session")
