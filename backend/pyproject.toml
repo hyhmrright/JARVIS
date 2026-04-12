@@ -136,5 +136,5 @@ module = "app.api.cron"
 disable_error_code = ["import-untyped"]
 
 [tool.pytest.ini_options]
-asyncio_mode = "auto"
+asyncio_mode = "strict"
 testpaths = ["tests"]
