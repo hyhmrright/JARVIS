@@ -9,7 +9,7 @@ from sqlalchemy.pool import NullPool
 # --- PRE-IMPORT HIJACKING ---
 # We must ensure all background infra uses mocks BEFORE any app code is imported.
 
-# 1. Hijack SQLAlchemy source getters
+# 1. Create a very robust mock session
 mock_session = MagicMock()
 mock_session.__aenter__ = AsyncMock(return_value=mock_session)
 mock_session.__aexit__ = AsyncMock(return_value=None)
@@ -24,28 +24,26 @@ mock_session.rollback = AsyncMock()
 mock_session.close = AsyncMock()
 mock_session.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[])))
 
+# 2. Create a mock for isolated_session
 mock_isolated = MagicMock()
 mock_isolated.__aenter__ = AsyncMock(return_value=mock_session)
 mock_isolated.__aexit__ = AsyncMock(return_value=None)
 
-# 2. Hijack Redis and ARQ source
+# 3. Hijack Redis and ARQ source
 mock_redis = AsyncMock()
 patch("redis.asyncio.Redis.from_url", return_value=mock_redis).start()
 patch("arq.create_pool", return_value=AsyncMock()).start()
 
-# 3. Hijack Scheduler - STOP IT FROM STARTING THREADS
-# We patch the runner functions to be NO-OPS
+# 4. Hijack Scheduler
 patch("app.scheduler.runner.start_scheduler", AsyncMock()).start()
 patch("app.scheduler.runner.stop_scheduler", AsyncMock()).start()
-# Also patch the class just in case
 patch("apscheduler.schedulers.asyncio.AsyncIOScheduler.start", MagicMock()).start()
 
-# 4. Inject into app.db.session
+# 5. Hijack SQLAlchemy source getters in app.db.session
 import app.db.session
 
 patch("app.db.session._get_engine", return_value=AsyncMock()).start()
 patch("app.db.session._get_sessionmaker", return_value=lambda: mock_session).start()
-patch("app.db.session.isolated_session", return_value=mock_isolated).start()
 
 # --- NOW WE CAN IMPORT APP ---
 import sqlalchemy as sa

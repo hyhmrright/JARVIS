@@ -20,7 +20,11 @@ def _get_engine() -> AsyncEngine:
     """Internal helper to get or create the engine. Facilitates testing."""
     global _engine
     if _engine is None:
-        _engine = create_async_engine(settings.database_url, echo=False)
+        _engine = create_async_engine(
+            settings.database_url,
+            echo=False,
+            # Use NullPool in tests if requested via env, but for now we rely on mocks
+        )
     return _engine
 
 
@@ -42,7 +46,6 @@ def __getattr__(name: str) -> Any:
 
 
 async def get_db() -> AsyncGenerator[AsyncSession]:
-    # Access via __getattr__ or direct helper
     session_factory = _get_sessionmaker()
     async with session_factory() as session:
         yield session
