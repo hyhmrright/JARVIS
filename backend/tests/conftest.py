@@ -7,9 +7,9 @@ import pytest
 from sqlalchemy.pool import NullPool
 
 # --- PRE-IMPORT HIJACKING ---
-# We must ensure app.db.session and Redis use mocks BEFORE app.main imports them.
+# We must ensure all background infra uses mocks BEFORE any app code is imported.
 
-# 1. Create a very robust mock session
+# 1. Hijack SQLAlchemy source getters
 mock_session = MagicMock()
 mock_session.__aenter__ = AsyncMock(return_value=mock_session)
 mock_session.__aexit__ = AsyncMock(return_value=None)
@@ -24,27 +24,23 @@ mock_session.rollback = AsyncMock()
 mock_session.close = AsyncMock()
 mock_session.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[])))
 
-# 2. Create a mock for isolated_session
 mock_isolated = MagicMock()
 mock_isolated.__aenter__ = AsyncMock(return_value=mock_session)
 mock_isolated.__aexit__ = AsyncMock(return_value=None)
 
-# 3. Hijack Redis
+# 2. Hijack Redis and ARQ source
 mock_redis = AsyncMock()
-mock_redis.get = AsyncMock(return_value=None)
-mock_redis.set = AsyncMock(return_value=True)
-mock_redis.setex = AsyncMock(return_value=True)
-mock_redis.delete = AsyncMock(return_value=1)
-mock_redis.getdel = AsyncMock(return_value=None)
-mock_redis.close = AsyncMock()
-
 patch("redis.asyncio.Redis.from_url", return_value=mock_redis).start()
+patch("arq.create_pool", return_value=AsyncMock()).start()
 
-# 4. Hijack arq.create_pool
-mock_arq = AsyncMock()
-patch("arq.create_pool", return_value=mock_arq).start()
+# 3. Hijack Scheduler - STOP IT FROM STARTING THREADS
+# We patch the runner functions to be NO-OPS
+patch("app.scheduler.runner.start_scheduler", AsyncMock()).start()
+patch("app.scheduler.runner.stop_scheduler", AsyncMock()).start()
+# Also patch the class just in case
+patch("apscheduler.schedulers.asyncio.AsyncIOScheduler.start", MagicMock()).start()
 
-# 5. Hijack app.db.session members
+# 4. Inject into app.db.session
 import app.db.session
 
 patch("app.db.session._get_engine", return_value=AsyncMock()).start()
@@ -84,7 +80,7 @@ def anyio_backend():
 
 @pytest.fixture(autouse=True)
 def disable_rate_limiting():
-    """测试期间禁用频率限制，避免多次注册请求触发 429。"""
+    """测试期间禁用频率限制。"""
     limiter.enabled = False
     yield
     limiter.enabled = True
@@ -92,24 +88,15 @@ def disable_rate_limiting():
 
 @pytest.fixture(autouse=True)
 def reset_global_mocks():
-    """Reset the global mock objects before each test."""
+    """每个测试重置 Mock。"""
     mock_session.reset_mock()
-    mock_session.add.reset_mock()
-    mock_session.flush.reset_mock()
-    mock_session.commit.reset_mock()
-    mock_session.rollback.reset_mock()
-    mock_session.get.reset_mock()
-    mock_session.execute.reset_mock()
-    mock_session.scalar.reset_mock()
-    mock_session.scalars.reset_mock()
     mock_redis.reset_mock()
-    mock_arq.reset_mock()
     yield
 
 
 @pytest.fixture(autouse=True)
 def _global_dependency_overrides():
-    """Override FastAPI dependencies globally."""
+    """强制覆盖 FastAPI 依赖。"""
     from app.api.export import _get_redis as export_get_redis
     from app.api.gateway import _get_redis as gateway_get_redis
 
@@ -125,7 +112,7 @@ def _global_dependency_overrides():
 
 @pytest.fixture(scope="session")
 def setup_tables():
-    """使用同步 psycopg2 驱动建表/删表，避免 session 与 function 事件循环交叉引用。"""
+    """建表。"""
     from sqlalchemy import create_engine as sync_create_engine
 
     engine = sync_create_engine(_SYNC_DATABASE_URL, echo=False)
@@ -135,17 +122,12 @@ def setup_tables():
         )  # noqa: E501
     Base.metadata.create_all(engine)
     yield
-    with engine.begin() as conn:
-        conn.execute(
-            sa.text("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;")
-        )  # noqa: E501
     engine.dispose()
 
 
 @pytest.fixture
 async def db_session(setup_tables):
-    """每个测试创建独立的 async engine 和事务，结束后回滚，保证测试间互不影响。"""
-    # Use NullPool to force a fresh connection and NO pooling across tests
+    """隔离的测试 DB session。"""
     engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
     try:
         async with engine.connect() as conn:
@@ -166,7 +148,7 @@ async def db_session(setup_tables):
 
 @pytest.fixture
 async def client(db_session):
-    """提供已配置好的测试 HTTP 客户端，注入测试 DB session。"""
+    """测试 HTTP 客户端。"""
 
     async def _override_get_db():
         yield db_session
@@ -180,7 +162,7 @@ async def client(db_session):
 
 
 async def _register_test_user(client) -> str:
-    """Register a test user and return their access token."""
+    """注册用户并返回 token。"""
     email = f"test_{uuid.uuid4().hex[:8]}@example.com"
     resp = await client.post(
         "/api/auth/register",
@@ -192,7 +174,6 @@ async def _register_test_user(client) -> str:
 
 @pytest.fixture
 async def auth_client(client):
-    """已登录的测试客户端（自动注册并获取 token）。"""
     token = await _register_test_user(client)
     client.headers["Authorization"] = f"Bearer {token}"
     return client
@@ -200,14 +181,12 @@ async def auth_client(client):
 
 @pytest.fixture
 async def auth_headers(client) -> dict:
-    """返回已认证用户的 Authorization 请求头。"""
     token = await _register_test_user(client)
     return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture
 async def admin_auth_headers(client, db_session) -> dict:
-    """Auth headers for an admin user (role promoted to 'admin' in test DB)."""
     from app.core.security import decode_access_token
     from app.db.models import User
 
@@ -222,6 +201,5 @@ async def admin_auth_headers(client, db_session) -> dict:
 
 @pytest.fixture
 async def second_user_auth_headers(client) -> dict:
-    """Auth headers for a second (non-admin) user."""
     token = await _register_test_user(client)
     return {"Authorization": f"Bearer {token}"}
