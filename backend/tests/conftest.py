@@ -7,30 +7,37 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.pool import NullPool
 
-# --- AUTOMATIC MARKING ---
+# --- TASK TRACKING ---
+# We track all tasks created during a test to ensure they are cleaned up.
+# This prevents "Future attached to a different loop" errors from leaked tasks.
+
+_pending_tasks = set()
+_real_create_task = asyncio.create_task
 
 
-def pytest_collection_modifyitems(items):
-    """Automatically mark all async test functions with pytest.mark.asyncio."""
-    for item in items:
-        if asyncio.iscoroutinefunction(item.obj):
-            item.add_marker(pytest.mark.asyncio)
+def _task_hijack(coro, *args, **kwargs):
+    task = _real_create_task(coro, *args, **kwargs)
+    _pending_tasks.add(task)
+    task.add_done_callback(_pending_tasks.discard)
+    return task
 
 
-# --- SESSION LOOP ---
+patch("asyncio.create_task", _task_hijack).start()
 
 
-@pytest.fixture(scope="session", autouse=True)
-def event_loop():
-    """Share a single event loop for the entire session."""
-    policy = asyncio.get_event_loop_policy()
-    loop = policy.new_event_loop()
-    asyncio.set_event_loop(loop)
-    yield loop
-    loop.close()
+@pytest.fixture(autouse=True)
+async def cleanup_leaked_tasks():
+    """Ensure no background tasks survive between tests."""
+    yield
+    if _pending_tasks:
+        for task in list(_pending_tasks):
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*_pending_tasks, return_exceptions=True)
+        _pending_tasks.clear()
 
 
-# --- GLOBAL INFRA MOCKS ---
+# --- GLOBAL MOCKS ---
 
 patch("slowapi.Limiter.limit", lambda *args, **kw: lambda f: f).start()
 patch("app.infra.qdrant.get_qdrant_client", AsyncMock()).start()
@@ -43,17 +50,15 @@ patch("app.scheduler.runner.stop_scheduler", AsyncMock()).start()
 # --- APP AND DB FIXTURES ---
 
 from app.db.session import get_db
-from app.main import create_app
+from app.main import app
+
+# Disable app lifespan
+app.router.lifespan_context = MagicMock()
 
 
 @pytest.fixture(scope="session")
-def app():
-    """Session-scoped fresh app instance."""
-    _app = create_app()
-    _app.router.lifespan_context = MagicMock()
-    if not hasattr(_app, "load_all_plugins"):
-        _app.load_all_plugins = MagicMock()
-    return _app
+def anyio_backend():
+    return "asyncio"
 
 
 @pytest.fixture(scope="session")
@@ -82,8 +87,12 @@ import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 
-@pytest.fixture(scope="session")
-async def engine(setup_tables):
+@pytest.fixture
+async def db_session(setup_tables):
+    """
+    Fresh engine and session per test.
+    We MUST use NullPool and ensure dispose() is awaited to avoid leaks.
+    """
     try:
         _pw = os.environ["POSTGRES_PASSWORD"]
     except KeyError:
@@ -91,44 +100,44 @@ async def engine(setup_tables):
 
     test_url = f"postgresql+asyncpg://jarvis:{_pw}@localhost:5432/jarvis_test"
     engine = create_async_engine(test_url, echo=False, poolclass=NullPool)
-    yield engine
-    await engine.dispose()
+    try:
+        async with engine.connect() as conn:
+            await conn.begin()
+            session = AsyncSession(
+                bind=conn,
+                expire_on_commit=False,
+                join_transaction_mode="create_savepoint",
+            )
+
+            # Local session injection
+            m_iso = MagicMock()
+            m_iso.__aenter__ = AsyncMock(return_value=session)
+            m_iso.__aexit__ = AsyncMock(return_value=None)
+
+            with (
+                patch("app.db.session.AsyncSessionLocal", return_value=session),
+                patch("app.db.session.isolated_session", return_value=m_iso),
+            ):
+                try:
+                    yield session
+                finally:
+                    await session.close()
+                    await conn.rollback()
+    finally:
+        await engine.dispose()
 
 
 @pytest.fixture
-async def db_session(engine):
-    async with engine.connect() as conn:
-        await conn.begin()
-        session = AsyncSession(
-            bind=conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
-        )
-
-        m_iso = MagicMock()
-        m_iso.__aenter__ = AsyncMock(return_value=session)
-        m_iso.__aexit__ = AsyncMock(return_value=None)
-
-        # Inject per-test session
-        with (
-            patch("app.db.session._get_sessionmaker", return_value=lambda: session),
-            patch("app.db.session.isolated_session", return_value=m_iso),
-        ):
-            try:
-                yield session
-            finally:
-                await session.close()
-                await conn.rollback()
-
-
-@pytest.fixture
-async def client(app, db_session):
+async def client(db_session):
     async def _override():
         yield db_session
 
     app.dependency_overrides[get_db] = _override
     from httpx import ASGITransport, AsyncClient
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as c:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as c:
         yield c
     app.dependency_overrides.clear()
 
