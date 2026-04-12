@@ -6,9 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.pool import NullPool
 
-# --- GLOBAL MOCKS ---
+# --- GLOBAL INFRA MOCKS ---
 
-patch("slowapi.Limiter.limit", lambda *args, **kw: lambda f: f).start()
 patch("app.infra.qdrant.get_qdrant_client", AsyncMock()).start()
 patch("app.infra.minio.get_minio_client", MagicMock()).start()
 patch("redis.asyncio.Redis.from_url", return_value=AsyncMock()).start()
@@ -16,13 +15,22 @@ patch("arq.create_pool", return_value=AsyncMock()).start()
 patch("app.scheduler.runner.start_scheduler", AsyncMock()).start()
 patch("app.scheduler.runner.stop_scheduler", AsyncMock()).start()
 
-# --- APP AND DB FIXTURES ---
+# --- APP FIXTURES ---
 
+from app.core.limiter import limiter
 from app.db.session import get_db
 from app.main import app
 
-# Disable lifespan
+# Disable app lifespan
 app.router.lifespan_context = MagicMock()
+
+
+@pytest.fixture(autouse=True)
+def disable_rate_limiting():
+    """测试期间禁用频率限制。"""
+    limiter.enabled = False
+    yield
+    limiter.enabled = True
 
 
 @pytest.fixture(scope="session")
@@ -56,8 +64,9 @@ import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 
-@pytest.fixture(scope="session")
-async def engine(setup_tables):
+@pytest.fixture
+async def db_session(setup_tables):
+    """FRESH engine per test to eliminate loop issues."""
     try:
         _pw = os.environ["POSTGRES_PASSWORD"]
     except KeyError:
@@ -65,32 +74,31 @@ async def engine(setup_tables):
 
     test_url = f"postgresql+asyncpg://jarvis:{_pw}@localhost:5432/jarvis_test"
     engine = create_async_engine(test_url, echo=False, poolclass=NullPool)
-    yield engine
-    await engine.dispose()
+    try:
+        async with engine.connect() as conn:
+            await conn.begin()
+            session = AsyncSession(
+                bind=conn,
+                expire_on_commit=False,
+                join_transaction_mode="create_savepoint",
+            )
 
+            m_iso = MagicMock()
+            m_iso.__aenter__ = AsyncMock(return_value=session)
+            m_iso.__aexit__ = AsyncMock(return_value=None)
 
-@pytest.fixture
-async def db_session(engine):
-    async with engine.connect() as conn:
-        await conn.begin()
-        session = AsyncSession(
-            bind=conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
-        )
-
-        m_iso = MagicMock()
-        m_iso.__aenter__ = AsyncMock(return_value=session)
-        m_iso.__aexit__ = AsyncMock(return_value=None)
-
-        # The key: Inject the CURRENT loop's session into the lazy getters
-        with (
-            patch("app.db.session._get_sessionmaker", return_value=lambda: session),
-            patch("app.db.session.isolated_session", return_value=m_iso),
-        ):
-            try:
-                yield session
-            finally:
-                await session.close()
-                await conn.rollback()
+            # Inject this session into all possible targets
+            with (
+                patch("app.db.session.AsyncSessionLocal", return_value=session),
+                patch("app.db.session.isolated_session", return_value=m_iso),
+            ):
+                try:
+                    yield session
+                finally:
+                    await session.close()
+                    await conn.rollback()
+    finally:
+        await engine.dispose()
 
 
 @pytest.fixture

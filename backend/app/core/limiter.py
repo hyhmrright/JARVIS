@@ -1,6 +1,5 @@
 import functools
 import ipaddress
-import os
 
 import structlog
 from fastapi import Request
@@ -53,6 +52,4 @@ def _get_user_or_ip(request: Request) -> str:
     return get_trusted_client_ip(request) or "unknown"
 
 
-# In CI/Test environments, we disable the limiter entirely to prevent 429 errors.
-_enabled = not (os.getenv("CI") or os.getenv("PYTEST_CURRENT_TEST"))
-limiter = Limiter(key_func=_get_user_or_ip, enabled=_enabled)
+limiter = Limiter(key_func=_get_user_or_ip)
