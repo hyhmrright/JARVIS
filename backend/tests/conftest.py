@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy.pool import NullPool
 
 # --- PRE-IMPORT HIJACKING ---
-# We must ensure app.db.session uses mocks BEFORE app.main imports it.
+# We must ensure app.db.session and Redis use mocks BEFORE app.main imports them.
 
 # 1. Create a very robust mock session
 mock_session = MagicMock()
@@ -29,7 +29,26 @@ mock_isolated = MagicMock()
 mock_isolated.__aenter__ = AsyncMock(return_value=mock_session)
 mock_isolated.__aexit__ = AsyncMock(return_value=None)
 
-# 3. Explicitly import app.db.session and overwrite its members
+# 3. Hijack Redis
+mock_redis = AsyncMock()
+# Common Redis methods used in the app
+mock_redis.get = AsyncMock(return_value=None)
+mock_redis.set = AsyncMock(return_value=True)
+mock_redis.setex = AsyncMock(return_value=True)
+mock_redis.delete = AsyncMock(return_value=1)
+mock_redis.getdel = AsyncMock(return_value=None)
+mock_redis.close = AsyncMock()
+
+# Hijack Redis.from_url
+_redis_patcher = patch("redis.asyncio.Redis.from_url", return_value=mock_redis)
+_redis_patcher.start()
+
+# 4. Hijack arq.create_pool (used for background jobs)
+mock_arq = AsyncMock()
+_arq_patcher = patch("arq.create_pool", return_value=mock_arq)
+_arq_patcher.start()
+
+# 5. Explicitly import app.db.session and overwrite its members
 import app.db.session
 
 # Overwrite engine with a mock that supports async context manager
@@ -97,6 +116,8 @@ def reset_global_mocks():
     mock_session.execute.reset_mock()
     mock_session.scalar.reset_mock()
     mock_session.scalars.reset_mock()
+    mock_redis.reset_mock()
+    mock_arq.reset_mock()
     yield
 
 
@@ -134,6 +155,16 @@ def _global_db_mock_manager(request):
 
         with ExitStack() as stack:
             stack.enter_context(patch("app.api.auth.log_action", AsyncMock()))
+            # Also override FastAPI Redis dependencies if any are missed by global patch
+            from app.api.export import _get_redis as export_get_redis
+            from app.api.gateway import _get_redis as gateway_get_redis
+
+            async def _override_redis():
+                yield mock_redis
+
+            app.dependency_overrides[gateway_get_redis] = _override_redis
+            app.dependency_overrides[export_get_redis] = _override_redis
+
             for t in targets:
                 try:
                     stack.enter_context(
@@ -149,6 +180,8 @@ def _global_db_mock_manager(request):
                 except (ImportError, AttributeError):
                     continue
             yield
+            app.dependency_overrides.pop(gateway_get_redis, None)
+            app.dependency_overrides.pop(export_get_redis, None)
 
 
 @pytest.fixture(scope="session")
