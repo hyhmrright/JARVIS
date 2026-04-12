@@ -1,4 +1,5 @@
 # ruff: noqa: E402
+import asyncio
 import os
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -6,23 +7,54 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.pool import NullPool
 
-# --- GLOBAL MOCKS ---
+# --- THE GOD MODE V2: LOOP MONOPOLY ---
+# We force every single call to new_event_loop to return the SAME loop.
+# This prevents any library (anyio, pytest-asyncio, etc.) from creating
+# separate loops that clash with each other.
+
+_god_loop = asyncio.new_event_loop()
+asyncio.set_event_loop(_god_loop)
+
+# Patch the factory itself
+patch("asyncio.new_event_loop", return_value=_god_loop).start()
+# Patch getters to be extra sure
+patch("asyncio.get_event_loop", return_value=_god_loop).start()
+patch("asyncio.get_running_loop", return_value=_god_loop).start()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def event_loop():
+    """Rule the entire session with one loop."""
+    yield _god_loop
+    # Do NOT close it here to avoid race conditions during teardown
+
+
+# --- PRE-IMPORT HIJACKING ---
 
 patch("slowapi.Limiter.limit", lambda *args, **kw: lambda f: f).start()
 patch("app.infra.qdrant.get_qdrant_client", AsyncMock()).start()
 patch("app.infra.minio.get_minio_client", MagicMock()).start()
-patch("redis.asyncio.Redis.from_url", return_value=AsyncMock()).start()
+
+mock_redis = AsyncMock()
+patch("redis.asyncio.Redis.from_url", return_value=mock_redis).start()
 patch("arq.create_pool", return_value=AsyncMock()).start()
 patch("app.scheduler.runner.start_scheduler", AsyncMock()).start()
 patch("app.scheduler.runner.stop_scheduler", AsyncMock()).start()
 
-# --- APP AND DB FIXTURES ---
-
+# --- NOW WE CAN IMPORT APP ---
 from app.db.session import get_db
 from app.main import app
 
-# Disable lifespan
+# Disable app lifespan
 app.router.lifespan_context = MagicMock()
+
+try:
+    _pw = os.environ["POSTGRES_PASSWORD"]
+except KeyError:
+    raise RuntimeError("POSTGRES_PASSWORD is required") from None
+
+TEST_DATABASE_URL = f"postgresql+asyncpg://jarvis:{_pw}@localhost:5432/jarvis_test"
+_SYNC_DATABASE_URL = f"postgresql+psycopg2://jarvis:{_pw}@localhost:5432/jarvis_test"
 
 
 @pytest.fixture(scope="session")
@@ -36,13 +68,7 @@ def setup_tables():
 
     from app.db.base import Base
 
-    try:
-        _pw = os.environ["POSTGRES_PASSWORD"]
-    except KeyError:
-        raise RuntimeError("POSTGRES_PASSWORD is required") from None
-
-    sync_url = f"postgresql+psycopg2://jarvis:{_pw}@localhost:5432/jarvis_test"
-    engine = sync_create_engine(sync_url, echo=False)
+    engine = sync_create_engine(_SYNC_DATABASE_URL, echo=False)
     with engine.begin() as conn:
         conn.execute(
             sa.text("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;")
@@ -58,13 +84,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 @pytest.fixture(scope="session")
 async def engine(setup_tables):
-    try:
-        _pw = os.environ["POSTGRES_PASSWORD"]
-    except KeyError:
-        raise RuntimeError("POSTGRES_PASSWORD is required") from None
-
-    test_url = f"postgresql+asyncpg://jarvis:{_pw}@localhost:5432/jarvis_test"
-    engine = create_async_engine(test_url, echo=False, poolclass=NullPool)
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
     yield engine
     await engine.dispose()
 
