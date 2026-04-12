@@ -4,6 +4,7 @@ import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from sqlalchemy.pool import NullPool
 
 # --- PRE-IMPORT HIJACKING ---
 # We must ensure app.db.session uses mocks BEFORE app.main imports it.
@@ -31,7 +32,7 @@ mock_isolated.__aexit__ = AsyncMock(return_value=None)
 # 3. Explicitly import app.db.session and overwrite its members
 import app.db.session
 
-# Overwrite engine with a mock that supports async context manager for connect/begin
+# Overwrite engine with a mock that supports async context manager
 mock_engine = AsyncMock()
 mock_engine.connect = MagicMock(return_value=AsyncMock())
 mock_engine.connect.return_value.__aenter__ = AsyncMock(return_value=AsyncMock())
@@ -170,8 +171,8 @@ def setup_tables():
 @pytest.fixture
 async def db_session(setup_tables):
     """每个测试创建独立的 async engine 和事务，结束后回滚，保证测试间互不影响。"""
-    # Use a fresh engine per test to avoid pool pollution from THIS engine
-    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+    # Use NullPool to force a fresh connection and NO pooling across tests
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
     try:
         async with engine.connect() as conn:
             await conn.begin()
