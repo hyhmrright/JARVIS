@@ -1,15 +1,32 @@
 # ruff: noqa: E402
+import asyncio
 import os
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
+# --- THE "FORCE CURRENT LOOP" HACK ---
+import asyncpg
 import pytest
 from sqlalchemy.pool import NullPool
 
+_real_connect = asyncpg.connect
+
+
+async def _loop_safe_connect(*args, **kwargs):
+    if "loop" not in kwargs:
+        try:
+            kwargs["loop"] = asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+    return await _real_connect(*args, **kwargs)
+
+
+patch("asyncpg.connect", _loop_safe_connect).start()
+
 # --- PRE-IMPORT HIJACKING ---
 
-# 1. Disable Rate Limiting and Infra initialization
-patch("slowapi.Limiter.limit", lambda *args, **kwargs: lambda f: f).start()
+# 1. Disable Rate Limiting and Infra
+patch("slowapi.Limiter.limit", lambda *args, **kw: lambda f: f).start()
 patch("app.infra.qdrant.get_qdrant_client", AsyncMock()).start()
 patch("app.infra.minio.get_minio_client", MagicMock()).start()
 
@@ -20,7 +37,7 @@ patch("arq.create_pool", return_value=AsyncMock()).start()
 patch("app.scheduler.runner.start_scheduler", AsyncMock()).start()
 patch("app.scheduler.runner.stop_scheduler", AsyncMock()).start()
 
-# 3. Aggressive module-level patches for session objects
+# 3. Global mock session factory
 shared_mock_session = MagicMock()
 shared_mock_session.__aenter__ = AsyncMock(return_value=shared_mock_session)
 shared_mock_session.__aexit__ = AsyncMock(return_value=None)
@@ -30,48 +47,10 @@ shared_mock_session.scalars = AsyncMock(
     return_value=MagicMock(all=MagicMock(return_value=[]))
 )
 
-mock_isolated_cm = MagicMock()
-mock_isolated_cm.__aenter__ = AsyncMock(return_value=shared_mock_session)
-mock_isolated_cm.__aexit__ = AsyncMock(return_value=None)
-
-# Pre-patch targets
-targets = [
-    "app.db.session",
-    "app.api.deps",
-    "app.worker",
-    "app.services.audit",
-    "app.services.notifications",
-    "app.services.memory_sync",
-    "app.scheduler.runner",
-    "app.gateway.agent_runner",
-    "app.gateway.router",
-    "app.tools.cron_tool",
-    "app.api.workflows",
-    "app.api.chat.routes",
-    "app.tools.user_memory_tool",
-]
-
-from contextlib import ExitStack
-
-_early_stack = ExitStack()
-for t in targets:
-    try:
-        _early_stack.enter_context(
-            patch(f"{t}.isolated_session", return_value=mock_isolated_cm)
-        )
-        _early_stack.enter_context(
-            patch(f"{t}.AsyncSessionLocal", return_value=shared_mock_session)
-        )
-    except (ImportError, AttributeError):
-        pass
-
 # --- NOW WE CAN IMPORT APP ---
-import sqlalchemy as sa
-
 from app.db.session import get_db
 from app.main import app
 
-# Disable app lifespan
 app.router.lifespan_context = MagicMock()
 
 try:
@@ -111,10 +90,12 @@ def setup_tables():
     engine.dispose()
 
 
+import sqlalchemy as sa
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+
 @pytest.fixture(scope="session")
 async def engine(setup_tables):
-    from sqlalchemy.ext.asyncio import create_async_engine
-
     engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
     yield engine
     await engine.dispose()
@@ -122,15 +103,12 @@ async def engine(setup_tables):
 
 @pytest.fixture
 async def db_session(engine):
-    from sqlalchemy.ext.asyncio import AsyncSession
-
     async with engine.connect() as conn:
         await conn.begin()
         session = AsyncSession(
             bind=conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
         )
 
-        # Injected per-test
         m_iso = MagicMock()
         m_iso.__aenter__ = AsyncMock(return_value=session)
         m_iso.__aexit__ = AsyncMock(return_value=None)
