@@ -60,129 +60,47 @@ def _make_mock_session():
     return mock_session
 
 
-@pytest.fixture
-async def _suppress_auth_audit_logging():
-    """Mock audit logging in auth endpoints."""
-    with patch("app.api.auth.log_action", AsyncMock(return_value=None)):
-        yield
-
-
-@pytest.fixture
-async def _suppress_pat_last_used_update():
-    """Mock isolated_session in deps."""
-    mock_cm = MagicMock()
-    mock_cm.__aenter__ = AsyncMock(return_value=MagicMock())
-    mock_cm.__aexit__ = AsyncMock(return_value=None)
-    with patch("app.api.deps.isolated_session", return_value=mock_cm):
-        yield
-
-
-@pytest.fixture
-async def _suppress_worker_async_session():
-    """Mock AsyncSessionLocal in worker."""
-    with patch("app.worker.AsyncSessionLocal", return_value=_make_mock_session()):
-        yield
-
-
-@pytest.fixture
-async def _suppress_user_memory_tool_async_session():
-    """Mock isolated_session and _make_repository in user_memory_tool."""
-    mock_repo = AsyncMock()
-    mock_repo.get_memories = AsyncMock(return_value=[])
-    mock_repo.search_memories = AsyncMock(return_value=[])
-    mock_repo.save_memory = AsyncMock(
-        return_value=MagicMock(key="k", value="v", category="general")
-    )
-    mock_cm = MagicMock()
-    mock_cm.__aenter__ = AsyncMock(return_value=MagicMock())
-    mock_cm.__aexit__ = AsyncMock(return_value=False)
-    with (
-        patch("app.tools.user_memory_tool.isolated_session", return_value=mock_cm),
-        patch("app.tools.user_memory_tool._make_repository", return_value=mock_repo),
-    ):
-        yield
-
-
-@pytest.fixture
-async def _suppress_memory_sync_async_session():
-    """Mock AsyncSessionLocal in memory_sync."""
-    with patch(
-        "app.services.memory_sync.AsyncSessionLocal", return_value=_make_mock_session()
-    ):
-        yield
-
-
-@pytest.fixture
-async def _suppress_audit_service_async_session():
-    """Mock AsyncSessionLocal in audit service."""
-    with patch(
-        "app.services.audit.AsyncSessionLocal", return_value=_make_mock_session()
-    ):
-        yield
-
-
-@pytest.fixture
-async def _suppress_notifications_async_session():
-    """Mock AsyncSessionLocal in notifications service."""
-    with patch(
-        "app.services.notifications.AsyncSessionLocal",
-        return_value=_make_mock_session(),
-    ):
-        yield
-
-
-@pytest.fixture
-async def _suppress_cron_tool_async_session():
-    """Mock AsyncSessionLocal in cron_tool."""
-    with patch(
-        "app.tools.cron_tool.AsyncSessionLocal", return_value=_make_mock_session()
-    ):
-        yield
-
-
-@pytest.fixture
-async def _suppress_workflow_api_async_session():
-    """Mock AsyncSessionLocal in workflows API (for _update_run_status)."""
-    with patch(
-        "app.api.workflows.AsyncSessionLocal", return_value=_make_mock_session()
-    ):
-        yield
-
-
-@pytest.fixture
-async def _suppress_agent_runner_async_session():
-    """Mock AsyncSessionLocal in agent_runner (gateway)."""
-    with patch(
-        "app.gateway.agent_runner.AsyncSessionLocal", return_value=_make_mock_session()
-    ):
-        yield
-
-
-@pytest.fixture
-async def _suppress_scheduler_runner_async_session():
-    """Mock AsyncSessionLocal in scheduler runner."""
-    with patch(
-        "app.scheduler.runner.AsyncSessionLocal", return_value=_make_mock_session()
-    ):
-        yield
-
-
 @pytest.fixture(autouse=True)
-async def mock_background_db_tasks(
-    _suppress_auth_audit_logging,
-    _suppress_pat_last_used_update,
-    _suppress_worker_async_session,
-    _suppress_user_memory_tool_async_session,
-    _suppress_memory_sync_async_session,
-    _suppress_audit_service_async_session,
-    _suppress_notifications_async_session,
-    _suppress_cron_tool_async_session,
-    _suppress_workflow_api_async_session,
-    _suppress_agent_runner_async_session,
-    _suppress_scheduler_runner_async_session,
-):
-    """Explicitly suppress background DB tasks to avoid cross-loop issues."""
-    yield
+def _global_db_mock():
+    """
+    Global mock for all database sessions created via AsyncSessionLocal
+    or isolated_session. This is the "Nuclear Option" to prevent
+    cross-event-loop contamination.
+
+    Instead of patching every service, we patch the source in app.db.session.
+    """
+    mock_session = _make_mock_session()
+
+    # Mock isolated_session context manager
+    mock_isolated = MagicMock()
+    mock_isolated.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_isolated.__aexit__ = AsyncMock(return_value=None)
+
+    with (
+        patch("app.db.session.AsyncSessionLocal", return_value=mock_session),
+        patch("app.db.session.isolated_session", return_value=mock_isolated),
+        # Patch specific imports in other modules to ensure they use the mock
+        patch("app.worker.AsyncSessionLocal", return_value=mock_session),
+        patch("app.services.audit.AsyncSessionLocal", return_value=mock_session),
+        patch(
+            "app.services.notifications.AsyncSessionLocal",
+            return_value=mock_session,
+        ),
+        patch("app.services.memory_sync.AsyncSessionLocal", return_value=mock_session),
+        patch("app.scheduler.runner.AsyncSessionLocal", return_value=mock_session),
+        patch("app.gateway.agent_runner.AsyncSessionLocal", return_value=mock_session),
+        patch("app.tools.cron_tool.AsyncSessionLocal", return_value=mock_session),
+        patch("app.api.workflows.AsyncSessionLocal", return_value=mock_session),
+        patch("app.api.deps.isolated_session", return_value=mock_isolated),
+        patch("app.api.voice.isolated_session", return_value=mock_isolated),
+        patch("app.api.canvas.isolated_session", return_value=mock_isolated),
+        patch(
+            "app.tools.user_memory_tool.isolated_session", return_value=mock_isolated
+        ),
+        # Mock audit logging which often triggers background DB tasks
+        patch("app.api.auth.log_action", AsyncMock(return_value=None)),
+    ):
+        yield
 
 
 @pytest.fixture(scope="session")
@@ -219,6 +137,9 @@ async def db_session(setup_tables):
                 join_transaction_mode="create_savepoint",
             )
             try:
+                # IMPORTANT: We MUST NOT use dependency_overrides here
+                # because we are already mocking get_db globally?
+                # Actually, client fixture handles get_db override.
                 yield session
             finally:
                 await session.close()
@@ -228,7 +149,7 @@ async def db_session(setup_tables):
 
 
 @pytest.fixture
-async def client(db_session, mock_background_db_tasks):
+async def client(db_session):
     """提供已配置好的测试 HTTP 客户端，注入测试 DB session。"""
 
     async def _override_get_db():

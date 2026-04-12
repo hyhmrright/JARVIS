@@ -110,6 +110,11 @@ class DiscordChannel(BaseChannelAdapter):
         """发送原始消息块到 Discord 频道。"""
         try:
             cid = int(channel_id)
+        except ValueError:
+            logger.warning("discord_invalid_channel_id", channel_id=channel_id)
+            return
+
+        try:
             channel = self._client.get_channel(cid)
             if channel is None:
                 channel = await self._client.fetch_channel(cid)
@@ -118,6 +123,6 @@ class DiscordChannel(BaseChannelAdapter):
                 await channel.send(content)
             else:
                 logger.warning("discord_channel_not_messageable", channel_id=channel_id)
-        except (ValueError, Exception):
+        except Exception:
             # 向上抛出异常，由基类记录
             raise

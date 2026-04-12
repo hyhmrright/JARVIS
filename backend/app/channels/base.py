@@ -58,6 +58,7 @@ class BaseChannelAdapter(ABC):
         channel_id: str,
         content: str,
         attachments: list[Any] | None = None,
+        reply_to_id: str | None = None,
     ) -> None:
         """发送消息，自动处理分块和错误记录。"""
         if not content and not attachments:
@@ -65,10 +66,16 @@ class BaseChannelAdapter(ABC):
 
         chunks = chunk_text(content, self.max_message_length) if content else [""]
 
+        # If reply_to_id is provided, pass it in attachments as the first element
+        # (This convention is used by some adapters like Feishu)
+        full_attachments = list(attachments) if attachments else []
+        if reply_to_id:
+            full_attachments.insert(0, reply_to_id)
+
         for i, chunk in enumerate(chunks):
             try:
                 # 仅在最后一块附带附件（如果适配器支持）
-                current_attachments = attachments if i == len(chunks) - 1 else None
+                current_attachments = full_attachments if i == len(chunks) - 1 else None
                 await self._send_raw_message(channel_id, chunk, current_attachments)
             except Exception:
                 logger.exception(

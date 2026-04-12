@@ -26,19 +26,19 @@ async def test_slack_on_message_flow():
             return "pong"
 
         channel.set_message_handler(my_handler)
+        channel.send_message = AsyncMock()
 
-        # Simulate event and say
+        # Simulate event
         event = {
             "user": "U123",
             "text": "hello",
             "channel": "C123",
             "channel_type": "im",
         }
-        mock_say = AsyncMock()
 
-        await channel._on_slack_message(event, mock_say)
+        await channel._on_slack_message(event)
 
-        mock_say.assert_awaited_once_with(text="pong")
+        channel.send_message.assert_awaited_once_with("C123", "pong")
 
 
 @pytest.mark.asyncio

@@ -240,14 +240,16 @@ async def test_send_message_invalid_channel_id_logs_and_returns() -> None:
 @pytest.mark.asyncio
 async def test_on_message_calls_handler_and_replies() -> None:
     """When a message arrives, the registered handler should be called and the
-    reply sent back via message.reply()."""
+    reply sent back via channel.send_message()."""
     with _capturing_channel() as (channel, captured):
-        await channel.start()
+        # Initialisation already calls _setup_handlers (which registers the handler)
+        pass
 
     assert captured, "on_message decorator was not called"
     on_message = captured[0]
 
     mock_msg = _mock_tg_message()
+    channel.send_message = AsyncMock()
 
     async def my_handler(msg: GatewayMessage) -> str:
         return "pong"
@@ -255,7 +257,7 @@ async def test_on_message_calls_handler_and_replies() -> None:
     channel.set_message_handler(my_handler)
     await on_message(mock_msg)
 
-    mock_msg.reply.assert_awaited_once_with("pong")
+    channel.send_message.assert_awaited_once_with("100", "pong")
 
 
 # ---------------------------------------------------------------------------
@@ -266,7 +268,7 @@ async def test_on_message_calls_handler_and_replies() -> None:
 @pytest.mark.asyncio
 async def test_on_message_ignores_no_text() -> None:
     with _capturing_channel() as (channel, captured):
-        await channel.start()
+        pass
 
     on_message = captured[0]
 
@@ -303,10 +305,11 @@ async def test_on_message_ignores_no_text() -> None:
 async def test_on_message_handler_exception_does_not_propagate() -> None:
     """If the message handler raises, on_message should catch it and return."""
     with _capturing_channel() as (channel, captured):
-        await channel.start()
+        pass
 
     on_message = captured[0]
     mock_msg = _mock_tg_message()
+    channel.send_message = AsyncMock()
 
     async def crashing_handler(msg: GatewayMessage) -> str:
         raise RuntimeError("boom")
@@ -317,7 +320,7 @@ async def test_on_message_handler_exception_does_not_propagate() -> None:
     await on_message(mock_msg)
 
     # No reply should have been sent
-    mock_msg.reply.assert_not_awaited()
+    channel.send_message.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------
@@ -364,17 +367,20 @@ async def test_telegram_webhook_handling():
                     "date": 123456789,
                     "chat": {"id": 100, "type": "private"},
                     "text": "hi",
+                    "from": {"id": 42, "is_bot": False, "first_name": "Test"},
                 },
             }
         )
 
-        # Call handle_update directly (it's inside _setup_router)
-        # We need to find the route in adapter.router
-        handle_update = adapter.router.routes[0].endpoint
-        response = await handle_update(mock_request)
+        # Mock types.Update to avoid validation errors with mock data
+        with patch("app.channels.telegram.types.Update") as _:
+            # Call handle_update directly (it's inside _setup_router)
+            # We need to find the route in adapter.router
+            handle_update = adapter.router.routes[0].endpoint
+            response = await handle_update(mock_request)
 
-        assert response.status_code == 200
-        mock_dp.feed_update.assert_called_once()
+            assert response.status_code == 200
+            mock_dp.feed_update.assert_called_once()
 
 
 @pytest.mark.asyncio

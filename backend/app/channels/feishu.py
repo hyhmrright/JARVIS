@@ -83,21 +83,28 @@ class FeishuChannel(BaseChannelAdapter):
                             )
 
                             if self._message_handler:
-                                asyncio.create_task(self._handle_and_reply(gw_msg))
+                                message_id = message.get("message_id")
+                                asyncio.create_task(
+                                    self._handle_and_reply(gw_msg, message_id)
+                                )
 
                 return {"status": "ok"}
             except Exception:
                 logger.exception("feishu_webhook_error")
                 return Response(status_code=500)
 
-    async def _handle_and_reply(self, gw_msg: GatewayMessage) -> None:
+    async def _handle_and_reply(
+        self, gw_msg: GatewayMessage, reply_to_id: str | None = None
+    ) -> None:
         """处理消息并发送回复。"""
         if not self._message_handler:
             return
         try:
             response = await self._message_handler(gw_msg)
             if response:
-                await self.send_message(gw_msg.channel_id, response)
+                await self.send_message(
+                    gw_msg.channel_id, response, reply_to_id=reply_to_id
+                )
         except Exception:
             logger.exception("feishu_reply_error", sender_id=gw_msg.sender_id)
 
@@ -124,6 +131,12 @@ class FeishuChannel(BaseChannelAdapter):
             "content": json.dumps({"text": content}),
             "receive_id": channel_id,
         }
+
+        # Handle reply_to_id from attachments if present
+        if attachments and len(attachments) > 0 and isinstance(attachments[0], str):
+            url = f"https://open.feishu.cn/open-apis/im/v1/messages/{attachments[0]}/reply"
+            # In reply case, receive_id is not needed in body
+            del body["receive_id"]
 
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, json=body, headers=headers, params=params)
