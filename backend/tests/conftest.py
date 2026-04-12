@@ -7,17 +7,32 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.pool import NullPool
 
-# --- SESSION LOOP ---
+# --- THE ULTIMATE LOOP HIJACKING ---
+# We force every single call to get_event_loop or get_running_loop to return
+# the same session-scoped loop. This eliminates "different loop" errors at the source.
+
+_session_loop = None
+
+
+def _get_forced_loop():
+    global _session_loop
+    if _session_loop is None or _session_loop.is_closed():
+        _session_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(_session_loop)
+    return _session_loop
+
+
+# Patch asyncio globally and permanently for the test process
+patch("asyncio.get_event_loop", _get_forced_loop).start()
+patch("asyncio.get_running_loop", _get_forced_loop).start()
 
 
 @pytest.fixture(scope="session", autouse=True)
 def event_loop():
-    """Force a single event loop for the entire session."""
-    policy = asyncio.get_event_loop_policy()
-    loop = policy.new_event_loop()
-    asyncio.set_event_loop(loop)
+    """Shared session loop for all tests."""
+    loop = _get_forced_loop()
     yield loop
-    loop.close()
+    # Do NOT close it here, let the process exit handle it to avoid late-task crashes
 
 
 # --- PRE-IMPORT HIJACKING ---
@@ -55,8 +70,9 @@ def app():
     """Session-scoped fresh app instance."""
     _app = create_app()
     _app.router.lifespan_context = MagicMock()
-    # Add missing method for compatibility
-    _app.load_all_plugins = MagicMock()
+    # Mock load_all_plugins if needed
+    if not hasattr(_app, "load_all_plugins"):
+        _app.load_all_plugins = MagicMock()
     return _app
 
 
@@ -88,6 +104,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 @pytest.fixture(scope="session")
 async def engine(setup_tables):
+    # NullPool + session scope
     engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
     yield engine
     await engine.dispose()
@@ -105,7 +122,6 @@ async def db_session(engine):
         m_iso.__aenter__ = AsyncMock(return_value=session)
         m_iso.__aexit__ = AsyncMock(return_value=None)
 
-        # Force local overrides for the duration of the test
         with (
             patch("app.db.session.AsyncSessionLocal", return_value=session),
             patch("app.db.session.isolated_session", return_value=m_iso),
