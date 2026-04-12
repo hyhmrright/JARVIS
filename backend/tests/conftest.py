@@ -1,4 +1,5 @@
 # ruff: noqa: E402
+import asyncio
 import os
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -6,10 +7,20 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.pool import NullPool
 
-# --- PRE-IMPORT HIJACKING ---
-# We must ensure app.db.session and Redis use mocks BEFORE app.main imports them.
+# --- FORCE SESSION-SCOPED EVENT LOOP ---
 
-# 1. Create a very robust mock session
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create a session-scoped event loop."""
+    policy = asyncio.get_event_loop_policy()
+    loop = policy.new_event_loop()
+    yield loop
+    loop.close()
+
+
+# --- GLOBAL MOCKS ---
+
 mock_session = MagicMock()
 mock_session.__aenter__ = AsyncMock(return_value=mock_session)
 mock_session.__aexit__ = AsyncMock(return_value=None)
@@ -24,12 +35,10 @@ mock_session.rollback = AsyncMock()
 mock_session.close = AsyncMock()
 mock_session.scalars = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[])))
 
-# 2. Create a mock for isolated_session
 mock_isolated = MagicMock()
 mock_isolated.__aenter__ = AsyncMock(return_value=mock_session)
 mock_isolated.__aexit__ = AsyncMock(return_value=None)
 
-# 3. Hijack Redis
 mock_redis = AsyncMock()
 mock_redis.get = AsyncMock(return_value=None)
 mock_redis.set = AsyncMock(return_value=True)
@@ -38,29 +47,24 @@ mock_redis.delete = AsyncMock(return_value=1)
 mock_redis.getdel = AsyncMock(return_value=None)
 mock_redis.close = AsyncMock()
 
-_redis_patcher = patch("redis.asyncio.Redis.from_url", return_value=mock_redis)
-_redis_patcher.start()
-
-# 4. Hijack arq.create_pool
 mock_arq = AsyncMock()
-_arq_patcher = patch("arq.create_pool", return_value=mock_arq)
-_arq_patcher.start()
 
-# 5. Hijack app.db.session members
+# --- HIJACKING ---
+
+# Hijack Redis and ARQ early
+patch("redis.asyncio.Redis.from_url", return_value=mock_redis).start()
+patch("arq.create_pool", return_value=mock_arq).start()
+
+# Import session and hijack the internal getters
 import app.db.session
 
-mock_engine = AsyncMock()
-mock_engine.connect = MagicMock(return_value=AsyncMock())
-mock_engine.connect.return_value.__aenter__ = AsyncMock(return_value=AsyncMock())
-mock_engine.connect.return_value.__aexit__ = AsyncMock(return_value=None)
-app.db.session.engine = mock_engine
-app.db.session.AsyncSessionLocal = MagicMock(return_value=mock_session)
-app.db.session.isolated_session = MagicMock(return_value=mock_isolated)
+patch("app.db.session._get_engine", return_value=AsyncMock()).start()
+patch("app.db.session._get_sessionmaker", return_value=lambda: mock_session).start()
+patch("app.db.session.isolated_session", return_value=mock_isolated).start()
 
 # --- NOW WE CAN IMPORT APP ---
 import sqlalchemy as sa
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import create_engine as sync_create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.core.limiter import limiter
@@ -115,68 +119,26 @@ def reset_global_mocks():
 
 
 @pytest.fixture(autouse=True)
-def _global_db_mock_manager(request):
-    """
-    Ensure all modules that imported symbols from app.db.session
-    use the mocked versions.
-    """
-    if "tests/db/test_session.py" in str(request.node.fspath):
-        yield
-    else:
-        targets = [
-            "app.api.deps",
-            "app.api.voice",
-            "app.api.canvas",
-            "app.tools.user_memory_tool",
-        ]
-        local_targets = [
-            "app.worker",
-            "app.services.audit",
-            "app.services.notifications",
-            "app.services.memory_sync",
-            "app.scheduler.runner",
-            "app.gateway.agent_runner",
-            "app.gateway.router",
-            "app.tools.cron_tool",
-            "app.api.workflows",
-            "app.api.chat.routes",
-        ]
+def _global_dependency_overrides():
+    """Override FastAPI dependencies globally."""
+    from app.api.export import _get_redis as export_get_redis
+    from app.api.gateway import _get_redis as gateway_get_redis
 
-        from contextlib import ExitStack
+    async def _override_redis():
+        yield mock_redis
 
-        with ExitStack() as stack:
-            stack.enter_context(patch("app.api.auth.log_action", AsyncMock()))
-            from app.api.export import _get_redis as export_get_redis
-            from app.api.gateway import _get_redis as gateway_get_redis
-
-            async def _override_redis():
-                yield mock_redis
-
-            app.dependency_overrides[gateway_get_redis] = _override_redis
-            app.dependency_overrides[export_get_redis] = _override_redis
-
-            for t in targets:
-                try:
-                    stack.enter_context(
-                        patch(f"{t}.isolated_session", return_value=mock_isolated)
-                    )
-                except (ImportError, AttributeError):
-                    continue
-            for t in local_targets:
-                try:
-                    stack.enter_context(
-                        patch(f"{t}.AsyncSessionLocal", return_value=mock_session)
-                    )
-                except (ImportError, AttributeError):
-                    continue
-            yield
-            app.dependency_overrides.pop(gateway_get_redis, None)
-            app.dependency_overrides.pop(export_get_redis, None)
+    app.dependency_overrides[gateway_get_redis] = _override_redis
+    app.dependency_overrides[export_get_redis] = _override_redis
+    yield
+    app.dependency_overrides.pop(gateway_get_redis, None)
+    app.dependency_overrides.pop(export_get_redis, None)
 
 
 @pytest.fixture(scope="session")
 def setup_tables():
     """使用同步 psycopg2 驱动建表/删表，避免 session 与 function 事件循环交叉引用。"""
+    from sqlalchemy import create_engine as sync_create_engine
+
     engine = sync_create_engine(_SYNC_DATABASE_URL, echo=False)
     with engine.begin() as conn:
         conn.execute(
@@ -194,7 +156,6 @@ def setup_tables():
 @pytest.fixture
 async def db_session(setup_tables):
     """每个测试创建独立的 async engine 和事务，结束后回滚，保证测试间互不影响。"""
-    # Use NullPool to force a fresh connection and NO pooling across tests
     engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
     try:
         async with engine.connect() as conn:
