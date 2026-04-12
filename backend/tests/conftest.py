@@ -4,24 +4,21 @@ import os
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
-# --- THE "FORCE CURRENT LOOP" HACK ---
-import asyncpg
 import pytest
 from sqlalchemy.pool import NullPool
 
-_real_connect = asyncpg.connect
+# --- SESSION LOOP ---
 
 
-async def _loop_safe_connect(*args, **kwargs):
-    if "loop" not in kwargs:
-        try:
-            kwargs["loop"] = asyncio.get_running_loop()
-        except RuntimeError:
-            pass
-    return await _real_connect(*args, **kwargs)
+@pytest.fixture(scope="session", autouse=True)
+def event_loop():
+    """Force a single event loop for the entire session."""
+    policy = asyncio.get_event_loop_policy()
+    loop = policy.new_event_loop()
+    asyncio.set_event_loop(loop)
+    yield loop
+    loop.close()
 
-
-patch("asyncpg.connect", _loop_safe_connect).start()
 
 # --- PRE-IMPORT HIJACKING ---
 
@@ -58,6 +55,8 @@ def app():
     """Session-scoped fresh app instance."""
     _app = create_app()
     _app.router.lifespan_context = MagicMock()
+    # Add missing method for compatibility
+    _app.load_all_plugins = MagicMock()
     return _app
 
 
