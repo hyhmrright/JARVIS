@@ -1,5 +1,18 @@
 [中文](docs/i18n/zh/README.md) | [日本語](docs/i18n/ja/README.md) | [한국어](docs/i18n/ko/README.md) | [Français](docs/i18n/fr/README.md) | [Deutsch](docs/i18n/de/README.md)
 
+> [!IMPORTANT]
+> ## ⚠️ This repository is deprecated / 本仓库已废弃
+>
+> Active development has moved to a new repository: **[hyhmrright/Confer](https://github.com/hyhmrright/Confer)**.
+> Please follow and contribute there — this repository is no longer maintained.
+>
+> 项目已迁移至新仓库：**[hyhmrright/Confer](https://github.com/hyhmrright/Confer)**。
+> 请关注并前往新仓库参与开发，本仓库不再维护。
+>
+> ```bash
+> git clone git@github.com:hyhmrright/Confer.git
+> ```
+
 # JARVIS
 
 > A self-hosted AI assistant platform with RAG, multi-channel messaging, sandboxed tool execution, multi-tenant workspaces, and full observability — one `docker compose up` away.
